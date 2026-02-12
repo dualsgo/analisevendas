@@ -5,7 +5,7 @@ import React, { useState } from "react";
 import JSZip from "jszip";
 import { Upload, FileArchive, Loader2 } from "lucide-react";
 import { parseXml } from "@/lib/xml-parser";
-import { DetailedSaleRow } from "@/ai/flows/ai-sales-summary-report-flow";
+import { DetailedSaleRow } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 

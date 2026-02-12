@@ -1,5 +1,5 @@
 
-import { DetailedSaleRow } from "@/ai/flows/ai-sales-summary-report-flow";
+import { DetailedSaleRow } from "./types";
 
 const ADICIONAL_DESC_MIN = 0.080;
 const ADICIONAL_DESC_MAX = 0.105;
@@ -30,11 +30,6 @@ function extractVendedor(infCpl: string): string {
   if (m) return m[1].trim();
   const m2 = infCpl.match(/Vendedor:\s*(.+)$/i);
   return m2 ? m2[1].trim() : "SEM_VENDEDOR";
-}
-
-function getNSResolver(prefix: string) {
-  if (prefix === 'nfe') return 'http://www.portalfiscal.inf.br/nfe';
-  return null;
 }
 
 export function parseXml(xmlString: string): DetailedSaleRow | null {

@@ -4,8 +4,8 @@
 import { useState } from "react";
 import { UploadZone } from "@/components/UploadZone";
 import { SalesSummary } from "@/components/SalesSummary";
-import { DetailedSaleRow } from "@/ai/flows/ai-sales-summary-report-flow";
-import { FileBarChart, RefreshCw } from "lucide-react";
+import { DetailedSaleRow } from "@/lib/types";
+import { FileBarChart, RefreshCw, BarChart3, Database, FileSpreadsheet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/toaster";
 
@@ -40,33 +40,38 @@ export default function Home() {
 
       <div className="container mx-auto px-4 max-w-6xl">
         {parsedRows.length === 0 ? (
-          <div className="flex flex-col gap-12 max-w-2xl mx-auto pt-12">
+          <div className="flex flex-col gap-12 max-w-3xl mx-auto pt-12">
             <div className="text-center space-y-4">
               <h2 className="text-4xl font-extrabold text-foreground tracking-tight leading-tight">
                 Analise suas vendas a partir de <span className="text-primary italic">arquivos XML</span> em segundos.
               </h2>
               <p className="text-muted-foreground text-lg">
-                Transforme dados fiscais brutos em insights estratégicos por canal e colaborador.
-                Suporte nativo para NF-e e NFC-e via ZIP.
+                Transforme dados fiscais brutos em métricas estratégicas por canal e vendedor.
+                Processamento local rápido e seguro de NF-e e NFC-e.
               </p>
             </div>
             <UploadZone onDataParsed={setParsedRows} />
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
-              <div className="space-y-1">
-                <p className="font-bold text-2xl text-primary">ZIP</p>
-                <p className="text-xs text-muted-foreground uppercase font-bold">Processamento</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="p-6 rounded-2xl bg-card border shadow-sm space-y-3">
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                  <Database className="w-5 h-5" />
+                </div>
+                <h3 className="font-bold">Processamento de Dados</h3>
+                <p className="text-sm text-muted-foreground">Extração automática de valores, canais e vendedores diretamente dos XMLs.</p>
               </div>
-              <div className="space-y-1">
-                <p className="font-bold text-2xl text-primary">XML</p>
-                <p className="text-xs text-muted-foreground uppercase font-bold">Extração Nativa</p>
+              <div className="p-6 rounded-2xl bg-card border shadow-sm space-y-3">
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                  <BarChart3 className="w-5 h-5" />
+                </div>
+                <h3 className="font-bold">Análise Multicanal</h3>
+                <p className="text-sm text-muted-foreground">Visão clara de performance entre Loja Física, Online e Trocas.</p>
               </div>
-              <div className="space-y-1">
-                <p className="font-bold text-2xl text-primary">CSV</p>
-                <p className="text-xs text-muted-foreground uppercase font-bold">Exportação Livre</p>
-              </div>
-              <div className="space-y-1">
-                <p className="font-bold text-2xl text-primary">AI</p>
-                <p className="text-xs text-muted-foreground uppercase font-bold">Relatório Analítico</p>
+              <div className="p-6 rounded-2xl bg-card border shadow-sm space-y-3">
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                  <FileSpreadsheet className="w-5 h-5" />
+                </div>
+                <h3 className="font-bold">Exportação CSV</h3>
+                <p className="text-sm text-muted-foreground">Gere planilhas prontas para uso em ferramentas de BI ou Excel.</p>
               </div>
             </div>
           </div>

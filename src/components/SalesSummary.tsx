@@ -1,13 +1,12 @@
 
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo } from "react";
 import { 
   DetailedSaleRow, 
   ChannelSummaryRow, 
-  VendorSummaryRow,
-  aiSalesSummaryReport 
-} from "@/ai/flows/ai-sales-summary-report-flow";
+  VendorSummaryRow 
+} from "@/lib/types";
 import { 
   Table, 
   TableBody, 
@@ -18,24 +17,20 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Download, Sparkles, TrendingUp, Users, ShoppingBag, Loader2 } from "lucide-react";
+import { Download, TrendingUp, Users, ShoppingBag } from "lucide-react";
 import { exportToCsv } from "@/lib/csv-utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface SalesSummaryProps {
   data: DetailedSaleRow[];
 }
 
 export function SalesSummary({ data }: SalesSummaryProps) {
-  const [aiReport, setAiReport] = useState<string | null>(null);
-  const [isGeneratingAi, setIsGeneratingAi] = useState(false);
-
   const channelSummary = useMemo(() => {
     const agg: Record<string, { cupons: number; venda: number; itens: number }> = {};
     data.forEach(r => {
       const canal = r.canal;
-      if (!agg[canal]) agg[canal] = { cupons: 0; venda: 0; itens: 0 };
+      if (!agg[canal]) agg[canal] = { cupons: 0, venda: 0, itens: 0 };
       agg[canal].cupons++;
       agg[canal].venda += parseFloat(r.vNF);
       agg[canal].itens += parseFloat(r.itens_qtd);
@@ -71,22 +66,6 @@ export function SalesSummary({ data }: SalesSummaryProps) {
       PA: (d.itens / d.cupons).toFixed(2),
     })).sort((a, b) => parseFloat(b.Venda_Total) - parseFloat(a.Venda_Total));
   }, [data]);
-
-  const handleGenerateAiReport = async () => {
-    setIsGeneratingAi(true);
-    try {
-      const result = await aiSalesSummaryReport({
-        channelSummary,
-        vendorSummary,
-        detailedSalesData: data.slice(0, 100), // AI can reason on sampled or summarized data
-      });
-      setAiReport(result.summary);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setIsGeneratingAi(false);
-    }
-  };
 
   const handleDownload = (type: 'canal' | 'vendedor' | 'detalhe') => {
     if (type === 'canal') {
@@ -159,25 +138,7 @@ export function SalesSummary({ data }: SalesSummaryProps) {
             <Download className="w-4 h-4 mr-2" /> Detalhado
           </Button>
         </div>
-        <Button onClick={handleGenerateAiReport} disabled={isGeneratingAi} className="bg-accent hover:bg-accent/90">
-          {isGeneratingAi ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
-          {aiReport ? "Atualizar Relatório AI" : "Gerar Relatório Analítico AI"}
-        </Button>
       </div>
-
-      {aiReport && (
-        <Card className="border-accent/20 shadow-xl overflow-hidden animate-in zoom-in-95 duration-300">
-          <CardHeader className="bg-accent/5 pb-4">
-            <div className="flex items-center gap-2 text-accent font-semibold">
-              <Sparkles className="w-5 h-5" />
-              <span>Insight Analítico do Assistente AI</span>
-            </div>
-          </CardHeader>
-          <CardContent className="pt-6 prose prose-indigo max-w-none">
-            <div dangerouslySetInnerHTML={{ __html: aiReport.replace(/\n/g, '<br/>') }} className="text-sm leading-relaxed" />
-          </CardContent>
-        </Card>
-      )}
 
       <Tabs defaultValue="canais" className="w-full">
         <TabsList className="bg-secondary p-1">
@@ -185,7 +146,7 @@ export function SalesSummary({ data }: SalesSummaryProps) {
           <TabsTrigger value="vendedores">Vendas por Vendedor</TabsTrigger>
         </TabsList>
         <TabsContent value="canais" className="mt-4">
-          <Card className="border-none shadow-sm">
+          <Card className="border-none shadow-sm overflow-hidden">
             <Table>
               <TableHeader className="bg-muted/50">
                 <TableRow>
@@ -213,7 +174,7 @@ export function SalesSummary({ data }: SalesSummaryProps) {
           </Card>
         </TabsContent>
         <TabsContent value="vendedores" className="mt-4">
-          <Card className="border-none shadow-sm">
+          <Card className="border-none shadow-sm overflow-hidden">
             <Table>
               <TableHeader className="bg-muted/50">
                 <TableRow>

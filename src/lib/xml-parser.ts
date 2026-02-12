@@ -35,30 +35,40 @@ function extractVendedor(infCpl: string): string {
 export function parseXml(xmlString: string): DetailedSaleRow | null {
   const parser = new DOMParser();
   const xmlDoc = parser.parseFromString(xmlString, "text/xml");
-  const ns = "http://www.portalfiscal.inf.br/nfe";
+  
+  // Tenta encontrar a tag infNFe independente do namespace, pois alguns geradores variam
+  let infNFe = xmlDoc.getElementsByTagName("infNFe")[0];
+  if (!infNFe) {
+    const ns = "http://www.portalfiscal.inf.br/nfe";
+    infNFe = xmlDoc.getElementsByTagNameNS(ns, "infNFe")[0];
+  }
 
-  const infNFe = xmlDoc.getElementsByTagNameNS(ns, "infNFe")[0];
   if (!infNFe) return null;
 
-  const ide = infNFe.getElementsByTagNameNS(ns, "ide")[0];
-  const tpNF = ide?.getElementsByTagNameNS(ns, "tpNF")[0]?.textContent;
-  if (tpNF !== "1") return null;
+  const ide = infNFe.getElementsByTagName("ide")[0] || infNFe.getElementsByTagNameNS("*", "ide")[0];
+  
+  // Alguns arquivos podem não ter tpNF explicitamente como esperado, mas ainda ser válidos
+  // Para análise de vendas, tpNF="1" é Saída.
+  const tpNF = ide?.getElementsByTagName("tpNF")[0]?.textContent || ide?.getElementsByTagNameNS("*", "tpNF")[0]?.textContent;
+  
+  // Se for entrada (tpNF=0), ignoramos para análise de vendas
+  if (tpNF === "0") return null;
 
   const chave = infNFe.getAttribute("Id")?.replace("NFe", "") || "";
-  const nf = ide?.getElementsByTagNameNS(ns, "nNF")[0]?.textContent || "";
-  const dhEmi = ide?.getElementsByTagNameNS(ns, "dhEmi")[0]?.textContent || "";
+  const nf = ide?.getElementsByTagName("nNF")[0]?.textContent || ide?.getElementsByTagNameNS("*", "nNF")[0]?.textContent || "";
+  const dhEmi = ide?.getElementsByTagName("dhEmi")[0]?.textContent || ide?.getElementsByTagNameNS("*", "dhEmi")[0]?.textContent || "";
 
-  const dest = infNFe.getElementsByTagNameNS(ns, "dest")[0];
-  const enderDest = dest?.getElementsByTagNameNS(ns, "enderDest")[0];
-  const emit = infNFe.getElementsByTagNameNS(ns, "emit")[0];
-  const enderEmit = emit?.getElementsByTagNameNS(ns, "enderEmit")[0];
+  const dest = infNFe.getElementsByTagName("dest")[0] || infNFe.getElementsByTagNameNS("*", "dest")[0];
+  const enderDest = dest?.getElementsByTagName("enderDest")[0] || dest?.getElementsByTagNameNS("*", "enderDest")[0];
+  const emit = infNFe.getElementsByTagName("emit")[0] || infNFe.getElementsByTagNameNS("*", "emit")[0];
+  const enderEmit = emit?.getElementsByTagName("enderEmit")[0] || emit?.getElementsByTagNameNS("*", "enderEmit")[0];
 
   const getAddr = (parent: Element | undefined) => ({
-    xLgr: normAddr(parent?.getElementsByTagNameNS(ns, "xLgr")[0]?.textContent || ""),
-    nro: normAddr(parent?.getElementsByTagNameNS(ns, "nro")[0]?.textContent || ""),
-    xBairro: normAddr(parent?.getElementsByTagNameNS(ns, "xBairro")[0]?.textContent || ""),
-    cMun: normAddr(parent?.getElementsByTagNameNS(ns, "cMun")[0]?.textContent || ""),
-    UF: normAddr(parent?.getElementsByTagNameNS(ns, "UF")[0]?.textContent || ""),
+    xLgr: normAddr(parent?.getElementsByTagName("xLgr")[0]?.textContent || parent?.getElementsByTagNameNS("*", "xLgr")[0]?.textContent || ""),
+    nro: normAddr(parent?.getElementsByTagName("nro")[0]?.textContent || parent?.getElementsByTagNameNS("*", "nro")[0]?.textContent || ""),
+    xBairro: normAddr(parent?.getElementsByTagName("xBairro")[0]?.textContent || parent?.getElementsByTagNameNS("*", "xBairro")[0]?.textContent || ""),
+    cMun: normAddr(parent?.getElementsByTagName("cMun")[0]?.textContent || parent?.getElementsByTagNameNS("*", "cMun")[0]?.textContent || ""),
+    UF: normAddr(parent?.getElementsByTagName("UF")[0]?.textContent || parent?.getElementsByTagNameNS("*", "UF")[0]?.textContent || ""),
   });
 
   const addrDest = getAddr(enderDest);
@@ -73,30 +83,35 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     if (addrDest.UF === addrEmit.UF && addrDest.UF) pickupMatch++;
   }
 
-  const vNF = parseFloat(infNFe.getElementsByTagNameNS(ns, "total")[0]?.getElementsByTagNameNS(ns, "vNF")[0]?.textContent || "0");
+  const totalTag = infNFe.getElementsByTagName("total")[0] || infNFe.getElementsByTagNameNS("*", "total")[0];
+  const vNFTag = totalTag?.getElementsByTagName("vNF")[0] || totalTag?.getElementsByTagNameNS("*", "vNF")[0];
+  const vNF = parseFloat(vNFTag?.textContent || "0");
   
   const items: ParsedItem[] = [];
-  const dets = infNFe.getElementsByTagNameNS(ns, "det");
+  const dets = infNFe.getElementsByTagName("det").length > 0 ? infNFe.getElementsByTagName("det") : infNFe.getElementsByTagNameNS("*", "det");
+  
   for (let i = 0; i < dets.length; i++) {
-    const prod = dets[i].getElementsByTagNameNS(ns, "prod")[0];
+    const prod = dets[i].getElementsByTagName("prod")[0] || dets[i].getElementsByTagNameNS("*", "prod")[0];
     items.push({
-      cProd: prod?.getElementsByTagNameNS(ns, "cProd")[0]?.textContent || "",
-      xProd: prod?.getElementsByTagNameNS(ns, "xProd")[0]?.textContent || "",
-      qCom: parseFloat(prod?.getElementsByTagNameNS(ns, "qCom")[0]?.textContent || "0"),
-      vProd: parseFloat(prod?.getElementsByTagNameNS(ns, "vProd")[0]?.textContent || "0"),
-      vDesc: parseFloat(prod?.getElementsByTagNameNS(ns, "vDesc")[0]?.textContent || "0"),
+      cProd: prod?.getElementsByTagName("cProd")[0]?.textContent || prod?.getElementsByTagNameNS("*", "cProd")[0]?.textContent || "",
+      xProd: prod?.getElementsByTagName("xProd")[0]?.textContent || prod?.getElementsByTagNameNS("*", "xProd")[0]?.textContent || "",
+      qCom: parseFloat(prod?.getElementsByTagName("qCom")[0]?.textContent || prod?.getElementsByTagNameNS("*", "qCom")[0]?.textContent || "0"),
+      vProd: parseFloat(prod?.getElementsByTagName("vProd")[0]?.textContent || prod?.getElementsByTagNameNS("*", "vProd")[0]?.textContent || "0"),
+      vDesc: parseFloat(prod?.getElementsByTagName("vDesc")[0]?.textContent || prod?.getElementsByTagNameNS("*", "vDesc")[0]?.textContent || "0"),
     });
   }
 
   const pagamentos: Record<string, number> = {};
-  const detPags = infNFe.getElementsByTagNameNS(ns, "detPag");
+  const detPags = infNFe.getElementsByTagName("detPag").length > 0 ? infNFe.getElementsByTagName("detPag") : infNFe.getElementsByTagNameNS("*", "detPag");
+  
   for (let i = 0; i < detPags.length; i++) {
-    const tPag = detPags[i].getElementsByTagNameNS(ns, "tPag")[0]?.textContent || "";
-    const vPag = parseFloat(detPags[i].getElementsByTagNameNS(ns, "vPag")[0]?.textContent || "0");
+    const tPag = detPags[i].getElementsByTagName("tPag")[0]?.textContent || detPags[i].getElementsByTagNameNS("*", "tPag")[0]?.textContent || "";
+    const vPag = parseFloat(detPags[i].getElementsByTagName("vPag")[0]?.textContent || detPags[i].getElementsByTagNameNS("*", "vPag")[0]?.textContent || "0");
     pagamentos[tPag] = (pagamentos[tPag] || 0) + vPag;
   }
 
-  const infCpl = infNFe.getElementsByTagNameNS(ns, "infAdic")[0]?.getElementsByTagNameNS(ns, "infCpl")[0]?.textContent || "";
+  const infAdic = infNFe.getElementsByTagName("infAdic")[0] || infNFe.getElementsByTagNameNS("*", "infAdic")[0];
+  const infCpl = infAdic?.getElementsByTagName("infCpl")[0]?.textContent || infAdic?.getElementsByTagNameNS("*", "infCpl")[0]?.textContent || "";
   const vendedor = extractVendedor(infCpl);
 
   const totalItems = items.reduce((acc, it) => acc + it.qCom, 0);

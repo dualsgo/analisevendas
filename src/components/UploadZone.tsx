@@ -3,7 +3,7 @@
 
 import React, { useState } from "react";
 import JSZip from "jszip";
-import { Upload, FileArchive, Loader2, FileCode } from "lucide-react";
+import { Upload, Loader2 } from "lucide-react";
 import { parseXml } from "@/lib/xml-parser";
 import { DetailedSaleRow } from "@/lib/types";
 import { Button } from "@/components/ui/button";
@@ -19,7 +19,7 @@ export function UploadZone({ onDataParsed, isProcessing }: UploadZoneProps) {
   const [selectedCount, setSelectedCount] = useState(0);
   const { toast } = useToast();
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (!files || files.length === 0) return;
     setSelectedCount(files.length);
@@ -31,43 +31,60 @@ export function UploadZone({ onDataParsed, isProcessing }: UploadZoneProps) {
     if (!files || files.length === 0) return;
 
     const allRows: DetailedSaleRow[] = [];
+    let errorCount = 0;
 
     try {
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         const fileName = file.name.toLowerCase();
 
-        if (fileName.endsWith(".zip")) {
-          const zip = new JSZip();
-          const content = await zip.loadAsync(file);
-          const xmlPromises = Object.keys(content.files)
-            .filter(name => !content.files[name].dir && name.toLowerCase().endsWith(".xml"))
-            .map(async (name) => {
-              const xmlContent = await content.files[name].async("string");
-              return parseXml(xmlContent);
-            });
-          const rows = await Promise.all(xmlPromises);
-          rows.forEach(r => { if (r) allRows.push(r); });
-        } else if (fileName.endsWith(".xml")) {
-          const xmlContent = await file.text();
-          const row = parseXml(xmlContent);
-          if (row) allRows.push(row);
+        try {
+          if (fileName.endsWith(".zip")) {
+            const zip = new JSZip();
+            const content = await zip.loadAsync(file);
+            const xmlEntries = Object.keys(content.files).filter(name => !content.files[name].dir && name.toLowerCase().endsWith(".xml"));
+            
+            for (const name of xmlEntries) {
+              try {
+                const xmlContent = await content.files[name].async("string");
+                const row = parseXml(xmlContent);
+                if (row) allRows.push(row);
+              } catch (e) {
+                console.error(`Erro ao ler XML ${name} dentro do ZIP:`, e);
+                errorCount++;
+              }
+            }
+          } else if (fileName.endsWith(".xml")) {
+            const xmlContent = await file.text();
+            const row = parseXml(xmlContent);
+            if (row) allRows.push(row);
+          }
+        } catch (e) {
+          console.error(`Erro ao abrir arquivo ${fileName}:`, e);
+          errorCount++;
         }
       }
 
       if (allRows.length === 0) {
         toast({
-          title: "Nenhum dado válido",
-          description: "Não encontramos XMLs de venda válidos nos arquivos selecionados.",
+          title: "Dados não encontrados",
+          description: "Não foi possível extrair notas fiscais válidas dos arquivos selecionados.",
           variant: "destructive",
         });
       } else {
+        if (errorCount > 0) {
+          toast({
+            title: "Processamento parcial",
+            description: `Capturadas ${allRows.length} notas. ${errorCount} arquivos falharam.`,
+          });
+        }
         onDataParsed(allRows);
       }
     } catch (error) {
+      console.error("Erro fatal no upload:", error);
       toast({
-        title: "Erro no processamento",
-        description: "Verifique a integridade dos arquivos selecionados.",
+        title: "Erro crítico no processamento",
+        description: "O lote de arquivos não pôde ser lido. Tente enviar menos arquivos por vez.",
         variant: "destructive",
       });
     }

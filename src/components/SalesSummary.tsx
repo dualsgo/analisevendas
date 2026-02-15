@@ -20,12 +20,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { 
   Download, 
-  BarChart3, 
-  TrendingUp, 
   AlertCircle, 
-  ShoppingBag, 
-  Gift, 
-  RefreshCw, 
   MessageCircle, 
   Store, 
   Users, 
@@ -39,7 +34,6 @@ import { exportToCsv } from "@/lib/csv-utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 interface SalesSummaryProps {
   data: DetailedSaleRow[];
@@ -53,17 +47,17 @@ export function SalesSummary({ data, vinculos }: SalesSummaryProps) {
 
   const getStatusLabel = (status: string, detail?: string) => {
     switch (status) {
-      case "ADICIONAL": return "DESCONTO CLASSIFICADO COMO ADICIONAL";
-      case "FORA_DO_PADRAO": return "DESCONTO FORA DO PADRÃO (FALTA DE INFORMAÇÕES)";
+      case "ADICIONAL": return "CLASSIFICADO COMO ADICIONAL";
+      case "FORA_DO_PADRAO": return "DESCONTO FORA DO PADRÃO PARA ADICIONAL";
       default:
         switch (detail) {
           case "ADICIONAL_VALIDO": return "ADICIONAL VÁLIDO (ENDEREÇO REAL)";
           case "ADICIONAL_ENDERECO_IGUAL": return "ADICIONAL COM ENDEREÇO IGUAL À LOJA";
-          case "FORA_FAIXA_MENOR": return "DESCONTO ABAIXO DA FAIXA DE ADICIONAL";
-          case "FORA_FAIXA_MAIOR": return "DESCONTO ACIMA DA FAIXA DE ADICIONAL";
+          case "FORA_FAIXA_MENOR": return "DESCONTO ABAIXO DA FAIXA ESPERADA";
+          case "FORA_FAIXA_MAIOR": return "DESCONTO ACIMA DA FAIXA ESPERADA";
           case "SUSPEITO_MESMO_DIA": return "VENDA SUSPEITA (MESMO CPF NO MESMO DIA)";
           case "COM_DESCONTO": return "ADICIONAL IDENTIFICADO PELO DESCONTO";
-          default: return status;
+          default: return status || "NÃO CLASSIFICADO";
         }
     }
   };
@@ -103,7 +97,7 @@ export function SalesSummary({ data, vinculos }: SalesSummaryProps) {
       Itens_Total: d.itens,
       TKM: (d.venda / d.cupons).toFixed(2),
       PA: (d.itens / d.cupons).toFixed(2),
-    })).sort((a, b) => parseFloat(b.Venda_Total) - parseFloat(a.Vendedor));
+    })).sort((a, b) => parseFloat(b.Venda_Total) - parseFloat(a.Venda_Total));
   }, [saidas]);
 
   const auditDescontos = useMemo(() => saidas.filter(r => r.tem_desconto && !r.is_troca), [saidas]);
@@ -115,7 +109,8 @@ export function SalesSummary({ data, vinculos }: SalesSummaryProps) {
     return data.filter(r => 
       r.nf.includes(searchTerm) || 
       r.vendedor.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      r.nome_dest.toLowerCase().includes(searchTerm.toLowerCase())
+      r.nome_dest.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      r.cpf_cnpj_dest.includes(searchTerm)
     );
   }, [data, searchTerm]);
 
@@ -192,7 +187,7 @@ export function SalesSummary({ data, vinculos }: SalesSummaryProps) {
                       <p className="text-sm font-bold text-indigo-600">R$ {c.TKM}</p>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-[9px] font-bold text-slate-400 uppercase">Peças/Atend (PA)</p>
+                      <p className="text-[9px] font-bold text-slate-400 uppercase">Peças/Atendimento (PA)</p>
                       <p className="text-sm font-bold text-emerald-600">{c.PA}</p>
                     </div>
                   </div>
@@ -316,11 +311,11 @@ export function SalesSummary({ data, vinculos }: SalesSummaryProps) {
             </Card>
             <Card className="bg-white border-slate-200">
               <CardHeader className="p-5 pb-2">
-                <p className="text-[10px] text-slate-400 font-black uppercase">Vendas Suspeitas (Mesmo Dia)</p>
+                <p className="text-[10px] text-slate-400 font-black uppercase">Vendas Suspeitas (Mesmo CPF)</p>
               </CardHeader>
               <CardContent className="p-5 pt-0">
                 <p className="text-3xl font-black text-orange-600">{suspeitos.length}</p>
-                <p className="text-[10px] text-slate-400 mt-1">MESMO CPF NO MESMO DIA</p>
+                <p className="text-[10px] text-slate-400 mt-1">MESMO DIA QUE A RETIRADA</p>
               </CardContent>
             </Card>
             <Card className="bg-white border-slate-200">
@@ -382,7 +377,7 @@ export function SalesSummary({ data, vinculos }: SalesSummaryProps) {
               <div className="px-6 py-5 border-b border-orange-50 bg-orange-50/50">
                 <h3 className="font-black text-orange-800 text-sm tracking-tight uppercase flex items-center gap-2">
                   <AlertCircle className="w-4 h-4" /> 
-                  Vendas Suspeitas de serem Adicional (Fora do Padrão Comum - Mesmo CPF no Mesmo Dia)
+                  Vendas Suspeitas de serem Adicional (Vendas que fugiram do padrão comum)
                 </h3>
               </div>
               <Table>
@@ -391,7 +386,11 @@ export function SalesSummary({ data, vinculos }: SalesSummaryProps) {
                     <TableHead className="text-[10px] font-black uppercase">Operador</TableHead>
                     <TableHead className="text-[10px] font-black uppercase">Cliente</TableHead>
                     <TableHead className="text-[10px] font-black uppercase">Data da Venda</TableHead>
-                    <TableHead className="text-right text-[10px] font-black uppercase">Valor (R$)</TableHead>
+                    <TableHead className="text-right text-[10px] font-black uppercase">Venda (R$)</TableHead>
+                    <TableHead className="text-right text-[10px] font-black uppercase">Cupons</TableHead>
+                    <TableHead className="text-right text-[10px] font-black uppercase">Itens</TableHead>
+                    <TableHead className="text-center text-[10px] font-black uppercase">TKM</TableHead>
+                    <TableHead className="text-center text-[10px] font-black uppercase">PA</TableHead>
                     <TableHead className="text-center text-[10px] font-black uppercase">Relacionamento</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -405,12 +404,16 @@ export function SalesSummary({ data, vinculos }: SalesSummaryProps) {
                       </TableCell>
                       <TableCell className="text-xs">{r.dhEmi}</TableCell>
                       <TableCell className="text-right font-mono font-bold">R$ {r.vNF}</TableCell>
+                      <TableCell className="text-right">1</TableCell>
+                      <TableCell className="text-right">{r.itens_qtd}</TableCell>
+                      <TableCell className="text-center">R$ {r.vNF}</TableCell>
+                      <TableCell className="text-center">{r.itens_qtd}</TableCell>
                       <TableCell className="text-center">
                         <span className={cn(
                           "px-2 py-1 rounded-full text-[9px] font-black",
                           r.tipo_retirada_associada === "ANTES" ? "bg-blue-100 text-blue-700" : "bg-purple-100 text-purple-700"
                         )}>
-                          VENDA REALIZADA {r.tipo_retirada_associada} DA RETIRADA
+                          REALIZADA {r.tipo_retirada_associada} DA RETIRADA
                         </span>
                       </TableCell>
                     </TableRow>
@@ -445,25 +448,27 @@ export function SalesSummary({ data, vinculos }: SalesSummaryProps) {
                 <CardTitle className="text-3xl font-black text-red-600">
                   {auditDescontos.filter(r => r.status_auditoria === "FORA_DO_PADRAO").length}
                 </CardTitle>
-                <p className="text-[10px] text-red-800 font-black uppercase mt-1">Descontos Fora do Padrão (Sem Informações Suficientes)</p>
+                <p className="text-[10px] text-red-800 font-black uppercase mt-1">Descontos Fora do Padrão</p>
               </CardHeader>
             </Card>
           </div>
 
           <section className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
             <div className="p-6 bg-amber-50/50 border-b border-amber-100">
-              <h3 className="text-sm font-black text-amber-800 uppercase tracking-tighter">Auditoria de Descontos (Todas as Vendas com vDesc &gt; 0)</h3>
-              <p className="text-[11px] text-amber-600 mt-1 font-medium italic">
-                Aviso: Descontos "Fora do Padrão" estão fora da faixa esperada para adicionais (8% a 12%) ou não possuem informações suficientes para classificação automática.
+              <h3 className="text-sm font-black text-amber-800 uppercase tracking-tighter">Auditoria de Descontos (Vendas com Desconto Aplicado)</h3>
+              <p className="text-[11px] text-amber-600 mt-1 font-medium">
+                Aviso: Descontos identificados como "Fora do Padrão" estão fora da faixa esperada para adicionais (8% a 12%) e não podem ser classificados automaticamente por falta de informações complementares.
               </p>
             </div>
             <Table>
               <TableHeader className="bg-slate-50">
                 <TableRow>
                   <TableHead className="text-[10px] font-black uppercase">Operador</TableHead>
-                  <TableHead className="text-right text-[10px] font-black uppercase">Valor Venda</TableHead>
+                  <TableHead className="text-right text-[10px] font-black uppercase">Venda Total</TableHead>
+                  <TableHead className="text-right text-[10px] font-black uppercase">Cupons</TableHead>
+                  <TableHead className="text-right text-[10px] font-black uppercase">Itens</TableHead>
                   <TableHead className="text-right text-[10px] font-black uppercase">Valor Desconto</TableHead>
-                  <TableHead className="text-center text-[10px] font-black uppercase">Classificação de Auditoria</TableHead>
+                  <TableHead className="text-center text-[10px] font-black uppercase">Status da Auditoria</TableHead>
                   <TableHead className="text-[10px] font-black uppercase">Detalhamento Técnico</TableHead>
                 </TableRow>
               </TableHeader>
@@ -472,6 +477,8 @@ export function SalesSummary({ data, vinculos }: SalesSummaryProps) {
                   <TableRow key={i}>
                     <TableCell className="font-bold text-xs">{r.vendedor}</TableCell>
                     <TableCell className="text-right text-xs font-mono">R$ {r.vNF}</TableCell>
+                    <TableCell className="text-right text-xs">1</TableCell>
+                    <TableCell className="text-right text-xs">{r.itens_qtd}</TableCell>
                     <TableCell className="text-right text-xs font-mono font-bold text-amber-700">R$ {r.desconto_total} ({parseFloat(r.percentual_desconto) * 100}%)</TableCell>
                     <TableCell className="text-center">
                       <span className={cn(
@@ -513,9 +520,9 @@ export function SalesSummary({ data, vinculos }: SalesSummaryProps) {
               <TableHeader className="bg-slate-50">
                 <TableRow>
                   <TableHead className="w-8"></TableHead>
-                  <TableHead className="text-[10px] font-black uppercase">NF / Data</TableHead>
+                  <TableHead className="text-[10px] font-black uppercase">Nota Fiscal / Data</TableHead>
                   <TableHead className="text-[10px] font-black uppercase">Operador</TableHead>
-                  <TableHead className="text-[10px] font-black uppercase">Canal Consolidado</TableHead>
+                  <TableHead className="text-[10px] font-black uppercase">Canal de Venda</TableHead>
                   <TableHead className="text-right text-[10px] font-black uppercase">Venda Total (R$)</TableHead>
                   <TableHead className="text-center text-[10px] font-black uppercase">Itens</TableHead>
                 </TableRow>
@@ -644,7 +651,7 @@ function ExpandableRow({ row, getStatusLabel }: { row: DetailedSaleRow, getStatu
                   {row.is_adicional_suspeito && (
                     <div className="p-3 bg-orange-50 border border-orange-100 rounded-lg">
                       <p className="text-[9px] text-orange-800 font-black uppercase flex items-center gap-1">
-                        <AlertCircle className="w-3 h-3" /> Alerta de Suspeita (Mesmo CPF)
+                        <AlertCircle className="w-3 h-3" /> Alerta de Suspeita (Venda no mesmo dia da Retirada)
                       </p>
                       <p className="text-[10px] text-orange-700 mt-1">
                         Esta venda foi realizada {row.tipo_retirada_associada} da retirada online no mesmo dia ({row.data_retirada_associada}).

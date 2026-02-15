@@ -3,17 +3,12 @@ import { DetailedSaleRow, Item } from "./types";
 
 const ADICIONAL_PERCENT_MIN = 0.08;
 const ADICIONAL_PERCENT_MAX = 0.12;
-const TPAG_ONLINE_OK = new Set(["03", "04", "17"]);
 
-function normText(s: string): string {
-  if (!s) return "";
-  return s
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toUpperCase()
-    .replace(/[.,;:/\\()\[\]{}\-]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+function dec(s: string | null | undefined): number {
+  if (!s) return 0;
+  const val = s.replace(',', '.');
+  const num = parseFloat(val);
+  return isNaN(num) ? 0 : num;
 }
 
 function extractVendedor(infCpl: string): string {
@@ -24,22 +19,31 @@ function extractVendedor(infCpl: string): string {
   return m2 ? m2[1].trim() : "SEM_VENDEDOR";
 }
 
-function getNS(doc: Document): string | null {
-  const root = doc.documentElement;
-  return root.getAttribute("xmlns") || null;
-}
-
 export function parseXml(xmlString: string): DetailedSaleRow | null {
   const parser = new DOMParser();
   const xmlDoc = parser.parseFromString(xmlString, "text/xml");
-  const ns = getNS(xmlDoc);
+  
+  if (!xmlDoc.documentElement || xmlDoc.getElementsByTagName("parsererror").length > 0) {
+    return null;
+  }
 
-  const getElement = (parent: Element | Document, name: string) => {
-    return ns ? parent.getElementsByTagNameNS(ns, name)[0] : parent.getElementsByTagName(name)[0];
+  const root = xmlDoc.documentElement;
+  const ns = root.getAttribute("xmlns") || null;
+
+  const getElement = (parent: Element | Document | null, name: string): Element | null => {
+    if (!parent) return null;
+    const elements = ns 
+      ? parent.getElementsByTagNameNS(ns, name) 
+      : parent.getElementsByTagName(name);
+    return elements[0] || null;
   };
 
-  const getElements = (parent: Element | Document, name: string) => {
-    return ns ? parent.getElementsByTagNameNS(ns, name) : parent.getElementsByTagName(name);
+  const getElements = (parent: Element | Document | null, name: string): Element[] => {
+    if (!parent) return [];
+    const elements = ns 
+      ? parent.getElementsByTagNameNS(ns, name) 
+      : parent.getElementsByTagName(name);
+    return Array.from(elements);
   };
 
   const infNFe = getElement(xmlDoc, "infNFe");
@@ -47,53 +51,55 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
 
   const ide = getElement(infNFe, "ide");
   const chave = infNFe.getAttribute("Id")?.replace("NFe", "") || "";
-  const nf = getElement(ide!, "nNF")?.textContent || "";
-  const serie = getElement(ide!, "serie")?.textContent || "";
-  const modelo = getElement(ide!, "mod")?.textContent || "";
-  const tpNF = parseInt(getElement(ide!, "tpNF")?.textContent || "1");
-  const finNFe = parseInt(getElement(ide!, "finNFe")?.textContent || "1");
-  const natOp = getElement(ide!, "natOp")?.textContent || "";
-  const dhEmi = getElement(ide!, "dhEmi")?.textContent || "";
+  const nf = getElement(ide, "nNF")?.textContent || "";
+  const serie = getElement(ide, "serie")?.textContent || "";
+  const modelo = getElement(ide, "mod")?.textContent || "";
+  const tpNF = parseInt(getElement(ide, "tpNF")?.textContent || "1");
+  const finNFe = parseInt(getElement(ide, "finNFe")?.textContent || "1");
+  const natOp = getElement(ide, "natOp")?.textContent || "";
+  const dhEmi = getElement(ide, "dhEmi")?.textContent || "";
 
   // Destinatário
   const dest = getElement(infNFe, "dest");
-  const cpf_cnpj = getElement(dest!, "CPF")?.textContent || getElement(dest!, "CNPJ")?.textContent || "";
-  const nome_dest = getElement(dest!, "xNome")?.textContent || "";
-  const enderDest = getElement(dest!, "enderDest");
-  const cep_dest = (getElement(enderDest!, "CEP")?.textContent || "").replace(/\D/g, "");
+  const cpf_cnpj = getElement(dest, "CPF")?.textContent || getElement(dest, "CNPJ")?.textContent || "";
+  const nome_dest = getElement(dest, "xNome")?.textContent || "";
+  const enderDest = getElement(dest, "enderDest");
+  const cep_dest = (getElement(enderDest, "CEP")?.textContent || "").replace(/\D/g, "");
   
   const addrParts = [
-    getElement(enderDest!, "xLgr")?.textContent,
-    getElement(enderDest!, "nro")?.textContent,
-    getElement(enderDest!, "xBairro")?.textContent,
-    getElement(enderDest!, "xMun")?.textContent,
-    getElement(enderDest!, "UF")?.textContent
+    getElement(enderDest, "xLgr")?.textContent,
+    getElement(enderDest, "nro")?.textContent,
+    getElement(enderDest, "xBairro")?.textContent,
+    getElement(enderDest, "xMun")?.textContent,
+    getElement(enderDest, "UF")?.textContent
   ].filter(Boolean);
   const endereco_dest = addrParts.join(" - ");
 
   // Emitente (Loja)
   const emit = getElement(infNFe, "emit");
-  const enderEmit = getElement(emit!, "enderEmit");
-  const cep_loja = (getElement(enderEmit!, "CEP")?.textContent || "").replace(/\D/g, "");
+  const enderEmit = getElement(emit, "enderEmit");
+  const cep_loja = (getElement(enderEmit, "CEP")?.textContent || "").replace(/\D/g, "");
 
   // Totais
   const total = getElement(infNFe, "total");
-  const icmsTot = getElement(total!, "ICMSTot");
-  const vNF = parseFloat(getElement(icmsTot!, "vNF")?.textContent || "0");
+  const icmsTot = getElement(total, "ICMSTot");
+  const vNF = dec(getElement(icmsTot, "vNF")?.textContent);
 
   // Itens
   const items: Item[] = [];
   const dets = getElements(infNFe, "det");
-  for (let i = 0; i < dets.length; i++) {
-    const prod = getElement(dets[i], "prod");
-    items.push({
-      cProd: getElement(prod!, "cProd")?.textContent || "",
-      xProd: getElement(prod!, "xProd")?.textContent || "",
-      qCom: parseFloat(getElement(prod!, "qCom")?.textContent || "0"),
-      vProd: parseFloat(getElement(prod!, "vProd")?.textContent || "0"),
-      vDesc: parseFloat(getElement(prod!, "vDesc")?.textContent || "0"),
-    });
-  }
+  dets.forEach(det => {
+    const prod = getElement(det, "prod");
+    if (prod) {
+      items.push({
+        cProd: getElement(prod, "cProd")?.textContent || "",
+        xProd: getElement(prod, "xProd")?.textContent || "",
+        qCom: dec(getElement(prod, "qCom")?.textContent),
+        vProd: dec(getElement(prod, "vProd")?.textContent),
+        vDesc: dec(getElement(prod, "vDesc")?.textContent),
+      });
+    }
+  });
 
   // Pagamentos e Troco
   const pagamentos: Record<string, number> = {};
@@ -103,35 +109,35 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
   const pag = getElement(infNFe, "pag");
   if (pag) {
     const vTrocoEl = getElement(pag, "vTroco");
-    if (vTrocoEl) vTroco = parseFloat(vTrocoEl.textContent || "0");
+    if (vTrocoEl) vTroco = dec(vTrocoEl.textContent);
     
     const detPags = getElements(pag, "detPag");
-    for (let i = 0; i < detPags.length; i++) {
-      const tPag = getElement(detPags[i], "tPag")?.textContent || "";
-      const vPag = parseFloat(getElement(detPags[i], "vPag")?.textContent || "0");
+    detPags.forEach(detPag => {
+      const tPag = getElement(detPag, "tPag")?.textContent || "";
+      const vPag = dec(getElement(detPag, "vPag")?.textContent);
       pagamentos[tPag] = (pagamentos[tPag] || 0) + vPag;
       
-      const card = getElement(detPags[i], "card");
+      const card = getElement(detPag, "card");
       if (card) {
         tpIntegra = getElement(card, "tpIntegra")?.textContent || tpIntegra;
       }
-    }
+    });
   }
 
   // Notas Referenciadas
   const refNFes: string[] = [];
-  const ideRef = getElements(ide!, "NFref");
-  for (let i = 0; i < ideRef.length; i++) {
-    const r = getElement(ideRef[i], "refNFe")?.textContent;
+  const nRefs = getElements(ide, "NFref");
+  nRefs.forEach(ref => {
+    const r = getElement(ref, "refNFe")?.textContent;
     if (r) refNFes.push(r);
-  }
+  });
 
   // Vendedor
   const infAdic = getElement(infNFe, "infAdic");
-  const infCpl = getElement(infAdic!, "infCpl")?.textContent || "";
+  const infCpl = getElement(infAdic, "infCpl")?.textContent || "";
   const vendedor = extractVendedor(infCpl) || "SEM_VENDEDOR";
 
-  // Lógica de Classificação
+  // Lógica de Classificação (Versão 6.0 Python)
   const isPresencialPorTroco = vTroco > 0 || (pagamentos["01"] || 0) > 0;
   const isEnderecoReal = !!cep_dest && !!cep_loja && cep_dest !== cep_loja;
   const vTrocaVal = pagamentos["05"] || 0;
@@ -140,7 +146,7 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
 
   const valorTotalProds = items.reduce((acc, it) => acc + it.vProd, 0);
   const descontoTotal = items.reduce((acc, it) => acc + it.vDesc, 0);
-  const percentualDesconto = valorTotalProds > 0 ? descontoTotal / valorTotalProds : 0;
+  const percentualDesconto = valorTotalProds > 0 ? (descontoTotal / valorTotalProds) : 0;
   const isAdicionalDoc = percentualDesconto >= ADICIONAL_PERCENT_MIN && percentualDesconto <= ADICIONAL_PERCENT_MAX;
 
   const isOperacaoNaoPresencial = tpIntegra === "2";
@@ -160,6 +166,7 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
       canalConsolidado = "TROCA";
     } else if (isPresencialPorTroco) {
       canal = "LOJA_FISICA";
+      subcanal = "LOJA_FISICA";
       canalConsolidado = "VENDA_LOJA";
     } else if (isRetiradaOnline) {
       canal = "RETIRADA_ONLINE";

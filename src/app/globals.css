@@ -5,39 +5,44 @@
 
 @layer base {
   :root {
-    --background: 210 40% 98%;
+    --background: 48 100% 98%;
     --foreground: 222 47% 11%;
     --card: 0 0% 100%;
     --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
-    --primary: 231 60% 45%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 222 47% 11%;
+    --primary: 24 100% 50%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 327 100% 45%;
+    --secondary-foreground: 0 0% 100%;
     --muted: 210 40% 96%;
     --muted-foreground: 215 16% 47%;
-    --accent: 210 40% 96%;
+    --accent: 48 100% 50%;
     --accent-foreground: 222 47% 11%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 210 40% 98%;
     --border: 214 32% 91%;
     --input: 214 32% 91%;
-    --ring: 231 60% 45%;
-    --radius: 0.75rem;
+    --ring: 24 100% 50%;
+    --radius: 1rem;
   }
 }
 
 @layer components {
   .tab-trigger-custom {
-    @apply py-4 px-1 text-sm font-medium transition-all text-slate-500 border-b-2 border-transparent hover:text-slate-700;
+    @apply py-4 px-2 text-sm font-bold transition-all text-slate-500 border-b-4 border-transparent hover:text-orange-500 rounded-none;
   }
   .tab-trigger-custom[data-state="active"] {
-    @apply border-indigo-600 text-indigo-700 font-bold bg-transparent shadow-none;
+    @apply border-orange-500 text-orange-600 bg-transparent shadow-none;
+  }
+  
+  .ri-card {
+    @apply bg-white rounded-2xl shadow-sm border-2 border-slate-100 hover:border-orange-200 transition-all duration-300;
   }
 }
 
 @layer base {
   * { @apply border-border; }
-  body { @apply bg-background text-foreground antialiased; }
+  body { @apply bg-background text-foreground antialiased selection:bg-orange-200 selection:text-orange-900; }
+  h1, h2, h3, h4, h5, h6 { @apply font-bold tracking-tight; }
 }

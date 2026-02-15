@@ -6,17 +6,31 @@ const ADICIONAL_PERCENT_MAX = 0.12;
 
 function dec(s: string | null | undefined): number {
   if (!s) return 0;
-  const val = s.replace(',', '.');
-  const num = parseFloat(val);
+  // Trata formatos como 1.234,56 ou 1234.56
+  const cleanS = s.includes(',') ? s.replace(/\./g, '').replace(',', '.') : s;
+  const num = parseFloat(cleanS);
   return isNaN(num) ? 0 : num;
 }
 
 function extractVendedor(infCpl: string): string {
   if (!infCpl) return "SEM_VENDEDOR";
-  const m = infCpl.match(/Vendedor:\s*(.+?)(?:\s+E-?mail:|\s+Email:|\s+Telefone:|\s+ID\s+PIX|\s+\.\:\:|\s*$)/i);
-  if (m) return m[1].trim();
-  const m2 = infCpl.match(/Vendedor:\s*(.+)$/i);
-  return m2 ? m2[1].trim() : "SEM_VENDEDOR";
+  
+  // Padrão Versão 6.0: Busca "Vendedor:" seguido do nome até o próximo campo delimitador
+  const patterns = [
+    /Vendedor:\s*(.+?)(?:\s+E-?mail:|\s+Email:|\s+Telefone:|\s+ID\s+PIX|\s+\.\:\:|\s*|;|$)/i,
+    /Vendedor:\s*(.+)$/i,
+    /Vend:\s*(.+?)(?:\s+|$|;)/i
+  ];
+
+  for (const pattern of patterns) {
+    const match = infCpl.match(pattern);
+    if (match && match[1]) {
+      const name = match[1].trim();
+      if (name) return name;
+    }
+  }
+
+  return "SEM_VENDEDOR";
 }
 
 export function parseXml(xmlString: string): DetailedSaleRow | null {
@@ -28,7 +42,7 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
   }
 
   const root = xmlDoc.documentElement;
-  const ns = root.getAttribute("xmlns") || null;
+  const ns = root.getAttribute("xmlns") || "";
 
   const getElement = (parent: Element | Document | null, name: string): Element | null => {
     if (!parent) return null;
@@ -83,7 +97,7 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
   // Totais
   const total = getElement(infNFe, "total");
   const icmsTot = getElement(total, "ICMSTot");
-  const vNF = dec(getElement(icmsTot, "vNF")?.textContent);
+  const vNFValue = dec(getElement(icmsTot, "vNF")?.textContent);
 
   // Itens
   const items: Item[] = [];
@@ -132,21 +146,23 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     if (r) refNFes.push(r);
   });
 
-  // Vendedor
+  // Vendedor (Busca em infCpl)
   const infAdic = getElement(infNFe, "infAdic");
   const infCpl = getElement(infAdic, "infCpl")?.textContent || "";
-  const vendedor = extractVendedor(infCpl) || "SEM_VENDEDOR";
+  const vendedor = extractVendedor(infCpl);
 
-  // Lógica de Classificação (Versão 6.0 Python)
+  // Lógica de Classificação 6.0
   const isPresencialPorTroco = vTroco > 0 || (pagamentos["01"] || 0) > 0;
   const isEnderecoReal = !!cep_dest && !!cep_loja && cep_dest !== cep_loja;
   const vTrocaVal = pagamentos["05"] || 0;
   const isTroca = vTrocaVal > 0;
-  const difTroca = vNF - vTrocaVal;
+  const difTroca = vNFValue - vTrocaVal;
 
   const valorTotalProds = items.reduce((acc, it) => acc + it.vProd, 0);
   const descontoTotal = items.reduce((acc, it) => acc + it.vDesc, 0);
   const percentualDesconto = valorTotalProds > 0 ? (descontoTotal / valorTotalProds) : 0;
+  
+  // Regra Adicional 8%-12%
   const isAdicionalDoc = percentualDesconto >= ADICIONAL_PERCENT_MIN && percentualDesconto <= ADICIONAL_PERCENT_MAX;
 
   const isOperacaoNaoPresencial = tpIntegra === "2";
@@ -154,7 +170,6 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
   const isDevolucao = tpNF === 0 && (finNFe === 4 || natOp.toLowerCase().includes("devolucao"));
 
   let canal = "LOJA_FISICA";
-  let subcanal = "LOJA_FISICA";
   let canalConsolidado = "VENDA_LOJA";
   let isAdicional = false;
   let motivoAdicional = "NAO_ADICIONAL";
@@ -162,19 +177,15 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
   if (tpNF === 1) {
     if (isTroca) {
       canal = difTroca > 0.01 ? "TROCA_COM_DIFERENCA" : "TROCA_SEM_DIFERENCA";
-      subcanal = canal;
       canalConsolidado = "TROCA";
     } else if (isPresencialPorTroco) {
       canal = "LOJA_FISICA";
-      subcanal = "LOJA_FISICA";
       canalConsolidado = "VENDA_LOJA";
     } else if (isRetiradaOnline) {
       canal = "RETIRADA_ONLINE";
-      subcanal = "RETIRADA_ONLINE";
       canalConsolidado = "RETIRADA_ONLINE";
     } else if (isAdicionalDoc) {
       canal = "RETIRADA_ADICIONAL";
-      subcanal = "ADICIONAL";
       canalConsolidado = "VENDA_LOJA";
       isAdicional = true;
       motivoAdicional = "COM_DESCONTO";
@@ -196,11 +207,11 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
   return {
     chave, nf, serie, modelo, dhEmi, vendedor,
     tpNF, finNFe, natOp,
-    canal, subcanal, canal_consolidado: canalConsolidado,
+    canal, subcanal: canal, canal_consolidado: canalConsolidado,
     is_adicional: isAdicional,
     is_adicional_suspeito: false,
     motivo_adicional: motivoAdicional,
-    vNF: vNF.toFixed(2),
+    vNF: vNFValue.toFixed(2),
     itens_qtd: items.reduce((acc, it) => acc + it.qCom, 0).toString(),
     desconto_total: descontoTotal.toFixed(2),
     percentual_desconto: percentualDesconto.toFixed(4),
@@ -215,7 +226,7 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     is_presencial_por_troco: isPresencialPorTroco,
     tpIntegra,
     tem_desconto: descontoTotal > 0,
-    tipo_desconto: tipoDesconto,
+    tipo_desconto: tipo_desconto,
     status_auditoria: statusAuditoria,
     cep_dest, cep_loja,
     is_cep_diferente_da_loja: isEnderecoReal,

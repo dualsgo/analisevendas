@@ -3,6 +3,8 @@ import { DetailedSaleRow, Item } from "./types";
 
 const ADICIONAL_PERCENT_MIN = 0.08;
 const ADICIONAL_PERCENT_MAX = 0.12;
+const MOSTRUARIO_PERCENT_MIN = 0.045;
+const MOSTRUARIO_PERCENT_MAX = 0.055;
 
 function dec(s: string | null | undefined): number {
   if (!s) return 0;
@@ -116,7 +118,6 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     const isPresencialPorTroco = vTrocoPag > 0 || (pagamentos["01"] || 0) > 0;
     const isEnderecoReal = !!cep_dest && !!cep_loja && cep_dest !== cep_loja;
     
-    // REGRA DE TROCA: Pagamento código "05" (Crédito Loja)
     const vTrocaCredito = pagamentos["05"] || 0;
     const isTroca = vTrocaCredito > 0;
     const difTroca = vNFValue - vTrocaCredito;
@@ -124,9 +125,18 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     const valorTotalProds = itemsList.reduce((acc, it) => acc + it.vProd, 0);
     const descontoTotal = itemsList.reduce((acc, it) => acc + it.vDesc, 0);
     const percentualDesconto = valorTotalProds > 0 ? (descontoTotal / valorTotalProds) : 0;
+    
     const isAdicionalDoc = percentualDesconto >= ADICIONAL_PERCENT_MIN && percentualDesconto <= ADICIONAL_PERCENT_MAX;
+    const isMostruario = percentualDesconto >= MOSTRUARIO_PERCENT_MIN && percentualDesconto <= MOSTRUARIO_PERCENT_MAX;
+    
     const isRetiradaOnline = tpIntegra === "2" && isEnderecoReal && !isPresencialPorTroco;
     const isDevolucao = tpNF === 0 && (finNFe === 4 || natOp.toLowerCase().includes("devolucao") || natOp.toLowerCase().includes("entrada"));
+
+    // Auditoria Inicial baseada em faixas
+    let statusAuditoria = "NÃO CLASSIFICADO";
+    if (isAdicionalDoc) statusAuditoria = "PADRÃO ADICIONAL";
+    else if (isMostruario) statusAuditoria = "PADRÃO MOSTRUÁRIO";
+    else if (descontoTotal > 0) statusAuditoria = "FORA DO PADRÃO";
 
     return {
       chave, nf, serie: getElement(ide, "serie")?.textContent || "", modelo: getElement(ide, "mod")?.textContent || "", dhEmi, vendedor,
@@ -139,7 +149,8 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
       is_troca: isTroca, vTroca: vTrocaCredito.toFixed(2), dif_troca: difTroca.toFixed(2),
       is_devolucao: isDevolucao, refNFe: refNFes, refNFe_normalizadas: refNFes.map(r => r.replace(/\D/g, "")),
       is_retirada_online: isRetiradaOnline, vTroco: vTrocoPag.toFixed(2), is_presencial_por_troco: isPresencialPorTroco, tpIntegra,
-      tem_desconto: descontoTotal > 0, tipo_desconto: isAdicionalDoc ? "ADICIONAL" : "PADRÃO", status_auditoria: isAdicionalDoc ? "DENTRO DO PADRÃO" : "NÃO CLASSIFICADO",
+      tem_desconto: descontoTotal > 0, tipo_desconto: isAdicionalDoc ? "ADICIONAL" : (isMostruario ? "MOSTRUÁRIO" : "PADRÃO"), 
+      status_auditoria: statusAuditoria,
       cep_dest, cep_loja, is_cep_diferente_da_loja: isEnderecoReal, is_endereco_real: isEnderecoReal,
       cpf_cnpj_dest: cpf_cnpj, nome_dest, endereco_dest: "", tem_destinatario: !!cpf_cnpj,
       itens: itemsList

@@ -52,6 +52,8 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarProvider,
+  SidebarTrigger,
   useSidebar
 } from "@/components/ui/sidebar";
 import { Switch } from "@/components/ui/switch";
@@ -75,6 +77,11 @@ interface SalesSummaryProps {
 
 const META_CONVERSAO = 22.0;
 const META_CADASTRO = 80.0;
+
+const formatCurrency = (val: number | string) => {
+  const num = typeof val === 'string' ? parseFloat(val) : val;
+  return num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+};
 
 export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
   const [activeTab, setActiveTab] = useState("geral");
@@ -106,17 +113,14 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
     }
   };
 
-  // Vínculos de trocas
   const trocasComAdicional = useMemo(() => vinculos.filter(v => v.valor_diferenca > 0.05), [vinculos]);
   const trocasIguais = useMemo(() => vinculos.filter(v => v.valor_diferenca <= 0.05), [vinculos]);
 
-  // Cancelamentos (Entradas sem vínculo)
   const cancelamentos = useMemo(() => {
     const vinculadas = new Set(vinculos.map(v => v.chave_entrada));
     return entradas.filter(e => !vinculadas.has(e.chave));
   }, [entradas, vinculos]);
 
-  // Indicadores por Canal
   const channelMetrics = useMemo(() => {
     const sum = (arr: DetailedSaleRow[]) => arr.reduce((acc, r) => acc + parseFloat(r.vNF), 0);
     const itemsCount = (arr: DetailedSaleRow[]) => arr.reduce((acc, r) => acc + parseFloat(r.itens_qtd), 0);
@@ -176,7 +180,6 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
     };
   }, [saidas, vinculos, considerExchanges]);
 
-  // Performance por Data
   const dailyPerformance = useMemo(() => {
     const groups: Record<string, DetailedSaleRow[]> = {};
     saidas.forEach(r => {
@@ -262,9 +265,9 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
       const taxaConv = ops > 0 ? ((adics / ops) * 100).toFixed(0) : "0";
 
       text += `🧸 *${v.Vendedor}*\n`;
-      text += `💰 Venda: R$ ${parseFloat(v.Venda_Total).toLocaleString('pt-BR')}\n`;
+      text += `💰 Venda: ${formatCurrency(v.Venda_Total)}\n`;
       text += `🎟️ Cupons: ${v.Cupons} | 📦 Itens: ${v.Itens_Total}\n`;
-      text += `👤 Cadastro: ${v.TaxaCadastro}% | 📊 TKM: R$ ${v.TKM} | 📈 PA: ${v.PA}\n`;
+      text += `👤 Cadastro: ${v.TaxaCadastro}% | 📊 TKM: ${formatCurrency(v.TKM)} | 📈 PA: ${v.PA}\n`;
       text += `🎯 ${ops} retirada / ${adics} adicional (${taxaConv}%)\n\n`;
     });
     return text.trim();
@@ -321,14 +324,13 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
             <div className="bg-white/20 p-3 rounded-full hidden lg:block"><Sparkles className="w-8 h-8 text-white" /></div>
             <div className="flex-1 space-y-1 text-center md:text-left">
               <h2 className="text-lg md:text-2xl font-black uppercase tracking-tighter">Painel de Performance Mágico</h2>
-              <p className="text-orange-50 font-medium text-[11px] md:text-sm">Acompanhe a saúde da sua loja. Médias em verde indicam superação!</p>
+              <p className="text-orange-50 font-medium text-[11px] md:text-sm">Acompanhe a saúde da sua loja. Valores em Verde superam as metas!</p>
             </div>
           </section>
         )}
 
         {activeTab === "geral" && (
           <div className="space-y-4 md:space-y-8 animate-in fade-in duration-500">
-            {/* Card Consolidado Principal */}
             <Card className="ri-card border-orange-200 border-2 overflow-hidden bg-white">
               <div className="p-4 bg-orange-50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-orange-100">
                  <div className="flex items-center gap-3">
@@ -344,7 +346,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
                 <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 md:gap-8 text-center sm:text-left">
                   <div className="space-y-1 col-span-2 lg:col-span-1">
                     <p className="text-[8px] md:text-[10px] font-black text-slate-400 uppercase">Venda Líquida</p>
-                    <p className="text-lg md:text-3xl font-black text-slate-800">R$ {consolidadoTotal.venda.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                    <p className="text-lg md:text-3xl font-black text-slate-800">{formatCurrency(consolidadoTotal.venda)}</p>
                   </div>
                   <div className="space-y-1">
                     <p className="text-[8px] md:text-[10px] font-black text-slate-400 uppercase">Tickets</p>
@@ -356,7 +358,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
                   </div>
                   <div className="space-y-1">
                     <p className="text-[8px] md:text-[10px] font-black text-orange-400 uppercase">Valor Médio</p>
-                    <p className="text-lg md:text-2xl font-black text-orange-500">R$ {consolidadoTotal.tkm.toFixed(2)}</p>
+                    <p className="text-lg md:text-2xl font-black text-orange-500">{formatCurrency(consolidadoTotal.tkm)}</p>
                   </div>
                   <div className="space-y-1">
                     <p className="text-[8px] md:text-[10px] font-black text-sky-400 uppercase">Peças/Venda</p>
@@ -366,13 +368,11 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
               </CardContent>
             </Card>
 
-            {/* Grid de 6 Quadros Uniformes - Organizado em 2 colunas para cards maiores */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
-              {/* 1. Venda Loja Física */}
               <Card className="ri-card border-slate-100 border-2 bg-white overflow-hidden">
                 <div className="p-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
                   <h4 className="text-[10px] font-black text-slate-500 uppercase flex items-center gap-2"><Store className="w-4 h-4" /> Venda Loja Física</h4>
-                  <p className="text-lg font-black text-slate-800">R$ {channelMetrics.physical.v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                  <p className="text-lg font-black text-slate-800">{formatCurrency(channelMetrics.physical.v)}</p>
                 </div>
                 <CardContent className="p-6 grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
                   <div className="space-y-1">
@@ -385,7 +385,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
                   </div>
                   <div className="space-y-1">
                     <p className="text-[8px] font-black text-orange-400 uppercase">TKM</p>
-                    <p className="text-base font-black text-orange-600">R$ {channelMetrics.physical.tkm.toFixed(2)}</p>
+                    <p className="text-base font-black text-orange-600">{formatCurrency(channelMetrics.physical.tkm)}</p>
                   </div>
                   <div className="space-y-1">
                     <p className="text-[8px] font-black text-sky-400 uppercase">PA</p>
@@ -394,11 +394,10 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
                 </CardContent>
               </Card>
 
-              {/* 2. Vendas Online */}
               <Card className="ri-card border-sky-100 border-2 bg-sky-50/10 overflow-hidden">
                 <div className="p-4 bg-sky-50 border-b border-sky-100 flex items-center justify-between">
                   <h4 className="text-[10px] font-black text-sky-600 uppercase flex items-center gap-2"><Smartphone className="w-4 h-4" /> Retirada Online</h4>
-                  <p className="text-lg font-black text-sky-700">R$ {channelMetrics.online.v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                  <p className="text-lg font-black text-sky-700">{formatCurrency(channelMetrics.online.v)}</p>
                 </div>
                 <CardContent className="p-6 grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
                   <div className="space-y-1">
@@ -411,7 +410,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
                   </div>
                   <div className="space-y-1">
                     <p className="text-[8px] font-black text-orange-400 uppercase">TKM</p>
-                    <p className="text-base font-black text-orange-600">R$ {channelMetrics.online.tkm.toFixed(2)}</p>
+                    <p className="text-base font-black text-orange-600">{formatCurrency(channelMetrics.online.tkm)}</p>
                   </div>
                   <div className="space-y-1">
                     <p className="text-[8px] font-black text-emerald-400 uppercase">PA</p>
@@ -420,11 +419,10 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
                 </CardContent>
               </Card>
 
-              {/* 3. Vendas Adicionais */}
               <Card className="ri-card border-emerald-100 border-2 bg-emerald-50/10 overflow-hidden">
                 <div className="p-4 bg-emerald-50 border-b border-emerald-100 flex items-center justify-between">
                   <h4 className="text-[10px] font-black text-emerald-600 uppercase flex items-center gap-2"><Zap className="w-4 h-4" /> Venda Adicional</h4>
-                  <p className="text-lg font-black text-emerald-700">R$ {channelMetrics.additional.v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                  <p className="text-lg font-black text-emerald-700">{formatCurrency(channelMetrics.additional.v)}</p>
                 </div>
                 <CardContent className="p-6 grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
                   <div className="space-y-1">
@@ -437,7 +435,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
                   </div>
                   <div className="space-y-1">
                     <p className="text-[8px] font-black text-orange-400 uppercase">TKM</p>
-                    <p className="text-base font-black text-orange-600">R$ {channelMetrics.additional.tkm.toFixed(2)}</p>
+                    <p className="text-base font-black text-orange-600">{formatCurrency(channelMetrics.additional.tkm)}</p>
                   </div>
                   <div className="space-y-1">
                     <p className="text-[8px] font-black text-sky-400 uppercase">PA</p>
@@ -446,7 +444,6 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
                 </CardContent>
               </Card>
 
-              {/* 4. Trocas Valor Igual */}
               <Card className="ri-card border-purple-100 border-2 bg-purple-50/10 overflow-hidden">
                 <div className="p-4 bg-purple-50 border-b border-purple-100 flex items-center justify-between">
                   <h4 className="text-[10px] font-black text-purple-600 uppercase flex items-center gap-2"><ArrowRightLeft className="w-4 h-4" /> Troca de Valor Igual</h4>
@@ -454,32 +451,28 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
                 </div>
                 <CardContent className="p-6 grid grid-cols-3 gap-4 text-center">
                   <div className="space-y-1">
-                    <p className="text-[8px] font-black text-red-400 uppercase">Itens Devolvidos</p>
+                    <p className="text-[8px] font-black text-red-400 uppercase">Itens In</p>
                     <p className="text-base font-black text-red-600">{trocasIguais.reduce((acc, v) => acc + v.itens_devolvidos, 0)}</p>
                   </div>
                   <div className="space-y-1">
-                    <p className="text-[8px] font-black text-emerald-400 uppercase">Itens Levados</p>
+                    <p className="text-[8px] font-black text-emerald-400 uppercase">Itens Out</p>
                     <p className="text-base font-black text-emerald-600">{trocasIguais.reduce((acc, v) => acc + v.itens_trocados, 0)}</p>
                   </div>
                   <div className="space-y-1">
-                    <p className="text-[8px] font-black text-purple-400 uppercase">Saldo de Peças</p>
+                    <p className="text-[8px] font-black text-purple-400 uppercase">Saldo Peças</p>
                     <p className="text-base font-black text-purple-700">{trocasIguais.reduce((acc, v) => acc + v.diferenca_itens, 0)}</p>
                   </div>
                 </CardContent>
               </Card>
 
-              {/* 5. Trocas Valor Adicional */}
               <Card className="ri-card border-orange-100 border-2 bg-orange-50/10 overflow-hidden">
                 <div className="p-4 bg-orange-50 border-b border-orange-100 flex items-center justify-between">
                   <h4 className="text-[10px] font-black text-orange-600 uppercase flex items-center gap-2"><TrendingUp className="w-4 h-4" /> Troca com Valor Adicional</h4>
-                  <div className="flex items-center gap-2">
-                    <p className="text-[8px] font-black text-orange-400 uppercase">Saldo Pago:</p>
-                    <p className="text-lg font-black text-orange-700">R$ {trocasComAdicional.reduce((acc, v) => acc + v.valor_diferenca, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                  </div>
+                  <p className="text-lg font-black text-orange-700">{formatCurrency(trocasComAdicional.reduce((acc, v) => acc + v.valor_diferenca, 0))}</p>
                 </div>
                 <CardContent className="p-6 grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
                   <div className="space-y-1">
-                    <p className="text-[8px] font-black text-orange-400 uppercase">Cupons</p>
+                    <p className="text-[8px] font-black text-orange-400 uppercase">Tickets</p>
                     <p className="text-base font-black text-orange-700">{trocasComAdicional.length}</p>
                   </div>
                   <div className="space-y-1">
@@ -491,17 +484,16 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
                     <p className="text-base font-black text-emerald-600">{trocasComAdicional.reduce((acc, v) => acc + v.itens_trocados, 0)}</p>
                   </div>
                   <div className="space-y-1">
-                    <p className="text-[8px] font-black text-sky-400 uppercase">Saldo Itens</p>
+                    <p className="text-[8px] font-black text-sky-400 uppercase">Saldo Peças</p>
                     <p className="text-base font-black text-sky-700">{trocasComAdicional.reduce((acc, v) => acc + v.diferenca_itens, 0)}</p>
                   </div>
                 </CardContent>
               </Card>
 
-              {/* 6. Status da Carga */}
               <Card className="ri-card border-slate-900 border-2 bg-slate-900 text-white overflow-hidden">
                 <div className="p-4 bg-slate-800 border-b border-slate-700 flex items-center justify-between">
                   <h4 className="text-[10px] font-black opacity-60 uppercase flex items-center gap-2"><Package className="w-4 h-4" /> Status da Operação Loja</h4>
-                  <p className="text-lg font-black text-orange-400">{data.length} Arquivos XML Totais</p>
+                  <p className="text-lg font-black text-orange-400">{data.length} XMLs</p>
                 </div>
                 <CardContent className="p-6 grid grid-cols-3 gap-6 text-center">
                   <div className="space-y-1">
@@ -534,7 +526,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                       <XAxis dataKey="date" fontSize={10} fontWeight="bold" tick={{fill: '#94a3b8'}} />
                       <YAxis fontSize={10} fontWeight="bold" tick={{fill: '#94a3b8'}} />
-                      <RechartsTooltip contentStyle={{borderRadius: '1rem', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontWeight: 'bold'}} />
+                      <RechartsTooltip formatter={(v) => typeof v === 'number' ? formatCurrency(v) : v} contentStyle={{borderRadius: '1rem', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontWeight: 'bold'}} />
                       <Legend />
                       <Line type="monotone" dataKey="venda" name="Venda Total" stroke="#f97316" strokeWidth={4} dot={{ r: 6, fill: '#f97316' }} />
                       <Line type="monotone" dataKey="cupons" name="Tickets" stroke="#0ea5e9" strokeWidth={2} dot={{ r: 4, fill: '#0ea5e9' }} />
@@ -558,9 +550,9 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
                     {dailyPerformance.map((d) => (
                       <TableRow key={d.date} className="hover:bg-orange-50/30 transition-colors">
                         <TableCell className="px-4 py-4 font-black text-slate-700 text-xs">{d.date}</TableCell>
-                        <TableCell className="text-right font-black text-xs">R$ {d.venda.toLocaleString('pt-BR')}</TableCell>
+                        <TableCell className="text-right font-black text-xs">{formatCurrency(d.venda)}</TableCell>
                         <TableCell className="text-center font-bold text-slate-500 text-xs">{d.cupons}</TableCell>
-                        <TableCell className="text-center font-black text-orange-500 text-xs hidden sm:table-cell">R$ {d.tkm.toFixed(0)}</TableCell>
+                        <TableCell className="text-center font-black text-orange-500 text-xs hidden sm:table-cell">{formatCurrency(d.tkm)}</TableCell>
                         <TableCell className="text-center font-black text-sky-500 text-xs">{d.pa.toFixed(2)}</TableCell>
                       </TableRow>
                     ))}
@@ -574,14 +566,14 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
           <div className="space-y-6 animate-in slide-in-from-right-8 duration-500">
             <div className="bg-emerald-50 border-2 border-emerald-100 rounded-2xl p-4 md:p-6">
               <h3 className="text-emerald-800 font-black uppercase text-base leading-tight">Ranking de Performance Venda</h3>
-              <p className="text-emerald-600 text-[10px] md:text-xs font-medium mt-1">Nomes em <span className="font-black">Verde</span> superam a média de faturamento da loja.</p>
+              <p className="text-emerald-600 text-[10px] md:text-xs font-medium mt-1">Valores em <span className="font-black">Verde</span> superam a média de faturamento da loja.</p>
             </div>
             <div className="bg-white rounded-2xl shadow-2xl border-2 border-slate-50 overflow-hidden">
               <Table>
                 <TableHeader className="bg-slate-50/50">
                   <TableRow>
                     <TableHead className="px-4 py-4 font-black uppercase text-[10px]">Colaborador</TableHead>
-                    <TableHead className="text-center font-black uppercase text-[10px] hidden sm:table-cell">Identificação (%)</TableHead>
+                    <TableHead className="text-center font-black uppercase text-[10px] hidden sm:table-cell">Cadastro (%)</TableHead>
                     <TableHead className="text-right font-black uppercase text-[10px]">Venda Total</TableHead>
                     <TableHead className="text-right font-black uppercase text-[10px] hidden md:table-cell">Média</TableHead>
                     <TableHead className="text-center font-black uppercase text-[10px]">P/V</TableHead>
@@ -596,8 +588,8 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
                           {v.TaxaCadastro}%
                         </span>
                       </TableCell>
-                      <TableCell className="text-right font-black text-xs">R$ {parseFloat(v.Venda_Total).toLocaleString('pt-BR')}</TableCell>
-                      <TableCell className="text-right font-black text-orange-500 text-xs hidden md:table-cell">R$ {v.TKM}</TableCell>
+                      <TableCell className="text-right font-black text-xs">{formatCurrency(v.Venda_Total)}</TableCell>
+                      <TableCell className="text-right font-black text-orange-500 text-xs hidden md:table-cell">{formatCurrency(v.TKM)}</TableCell>
                       <TableCell className="text-center">
                         <span className={cn("px-2 py-0.5 rounded-full text-[9px] font-black", parseFloat(v.PA) >= (mediasLoja?.pa || 0) ? "bg-emerald-100 text-emerald-700" : "bg-red-50 text-red-600")}>
                           {v.PA}
@@ -605,11 +597,11 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
                       </TableCell>
                     </TableRow>
                   ))}
-                  <TableRow className="bg-slate-900 text-white font-black sticky bottom-0">
+                  <TableRow className="bg-slate-900 text-white font-black sticky bottom-0 z-10">
                     <TableCell className="px-4 py-4 text-orange-400 uppercase text-[9px] tracking-widest">MÉDIA LOJA</TableCell>
                     <TableCell className="text-center hidden sm:table-cell text-xs">{mediasLoja?.taxaCadastro.toFixed(1)}%</TableCell>
-                    <TableCell className="text-right text-xs">R$ {mediasLoja?.venda.toLocaleString('pt-BR')}</TableCell>
-                    <TableCell className="text-right hidden md:table-cell text-xs">R$ {mediasLoja?.tkm.toFixed(0)}</TableCell>
+                    <TableCell className="text-right text-xs">{formatCurrency(mediasLoja?.venda || 0)}</TableCell>
+                    <TableCell className="text-right hidden md:table-cell text-xs">{formatCurrency(mediasLoja?.tkm || 0)}</TableCell>
                     <TableCell className="text-center text-xs">{mediasLoja?.pa.toFixed(2)}</TableCell>
                   </TableRow>
                 </TableBody>
@@ -647,7 +639,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
                           <TableCell className="text-center font-bold text-slate-400 text-xs">{ops}</TableCell>
                           <TableCell className="text-center font-black text-emerald-600 text-xs">{adics}</TableCell>
                           <TableCell className={cn("text-center font-black text-sm", parseFloat(taxa) >= META_CONVERSAO ? "text-emerald-600" : "text-red-500")}>{taxa}%</TableCell>
-                          <TableCell className="text-right font-black text-slate-800 text-xs hidden sm:table-cell">R$ {valorAdic.toLocaleString('pt-BR')}</TableCell>
+                          <TableCell className="text-right font-black text-slate-800 text-xs hidden sm:table-cell">{formatCurrency(valorAdic)}</TableCell>
                         </TableRow>
                       );
                     })}
@@ -659,39 +651,36 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
 
         {activeTab === "auditoria" && (
           <div className="space-y-6 animate-in slide-in-from-right-8 duration-500">
-             <div className="bg-pink-50 border-2 border-pink-100 rounded-2xl p-4 md:p-6 flex justify-between items-center">
-                <div>
-                  <h3 className="text-pink-800 font-black uppercase text-base">Auditoria de Descontos</h3>
-                  <p className="text-pink-600 text-[10px] md:text-xs font-medium">Foco em vendas com descontos manuais ou fora do padrão.</p>
-                </div>
+             <div className="bg-pink-50 border-2 border-pink-100 rounded-2xl p-4 md:p-6">
+                <h3 className="text-pink-800 font-black uppercase text-base">Auditoria de Descontos</h3>
+                <p className="text-pink-600 text-[10px] md:text-xs font-medium">Audite apenas vendas fora dos padrões (Adicional 8-12% ou Mostruário ~5%).</p>
              </div>
              <div className="bg-white rounded-2xl shadow-2xl border-2 border-slate-50 overflow-hidden">
                 <Table>
                   <TableHeader className="bg-slate-50/30">
                     <TableRow>
                       <TableHead className="px-4 py-4 font-black uppercase text-[10px]">Colaborador</TableHead>
-                      <TableHead className="font-black uppercase text-[10px] hidden sm:table-cell">Cliente</TableHead>
                       <TableHead className="text-right font-black uppercase text-[10px]">Valor NF</TableHead>
                       <TableHead className="text-right font-black uppercase text-[10px]">Desconto</TableHead>
                       <TableHead className="text-center font-black uppercase text-[10px]">Status</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {saidas.filter(r => r.tem_desconto).map((r, i) => (
-                      <TableRow key={i} className="hover:bg-slate-50 transition-colors">
-                        <TableCell className="px-4 py-4 font-black text-slate-700 text-xs">{r.vendedor}</TableCell>
-                        <TableCell className="hidden sm:table-cell">
-                          <p className="font-black text-slate-800 uppercase text-[9px] line-clamp-1">{r.nome_dest || "SEM NOME"}</p>
-                        </TableCell>
-                        <TableCell className="text-right font-black text-xs">R$ {parseFloat(r.vNF).toLocaleString('pt-BR')}</TableCell>
-                        <TableCell className="text-right font-black text-pink-600 text-xs">R$ {r.desconto_total} ({ (parseFloat(r.percentual_desconto)*100).toFixed(1) }%)</TableCell>
-                        <TableCell className="text-center">
-                           <span className={cn("px-2 py-0.5 rounded-full text-[8px] font-black uppercase", r.status_auditoria.includes("PADRÃO") ? "bg-red-50 text-red-600" : "bg-emerald-100 text-emerald-700")}>
-                              {r.status_auditoria.includes("PADRÃO") ? "AUDITAR" : "OK"}
-                           </span>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {saidas.filter(r => r.tem_desconto).map((r, i) => {
+                      const isAuditNeeded = r.status_auditoria === "FORA DO PADRÃO";
+                      return (
+                        <TableRow key={i} className="hover:bg-slate-50 transition-colors">
+                          <TableCell className="px-4 py-4 font-black text-slate-700 text-xs">{r.vendedor}</TableCell>
+                          <TableCell className="text-right font-black text-xs">{formatCurrency(r.vNF)}</TableCell>
+                          <TableCell className="text-right font-black text-pink-600 text-xs">{formatCurrency(r.desconto_total)} ({(parseFloat(r.percentual_desconto)*100).toFixed(1)}%)</TableCell>
+                          <TableCell className="text-center">
+                             <span className={cn("px-2 py-0.5 rounded-full text-[8px] font-black uppercase", isAuditNeeded ? "bg-red-50 text-red-600" : "bg-emerald-100 text-emerald-700")}>
+                                {isAuditNeeded ? "AUDITAR" : "OK (" + r.tipo_desconto + ")"}
+                             </span>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
              </div>
@@ -762,7 +751,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
                     const matchChannel = filterChannel === "ALL" || r.canal === filterChannel;
                     const matchVendor = filterVendor === "ALL" || r.vendedor === filterVendor;
                     return matchSearch && matchChannel && matchVendor;
-                  }).slice(0, 50).map((r, i) => (
+                  }).slice(0, 100).map((r, i) => (
                     <ExpandableRow key={i} row={r} formatCanal={formatCanal} />
                   ))}
                 </TableBody>
@@ -778,7 +767,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
                   <div className="bg-emerald-100 p-3 rounded-2xl"><MessageCircle className="w-8 h-8 text-emerald-600" /></div>
                   <div>
                     <h3 className="text-lg font-black text-slate-800 uppercase">Relatório WhatsApp</h3>
-                    <p className="text-xs font-bold text-emerald-600">Pronto para compartilhar com o time de encantadores!</p>
+                    <p className="text-xs font-bold text-emerald-600">Pronto para compartilhar!</p>
                   </div>
                 </div>
                 <Button onClick={() => { navigator.clipboard.writeText(whatsReport); alert("Copiado!"); }} className="bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-full px-8 py-6 uppercase text-xs shadow-lg shadow-emerald-100 w-full md:w-auto">Copiar Relatório</Button>
@@ -803,7 +792,7 @@ function ExpandableRow({ row, formatCanal }: { row: DetailedSaleRow, formatCanal
           <p className="text-orange-600">NF {row.nf}</p>
           <p className="text-slate-400 font-bold mt-0.5">{row.dhEmi.substring(0, 10)}</p>
         </TableCell>
-        <TableCell className="text-right font-black text-xs">R$ {parseFloat(row.vNF).toLocaleString('pt-BR')}</TableCell>
+        <TableCell className="text-right font-black text-xs">{formatCurrency(row.vNF)}</TableCell>
         <TableCell className="text-center font-black text-xs">{row.itens_qtd}</TableCell>
       </TableRow>
       {isOpen && (
@@ -816,7 +805,7 @@ function ExpandableRow({ row, formatCanal }: { row: DetailedSaleRow, formatCanal
                   <p className="text-[9px] font-black text-slate-400 uppercase mt-1">Canal: <span className="text-slate-700">{formatCanal(row.canal)}</span></p>
                 </div>
                 <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm">
-                  <p className="text-[9px] font-black text-slate-400 uppercase">Identificação: <span className={cn(row.tem_destinatario ? "text-emerald-600" : "text-red-500")}>{row.tem_destinatario ? (row.nome_dest || "IDENTIFICADO") : "NÃO IDENTIFICADO"}</span></p>
+                  <p className="text-[9px] font-black text-slate-400 uppercase">Cadastro: <span className={cn(row.tem_destinatario ? "text-emerald-600" : "text-red-500")}>{row.tem_destinatario ? (row.nome_dest || "IDENTIFICADO") : "NÃO IDENTIFICADO"}</span></p>
                   <p className="text-[9px] font-black text-slate-400 uppercase mt-1">Status: <span className="text-pink-600">{row.status_auditoria}</span></p>
                 </div>
               </div>
@@ -834,7 +823,7 @@ function ExpandableRow({ row, formatCanal }: { row: DetailedSaleRow, formatCanal
                       <TableRow key={idx} className="hover:bg-transparent">
                         <TableCell className="text-[9px] font-bold px-3 py-2 line-clamp-1">{item.xProd}</TableCell>
                         <TableCell className="text-center text-[9px] font-black">{item.qCom}</TableCell>
-                        <TableCell className="text-right text-[9px] font-black px-3">{item.vProd.toFixed(2)}</TableCell>
+                        <TableCell className="text-right text-[9px] font-black px-3">{formatCurrency(item.vProd)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -861,8 +850,8 @@ function ExpandableTradeRow({ vinculo, data }: { vinculo: VinculoTroca, data: De
           <p className="text-slate-800 uppercase">{vinculo.nome_cliente || "BALCÃO"}</p>
           <p className="text-slate-400 font-mono text-[8px] mt-0.5">{vinculo.cpf_cliente || "-"}</p>
         </TableCell>
-        <TableCell className="text-right font-black text-[10px] text-slate-400">R$ {vinculo.valor_devolvido.toFixed(2)}</TableCell>
-        <TableCell className="text-right font-black text-orange-600 px-4 text-xs">R$ {vinculo.valor_diferenca.toFixed(2)}</TableCell>
+        <TableCell className="text-right font-black text-[10px] text-slate-400">{formatCurrency(vinculo.valor_devolvido)}</TableCell>
+        <TableCell className="text-right font-black text-orange-600 px-4 text-xs">{formatCurrency(vinculo.valor_diferenca)}</TableCell>
       </TableRow>
       {isOpen && (
         <TableRow className="bg-slate-50/30">
@@ -914,7 +903,7 @@ function ExpandableTradeRow({ vinculo, data }: { vinculo: VinculoTroca, data: De
                     </div>
                     <div className="text-center border-l border-white/10 pl-4">
                        <p className="text-[7px] font-black text-orange-400 uppercase">Saldo Pago</p>
-                       <p className="text-sm font-black text-emerald-400 mt-0.5">R$ {vinculo.valor_diferenca.toFixed(2)}</p>
+                       <p className="text-sm font-black text-emerald-400 mt-0.5">{formatCurrency(vinculo.valor_diferenca)}</p>
                     </div>
                  </div>
               </div>

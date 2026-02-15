@@ -43,29 +43,22 @@ export function detectarAdicionaisSuspeitos(rows: DetailedSaleRow[]): DetailedSa
 }
 
 export function vincularTrocas(rows: DetailedSaleRow[]): VinculoTroca[] {
-  // Filtramos entradas (Devoluções) e saídas (Trocas)
+  // 1. Identificação das Notas de Entrada (Devoluções) e Saída (Trocas)
   const entradas = rows.filter(r => r.tpNF === 0 || r.is_devolucao);
-  const saidas = rows.filter(r => r.tpNF === 1 && r.is_troca);
+  const saidasDeTroca = rows.filter(r => r.tpNF === 1 && r.is_troca);
   
   const vinculos: VinculoTroca[] = [];
   const saidasVinculadas = new Set<string>();
   const entradasVinculadas = new Set<string>();
 
-  // Mapas para busca rápida com chaves normalizadas (apenas números)
-  const saidasPorChaveNorm = new Map(saidas.map(s => [s.chave.replace(/\D/g, ""), s]));
-  
-  // 1. Vínculo por Referência de Chave (NFref)
-  // A nota de entrada (devolução) costuma referenciar a nota original ou a de troca
+  // Auxiliares para busca rápida
+  const saidasPorChaveNorm = new Map(saidasDeTroca.map(s => [s.chave.replace(/\D/g, ""), s]));
+
+  // CRITÉRIO A: Vínculo por Referência (NFref) - O Vínculo mais forte
   entradas.forEach(entrada => {
-    if (entradasVinculadas.has(entrada.chave)) return;
-    
-    // Normalizamos as referências da nota de entrada
-    const refs = (entrada.refNFe || []).map(r => r.replace(/\D/g, ""));
-    
+    const refs = (entrada.refNFe_normalizadas || []);
     for (const ref of refs) {
-      // Procuramos uma nota de saída que bata com essa referência
-      let saida = saidasPorChaveNorm.get(ref);
-      
+      const saida = saidasPorChaveNorm.get(ref);
       if (saida && !saidasVinculadas.has(saida.chave)) {
         vinculos.push(criarVinculo(entrada, saida, "Vínculo por Chave de Referência (NFref)"));
         saidasVinculadas.add(saida.chave);
@@ -75,31 +68,42 @@ export function vincularTrocas(rows: DetailedSaleRow[]): VinculoTroca[] {
     }
   });
 
-  // 2. Vínculo por Valor e Cliente (Caso a referência esteja ausente)
+  // CRITÉRIO B: Vínculo por CPF + Valor (Entrada Total == Saída Crédito 05)
   entradas.forEach(entrada => {
     if (entradasVinculadas.has(entrada.chave)) return;
-
-    const valorEntrada = parseFloat(entrada.vNF).toFixed(2);
     
-    const possiveisSaidas = saidas.filter(s => 
+    const valorEntrada = parseFloat(entrada.vNF).toFixed(2);
+    const cpfEntrada = entrada.cpf_cnpj_dest;
+
+    if (cpfEntrada) {
+      const match = saidasDeTroca.find(s => 
+        !saidasVinculadas.has(s.chave) && 
+        s.cpf_cnpj_dest === cpfEntrada &&
+        parseFloat(s.vTroca).toFixed(2) === valorEntrada
+      );
+
+      if (match) {
+        vinculos.push(criarVinculo(entrada, match, "Vínculo por CPF e Valor de Crédito"));
+        saidasVinculadas.add(match.chave);
+        entradasVinculadas.add(entrada.chave);
+      }
+    }
+  });
+
+  // CRITÉRIO C: Vínculo por Valor (Venda Balcão / Sem Identificação)
+  entradas.forEach(entrada => {
+    if (entradasVinculadas.has(entrada.chave)) return;
+    
+    const valorEntrada = parseFloat(entrada.vNF).toFixed(2);
+
+    const match = saidasDeTroca.find(s => 
       !saidasVinculadas.has(s.chave) && 
       parseFloat(s.vTroca).toFixed(2) === valorEntrada
     );
 
-    // Se houver CPF igual, a confiança é alta
-    const matchCpf = possiveisSaidas.find(s => s.cpf_cnpj_dest && s.cpf_cnpj_dest === entrada.cpf_cnpj_dest);
-    if (matchCpf) {
-      vinculos.push(criarVinculo(entrada, matchCpf, "Vínculo por Valor e Identificação do Cliente"));
-      saidasVinculadas.add(matchCpf.chave);
-      entradasVinculadas.add(entrada.chave);
-      return;
-    }
-
-    // Se não tiver CPF em nenhuma, mas o valor bater e não tiver destinatário (venda balcão)
-    const matchValorPuro = possiveisSaidas.find(s => !s.tem_destinatario && !entrada.tem_destinatario);
-    if (matchValorPuro) {
-      vinculos.push(criarVinculo(entrada, matchValorPuro, "Vínculo por Valor Exato (Troca sem Identificação)"));
-      saidasVinculadas.add(matchValorPuro.chave);
+    if (match) {
+      vinculos.push(criarVinculo(entrada, match, "Vínculo por Coincidência de Valor (Sem CPF)"));
+      saidasVinculadas.add(match.chave);
       entradasVinculadas.add(entrada.chave);
     }
   });
@@ -129,6 +133,6 @@ function criarVinculo(entrada: DetailedSaleRow, saida: DetailedSaleRow, metodo: 
     valor_credito: vCredito,
     valor_diferenca: vDiferenca,
     metodo_vinculo: metodo,
-    confianca: 1.0
+    confianca: metodo.includes("Chave") ? 1.0 : (metodo.includes("CPF") ? 0.9 : 0.7)
   };
 }

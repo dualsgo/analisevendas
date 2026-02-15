@@ -6,7 +6,6 @@ const ADICIONAL_PERCENT_MAX = 0.12;
 
 function dec(s: string | null | undefined): number {
   if (!s) return 0;
-  // Trata números formatados com ponto de milhar e vírgula decimal
   const cleanS = s.includes(',') ? s.replace(/\./g, '').replace(',', '.') : s;
   const num = parseFloat(cleanS);
   return isNaN(num) ? 0 : num;
@@ -123,12 +122,12 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     const icmsTot = total ? getElement(total, "ICMSTot") : null;
     const vNFValue = icmsTot ? dec(getElement(icmsTot, "vNF")?.textContent) : 0;
 
-    const items: Item[] = [];
+    const itemsList: Item[] = [];
     const dets = getElements(infNFe, "det");
     dets.forEach(det => {
       const prod = getElement(det, "prod");
       if (prod) {
-        items.push({
+        itemsList.push({
           cProd: getElement(prod, "cProd")?.textContent || "",
           xProd: getElement(prod, "xProd")?.textContent || "",
           qCom: dec(getElement(prod, "qCom")?.textContent),
@@ -177,8 +176,8 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     const isTroca = vTrocaVal > 0;
     const difTroca = vNFValue - vTrocaVal;
 
-    const valorTotalProds = items.reduce((acc, it) => acc + it.vProd, 0);
-    const descontoTotal = items.reduce((acc, it) => acc + it.vDesc, 0);
+    const valorTotalProds = itemsList.reduce((acc, it) => acc + it.vProd, 0);
+    const descontoTotal = itemsList.reduce((acc, it) => acc + it.vDesc, 0);
     const percentualDesconto = valorTotalProds > 0 ? (descontoTotal / valorTotalProds) : 0;
     
     const isAdicionalDoc = percentualDesconto >= ADICIONAL_PERCENT_MIN && percentualDesconto <= ADICIONAL_PERCENT_MAX;
@@ -228,7 +227,7 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
       is_adicional_suspeito: false,
       motivo_adicional: motivoAdicional,
       vNF: vNFValue.toFixed(2),
-      itens_qtd: items.reduce((acc, it) => acc + it.qCom, 0).toString(),
+      itens_qtd: itemsList.reduce((acc, it) => acc + it.qCom, 0).toString(),
       desconto_total: descontoTotal.toFixed(2),
       percentual_desconto: percentualDesconto.toFixed(4),
       is_troca: isTroca,
@@ -250,7 +249,7 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
       cpf_cnpj_dest: cpf_cnpj,
       nome_dest, endereco_dest,
       tem_destinatario: !!cpf_cnpj,
-      itens
+      itens: itemsList
     };
   } catch (e) {
     console.error("Erro ao processar XML individual:", e);

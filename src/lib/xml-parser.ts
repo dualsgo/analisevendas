@@ -12,17 +12,17 @@ function dec(s: string | null | undefined): number {
 }
 
 function extractVendedor(infCpl: string): string {
-  if (!infCpl) return "VENDEDOR NÃO IDENTIFICADO";
+  if (!infCpl) return "SEM_VENDEDOR";
   
   const vLabel = "Vendedor:";
   const vIdx = infCpl.indexOf(vLabel);
   if (vIdx === -1) {
     const vAlt = "Vend:";
     const vAltIdx = infCpl.indexOf(vAlt);
-    if (vAltIdx === -1) return "VENDEDOR NÃO IDENTIFICADO";
+    if (vAltIdx === -1) return "SEM_VENDEDOR";
     let part = infCpl.substring(vAltIdx + vAlt.length).trim();
-    const end = part.search(/;|Email:|Telefone:|\s{2,}/i);
-    return (end !== -1 ? part.substring(0, end) : part).trim() || "VENDEDOR NÃO IDENTIFICADO";
+    const end = part.search(/;|Email:|Telefone:|E-mail:|\s{2,}/i);
+    return (end !== -1 ? part.substring(0, end) : part).trim() || "SEM_VENDEDOR";
   }
 
   let candidate = infCpl.substring(vIdx + vLabel.length).trim();
@@ -51,7 +51,7 @@ function extractVendedor(infCpl: string): string {
   }
 
   const name = candidate.substring(0, endIdx).trim();
-  return name || "VENDEDOR NÃO IDENTIFICADO";
+  return name || "SEM_VENDEDOR";
 }
 
 export function parseXml(xmlString: string): DetailedSaleRow | null {

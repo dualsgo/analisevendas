@@ -6,7 +6,6 @@ const ADICIONAL_PERCENT_MAX = 0.12;
 
 function dec(s: string | null | undefined): number {
   if (!s) return 0;
-  // Trata formatos como 1.234,56 ou 1234.56
   const cleanS = s.includes(',') ? s.replace(/\./g, '').replace(',', '.') : s;
   const num = parseFloat(cleanS);
   return isNaN(num) ? 0 : num;
@@ -15,22 +14,50 @@ function dec(s: string | null | undefined): number {
 function extractVendedor(infCpl: string): string {
   if (!infCpl) return "SEM_VENDEDOR";
   
-  // Padrão Versão 6.0: Busca "Vendedor:" seguido do nome até o próximo campo delimitador
-  const patterns = [
-    /Vendedor:\s*(.+?)(?:\s+E-?mail:|\s+Email:|\s+Telefone:|\s+ID\s+PIX|\s+\.\:\:|\s*|;|$)/i,
-    /Vendedor:\s*(.+)$/i,
-    /Vend:\s*(.+?)(?:\s+|$|;)/i
+  // Procura o rótulo "Vendedor:"
+  const vLabel = "Vendedor:";
+  const vIdx = infCpl.indexOf(vLabel);
+  if (vIdx === -1) {
+    const vAlt = "Vend:";
+    const vAltIdx = infCpl.indexOf(vAlt);
+    if (vAltIdx === -1) return "SEM_VENDEDOR";
+    let part = infCpl.substring(vAltIdx + vAlt.length).trim();
+    // Pega até o próximo delimitador ou fim
+    const end = part.search(/;|Email:|Telefone:|\s{2,}/i);
+    return (end !== -1 ? part.substring(0, end) : part).trim() || "SEM_VENDEDOR";
+  }
+
+  // Pega o texto após "Vendedor:"
+  let candidate = infCpl.substring(vIdx + vLabel.length).trim();
+  
+  // Delimitadores que indicam o fim do nome do vendedor no infCpl
+  const delimiters = [
+    "Email:", 
+    "E-mail:", 
+    "Telefone:", 
+    "ID PIX", 
+    ".::", 
+    ";",
+    "ID:",
+    "CPF:"
   ];
 
-  for (const pattern of patterns) {
-    const match = infCpl.match(pattern);
-    if (match && match[1]) {
-      const name = match[1].trim();
-      if (name) return name;
+  let endIdx = candidate.length;
+  for (const d of delimiters) {
+    const dIdx = candidate.indexOf(d);
+    if (dIdx !== -1 && dIdx < endIdx) {
+      endIdx = dIdx;
     }
   }
 
-  return "SEM_VENDEDOR";
+  // Também verifica se há uma quebra de linha ou múltiplos espaços (comum em notas fiscais)
+  const multiSpace = candidate.match(/\s{2,}/);
+  if (multiSpace && multiSpace.index !== undefined && multiSpace.index < endIdx) {
+    endIdx = multiSpace.index;
+  }
+
+  const name = candidate.substring(0, endIdx).trim();
+  return name || "SEM_VENDEDOR";
 }
 
 export function parseXml(xmlString: string): DetailedSaleRow | null {
@@ -46,17 +73,19 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
 
   const getElement = (parent: Element | Document | null, name: string): Element | null => {
     if (!parent) return null;
+    const p = parent instanceof Document ? parent.documentElement : parent;
     const elements = ns 
-      ? (parent instanceof Document ? parent.documentElement : parent).getElementsByTagNameNS(ns, name) 
-      : (parent instanceof Document ? parent.documentElement : parent).getElementsByTagName(name);
+      ? p.getElementsByTagNameNS(ns, name) 
+      : p.getElementsByTagName(name);
     return elements[0] || null;
   };
 
   const getElements = (parent: Element | Document | null, name: string): Element[] => {
     if (!parent) return [];
+    const p = parent instanceof Document ? parent.documentElement : parent;
     const elements = ns 
-      ? (parent instanceof Document ? parent.documentElement : parent).getElementsByTagNameNS(ns, name) 
-      : (parent instanceof Document ? parent.documentElement : parent).getElementsByTagName(name);
+      ? p.getElementsByTagNameNS(ns, name) 
+      : p.getElementsByTagName(name);
     return Array.from(elements);
   };
 
@@ -75,7 +104,6 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
   const natOp = getElement(ide, "natOp")?.textContent || "";
   const dhEmi = getElement(ide, "dhEmi")?.textContent || "";
 
-  // Destinatário
   const dest = getElement(infNFe, "dest");
   const cpf_cnpj = dest ? (getElement(dest, "CPF")?.textContent || getElement(dest, "CNPJ")?.textContent || "") : "";
   const nome_dest = dest ? (getElement(dest, "xNome")?.textContent || "") : "";
@@ -91,17 +119,14 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
   ].filter(Boolean) : [];
   const endereco_dest = addrParts.join(" - ");
 
-  // Emitente (Loja)
   const emit = getElement(infNFe, "emit");
   const enderEmit = emit ? getElement(emit, "enderEmit") : null;
   const cep_loja = enderEmit ? (getElement(enderEmit, "CEP")?.textContent || "").replace(/\D/g, "") : "";
 
-  // Totais
   const total = getElement(infNFe, "total");
   const icmsTot = total ? getElement(total, "ICMSTot") : null;
   const vNFValue = icmsTot ? dec(getElement(icmsTot, "vNF")?.textContent) : 0;
 
-  // Itens
   const items: Item[] = [];
   const dets = getElements(infNFe, "det");
   dets.forEach(det => {
@@ -117,7 +142,6 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     }
   });
 
-  // Pagamentos e Troco
   const pagamentos: Record<string, number> = {};
   let vTroco = 0;
   let tpIntegra = "";
@@ -140,7 +164,6 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     });
   }
 
-  // Notas Referenciadas
   const refNFes: string[] = [];
   const nRefs = getElements(ide, "NFref");
   nRefs.forEach(ref => {
@@ -148,12 +171,10 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     if (r) refNFes.push(r);
   });
 
-  // Vendedor (Busca em infCpl)
   const infAdic = getElement(infNFe, "infAdic");
   const infCpl = infAdic ? (getElement(infAdic, "infCpl")?.textContent || "") : "";
   const vendedor = extractVendedor(infCpl);
 
-  // Lógica de Classificação 6.0
   const isPresencialPorTroco = vTroco > 0 || (pagamentos["01"] || 0) > 0;
   const isEnderecoReal = !!cep_dest && !!cep_loja && cep_dest !== cep_loja;
   const vTrocaVal = pagamentos["05"] || 0;
@@ -164,11 +185,8 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
   const descontoTotal = items.reduce((acc, it) => acc + it.vDesc, 0);
   const percentualDesconto = valorTotalProds > 0 ? (descontoTotal / valorTotalProds) : 0;
   
-  // Regra Adicional 8%-12%
   const isAdicionalDoc = percentualDesconto >= ADICIONAL_PERCENT_MIN && percentualDesconto <= ADICIONAL_PERCENT_MAX;
-
-  const isOperacaoNaoPresencial = tpIntegra === "2";
-  const isRetiradaOnline = isOperacaoNaoPresencial && isEnderecoReal && !isPresencialPorTroco;
+  const isRetiradaOnline = tpIntegra === "2" && isEnderecoReal && !isPresencialPorTroco;
   const isDevolucao = tpNF === 0 && (finNFe === 4 || natOp.toLowerCase().includes("devolucao"));
 
   let canal = "LOJA_FISICA";

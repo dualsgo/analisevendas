@@ -183,7 +183,7 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
       canalConsolidado = "VENDA_LOJA";
     } else if (isRetiradaOnline) {
       canal = "RETIRADA_ONLINE";
-      canalConsolidado = "RETIRADA_ONLINE";
+      canalConsolidated = "RETIRADA_ONLINE";
     } else if (isAdicionalDoc) {
       canal = "RETIRADA_ADICIONAL";
       canalConsolidado = "VENDA_LOJA";
@@ -226,7 +226,7 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     is_presencial_por_troco: isPresencialPorTroco,
     tpIntegra,
     tem_desconto: descontoTotal > 0,
-    tipo_desconto: tipo_desconto,
+    tipo_desconto: tipoDesconto,
     status_auditoria: statusAuditoria,
     cep_dest, cep_loja,
     is_cep_diferente_da_loja: isEnderecoReal,

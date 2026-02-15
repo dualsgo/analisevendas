@@ -72,6 +72,9 @@ export interface DetailedSaleRow {
   nome_dest: string;
   endereco_dest: string;
   tem_destinatario: boolean;
+
+  // Produtos
+  itens: Item[];
 }
 
 export interface ChannelSummaryRow {

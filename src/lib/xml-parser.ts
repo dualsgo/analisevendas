@@ -12,25 +12,20 @@ function dec(s: string | null | undefined): number {
 }
 
 function extractVendedor(infCpl: string): string {
-  if (!infCpl) return "SEM_VENDEDOR";
+  if (!infCpl) return "SEM VENDEDOR";
   
-  // Procura o rótulo "Vendedor:"
   const vLabel = "Vendedor:";
   const vIdx = infCpl.indexOf(vLabel);
   if (vIdx === -1) {
     const vAlt = "Vend:";
     const vAltIdx = infCpl.indexOf(vAlt);
-    if (vAltIdx === -1) return "SEM_VENDEDOR";
+    if (vAltIdx === -1) return "SEM VENDEDOR";
     let part = infCpl.substring(vAltIdx + vAlt.length).trim();
-    // Pega até o próximo delimitador ou fim
     const end = part.search(/;|Email:|Telefone:|\s{2,}/i);
-    return (end !== -1 ? part.substring(0, end) : part).trim() || "SEM_VENDEDOR";
+    return (end !== -1 ? part.substring(0, end) : part).trim() || "SEM VENDEDOR";
   }
 
-  // Pega o texto após "Vendedor:"
   let candidate = infCpl.substring(vIdx + vLabel.length).trim();
-  
-  // Delimitadores que indicam o fim do nome do vendedor no infCpl
   const delimiters = [
     "Email:", 
     "E-mail:", 
@@ -50,14 +45,13 @@ function extractVendedor(infCpl: string): string {
     }
   }
 
-  // Também verifica se há uma quebra de linha ou múltiplos espaços (comum em notas fiscais)
   const multiSpace = candidate.match(/\s{2,}/);
   if (multiSpace && multiSpace.index !== undefined && multiSpace.index < endIdx) {
     endIdx = multiSpace.index;
   }
 
   const name = candidate.substring(0, endIdx).trim();
-  return name || "SEM_VENDEDOR";
+  return name || "SEM VENDEDOR";
 }
 
 export function parseXml(xmlString: string): DetailedSaleRow | null {
@@ -246,13 +240,14 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     is_presencial_por_troco: isPresencialPorTroco,
     tpIntegra,
     tem_desconto: descontoTotal > 0,
-    tipo_desconto: tipoDesconto,
+    tipo_desconto: tipo_desconto,
     status_auditoria: statusAuditoria,
     cep_dest, cep_loja,
     is_cep_diferente_da_loja: isEnderecoReal,
     is_endereco_real: isEnderecoReal,
     cpf_cnpj_dest: cpf_cnpj,
     nome_dest, endereco_dest,
-    tem_destinatario: !!cpf_cnpj
+    tem_destinatario: !!cpf_cnpj,
+    itens
   };
 }

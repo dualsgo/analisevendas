@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useMemo, useState } from "react";
@@ -36,7 +37,8 @@ import {
   ArrowUpRight, 
   ArrowDownRight, 
   Search, 
-  HelpCircle
+  Calendar as CalendarIcon,
+  BarChart3
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -54,6 +56,18 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { 
+  LineChart, 
+  Line, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip as RechartsTooltip, 
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  Legend
+} from 'recharts';
 
 interface SalesSummaryProps {
   data: DetailedSaleRow[];
@@ -93,25 +107,15 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
     }
   };
 
-  const channelSummary = useMemo(() => {
-    const agg: Record<string, { cupons: number; venda: number; itens: number }> = {};
-    saidas.forEach(r => {
-      const canal = r.canal;
-      if (!agg[canal]) agg[canal] = { cupons: 0, venda: 0, itens: 0 };
-      agg[canal].cupons++;
-      agg[canal].venda += parseFloat(r.vNF);
-      agg[canal].itens += parseFloat(r.itens_qtd);
-    });
+  // Vínculos de trocas
+  const trocasComAdicional = useMemo(() => vinculos.filter(v => v.valor_diferenca > 0.05), [vinculos]);
+  const trocasIguais = useMemo(() => vinculos.filter(v => v.valor_diferenca <= 0.05), [vinculos]);
 
-    return Object.entries(agg).map(([canal, d]): ChannelSummaryRow => ({
-      Canal: canal,
-      Cupons: d.cupons.toString(),
-      Venda_Total: d.venda.toFixed(2),
-      Itens_Total: d.itens.toString(),
-      TKM: (d.venda / d.cupons).toFixed(2),
-      PA: (d.itens / d.cupons).toFixed(2),
-    })).sort((a, b) => parseFloat(b.Venda_Total) - parseFloat(a.Venda_Total));
-  }, [saidas]);
+  // Cancelamentos (Entradas sem vínculo)
+  const cancelamentos = useMemo(() => {
+    const vinculadas = new Set(vinculos.map(v => v.chave_entrada));
+    return entradas.filter(e => !vinculadas.has(e.chave));
+  }, [entradas, vinculos]);
 
   const consolidadoTotal = useMemo(() => {
     const normais = saidas.filter(r => r.canal_consolidado !== "TROCA");
@@ -136,8 +140,41 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
     };
   }, [saidas, vinculos, considerExchanges]);
 
-  const trocasComAdicional = useMemo(() => vinculos.filter(v => v.valor_diferenca > 0.05), [vinculos]);
-  const trocasIguais = useMemo(() => vinculos.filter(v => v.valor_diferenca <= 0.05), [vinculos]);
+  // Performance por Data
+  const dailyPerformance = useMemo(() => {
+    const groups: Record<string, DetailedSaleRow[]> = {};
+    saidas.forEach(r => {
+      const date = r.dhEmi.split('T')[0];
+      if (!groups[date]) groups[date] = [];
+      groups[date].push(r);
+    });
+
+    return Object.entries(groups).map(([date, rows]) => {
+      const venda = rows.reduce((acc, r) => acc + parseFloat(r.vNF), 0);
+      const itens = rows.reduce((acc, r) => acc + parseFloat(r.itens_qtd), 0);
+      const cupons = rows.length;
+      return {
+        date: date.split('-').reverse().join('/'),
+        fullDate: date,
+        venda,
+        cupons,
+        itens,
+        tkm: cupons > 0 ? venda / cupons : 0,
+        pa: cupons > 0 ? itens / cupons : 0
+      };
+    }).sort((a, b) => b.fullDate.localeCompare(a.fullDate));
+  }, [saidas]);
+
+  const navItems = [
+    { id: "geral", label: "Visão Geral", icon: LayoutDashboard },
+    { id: "diario", label: "Performance Diária", icon: CalendarIcon },
+    { id: "venda_loja", label: "Performance Venda", icon: TrendingUp },
+    { id: "conversao", label: "Conversão Online", icon: Target },
+    { id: "auditoria", label: "Auditoria Descontos", icon: AlertCircle },
+    { id: "trocas", label: "Gestão de Trocas", icon: ArrowRightLeft },
+    { id: "transacoes", label: "Todas Transações", icon: FileText },
+    { id: "whatsapp", label: "Relatório WhatsApp", icon: MessageCircle, color: "text-emerald-500" },
+  ];
 
   const resumoVendaLoja = useMemo(() => {
     const agg: Record<string, { cupons: number; cuponsComCadastro: number; venda: number; itens: number }> = {};
@@ -182,16 +219,6 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
       taxaCadastro: total.cupons > 0 ? (total.cadastros / total.cupons) * 100 : 0
     };
   }, [resumoVendaLoja]);
-
-  const navItems = [
-    { id: "geral", label: "Visão Geral", icon: LayoutDashboard },
-    { id: "venda_loja", label: "Performance Venda", icon: TrendingUp },
-    { id: "conversao", label: "Conversão Online", icon: Target },
-    { id: "auditoria", label: "Auditoria Descontos", icon: AlertCircle },
-    { id: "trocas", label: "Gestão de Trocas", icon: ArrowRightLeft },
-    { id: "transacoes", label: "Todas Transações", icon: FileText },
-    { id: "whatsapp", label: "Relatório WhatsApp", icon: MessageCircle, color: "text-emerald-500" },
-  ];
 
   const getStatusColor = (val: number, media: number) => {
     if (val > media) return "text-emerald-600 font-black";
@@ -249,7 +276,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
         </SidebarContent>
       </Sidebar>
 
-      <div className="flex-1 overflow-y-auto bg-amber-50/20 p-4 md:p-8 flex flex-col gap-6 md:gap-8 scroll-smooth">
+      <div className="flex-1 overflow-y-auto bg-amber-50/20 p-4 md:p-8 flex flex-col gap-6 md:gap-8 scroll-smooth scrollbar-hide">
         {showWelcome && (
           <section className="bg-gradient-to-r from-orange-500 to-[#F37021] rounded-[1.5rem] md:rounded-[2.5rem] p-5 md:p-8 text-white shadow-xl shadow-orange-100 flex flex-col md:flex-row items-center gap-4 md:gap-6 relative animate-in slide-in-from-top-4 duration-500">
             <Button variant="ghost" size="icon" onClick={() => setShowWelcome(false)} className="absolute top-2 right-2 md:top-4 md:right-4 text-white hover:bg-white/20 rounded-full">
@@ -261,16 +288,6 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
             <div className="flex-1 space-y-1 text-center md:text-left">
               <h2 className="text-lg md:text-2xl font-black uppercase tracking-tighter leading-tight">Painel de Performance Mágico</h2>
               <p className="text-orange-50 font-medium text-[11px] md:text-sm">Acompanhe a saúde da sua loja em tempo real. Médias em verde indicam superação!</p>
-            </div>
-            <div className="flex gap-3 w-full md:w-auto overflow-hidden">
-              <div className="flex-1 bg-white/10 px-4 md:px-6 py-2 md:py-4 rounded-xl md:rounded-2xl border border-white/20 text-center">
-                <p className="text-[8px] md:text-[9px] font-black uppercase opacity-60">Meta Conv.</p>
-                <p className="text-sm md:text-xl font-black">{META_CONVERSAO}%</p>
-              </div>
-              <div className="flex-1 bg-white/10 px-4 md:px-6 py-2 md:py-4 rounded-xl md:rounded-2xl border border-white/20 text-center">
-                <p className="text-[8px] md:text-[9px] font-black uppercase opacity-60">Meta Cad.</p>
-                <p className="text-sm md:text-xl font-black">{META_CADASTRO}%</p>
-              </div>
             </div>
           </section>
         )}
@@ -296,11 +313,11 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
                       <p className="text-xl md:text-3xl font-black text-slate-800">R$ {consolidadoTotal.venda.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-[8px] md:text-[10px] font-black text-slate-400 uppercase">Cupons</p>
+                      <p className="text-[8px] md:text-[10px] font-black text-slate-400 uppercase">Tickets</p>
                       <p className="text-lg md:text-2xl font-black text-slate-600">{consolidadoTotal.cupons}</p>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-[8px] md:text-[10px] font-black text-slate-400 uppercase">Itens Saldo</p>
+                      <p className="text-[8px] md:text-[10px] font-black text-slate-400 uppercase">Peças Saldo</p>
                       <p className="text-lg md:text-2xl font-black text-slate-600">{consolidadoTotal.itens}</p>
                     </div>
                     <div className="space-y-1">
@@ -308,7 +325,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
                       <p className="text-lg md:text-2xl font-black text-orange-500">R$ {consolidadoTotal.tkm.toFixed(2)}</p>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-[8px] md:text-[10px] font-black text-sky-400 uppercase">Peças/Venda (PA)</p>
+                      <p className="text-[8px] md:text-[10px] font-black text-sky-400 uppercase">P/V (PA)</p>
                       <p className="text-lg md:text-2xl font-black text-sky-500">{consolidadoTotal.pa.toFixed(2)}</p>
                     </div>
                   </div>
@@ -320,7 +337,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
                 <div className="space-y-3 text-xs font-black">
                   <div className="flex justify-between border-b border-white/20 pb-2"><span>SAÍDAS:</span><span>{saidas.length}</span></div>
                   <div className="flex justify-between border-b border-white/20 pb-2"><span>ENTRADAS:</span><span>{entradas.length}</span></div>
-                  <div className="flex justify-between opacity-60"><span>TOTAL LIDO:</span><span>{data.length}</span></div>
+                  <div className="flex justify-between border-b border-white/10 pb-2 text-orange-200"><span>CANCELADAS:</span><span>{cancelamentos.length}</span></div>
                 </div>
               </Card>
             </div>
@@ -336,18 +353,16 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
                 <CardContent className="p-4 md:p-6 pt-2">
                   <div className="grid grid-cols-2 gap-3 md:gap-4">
                     <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                      <p className="text-[8px] md:text-[10px] font-black text-slate-400 uppercase">Cupons</p>
+                      <p className="text-[8px] md:text-[10px] font-black text-slate-400 uppercase">Tickets</p>
                       <p className="text-lg font-black">{trocasIguais.length}</p>
                     </div>
                     <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                      <p className="text-[8px] md:text-[10px] font-black text-slate-400 uppercase">Dif. Itens</p>
-                      <p className={cn("text-lg font-black", (trocasIguais.reduce((acc, v) => acc + v.diferenca_itens, 0)) >= 0 ? "text-emerald-500" : "text-red-500")}>
-                        {trocasIguais.reduce((acc, v) => acc + v.diferenca_itens, 0) > 0 ? `+${trocasIguais.reduce((acc, v) => acc + v.diferenca_itens, 0)}` : trocasIguais.reduce((acc, v) => acc + v.diferenca_itens, 0)}
-                      </p>
+                      <p className="text-[8px] md:text-[10px] font-black text-slate-400 uppercase">Crédito</p>
+                      <p className="text-lg font-black text-purple-600">R$ {trocasIguais.reduce((acc, v) => acc + v.valor_credito, 0).toFixed(2)}</p>
                     </div>
                     <div className="col-span-2 bg-purple-50 p-3 rounded-xl flex justify-between items-center text-[10px] font-black">
                       <span className="text-purple-600">PEÇAS:</span>
-                      <span className="text-purple-800 uppercase">Devolvidas: {trocasIguais.reduce((acc, v) => acc + v.itens_devolvidos, 0)} | Levadas: {trocasIguais.reduce((acc, v) => acc + v.itens_trocados, 0)}</span>
+                      <span className="text-purple-800 uppercase">Devolvidas: {trocasIguais.reduce((acc, v) => acc + v.itens_devolvidos, 0)} | Levadas: {trocasIguais.reduce((acc, v) => acc + v.itens_trocados, 0)} | Saldo: {trocasIguais.reduce((acc, v) => acc + v.diferenca_itens, 0)}</span>
                     </div>
                   </div>
                 </CardContent>
@@ -363,41 +378,73 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
                 <CardContent className="p-4 md:p-6 pt-2">
                   <div className="grid grid-cols-2 gap-3 md:gap-4">
                     <div className="bg-white p-3 rounded-xl border border-orange-100">
-                      <p className="text-[8px] md:text-[10px] font-black text-slate-400 uppercase">Cupons</p>
+                      <p className="text-[8px] md:text-[10px] font-black text-slate-400 uppercase">Tickets</p>
                       <p className="text-lg font-black">{trocasComAdicional.length}</p>
                     </div>
                     <div className="bg-orange-500 p-3 rounded-xl text-white shadow-lg shadow-orange-100">
-                      <p className="text-[8px] md:text-[10px] font-black uppercase opacity-80">Saldo Pago</p>
+                      <p className="text-[8px] md:text-[10px] font-black uppercase opacity-80">Diferença Paga</p>
                       <p className="text-lg font-black">R$ {trocasComAdicional.reduce((acc, v) => acc + v.valor_diferenca, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                     </div>
                     <div className="col-span-2 bg-white p-3 rounded-xl border border-orange-100 flex justify-between items-center text-[10px] font-black">
                       <span className="text-orange-600">PEÇAS:</span>
-                      <span className="text-orange-800 uppercase">Devolvidas: {trocasComAdicional.reduce((acc, v) => acc + v.itens_devolvidos, 0)} | Levadas: {trocasComAdicional.reduce((acc, v) => acc + v.itens_trocados, 0)}</span>
+                      <span className="text-orange-800 uppercase">Devolvidas: {trocasComAdicional.reduce((acc, v) => acc + v.itens_devolvidos, 0)} | Levadas: {trocasComAdicional.reduce((acc, v) => acc + v.itens_trocados, 0)} | Saldo: {trocasComAdicional.reduce((acc, v) => acc + v.diferenca_itens, 0)}</span>
                     </div>
                   </div>
                 </CardContent>
               </Card>
             </div>
+          </div>
+        )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-              {channelSummary.map((c, i) => (
-                <Card key={c.Canal} className="ri-card group border-0 shadow-xl overflow-hidden">
-                  <div className={cn("h-2 w-full", ["bg-pink-500", "bg-sky-500", "bg-orange-500", "bg-purple-500", "bg-emerald-500"][i % 5])} />
-                  <CardHeader className="p-5 pb-2">
-                    <CardTitle className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{formatCanal(c.Canal)}</CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-5 pt-2">
-                    <p className="text-xl font-black text-slate-800">R$ {parseFloat(c.Venda_Total).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                    <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-slate-50">
-                      <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Tickets</span><span className="text-xs font-black">{c.Cupons}</span></div>
-                      <div className="flex flex-col"><span className="text-[8px] font-black text-slate-400 uppercase">Itens</span><span className="text-xs font-black">{c.Itens_Total}</span></div>
-                      <div className="flex flex-col"><span className="text-[8px] font-black text-orange-400 uppercase">Média</span><span className="text-xs font-black text-orange-500">R$ {c.TKM}</span></div>
-                      <div className="flex flex-col"><span className="text-[8px] font-black text-sky-400 uppercase">P/V</span><span className="text-xs font-black text-sky-500">{c.PA}</span></div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+        {activeTab === "diario" && (
+          <div className="space-y-6 md:space-y-8 animate-in slide-in-from-right-8 duration-500">
+             <div className="bg-white rounded-[1.5rem] md:rounded-[2rem] p-4 md:p-8 shadow-xl border-2 border-slate-50">
+                <h3 className="text-sm md:text-base font-black text-slate-800 uppercase mb-6 flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5 text-orange-500" /> Tendência de Vendas por Período
+                </h3>
+                <div className="h-[250px] md:h-[350px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={dailyPerformance}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                      <XAxis dataKey="date" fontSize={10} fontWeight="bold" tick={{fill: '#94a3b8'}} />
+                      <YAxis fontSize={10} fontWeight="bold" tick={{fill: '#94a3b8'}} />
+                      <RechartsTooltip 
+                        contentStyle={{borderRadius: '1rem', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontWeight: 'bold'}}
+                      />
+                      <Legend />
+                      <Line type="monotone" dataKey="venda" name="Venda Total" stroke="#f97316" strokeWidth={4} dot={{ r: 6, fill: '#f97316' }} />
+                      <Line type="monotone" dataKey="cupons" name="Tickets" stroke="#0ea5e9" strokeWidth={2} dot={{ r: 4, fill: '#0ea5e9' }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+             </div>
+
+             <div className="bg-white rounded-[1.5rem] md:rounded-[2rem] shadow-2xl border-2 border-slate-50 overflow-hidden">
+                <div className="overflow-x-auto scrollbar-hide">
+                  <Table>
+                    <TableHeader className="bg-slate-50/50">
+                      <TableRow>
+                        <TableHead className="px-4 md:px-6 py-4 font-black uppercase text-[9px] md:text-[10px]">Data</TableHead>
+                        <TableHead className="text-right font-black uppercase text-[9px] md:text-[10px]">Venda Total</TableHead>
+                        <TableHead className="text-center font-black uppercase text-[9px] md:text-[10px]">Tickets</TableHead>
+                        <TableHead className="text-right font-black uppercase text-[9px] md:text-[10px] hidden sm:table-cell">Média (TKM)</TableHead>
+                        <TableHead className="text-center font-black uppercase text-[9px] md:text-[10px] px-4 md:px-6">P/V (PA)</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {dailyPerformance.map((d) => (
+                        <TableRow key={d.date} className="hover:bg-orange-50/30 transition-colors">
+                          <TableCell className="px-4 md:px-6 py-4 font-black text-slate-700 whitespace-nowrap text-xs md:text-sm">{d.date}</TableCell>
+                          <TableCell className="text-right font-black text-xs md:text-sm">R$ {d.venda.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</TableCell>
+                          <TableCell className="text-center font-bold text-slate-500 text-xs">{d.cupons}</TableCell>
+                          <TableCell className="text-right font-black text-orange-500 text-xs hidden sm:table-cell">R$ {d.tkm.toFixed(2)}</TableCell>
+                          <TableCell className="text-center px-4 md:px-6 font-black text-sky-500 text-xs">{d.pa.toFixed(2)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+             </div>
           </div>
         )}
 
@@ -408,19 +455,9 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
                   <TrendingUp className="hidden md:block w-8 h-8 text-emerald-500 shrink-0" />
                   <div>
                     <h3 className="text-emerald-800 font-black uppercase text-base md:text-lg leading-tight">Ranking de Performance Venda</h3>
-                    <p className="text-emerald-600 text-[10px] md:text-sm font-medium mt-1">Colaboradores em <span className="font-black">Verde</span> superam a média de faturamento da loja.</p>
+                    <p className="text-emerald-600 text-[10px] md:text-sm font-medium mt-1">Colaboradores em <span className="font-black text-emerald-700">Verde</span> superam a média de faturamento da loja.</p>
                   </div>
                </div>
-               <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button variant="ghost" size="icon" className="text-emerald-600"><HelpCircle className="w-5 h-5" /></Button>
-                    </TooltipTrigger>
-                    <TooltipContent className="max-w-xs p-4 bg-emerald-900 text-white rounded-xl shadow-2xl border-0">
-                      <p className="text-xs font-bold leading-relaxed">O ranking analisa quem traz mais rentabilidade para a Ri Happy. TKM é quanto o cliente gasta em média, e PA é quantas peças ele leva por visita.</p>
-                    </TooltipContent>
-                  </Tooltip>
-               </TooltipProvider>
             </div>
             <div className="bg-white rounded-[1.5rem] md:rounded-[2rem] shadow-2xl border-2 border-slate-50 overflow-hidden">
               <div className="overflow-x-auto scrollbar-hide">

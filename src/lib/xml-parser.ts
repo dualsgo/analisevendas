@@ -12,20 +12,19 @@ function dec(s: string | null | undefined): number {
 }
 
 function extractVendedor(infCpl: string): string {
-  if (!infCpl) return "SEM_VENDEDOR";
+  if (!infCpl) return "VENDEDOR NÃO IDENTIFICADO";
   
-  const vLabel = "Vendedor:";
-  const vIdx = infCpl.indexOf(vLabel);
-  if (vIdx === -1) {
-    const vAlt = "Vend:";
-    const vAltIdx = infCpl.indexOf(vAlt);
-    if (vAltIdx === -1) return "SEM_VENDEDOR";
-    let part = infCpl.substring(vAltIdx + vAlt.length).trim();
-    const end = part.search(/;|Email:|Telefone:|E-mail:|\s{2,}/i);
-    return (end !== -1 ? part.substring(0, end) : part).trim() || "SEM_VENDEDOR";
-  }
-
-  let candidate = infCpl.substring(vIdx + vLabel.length).trim();
+  // Busca o rótulo Vendedor: ou Vend:
+  const vLabel = /Vendedor:|Vend:/i;
+  const match = infCpl.match(vLabel);
+  
+  if (!match || match.index === undefined) return "VENDEDOR NÃO IDENTIFICADO";
+  
+  // Captura o texto após o rótulo
+  const startIdx = match.index + match[0].length;
+  let candidate = infCpl.substring(startIdx).trim();
+  
+  // Delimitadores comuns que encerram o nome do vendedor
   const delimiters = [
     "Email:", 
     "E-mail:", 
@@ -34,24 +33,28 @@ function extractVendedor(infCpl: string): string {
     ".::", 
     ";",
     "ID:",
-    "CPF:"
+    "CPF:",
+    "CNPJ:",
+    "Endereço:",
+    "Data:"
   ];
 
   let endIdx = candidate.length;
   for (const d of delimiters) {
-    const dIdx = candidate.indexOf(d);
+    const dIdx = candidate.toUpperCase().indexOf(d.toUpperCase());
     if (dIdx !== -1 && dIdx < endIdx) {
       endIdx = dIdx;
     }
   }
 
+  // Se houver dois ou mais espaços seguidos, provavelmente é o fim do campo
   const multiSpace = candidate.match(/\s{2,}/);
   if (multiSpace && multiSpace.index !== undefined && multiSpace.index < endIdx) {
     endIdx = multiSpace.index;
   }
 
   const name = candidate.substring(0, endIdx).trim();
-  return name || "SEM_VENDEDOR";
+  return name || "VENDEDOR NÃO IDENTIFICADO";
 }
 
 export function parseXml(xmlString: string): DetailedSaleRow | null {
@@ -187,11 +190,11 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     let canal = "LOJA_FISICA";
     let canalConsolidado = "VENDA_LOJA";
     let isAdicional = false;
-    let motivoAdicional = "NAO_ADICIONAL";
+    let motivoAdicional = "NÃO CLASSIFICADO";
 
     if (tpNF === 1) {
       if (isTroca) {
-        canal = difTroca > 0.01 ? "TROCA_COM_DIFERENCA" : "TROCA_SEM_DIFERENCA";
+        canal = difTroca > 0.01 ? "TROCA_COM_DIFERENÇA" : "TROCA_SEM_DIFERENÇA";
         canalConsolidado = "TROCA";
       } else if (isPresencialPorTroco) {
         canal = "LOJA_FISICA";
@@ -203,19 +206,19 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
         canal = "RETIRADA_ADICIONAL";
         canalConsolidado = "VENDA_LOJA";
         isAdicional = true;
-        motivoAdicional = "COM_DESCONTO";
+        motivoAdicional = "ADICIONAL IDENTIFICADO PELO DESCONTO";
       }
     }
 
-    let tipoDesconto = "SEM_DESCONTO";
-    let statusAuditoria = "SEM_DESCONTO";
+    let tipoDesconto = "SEM DESCONTO";
+    let statusAuditoria = "SEM DESCONTO";
     if (descontoTotal > 0 && tpNF === 1 && !isTroca) {
       if (isAdicionalDoc) {
-        tipoDesconto = isEnderecoReal ? "ADICIONAL_VALIDO" : "ADICIONAL_ENDERECO_IGUAL";
-        statusAuditoria = "ADICIONAL";
+        tipoDesconto = isEnderecoReal ? "ADICIONAL VÁLIDO (ENDEREÇO REAL)" : "ADICIONAL COM ENDEREÇO IGUAL À LOJA";
+        statusAuditoria = "CLASSIFICADO COMO ADICIONAL";
       } else {
-        tipoDesconto = percentualDesconto < ADICIONAL_PERCENT_MIN ? "FORA_FAIXA_MENOR" : "FORA_FAIXA_MAIOR";
-        statusAuditoria = "FORA_DO_PADRAO";
+        tipoDesconto = percentualDesconto < ADICIONAL_PERCENT_MIN ? "DESCONTO ABAIXO DA FAIXA ESPERADA" : "DESCONTO ACIMA DA FAIXA ESPERADA";
+        statusAuditoria = "DESCONTO FORA DO PADRÃO PARA ADICIONAL";
       }
     }
 

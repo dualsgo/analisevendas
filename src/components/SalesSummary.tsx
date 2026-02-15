@@ -44,7 +44,7 @@ interface SalesSummaryProps {
   vinculos: VinculoTroca[];
 }
 
-export function SalesSummary({ data, vinculos }: SalesSummaryProps) {
+export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
   const { toast } = useToast();
   const saidas = useMemo(() => data.filter(r => r.tpNF === 1), [data]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -54,28 +54,11 @@ export function SalesSummary({ data, vinculos }: SalesSummaryProps) {
       case "LOJA_FISICA": return "Loja Física";
       case "RETIRADA_ONLINE": return "Retirada Online";
       case "RETIRADA_ADICIONAL": return "Retirada Adicional";
-      case "TROCA_COM_DIFERENCA": return "Troca com Diferença";
-      case "TROCA_SEM_DIFERENCA": return "Troca sem Diferença";
+      case "TROCA_COM_DIFERENÇA": return "Troca com Diferença";
+      case "TROCA_SEM_DIFERENÇA": return "Troca sem Diferença";
       case "VENDA_LOJA": return "Venda Loja";
       case "TROCA": return "Trocas";
       default: return canal.replace(/_/g, " ");
-    }
-  };
-
-  const getStatusLabel = (status: string, detail?: string) => {
-    switch (status) {
-      case "ADICIONAL": return "CLASSIFICADO COMO ADICIONAL";
-      case "FORA_DO_PADRAO": return "DESCONTO FORA DO PADRÃO PARA ADICIONAL";
-      default:
-        switch (detail) {
-          case "ADICIONAL_VALIDO": return "ADICIONAL VÁLIDO (ENDEREÇO REAL)";
-          case "ADICIONAL_ENDERECO_IGUAL": return "ADICIONAL COM ENDEREÇO IGUAL À LOJA";
-          case "FORA_FAIXA_MENOR": return "DESCONTO ABAIXO DA FAIXA ESPERADA";
-          case "FORA_FAIXA_MAIOR": return "DESCONTO ACIMA DA FAIXA ESPERADA";
-          case "SUSPEITO_MESMO_DIA": return "VENDA SUSPEITA (MESMO CPF NO MESMO DIA)";
-          case "COM_DESCONTO": return "ADICIONAL IDENTIFICADO PELO DESCONTO";
-          default: return status || "NÃO CLASSIFICADO";
-        }
     }
   };
 
@@ -190,7 +173,7 @@ export function SalesSummary({ data, vinculos }: SalesSummaryProps) {
             <TabsTrigger value="trocas" className="tab-trigger-custom flex items-center gap-2">
                TROCAS VINCULADAS
               <span className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full text-[10px] font-bold">
-                {vinculos.length}
+                {vinculos?.length || 0}
               </span>
             </TabsTrigger>
             <TabsTrigger value="transacoes" className="tab-trigger-custom">LISTAGEM DE TRANSAÇÕES</TabsTrigger>
@@ -336,9 +319,9 @@ export function SalesSummary({ data, vinculos }: SalesSummaryProps) {
                         const filt = saidas.filter(r => r.canal === c.Canal && r.vendedor === v.Vendedor);
                         const venda = filt.reduce((acc, r) => acc + parseFloat(r.vNF), 0);
                         const cupons = filt.length;
-                        const itens = filt.reduce((acc, r) => acc + parseFloat(r.itens_qtd), 0);
+                        const itensCount = filt.reduce((acc, r) => acc + parseFloat(r.itens_qtd), 0);
                         const tkm = cupons > 0 ? (venda / cupons).toFixed(2) : "0.00";
-                        const pa = cupons > 0 ? (itens / cupons).toFixed(2) : "0.00";
+                        const pa = cupons > 0 ? (itensCount / cupons).toFixed(2) : "0.00";
                         
                         return (
                           <TableCell key={v.Vendedor} className="border-r p-3">
@@ -347,7 +330,7 @@ export function SalesSummary({ data, vinculos }: SalesSummaryProps) {
                                 <p className="text-[11px] font-black text-slate-800">R$ {venda.toFixed(0)}</p>
                                 <div className="flex justify-center gap-2 text-[9px] text-slate-400 font-bold uppercase">
                                   <span>{cupons} CP</span>
-                                  <span>{itens} IT</span>
+                                  <span>{itensCount} IT</span>
                                 </div>
                                 <div className="text-[9px] flex justify-center gap-1 font-bold">
                                   <span className="text-indigo-500">TKM {tkm}</span>
@@ -492,7 +475,7 @@ export function SalesSummary({ data, vinculos }: SalesSummaryProps) {
                       <TableCell className="text-center font-bold">{r.itens_qtd}</TableCell>
                       <TableCell className="text-center">
                         <span className="text-[9px] px-2 py-1 rounded bg-slate-100 text-slate-600 font-black">
-                          {getStatusLabel(r.status_auditoria)}
+                          {r.status_auditoria}
                         </span>
                       </TableCell>
                       <TableCell className="text-center">
@@ -525,7 +508,7 @@ export function SalesSummary({ data, vinculos }: SalesSummaryProps) {
             <Card className="bg-emerald-50 border-emerald-200">
               <CardHeader className="p-5">
                 <CardTitle className="text-3xl font-black text-emerald-600">
-                  {auditDescontos.filter(r => r.status_auditoria === "ADICIONAL").length}
+                  {auditDescontos.filter(r => r.is_adicional).length}
                 </CardTitle>
                 <p className="text-[10px] text-emerald-800 font-black uppercase mt-1">Notas Classificadas como Adicional Válido</p>
               </CardHeader>
@@ -533,7 +516,7 @@ export function SalesSummary({ data, vinculos }: SalesSummaryProps) {
             <Card className="bg-red-50 border-red-200">
               <CardHeader className="p-5">
                 <CardTitle className="text-3xl font-black text-red-600">
-                  {auditDescontos.filter(r => r.status_auditoria === "FORA_DO_PADRAO").length}
+                  {auditDescontos.filter(r => r.status_auditoria.includes("FORA DO PADRÃO")).length}
                 </CardTitle>
                 <p className="text-[10px] text-red-800 font-black uppercase mt-1">Descontos Fora do Padrão</p>
               </CardHeader>
@@ -565,13 +548,13 @@ export function SalesSummary({ data, vinculos }: SalesSummaryProps) {
                     <TableCell className="text-right text-xs font-mono">R$ {r.vNF}</TableCell>
                     <TableCell className="text-right text-xs">1</TableCell>
                     <TableCell className="text-right text-xs">{r.itens_qtd}</TableCell>
-                    <TableCell className="text-right text-xs font-mono font-bold text-amber-700">R$ {r.desconto_total} ({parseFloat(r.percentual_desconto) * 100}%)</TableCell>
+                    <TableCell className="text-right text-xs font-mono font-bold text-amber-700">R$ {r.desconto_total} ({(parseFloat(r.percentual_desconto) * 100).toFixed(1)}%)</TableCell>
                     <TableCell className="text-center">
                       <span className={cn(
                         "text-[9px] px-2 py-1 rounded font-black",
-                        r.status_auditoria === "ADICIONAL" ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"
+                        r.is_adicional ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"
                       )}>
-                        {getStatusLabel(r.status_auditoria)}
+                        {r.status_auditoria}
                       </span>
                     </TableCell>
                   </TableRow>
@@ -586,14 +569,14 @@ export function SalesSummary({ data, vinculos }: SalesSummaryProps) {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <Card className="bg-purple-50 border-purple-200">
               <CardHeader className="p-5">
-                <CardTitle className="text-3xl font-black text-purple-700">{vinculos.length}</CardTitle>
+                <CardTitle className="text-3xl font-black text-purple-700">{vinculos?.length || 0}</CardTitle>
                 <p className="text-[10px] text-purple-800 font-black uppercase mt-1">Vínculos de Troca Identificados</p>
               </CardHeader>
             </Card>
             <Card className="bg-indigo-50 border-indigo-200">
               <CardHeader className="p-5">
                 <CardTitle className="text-3xl font-black text-indigo-700">
-                  R$ {vinculos.reduce((acc, v) => acc + v.valor_diferenca, 0).toFixed(2)}
+                  R$ {vinculos?.reduce((acc, v) => acc + (v.valor_diferenca || 0), 0).toFixed(2)}
                 </CardTitle>
                 <p className="text-[10px] text-indigo-800 font-black uppercase mt-1">Diferença Total Recebida em Trocas</p>
               </CardHeader>
@@ -601,7 +584,7 @@ export function SalesSummary({ data, vinculos }: SalesSummaryProps) {
             <Card className="bg-slate-50 border-slate-200">
               <CardHeader className="p-5">
                 <CardTitle className="text-3xl font-black text-slate-700">
-                  {vinculos.reduce((acc, v) => acc + v.diferenca_itens, 0)}
+                  {vinculos?.reduce((acc, v) => acc + (v.diferenca_itens || 0), 0)}
                 </CardTitle>
                 <p className="text-[10px] text-slate-800 font-black uppercase mt-1">Saldo Total de Itens (Entrada - Saída)</p>
               </CardHeader>
@@ -627,7 +610,7 @@ export function SalesSummary({ data, vinculos }: SalesSummaryProps) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {vinculos.map((v, i) => (
+                {(vinculos || []).map((v, i) => (
                   <ExpandableTradeRow key={i} vinculo={v} data={data} />
                 ))}
               </TableBody>
@@ -668,7 +651,7 @@ export function SalesSummary({ data, vinculos }: SalesSummaryProps) {
               </TableHeader>
               <TableBody>
                 {filteredTransactions.slice(0, 100).map((r, i) => (
-                  <ExpandableRow key={i} row={r} getStatusLabel={getStatusLabel} formatCanal={formatCanal} />
+                  <ExpandableRow key={i} row={r} formatCanal={formatCanal} />
                 ))}
               </TableBody>
             </Table>
@@ -704,7 +687,7 @@ export function SalesSummary({ data, vinculos }: SalesSummaryProps) {
   );
 }
 
-function ExpandableRow({ row, getStatusLabel, formatCanal }: { row: DetailedSaleRow, getStatusLabel: Function, formatCanal: Function }) {
+function ExpandableRow({ row, formatCanal }: { row: DetailedSaleRow, formatCanal: Function }) {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -774,10 +757,10 @@ function ExpandableRow({ row, getStatusLabel, formatCanal }: { row: DetailedSale
                     <div>
                       <p className="text-[9px] text-slate-400 font-bold uppercase">Análise de Auditoria</p>
                       <p className="text-[10px] font-black text-indigo-600 uppercase mt-1 leading-tight">
-                        {getStatusLabel(row.status_auditoria)}
+                        {row.status_auditoria}
                       </p>
                       <p className="text-[9px] text-slate-400 font-bold uppercase mt-1">
-                        {getStatusLabel(row.status_auditoria, row.tipo_desconto)}
+                        {row.tipo_desconto}
                       </p>
                     </div>
                   </div>
@@ -849,7 +832,6 @@ function ExpandableTradeRow({ vinculo, data }: { vinculo: VinculoTroca, data: De
           <TableCell colSpan={6} className="p-0 border-b border-purple-100">
             <div className="p-8 space-y-8 animate-in slide-in-from-top-2 duration-300">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                {/* Nota de Entrada */}
                 <div className="space-y-4">
                   <h4 className="text-[10px] font-black text-slate-400 uppercase flex items-center gap-2">
                     <ArrowRightLeft className="w-3.5 h-3.5 text-red-500" /> Itens Recebidos (Crédito de Troca)
@@ -882,7 +864,6 @@ function ExpandableTradeRow({ vinculo, data }: { vinculo: VinculoTroca, data: De
                   </div>
                 </div>
 
-                {/* Nota de Saída */}
                 <div className="space-y-4">
                   <h4 className="text-[10px] font-black text-slate-400 uppercase flex items-center gap-2">
                     <ArrowRightLeft className="w-3.5 h-3.5 text-emerald-500" /> Itens Vendidos (Nova Compra)
@@ -916,7 +897,6 @@ function ExpandableTradeRow({ vinculo, data }: { vinculo: VinculoTroca, data: De
                 </div>
               </div>
 
-              {/* Consolidação Final */}
               <div className="bg-indigo-900 text-white rounded-2xl p-6 flex flex-col md:flex-row justify-between items-center gap-6 shadow-xl">
                 <div className="space-y-1">
                   <p className="text-[9px] font-black text-indigo-300 uppercase">Resumo da Operação</p>

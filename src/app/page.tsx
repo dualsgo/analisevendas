@@ -25,7 +25,7 @@ export default function Home() {
       const { vinculos: exchangeLinks } = vincularTrocas(withSuspects);
       
       setParsedRows(withSuspects);
-      setVinculos(exchangeLinks);
+      setVinculos(exchangeLinks || []);
       setStatus("success");
     }, 800);
   };

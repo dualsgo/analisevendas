@@ -3,8 +3,8 @@ import type {Metadata} from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Analisador Ri Happy | Dashboard de Performance',
-  description: 'Módulo de Conversão de Adicionais e Análise de Trocas',
+  title: 'Ri Happy | Analisador de Performance',
+  description: 'Gestão Estratégica de Vendas, Adicionais e Trocas',
 };
 
 export default function RootLayout({

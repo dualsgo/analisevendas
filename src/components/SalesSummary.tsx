@@ -747,6 +747,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
                     <TableHead className="w-10 px-4 py-4"></TableHead>
                     <TableHead className="font-black uppercase text-[10px]">Nota / Data</TableHead>
                     <TableHead className="font-black uppercase text-[10px]">Cliente / CPF</TableHead>
+                    <TableHead className="font-black uppercase text-[10px] hidden sm:table-cell">Colaborador</TableHead>
                     <TableHead className="text-right font-black uppercase text-[10px]">Valor</TableHead>
                     <TableHead className="text-center font-black uppercase text-[10px]">Peças</TableHead>
                   </TableRow>
@@ -800,15 +801,18 @@ function ExpandableRow({ row, formatCanal }: { row: DetailedSaleRow, formatCanal
           <p className="text-slate-400 font-bold mt-0.5">{row.dhEmi.substring(0, 10)}</p>
         </TableCell>
         <TableCell className="text-[10px] font-bold">
-          <p className="text-slate-700 truncate max-w-[150px]">{row.nome_dest || "Balcão"}</p>
+          <p className="text-slate-700 truncate max-w-[150px]">{row.nome_dest || "Não Identificado"}</p>
           <p className="text-slate-400 font-mono text-[9px] mt-0.5">{row.cpf_cnpj_dest || "Não Identificado"}</p>
+        </TableCell>
+        <TableCell className="text-[10px] font-black hidden sm:table-cell">
+          <p className="text-slate-600">{row.vendedor}</p>
         </TableCell>
         <TableCell className="text-right font-black text-xs">{formatCurrency(row.vNF)}</TableCell>
         <TableCell className="text-center font-black text-xs">{row.itens_qtd}</TableCell>
       </TableRow>
       {isOpen && (
         <TableRow className="bg-slate-50/30">
-          <TableCell colSpan={5} className="p-4 border-b border-orange-100">
+          <TableCell colSpan={6} className="p-4 border-b border-orange-100">
             <div className="space-y-4 animate-in slide-in-from-top-2">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm">

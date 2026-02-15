@@ -1,4 +1,3 @@
-
 import { DetailedSaleRow, Item } from "./types";
 
 const ADICIONAL_PERCENT_MIN = 0.08;
@@ -6,6 +5,7 @@ const ADICIONAL_PERCENT_MAX = 0.12;
 
 function dec(s: string | null | undefined): number {
   if (!s) return 0;
+  // Handle formatted numbers like "1.234,56" or "1234.56"
   const cleanS = s.includes(',') ? s.replace(/\./g, '').replace(',', '.') : s;
   const num = parseFloat(cleanS);
   return isNaN(num) ? 0 : num;
@@ -14,17 +14,15 @@ function dec(s: string | null | undefined): number {
 function extractVendedor(infCpl: string): string {
   if (!infCpl) return "VENDEDOR NÃO IDENTIFICADO";
   
-  // Busca o rótulo Vendedor: ou Vend:
+  // Refined extraction logic to avoid truncating names
   const vLabel = /Vendedor:|Vend:/i;
   const match = infCpl.match(vLabel);
   
   if (!match || match.index === undefined) return "VENDEDOR NÃO IDENTIFICADO";
   
-  // Captura o texto após o rótulo
   const startIdx = match.index + match[0].length;
   let candidate = infCpl.substring(startIdx).trim();
   
-  // Delimitadores comuns que encerram o nome do vendedor
   const delimiters = [
     "Email:", 
     "E-mail:", 
@@ -47,7 +45,7 @@ function extractVendedor(infCpl: string): string {
     }
   }
 
-  // Se houver dois ou mais espaços seguidos, provavelmente é o fim do campo
+  // Handle double spaces as a delimiter
   const multiSpace = candidate.match(/\s{2,}/);
   if (multiSpace && multiSpace.index !== undefined && multiSpace.index < endIdx) {
     endIdx = multiSpace.index;
@@ -141,13 +139,14 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     });
 
     const pagamentos: Record<string, number> = {};
-    let vTroco = 0;
+    let vTrocoVal = 0;
+    let vTrocoPag = 0;
     let tpIntegra = "";
     
     const pag = getElement(infNFe, "pag");
     if (pag) {
       const vTrocoEl = getElement(pag, "vTroco");
-      if (vTrocoEl) vTroco = dec(vTrocoEl.textContent);
+      if (vTrocoEl) vTrocoPag = dec(vTrocoEl.textContent);
       
       const detPags = getElements(pag, "detPag");
       detPags.forEach(detPag => {
@@ -173,11 +172,11 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     const infCpl = infAdic ? (getElement(infAdic, "infCpl")?.textContent || "") : "";
     const vendedor = extractVendedor(infCpl);
 
-    const isPresencialPorTroco = vTroco > 0 || (pagamentos["01"] || 0) > 0;
+    const isPresencialPorTroco = vTrocoPag > 0 || (pagamentos["01"] || 0) > 0;
     const isEnderecoReal = !!cep_dest && !!cep_loja && cep_dest !== cep_loja;
-    const vTrocaVal = pagamentos["05"] || 0;
-    const isTroca = vTrocaVal > 0;
-    const difTroca = vNFValue - vTrocaVal;
+    const vTrocaCredito = pagamentos["05"] || 0;
+    const isTroca = vTrocaCredito > 0;
+    const difTroca = vNFValue - vTrocaCredito;
 
     const valorTotalProds = itemsList.reduce((acc, it) => acc + it.vProd, 0);
     const descontoTotal = itemsList.reduce((acc, it) => acc + it.vDesc, 0);
@@ -234,13 +233,13 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
       desconto_total: descontoTotal.toFixed(2),
       percentual_desconto: percentualDesconto.toFixed(4),
       is_troca: isTroca,
-      vTroca: vTrocaVal.toFixed(2),
+      vTroca: vTrocaCredito.toFixed(2),
       dif_troca: difTroca.toFixed(2),
       is_devolucao: isDevolucao,
       refNFe: refNFes,
       refNFe_normalizadas: refNFes.map(r => r.replace(/\D/g, "")),
       is_retirada_online: isRetiradaOnline,
-      vTroco: vTroco.toFixed(2),
+      vTroco: vTrocoPag.toFixed(2),
       is_presencial_por_troco: isPresencialPorTroco,
       tpIntegra,
       tem_desconto: descontoTotal > 0,

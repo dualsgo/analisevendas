@@ -4,16 +4,30 @@
 import { useState } from "react";
 import { UploadZone } from "@/components/UploadZone";
 import { SalesSummary } from "@/components/SalesSummary";
-import { DetailedSaleRow } from "@/lib/types";
+import { DetailedSaleRow, VinculoTroca } from "@/lib/types";
 import { FileBarChart, RefreshCw, BarChart3, Database, FileSpreadsheet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/toaster";
+import { detectarAdicionaisSuspeitos, vincularTrocas } from "@/lib/analysis-utils";
 
 export default function Home() {
   const [parsedRows, setParsedRows] = useState<DetailedSaleRow[]>([]);
+  const [vinculos, setVinculos] = useState<VinculoTroca[]>([]);
+
+  const handleDataParsed = (rows: DetailedSaleRow[]) => {
+    // 1. Detectar Adicionais Suspeitos
+    const withSuspects = detectarAdicionaisSuspeitos(rows);
+    
+    // 2. Vincular Trocas
+    const exchangeLinks = vincularTrocas(withSuspects);
+    
+    setParsedRows(withSuspects);
+    setVinculos(exchangeLinks);
+  };
 
   const handleReset = () => {
     setParsedRows([]);
+    setVinculos([]);
   };
 
   return (
@@ -25,14 +39,14 @@ export default function Home() {
               <FileBarChart className="w-6 h-6" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold tracking-tight text-primary">XML Sales Analyzer</h1>
-              <p className="text-xs text-muted-foreground uppercase tracking-widest font-semibold">Dashboard de Performance Comercial</p>
+              <h1 className="text-2xl font-bold tracking-tight text-primary">Analisador Ri Happy</h1>
+              <p className="text-xs text-muted-foreground uppercase tracking-widest font-semibold">Versão 6.0 • Auditoria Fiscal</p>
             </div>
           </div>
           {parsedRows.length > 0 && (
             <Button variant="ghost" size="sm" onClick={handleReset} className="text-muted-foreground hover:text-primary">
               <RefreshCw className="w-4 h-4 mr-2" />
-              Reiniciar Análise
+              Reiniciar
             </Button>
           )}
         </div>
@@ -43,40 +57,34 @@ export default function Home() {
           <div className="flex flex-col gap-12 max-w-3xl mx-auto pt-12">
             <div className="text-center space-y-4">
               <h2 className="text-4xl font-extrabold text-foreground tracking-tight leading-tight">
-                Analise suas vendas a partir de <span className="text-primary italic">arquivos XML</span> em segundos.
+                Dashboard de <span className="text-primary italic">Performance Comercial</span>
               </h2>
               <p className="text-muted-foreground text-lg">
-                Transforme dados fiscais brutos em métricas estratégicas por canal e vendedor.
-                Processamento local rápido e seguro de NF-e e NFC-e.
+                Importe seus arquivos ZIP com XMLs para análise completa de canais, 
+                trocas e detecção de adicionais por CPF.
               </p>
             </div>
-            <UploadZone onDataParsed={setParsedRows} />
+            <UploadZone onDataParsed={handleDataParsed} />
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="p-6 rounded-2xl bg-card border shadow-sm space-y-3">
-                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                  <Database className="w-5 h-5" />
-                </div>
-                <h3 className="font-bold">Processamento de Dados</h3>
-                <p className="text-sm text-muted-foreground">Extração automática de valores, canais e vendedores diretamente dos XMLs.</p>
+                <Database className="w-5 h-5 text-primary" />
+                <h3 className="font-bold">Análise de Trocas</h3>
+                <p className="text-sm text-muted-foreground">Vínculo automático entre entrada e saída para cálculo de diferença paga.</p>
               </div>
               <div className="p-6 rounded-2xl bg-card border shadow-sm space-y-3">
-                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                  <BarChart3 className="w-5 h-5" />
-                </div>
-                <h3 className="font-bold">Análise Multicanal</h3>
-                <p className="text-sm text-muted-foreground">Visão clara de performance entre Loja Física, Online e Trocas.</p>
+                <BarChart3 className="w-5 h-5 text-primary" />
+                <h3 className="font-bold">Adicionais Suspeitos</h3>
+                <p className="text-sm text-muted-foreground">Identifica compras no mesmo dia e CPF de retiradas online.</p>
               </div>
               <div className="p-6 rounded-2xl bg-card border shadow-sm space-y-3">
-                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                  <FileSpreadsheet className="w-5 h-5" />
-                </div>
-                <h3 className="font-bold">Exportação CSV</h3>
-                <p className="text-sm text-muted-foreground">Gere planilhas prontas para uso em ferramentas de BI ou Excel.</p>
+                <FileSpreadsheet className="w-5 h-5 text-primary" />
+                <h3 className="font-bold">Filtro de Troco</h3>
+                <p className="text-sm text-muted-foreground">Evita falsos positivos em retiradas online detectando pagamentos presenciais.</p>
               </div>
             </div>
           </div>
         ) : (
-          <SalesSummary data={parsedRows} />
+          <SalesSummary data={parsedRows} vinculos={vinculos} />
         )}
       </div>
       <Toaster />

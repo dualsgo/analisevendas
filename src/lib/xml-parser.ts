@@ -1,19 +1,11 @@
 
-import { DetailedSaleRow } from "./types";
+import { DetailedSaleRow, Item } from "./types";
 
-const ADICIONAL_DESC_MIN = 0.080;
-const ADICIONAL_DESC_MAX = 0.105;
-const TPAG_ONLINE_OK = new Set(["03", "04"]);
+const ADICIONAL_PERCENT_MIN = 0.08;
+const ADICIONAL_PERCENT_MAX = 0.12;
+const TPAG_ONLINE_OK = new Set(["03", "04", "17"]);
 
-export interface ParsedItem {
-  cProd: string;
-  xProd: string;
-  qCom: number;
-  vProd: number;
-  vDesc: number;
-}
-
-function normAddr(s: string): string {
+function normText(s: string): string {
   if (!s) return "";
   return s
     .normalize("NFKD")
@@ -32,125 +24,197 @@ function extractVendedor(infCpl: string): string {
   return m2 ? m2[1].trim() : "SEM_VENDEDOR";
 }
 
+function getNS(doc: Document): string | null {
+  const root = doc.documentElement;
+  return root.getAttribute("xmlns") || null;
+}
+
 export function parseXml(xmlString: string): DetailedSaleRow | null {
   const parser = new DOMParser();
   const xmlDoc = parser.parseFromString(xmlString, "text/xml");
-  
-  // Tenta encontrar a tag infNFe independente do namespace, pois alguns geradores variam
-  let infNFe = xmlDoc.getElementsByTagName("infNFe")[0];
-  if (!infNFe) {
-    const ns = "http://www.portalfiscal.inf.br/nfe";
-    infNFe = xmlDoc.getElementsByTagNameNS(ns, "infNFe")[0];
-  }
+  const ns = getNS(xmlDoc);
 
+  const getElement = (parent: Element | Document, name: string) => {
+    return ns ? parent.getElementsByTagNameNS(ns, name)[0] : parent.getElementsByTagName(name)[0];
+  };
+
+  const getElements = (parent: Element | Document, name: string) => {
+    return ns ? parent.getElementsByTagNameNS(ns, name) : parent.getElementsByTagName(name);
+  };
+
+  const infNFe = getElement(xmlDoc, "infNFe");
   if (!infNFe) return null;
 
-  const ide = infNFe.getElementsByTagName("ide")[0] || infNFe.getElementsByTagNameNS("*", "ide")[0];
-  
-  // Alguns arquivos podem não ter tpNF explicitamente como esperado, mas ainda ser válidos
-  // Para análise de vendas, tpNF="1" é Saída.
-  const tpNF = ide?.getElementsByTagName("tpNF")[0]?.textContent || ide?.getElementsByTagNameNS("*", "tpNF")[0]?.textContent;
-  
-  // Se for entrada (tpNF=0), ignoramos para análise de vendas
-  if (tpNF === "0") return null;
-
+  const ide = getElement(infNFe, "ide");
   const chave = infNFe.getAttribute("Id")?.replace("NFe", "") || "";
-  const nf = ide?.getElementsByTagName("nNF")[0]?.textContent || ide?.getElementsByTagNameNS("*", "nNF")[0]?.textContent || "";
-  const dhEmi = ide?.getElementsByTagName("dhEmi")[0]?.textContent || ide?.getElementsByTagNameNS("*", "dhEmi")[0]?.textContent || "";
+  const nf = getElement(ide!, "nNF")?.textContent || "";
+  const serie = getElement(ide!, "serie")?.textContent || "";
+  const modelo = getElement(ide!, "mod")?.textContent || "";
+  const tpNF = parseInt(getElement(ide!, "tpNF")?.textContent || "1");
+  const finNFe = parseInt(getElement(ide!, "finNFe")?.textContent || "1");
+  const natOp = getElement(ide!, "natOp")?.textContent || "";
+  const dhEmi = getElement(ide!, "dhEmi")?.textContent || "";
 
-  const dest = infNFe.getElementsByTagName("dest")[0] || infNFe.getElementsByTagNameNS("*", "dest")[0];
-  const enderDest = dest?.getElementsByTagName("enderDest")[0] || dest?.getElementsByTagNameNS("*", "enderDest")[0];
-  const emit = infNFe.getElementsByTagName("emit")[0] || infNFe.getElementsByTagNameNS("*", "emit")[0];
-  const enderEmit = emit?.getElementsByTagName("enderEmit")[0] || emit?.getElementsByTagNameNS("*", "enderEmit")[0];
-
-  const getAddr = (parent: Element | undefined) => ({
-    xLgr: normAddr(parent?.getElementsByTagName("xLgr")[0]?.textContent || parent?.getElementsByTagNameNS("*", "xLgr")[0]?.textContent || ""),
-    nro: normAddr(parent?.getElementsByTagName("nro")[0]?.textContent || parent?.getElementsByTagNameNS("*", "nro")[0]?.textContent || ""),
-    xBairro: normAddr(parent?.getElementsByTagName("xBairro")[0]?.textContent || parent?.getElementsByTagNameNS("*", "xBairro")[0]?.textContent || ""),
-    cMun: normAddr(parent?.getElementsByTagName("cMun")[0]?.textContent || parent?.getElementsByTagNameNS("*", "cMun")[0]?.textContent || ""),
-    UF: normAddr(parent?.getElementsByTagName("UF")[0]?.textContent || parent?.getElementsByTagNameNS("*", "UF")[0]?.textContent || ""),
-  });
-
-  const addrDest = getAddr(enderDest);
-  const addrEmit = getAddr(enderEmit);
-
-  let pickupMatch = 0;
-  if (enderDest) {
-    if (addrDest.xLgr === addrEmit.xLgr && addrDest.xLgr) pickupMatch++;
-    if (addrDest.nro === addrEmit.nro && addrDest.nro) pickupMatch++;
-    if (addrDest.xBairro === addrEmit.xBairro && addrDest.xBairro) pickupMatch++;
-    if (addrDest.cMun === addrEmit.cMun && addrDest.cMun) pickupMatch++;
-    if (addrDest.UF === addrEmit.UF && addrDest.UF) pickupMatch++;
-  }
-
-  const totalTag = infNFe.getElementsByTagName("total")[0] || infNFe.getElementsByTagNameNS("*", "total")[0];
-  const vNFTag = totalTag?.getElementsByTagName("vNF")[0] || totalTag?.getElementsByTagNameNS("*", "vNF")[0];
-  const vNF = parseFloat(vNFTag?.textContent || "0");
+  // Destinatário
+  const dest = getElement(infNFe, "dest");
+  const cpf_cnpj = getElement(dest!, "CPF")?.textContent || getElement(dest!, "CNPJ")?.textContent || "";
+  const nome_dest = getElement(dest!, "xNome")?.textContent || "";
+  const enderDest = getElement(dest!, "enderDest");
+  const cep_dest = (getElement(enderDest!, "CEP")?.textContent || "").replace(/\D/g, "");
   
-  const items: ParsedItem[] = [];
-  const dets = infNFe.getElementsByTagName("det").length > 0 ? infNFe.getElementsByTagName("det") : infNFe.getElementsByTagNameNS("*", "det");
-  
+  const addrParts = [
+    getElement(enderDest!, "xLgr")?.textContent,
+    getElement(enderDest!, "nro")?.textContent,
+    getElement(enderDest!, "xBairro")?.textContent,
+    getElement(enderDest!, "xMun")?.textContent,
+    getElement(enderDest!, "UF")?.textContent
+  ].filter(Boolean);
+  const endereco_dest = addrParts.join(" - ");
+
+  // Emitente (Loja)
+  const emit = getElement(infNFe, "emit");
+  const enderEmit = getElement(emit!, "enderEmit");
+  const cep_loja = (getElement(enderEmit!, "CEP")?.textContent || "").replace(/\D/g, "");
+
+  // Totais
+  const total = getElement(infNFe, "total");
+  const icmsTot = getElement(total!, "ICMSTot");
+  const vNF = parseFloat(getElement(icmsTot!, "vNF")?.textContent || "0");
+
+  // Itens
+  const items: Item[] = [];
+  const dets = getElements(infNFe, "det");
   for (let i = 0; i < dets.length; i++) {
-    const prod = dets[i].getElementsByTagName("prod")[0] || dets[i].getElementsByTagNameNS("*", "prod")[0];
+    const prod = getElement(dets[i], "prod");
     items.push({
-      cProd: prod?.getElementsByTagName("cProd")[0]?.textContent || prod?.getElementsByTagNameNS("*", "cProd")[0]?.textContent || "",
-      xProd: prod?.getElementsByTagName("xProd")[0]?.textContent || prod?.getElementsByTagNameNS("*", "xProd")[0]?.textContent || "",
-      qCom: parseFloat(prod?.getElementsByTagName("qCom")[0]?.textContent || prod?.getElementsByTagNameNS("*", "qCom")[0]?.textContent || "0"),
-      vProd: parseFloat(prod?.getElementsByTagName("vProd")[0]?.textContent || prod?.getElementsByTagNameNS("*", "vProd")[0]?.textContent || "0"),
-      vDesc: parseFloat(prod?.getElementsByTagName("vDesc")[0]?.textContent || prod?.getElementsByTagNameNS("*", "vDesc")[0]?.textContent || "0"),
+      cProd: getElement(prod!, "cProd")?.textContent || "",
+      xProd: getElement(prod!, "xProd")?.textContent || "",
+      qCom: parseFloat(getElement(prod!, "qCom")?.textContent || "0"),
+      vProd: parseFloat(getElement(prod!, "vProd")?.textContent || "0"),
+      vDesc: parseFloat(getElement(prod!, "vDesc")?.textContent || "0"),
     });
   }
 
+  // Pagamentos e Troco
   const pagamentos: Record<string, number> = {};
-  const detPags = infNFe.getElementsByTagName("detPag").length > 0 ? infNFe.getElementsByTagName("detPag") : infNFe.getElementsByTagNameNS("*", "detPag");
+  let vTroco = 0;
+  let tpIntegra = "";
   
-  for (let i = 0; i < detPags.length; i++) {
-    const tPag = detPags[i].getElementsByTagName("tPag")[0]?.textContent || detPags[i].getElementsByTagNameNS("*", "tPag")[0]?.textContent || "";
-    const vPag = parseFloat(detPags[i].getElementsByTagName("vPag")[0]?.textContent || detPags[i].getElementsByTagNameNS("*", "vPag")[0]?.textContent || "0");
-    pagamentos[tPag] = (pagamentos[tPag] || 0) + vPag;
+  const pag = getElement(infNFe, "pag");
+  if (pag) {
+    const vTrocoEl = getElement(pag, "vTroco");
+    if (vTrocoEl) vTroco = parseFloat(vTrocoEl.textContent || "0");
+    
+    const detPags = getElements(pag, "detPag");
+    for (let i = 0; i < detPags.length; i++) {
+      const tPag = getElement(detPags[i], "tPag")?.textContent || "";
+      const vPag = parseFloat(getElement(detPags[i], "vPag")?.textContent || "0");
+      pagamentos[tPag] = (pagamentos[tPag] || 0) + vPag;
+      
+      const card = getElement(detPags[i], "card");
+      if (card) {
+        tpIntegra = getElement(card, "tpIntegra")?.textContent || tpIntegra;
+      }
+    }
   }
 
-  const infAdic = infNFe.getElementsByTagName("infAdic")[0] || infNFe.getElementsByTagNameNS("*", "infAdic")[0];
-  const infCpl = infAdic?.getElementsByTagName("infCpl")[0]?.textContent || infAdic?.getElementsByTagNameNS("*", "infCpl")[0]?.textContent || "";
-  const vendedor = extractVendedor(infCpl);
+  // Notas Referenciadas
+  const refNFes: string[] = [];
+  const ideRef = getElements(ide!, "NFref");
+  for (let i = 0; i < ideRef.length; i++) {
+    const r = getElement(ideRef[i], "refNFe")?.textContent;
+    if (r) refNFes.push(r);
+  }
 
-  const totalItems = items.reduce((acc, it) => acc + it.qCom, 0);
-  const vTroca = pagamentos["05"] || 0;
-  const isTroca = vTroca > 0;
-  const difTroca = vNF - vTroca;
+  // Vendedor
+  const infAdic = getElement(infNFe, "infAdic");
+  const infCpl = getElement(infAdic!, "infCpl")?.textContent || "";
+  const vendedor = extractVendedor(infCpl) || "SEM_VENDEDOR";
 
-  const tpagsNon05 = Object.keys(pagamentos).filter(k => k !== "05" && pagamentos[k] > 0);
-  const isOnlinePayment = tpagsNon05.length > 0 && tpagsNon05.every(k => TPAG_ONLINE_OK.has(k));
+  // Lógica de Classificação
+  const isPresencialPorTroco = vTroco > 0 || (pagamentos["01"] || 0) > 0;
+  const isEnderecoReal = !!cep_dest && !!cep_loja && cep_dest !== cep_loja;
+  const vTrocaVal = pagamentos["05"] || 0;
+  const isTroca = vTrocaVal > 0;
+  const difTroca = vNF - vTrocaVal;
 
-  const isAdicionalDoc = items.some(it => {
-    if (it.vProd <= 0 || it.vDesc <= 0) return false;
-    const ratio = it.vDesc / it.vProd;
-    return ratio >= ADICIONAL_DESC_MIN && ratio <= ADICIONAL_DESC_MAX;
-  });
+  const valorTotalProds = items.reduce((acc, it) => acc + it.vProd, 0);
+  const descontoTotal = items.reduce((acc, it) => acc + it.vDesc, 0);
+  const percentualDesconto = valorTotalProds > 0 ? descontoTotal / valorTotalProds : 0;
+  const isAdicionalDoc = percentualDesconto >= ADICIONAL_PERCENT_MIN && percentualDesconto <= ADICIONAL_PERCENT_MAX;
 
-  const isRetirada = !isTroca && !!enderDest && pickupMatch >= 3 && isOnlinePayment;
-  const isRetiradaAdicional = isRetirada && isAdicionalDoc;
+  const isOperacaoNaoPresencial = tpIntegra === "2";
+  const isRetiradaOnline = isOperacaoNaoPresencial && isEnderecoReal && !isPresencialPorTroco;
+  const isDevolucao = tpNF === 0 && (finNFe === 4 || natOp.toLowerCase().includes("devolucao"));
 
   let canal = "LOJA_FISICA";
-  if (isTroca) {
-    canal = difTroca > 0.01 ? "TROCA_COM_DIFERENCA" : "TROCA_SEM_DIFERENCA";
-  } else if (isRetirada) {
-    canal = isRetiradaAdicional ? "RETIRADA_ADICIONAL" : "RETIRADA_ONLINE";
+  let subcanal = "LOJA_FISICA";
+  let canalConsolidado = "VENDA_LOJA";
+  let isAdicional = false;
+  let motivoAdicional = "NAO_ADICIONAL";
+
+  if (tpNF === 1) {
+    if (isTroca) {
+      canal = difTroca > 0.01 ? "TROCA_COM_DIFERENCA" : "TROCA_SEM_DIFERENCA";
+      subcanal = canal;
+      canalConsolidado = "TROCA";
+    } else if (isPresencialPorTroco) {
+      canal = "LOJA_FISICA";
+      canalConsolidado = "VENDA_LOJA";
+    } else if (isRetiradaOnline) {
+      canal = "RETIRADA_ONLINE";
+      subcanal = "RETIRADA_ONLINE";
+      canalConsolidado = "RETIRADA_ONLINE";
+    } else if (isAdicionalDoc) {
+      canal = "RETIRADA_ADICIONAL";
+      subcanal = "ADICIONAL";
+      canalConsolidado = "VENDA_LOJA";
+      isAdicional = true;
+      motivoAdicional = "COM_DESCONTO";
+    }
+  }
+
+  let tipoDesconto = "SEM_DESCONTO";
+  let statusAuditoria = "SEM_DESCONTO";
+  if (descontoTotal > 0 && tpNF === 1 && !isTroca) {
+    if (isAdicionalDoc) {
+      tipoDesconto = isEnderecoReal ? "ADICIONAL_VALIDO" : "ADICIONAL_ENDERECO_IGUAL";
+      statusAuditoria = "ADICIONAL";
+    } else {
+      tipoDesconto = percentualDesconto < ADICIONAL_PERCENT_MIN ? "FORA_FAIXA_MENOR" : "FORA_FAIXA_MAIOR";
+      statusAuditoria = "FORA_DO_PADRAO";
+    }
   }
 
   return {
-    chave,
-    nf,
-    dhEmi,
-    vendedor,
-    canal,
+    chave, nf, serie, modelo, dhEmi, vendedor,
+    tpNF, finNFe, natOp,
+    canal, subcanal, canal_consolidado: canalConsolidado,
+    is_adicional: isAdicional,
+    is_adicional_suspeito: false,
+    motivo_adicional: motivoAdicional,
     vNF: vNF.toFixed(2),
-    itens_qtd: totalItems.toString(),
+    itens_qtd: items.reduce((acc, it) => acc + it.qCom, 0).toString(),
+    desconto_total: descontoTotal.toFixed(2),
+    percentual_desconto: percentualDesconto.toFixed(4),
     is_troca: isTroca,
-    vTroca: vTroca.toFixed(2),
+    vTroca: vTrocaVal.toFixed(2),
     dif_troca: difTroca.toFixed(2),
-    is_retirada: isRetirada,
-    is_retirada_adicional: isRetiradaAdicional,
-    pickup_match_fields: pickupMatch,
+    is_devolucao: isDevolucao,
+    refNFe: refNFes,
+    refNFe_normalizadas: refNFes.map(r => r.replace(/\D/g, "")),
+    is_retirada_online: isRetiradaOnline,
+    vTroco: vTroco.toFixed(2),
+    is_presencial_por_troco: isPresencialPorTroco,
+    tpIntegra,
+    tem_desconto: descontoTotal > 0,
+    tipo_desconto: tipoDesconto,
+    status_auditoria: statusAuditoria,
+    cep_dest, cep_loja,
+    is_cep_diferente_da_loja: isEnderecoReal,
+    is_endereco_real: isEnderecoReal,
+    cpf_cnpj_dest: cpf_cnpj,
+    nome_dest, endereco_dest,
+    tem_destinatario: !!cpf_cnpj
   };
 }

@@ -47,16 +47,16 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
   const getElement = (parent: Element | Document | null, name: string): Element | null => {
     if (!parent) return null;
     const elements = ns 
-      ? parent.getElementsByTagNameNS(ns, name) 
-      : parent.getElementsByTagName(name);
+      ? (parent instanceof Document ? parent.documentElement : parent).getElementsByTagNameNS(ns, name) 
+      : (parent instanceof Document ? parent.documentElement : parent).getElementsByTagName(name);
     return elements[0] || null;
   };
 
   const getElements = (parent: Element | Document | null, name: string): Element[] => {
     if (!parent) return [];
     const elements = ns 
-      ? parent.getElementsByTagNameNS(ns, name) 
-      : parent.getElementsByTagName(name);
+      ? (parent instanceof Document ? parent.documentElement : parent).getElementsByTagNameNS(ns, name) 
+      : (parent instanceof Document ? parent.documentElement : parent).getElementsByTagName(name);
     return Array.from(elements);
   };
 
@@ -64,6 +64,8 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
   if (!infNFe) return null;
 
   const ide = getElement(infNFe, "ide");
+  if (!ide) return null;
+
   const chave = infNFe.getAttribute("Id")?.replace("NFe", "") || "";
   const nf = getElement(ide, "nNF")?.textContent || "";
   const serie = getElement(ide, "serie")?.textContent || "";
@@ -75,29 +77,29 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
 
   // Destinatário
   const dest = getElement(infNFe, "dest");
-  const cpf_cnpj = getElement(dest, "CPF")?.textContent || getElement(dest, "CNPJ")?.textContent || "";
-  const nome_dest = getElement(dest, "xNome")?.textContent || "";
-  const enderDest = getElement(dest, "enderDest");
-  const cep_dest = (getElement(enderDest, "CEP")?.textContent || "").replace(/\D/g, "");
+  const cpf_cnpj = dest ? (getElement(dest, "CPF")?.textContent || getElement(dest, "CNPJ")?.textContent || "") : "";
+  const nome_dest = dest ? (getElement(dest, "xNome")?.textContent || "") : "";
+  const enderDest = dest ? getElement(dest, "enderDest") : null;
+  const cep_dest = enderDest ? (getElement(enderDest, "CEP")?.textContent || "").replace(/\D/g, "") : "";
   
-  const addrParts = [
+  const addrParts = enderDest ? [
     getElement(enderDest, "xLgr")?.textContent,
     getElement(enderDest, "nro")?.textContent,
     getElement(enderDest, "xBairro")?.textContent,
     getElement(enderDest, "xMun")?.textContent,
     getElement(enderDest, "UF")?.textContent
-  ].filter(Boolean);
+  ].filter(Boolean) : [];
   const endereco_dest = addrParts.join(" - ");
 
   // Emitente (Loja)
   const emit = getElement(infNFe, "emit");
-  const enderEmit = getElement(emit, "enderEmit");
-  const cep_loja = (getElement(enderEmit, "CEP")?.textContent || "").replace(/\D/g, "");
+  const enderEmit = emit ? getElement(emit, "enderEmit") : null;
+  const cep_loja = enderEmit ? (getElement(enderEmit, "CEP")?.textContent || "").replace(/\D/g, "") : "";
 
   // Totais
   const total = getElement(infNFe, "total");
-  const icmsTot = getElement(total, "ICMSTot");
-  const vNFValue = dec(getElement(icmsTot, "vNF")?.textContent);
+  const icmsTot = total ? getElement(total, "ICMSTot") : null;
+  const vNFValue = icmsTot ? dec(getElement(icmsTot, "vNF")?.textContent) : 0;
 
   // Itens
   const items: Item[] = [];
@@ -148,7 +150,7 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
 
   // Vendedor (Busca em infCpl)
   const infAdic = getElement(infNFe, "infAdic");
-  const infCpl = getElement(infAdic, "infCpl")?.textContent || "";
+  const infCpl = infAdic ? (getElement(infAdic, "infCpl")?.textContent || "") : "";
   const vendedor = extractVendedor(infCpl);
 
   // Lógica de Classificação 6.0
@@ -183,7 +185,7 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
       canalConsolidado = "VENDA_LOJA";
     } else if (isRetiradaOnline) {
       canal = "RETIRADA_ONLINE";
-      canalConsolidated = "RETIRADA_ONLINE";
+      canalConsolidado = "RETIRADA_ONLINE";
     } else if (isAdicionalDoc) {
       canal = "RETIRADA_ADICIONAL";
       canalConsolidado = "VENDA_LOJA";

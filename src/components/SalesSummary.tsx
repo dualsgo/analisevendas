@@ -119,16 +119,37 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
   // Indicadores por Canal
   const channelMetrics = useMemo(() => {
     const sum = (arr: DetailedSaleRow[]) => arr.reduce((acc, r) => acc + parseFloat(r.vNF), 0);
-    const items = (arr: DetailedSaleRow[]) => arr.reduce((acc, r) => acc + parseFloat(r.itens_qtd), 0);
+    const itemsCount = (arr: DetailedSaleRow[]) => arr.reduce((acc, r) => acc + parseFloat(r.itens_qtd), 0);
 
     const physical = saidas.filter(r => r.canal_consolidado === "VENDA_LOJA");
     const online = saidas.filter(r => r.canal === "RETIRADA_ONLINE");
     const additional = saidas.filter(r => r.canal === "RETIRADA_ADICIONAL" || r.is_adicional || r.is_adicional_suspeito);
 
+    const calcTkm = (v: number, c: number) => c > 0 ? v / c : 0;
+    const calcPa = (i: number, c: number) => c > 0 ? i / c : 0;
+
     return {
-      physical: { v: sum(physical), i: items(physical), c: physical.length },
-      online: { v: sum(online), i: items(online), c: online.length },
-      additional: { v: sum(additional), i: items(additional), c: additional.length }
+      physical: { 
+        v: sum(physical), 
+        i: itemsCount(physical), 
+        c: physical.length,
+        tkm: calcTkm(sum(physical), physical.length),
+        pa: calcPa(itemsCount(physical), physical.length)
+      },
+      online: { 
+        v: sum(online), 
+        i: itemsCount(online), 
+        c: online.length,
+        tkm: calcTkm(sum(online), online.length),
+        pa: calcPa(itemsCount(online), online.length)
+      },
+      additional: { 
+        v: sum(additional), 
+        i: itemsCount(additional), 
+        c: additional.length,
+        tkm: calcTkm(sum(additional), additional.length),
+        pa: calcPa(itemsCount(additional), additional.length)
+      }
     };
   }, [saidas]);
 
@@ -345,98 +366,157 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
               </CardContent>
             </Card>
 
-            {/* Grid de 6 Quadros Uniformes */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+            {/* Grid de 6 Quadros Uniformes - Organizado em 2 colunas para cards maiores */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
               {/* 1. Venda Loja Física */}
-              <Card className="ri-card border-slate-100 border-2 bg-white p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-[9px] font-black text-slate-400 uppercase">Loja Física</p>
-                  <Store className="w-4 h-4 text-slate-300" />
-                </div>
-                <div className="space-y-1">
+              <Card className="ri-card border-slate-100 border-2 bg-white overflow-hidden">
+                <div className="p-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+                  <h4 className="text-[10px] font-black text-slate-500 uppercase flex items-center gap-2"><Store className="w-4 h-4" /> Venda Loja Física</h4>
                   <p className="text-lg font-black text-slate-800">R$ {channelMetrics.physical.v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                  <div className="flex justify-between text-[9px] font-black text-slate-500 uppercase">
-                    <span>{channelMetrics.physical.c} Cupons</span>
-                    <span>{channelMetrics.physical.i} Peças</span>
-                  </div>
                 </div>
+                <CardContent className="p-6 grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                  <div className="space-y-1">
+                    <p className="text-[8px] font-black text-slate-400 uppercase">Cupons</p>
+                    <p className="text-base font-black text-slate-700">{channelMetrics.physical.c}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[8px] font-black text-slate-400 uppercase">Peças</p>
+                    <p className="text-base font-black text-slate-700">{channelMetrics.physical.i}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[8px] font-black text-orange-400 uppercase">TKM</p>
+                    <p className="text-base font-black text-orange-600">R$ {channelMetrics.physical.tkm.toFixed(2)}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[8px] font-black text-sky-400 uppercase">PA</p>
+                    <p className="text-base font-black text-sky-600">{channelMetrics.physical.pa.toFixed(2)}</p>
+                  </div>
+                </CardContent>
               </Card>
 
               {/* 2. Vendas Online */}
-              <Card className="ri-card border-sky-100 border-2 bg-sky-50/20 p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-[9px] font-black text-sky-400 uppercase">Retirada Online</p>
-                  <Smartphone className="w-4 h-4 text-sky-300" />
-                </div>
-                <div className="space-y-1">
+              <Card className="ri-card border-sky-100 border-2 bg-sky-50/10 overflow-hidden">
+                <div className="p-4 bg-sky-50 border-b border-sky-100 flex items-center justify-between">
+                  <h4 className="text-[10px] font-black text-sky-600 uppercase flex items-center gap-2"><Smartphone className="w-4 h-4" /> Retirada Online</h4>
                   <p className="text-lg font-black text-sky-700">R$ {channelMetrics.online.v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                  <div className="flex justify-between text-[9px] font-black text-sky-500 uppercase">
-                    <span>{channelMetrics.online.c} Retiradas</span>
-                    <span>{channelMetrics.online.i} Itens</span>
-                  </div>
                 </div>
+                <CardContent className="p-6 grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                  <div className="space-y-1">
+                    <p className="text-[8px] font-black text-sky-400 uppercase">Tickets</p>
+                    <p className="text-base font-black text-sky-700">{channelMetrics.online.c}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[8px] font-black text-sky-400 uppercase">Peças</p>
+                    <p className="text-base font-black text-sky-700">{channelMetrics.online.i}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[8px] font-black text-orange-400 uppercase">TKM</p>
+                    <p className="text-base font-black text-orange-600">R$ {channelMetrics.online.tkm.toFixed(2)}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[8px] font-black text-emerald-400 uppercase">PA</p>
+                    <p className="text-base font-black text-emerald-600">{channelMetrics.online.pa.toFixed(2)}</p>
+                  </div>
+                </CardContent>
               </Card>
 
               {/* 3. Vendas Adicionais */}
-              <Card className="ri-card border-emerald-100 border-2 bg-emerald-50/20 p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-[9px] font-black text-emerald-400 uppercase">Venda Adicional</p>
-                  <Zap className="w-4 h-4 text-emerald-300" />
-                </div>
-                <div className="space-y-1">
+              <Card className="ri-card border-emerald-100 border-2 bg-emerald-50/10 overflow-hidden">
+                <div className="p-4 bg-emerald-50 border-b border-emerald-100 flex items-center justify-between">
+                  <h4 className="text-[10px] font-black text-emerald-600 uppercase flex items-center gap-2"><Zap className="w-4 h-4" /> Venda Adicional</h4>
                   <p className="text-lg font-black text-emerald-700">R$ {channelMetrics.additional.v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                  <div className="flex justify-between text-[9px] font-black text-emerald-500 uppercase">
-                    <span>{channelMetrics.additional.c} Conversões</span>
-                    <span>{channelMetrics.additional.i} Peças</span>
-                  </div>
                 </div>
+                <CardContent className="p-6 grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                  <div className="space-y-1">
+                    <p className="text-[8px] font-black text-emerald-400 uppercase">Conv.</p>
+                    <p className="text-base font-black text-emerald-700">{channelMetrics.additional.c}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[8px] font-black text-emerald-400 uppercase">Peças</p>
+                    <p className="text-base font-black text-emerald-700">{channelMetrics.additional.i}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[8px] font-black text-orange-400 uppercase">TKM</p>
+                    <p className="text-base font-black text-orange-600">R$ {channelMetrics.additional.tkm.toFixed(2)}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[8px] font-black text-sky-400 uppercase">PA</p>
+                    <p className="text-base font-black text-sky-600">{channelMetrics.additional.pa.toFixed(2)}</p>
+                  </div>
+                </CardContent>
               </Card>
 
               {/* 4. Trocas Valor Igual */}
-              <Card className="ri-card border-purple-100 border-2 bg-purple-50/20 p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-[9px] font-black text-purple-400 uppercase">Troca Igual</p>
-                  <ArrowRightLeft className="w-4 h-4 text-purple-300" />
+              <Card className="ri-card border-purple-100 border-2 bg-purple-50/10 overflow-hidden">
+                <div className="p-4 bg-purple-50 border-b border-purple-100 flex items-center justify-between">
+                  <h4 className="text-[10px] font-black text-purple-600 uppercase flex items-center gap-2"><ArrowRightLeft className="w-4 h-4" /> Troca de Valor Igual</h4>
+                  <p className="text-lg font-black text-purple-700">{trocasIguais.length} Atendimentos</p>
                 </div>
-                <div className="space-y-1">
-                  <p className="text-lg font-black text-purple-700">{trocasIguais.length} Tickets</p>
-                  <div className="flex justify-between text-[9px] font-black text-purple-500 uppercase">
-                    <span>In: {trocasIguais.reduce((acc, v) => acc + v.itens_devolvidos, 0)}</span>
-                    <span>Out: {trocasIguais.reduce((acc, v) => acc + v.itens_trocados, 0)}</span>
-                    <span>Dif: {trocasIguais.reduce((acc, v) => acc + v.diferenca_itens, 0)}</span>
+                <CardContent className="p-6 grid grid-cols-3 gap-4 text-center">
+                  <div className="space-y-1">
+                    <p className="text-[8px] font-black text-red-400 uppercase">Itens Devolvidos</p>
+                    <p className="text-base font-black text-red-600">{trocasIguais.reduce((acc, v) => acc + v.itens_devolvidos, 0)}</p>
                   </div>
-                </div>
+                  <div className="space-y-1">
+                    <p className="text-[8px] font-black text-emerald-400 uppercase">Itens Levados</p>
+                    <p className="text-base font-black text-emerald-600">{trocasIguais.reduce((acc, v) => acc + v.itens_trocados, 0)}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[8px] font-black text-purple-400 uppercase">Saldo de Peças</p>
+                    <p className="text-base font-black text-purple-700">{trocasIguais.reduce((acc, v) => acc + v.diferenca_itens, 0)}</p>
+                  </div>
+                </CardContent>
               </Card>
 
               {/* 5. Trocas Valor Adicional */}
-              <Card className="ri-card border-orange-100 border-2 bg-orange-50/20 p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-[9px] font-black text-orange-400 uppercase">Troca Adicional</p>
-                  <TrendingUp className="w-4 h-4 text-orange-300" />
-                </div>
-                <div className="space-y-1">
-                  <p className="text-lg font-black text-orange-700">R$ {trocasComAdicional.reduce((acc, v) => acc + v.valor_diferenca, 0).toLocaleString('pt-BR')}</p>
-                  <div className="flex justify-between text-[9px] font-black text-orange-500 uppercase">
-                    <span>{trocasComAdicional.length} Notas</span>
-                    <span>Saldo Peças: {trocasComAdicional.reduce((acc, v) => acc + v.diferenca_itens, 0)}</span>
+              <Card className="ri-card border-orange-100 border-2 bg-orange-50/10 overflow-hidden">
+                <div className="p-4 bg-orange-50 border-b border-orange-100 flex items-center justify-between">
+                  <h4 className="text-[10px] font-black text-orange-600 uppercase flex items-center gap-2"><TrendingUp className="w-4 h-4" /> Troca com Valor Adicional</h4>
+                  <div className="flex items-center gap-2">
+                    <p className="text-[8px] font-black text-orange-400 uppercase">Saldo Pago:</p>
+                    <p className="text-lg font-black text-orange-700">R$ {trocasComAdicional.reduce((acc, v) => acc + v.valor_diferenca, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                   </div>
                 </div>
+                <CardContent className="p-6 grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                  <div className="space-y-1">
+                    <p className="text-[8px] font-black text-orange-400 uppercase">Cupons</p>
+                    <p className="text-base font-black text-orange-700">{trocasComAdicional.length}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[8px] font-black text-red-400 uppercase">Itens In</p>
+                    <p className="text-base font-black text-red-600">{trocasComAdicional.reduce((acc, v) => acc + v.itens_devolvidos, 0)}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[8px] font-black text-emerald-400 uppercase">Itens Out</p>
+                    <p className="text-base font-black text-emerald-600">{trocasComAdicional.reduce((acc, v) => acc + v.itens_trocados, 0)}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[8px] font-black text-sky-400 uppercase">Saldo Itens</p>
+                    <p className="text-base font-black text-sky-700">{trocasComAdicional.reduce((acc, v) => acc + v.diferenca_itens, 0)}</p>
+                  </div>
+                </CardContent>
               </Card>
 
               {/* 6. Status da Carga */}
-              <Card className="ri-card border-slate-900 border-2 bg-slate-900 text-white p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-[9px] font-black opacity-60 uppercase">Status da Carga</p>
-                  <Package className="w-4 h-4 opacity-40" />
+              <Card className="ri-card border-slate-900 border-2 bg-slate-900 text-white overflow-hidden">
+                <div className="p-4 bg-slate-800 border-b border-slate-700 flex items-center justify-between">
+                  <h4 className="text-[10px] font-black opacity-60 uppercase flex items-center gap-2"><Package className="w-4 h-4" /> Status da Operação Loja</h4>
+                  <p className="text-lg font-black text-orange-400">{data.length} Arquivos XML Totais</p>
                 </div>
-                <div className="space-y-1">
-                  <p className="text-lg font-black">{saidas.length + entradas.length} XMLs</p>
-                  <div className="flex justify-between text-[8px] font-black opacity-80 uppercase">
-                    <span>S: {saidas.length}</span>
-                    <span>E: {entradas.length}</span>
-                    <span>C: {cancelamentos.length}</span>
+                <CardContent className="p-6 grid grid-cols-3 gap-6 text-center">
+                  <div className="space-y-1">
+                    <p className="text-[8px] font-black opacity-50 uppercase">Notas de Saída</p>
+                    <p className="text-base font-black text-emerald-400">{saidas.length}</p>
                   </div>
-                </div>
+                  <div className="space-y-1">
+                    <p className="text-[8px] font-black opacity-50 uppercase">Notas de Entrada</p>
+                    <p className="text-base font-black text-sky-400">{entradas.length}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[8px] font-black opacity-50 uppercase">Notas Canceladas</p>
+                    <p className="text-base font-black text-red-400">{cancelamentos.length}</p>
+                  </div>
+                </CardContent>
               </Card>
             </div>
           </div>

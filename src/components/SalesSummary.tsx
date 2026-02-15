@@ -88,6 +88,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
   const [showWelcome, setShowWelcome] = useState(true);
   const [considerExchanges, setConsiderExchanges] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [searchCpf, setSearchCpf] = useState("");
   const [filterChannel, setFilterChannel] = useState("ALL");
   const [filterVendor, setFilterVendor] = useState("ALL");
   const { setOpenMobile } = useSidebar();
@@ -715,10 +716,14 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
 
         {activeTab === "transacoes" && (
           <div className="space-y-4 animate-in slide-in-from-right-8 duration-500">
-            <div className="bg-white p-4 rounded-2xl border-2 border-slate-50 grid grid-cols-1 sm:grid-cols-3 gap-4 shadow-sm">
+            <div className="bg-white p-4 rounded-2xl border-2 border-slate-50 grid grid-cols-1 sm:grid-cols-4 gap-4 shadow-sm">
               <div className="relative">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-300" />
                 <input type="text" placeholder="Nota, Operador..." className="w-full pl-8 pr-4 py-1.5 text-xs font-bold rounded-lg border-2 border-slate-50 focus:border-orange-200 outline-none" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+              </div>
+              <div className="relative">
+                <UserCheck className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-300" />
+                <input type="text" placeholder="Filtrar por CPF..." className="w-full pl-8 pr-4 py-1.5 text-xs font-bold rounded-lg border-2 border-slate-50 focus:border-orange-200 outline-none" value={searchCpf} onChange={(e) => setSearchCpf(e.target.value)} />
               </div>
               <Select value={filterChannel} onValueChange={setFilterChannel}>
                 <SelectTrigger className="rounded-lg h-8 text-[11px] font-black"><SelectValue placeholder="Todos Canais" /></SelectTrigger>
@@ -741,6 +746,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
                   <TableRow>
                     <TableHead className="w-10 px-4 py-4"></TableHead>
                     <TableHead className="font-black uppercase text-[10px]">Nota / Data</TableHead>
+                    <TableHead className="font-black uppercase text-[10px]">Cliente / CPF</TableHead>
                     <TableHead className="text-right font-black uppercase text-[10px]">Valor</TableHead>
                     <TableHead className="text-center font-black uppercase text-[10px]">Peças</TableHead>
                   </TableRow>
@@ -748,9 +754,10 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
                 <TableBody>
                   {data.filter(r => {
                     const matchSearch = r.nf.includes(searchTerm) || r.vendedor.toLowerCase().includes(searchTerm.toLowerCase());
+                    const matchCpf = searchCpf === "" || (r.cpf_cnpj_dest && r.cpf_cnpj_dest.includes(searchCpf));
                     const matchChannel = filterChannel === "ALL" || r.canal === filterChannel;
                     const matchVendor = filterVendor === "ALL" || r.vendedor === filterVendor;
-                    return matchSearch && matchChannel && matchVendor;
+                    return matchSearch && matchCpf && matchChannel && matchVendor;
                   }).slice(0, 100).map((r, i) => (
                     <ExpandableRow key={i} row={r} formatCanal={formatCanal} />
                   ))}
@@ -792,12 +799,16 @@ function ExpandableRow({ row, formatCanal }: { row: DetailedSaleRow, formatCanal
           <p className="text-orange-600">NF {row.nf}</p>
           <p className="text-slate-400 font-bold mt-0.5">{row.dhEmi.substring(0, 10)}</p>
         </TableCell>
+        <TableCell className="text-[10px] font-bold">
+          <p className="text-slate-700 truncate max-w-[150px]">{row.nome_dest || "Balcão"}</p>
+          <p className="text-slate-400 font-mono text-[9px] mt-0.5">{row.cpf_cnpj_dest || "Não Identificado"}</p>
+        </TableCell>
         <TableCell className="text-right font-black text-xs">{formatCurrency(row.vNF)}</TableCell>
         <TableCell className="text-center font-black text-xs">{row.itens_qtd}</TableCell>
       </TableRow>
       {isOpen && (
         <TableRow className="bg-slate-50/30">
-          <TableCell colSpan={4} className="p-4 border-b border-orange-100">
+          <TableCell colSpan={5} className="p-4 border-b border-orange-100">
             <div className="space-y-4 animate-in slide-in-from-top-2">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-sm">

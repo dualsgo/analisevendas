@@ -19,14 +19,15 @@ export default function Home() {
   const handleDataParsed = (rows: DetailedSaleRow[]) => {
     setStatus("processing");
     
+    // Pequeno delay para feedback visual de análise
     setTimeout(() => {
       const withSuspects = detectarAdicionaisSuspeitos(rows);
-      const { vinculos: exchangeLinks } = vincularTrocas(withSuspects);
+      const exchangeLinks = vincularTrocas(withSuspects);
       
       setParsedRows(withSuspects);
       setVinculos(exchangeLinks || []);
       setStatus("success");
-    }, 1200);
+    }, 1500);
   };
 
   const handleReset = () => {
@@ -38,7 +39,7 @@ export default function Home() {
   return (
     <SidebarProvider>
       <main className="min-h-screen bg-amber-50/30 font-body w-full">
-        {/* Header Fixo */}
+        {/* Header Fixo Ri Happy Style */}
         <header className="bg-[#FFD100] border-b-4 border-orange-500 text-orange-900 shadow-md h-20 flex items-center sticky top-0 z-[60]">
           <div className="container mx-auto px-4 flex items-center justify-between">
             <div className="flex items-center gap-3">

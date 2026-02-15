@@ -8,20 +8,28 @@ import { parseXml } from "@/lib/xml-parser";
 import { DetailedSaleRow } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
 interface UploadZoneProps {
   onDataParsed: (rows: DetailedSaleRow[]) => void;
+  isProcessing: boolean;
 }
 
-export function UploadZone({ onDataParsed }: UploadZoneProps) {
-  const [isProcessing, setIsProcessing] = useState(false);
+export function UploadZone({ onDataParsed, isProcessing }: UploadZoneProps) {
+  const [selectedCount, setSelectedCount] = useState(0);
   const { toast } = useToast();
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (!files || files.length === 0) return;
+    setSelectedCount(files.length);
+  };
 
-    setIsProcessing(true);
+  const processFiles = async () => {
+    const fileInput = document.getElementById('hidden-file-input') as HTMLInputElement;
+    const files = fileInput?.files;
+    if (!files || files.length === 0) return;
+
     const allRows: DetailedSaleRow[] = [];
 
     try {
@@ -30,23 +38,17 @@ export function UploadZone({ onDataParsed }: UploadZoneProps) {
         const fileName = file.name.toLowerCase();
 
         if (fileName.endsWith(".zip")) {
-          // Processar arquivo ZIP
           const zip = new JSZip();
           const content = await zip.loadAsync(file);
-
           const xmlPromises = Object.keys(content.files)
             .filter(name => !content.files[name].dir && name.toLowerCase().endsWith(".xml"))
             .map(async (name) => {
               const xmlContent = await content.files[name].async("string");
               return parseXml(xmlContent);
             });
-
           const rows = await Promise.all(xmlPromises);
-          rows.forEach(r => {
-            if (r) allRows.push(r);
-          });
+          rows.forEach(r => { if (r) allRows.push(r); });
         } else if (fileName.endsWith(".xml")) {
-          // Processar arquivo XML direto
           const xmlContent = await file.text();
           const row = parseXml(xmlContent);
           if (row) allRows.push(row);
@@ -56,62 +58,68 @@ export function UploadZone({ onDataParsed }: UploadZoneProps) {
       if (allRows.length === 0) {
         toast({
           title: "Nenhum dado válido",
-          description: "Nenhum arquivo XML de venda (NF-e/NFC-e) foi identificado nos arquivos selecionados.",
+          description: "Não encontramos XMLs de venda válidos nos arquivos selecionados.",
           variant: "destructive",
         });
       } else {
         onDataParsed(allRows);
-        toast({
-          title: "Processamento concluído",
-          description: `${allRows.length} notas fiscais processadas com sucesso.`,
-        });
       }
     } catch (error) {
-      console.error("Erro no processamento:", error);
       toast({
-        title: "Erro ao processar",
-        description: "Ocorreu um erro ao ler os arquivos. Verifique se o ZIP está íntegro.",
+        title: "Erro no processamento",
+        description: "Verifique a integridade dos arquivos selecionados.",
         variant: "destructive",
       });
-    } finally {
-      setIsProcessing(false);
-      // Limpar o input para permitir selecionar os mesmos arquivos novamente se necessário
-      event.target.value = "";
     }
   };
 
   return (
-    <div className="relative border-2 border-dashed border-primary/30 rounded-2xl p-12 bg-card hover:border-primary/60 transition-colors flex flex-col items-center justify-center gap-4 group">
-      <input
-        type="file"
-        multiple
-        accept=".zip,.xml"
-        onChange={handleFileUpload}
-        disabled={isProcessing}
-        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
-      />
-      <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
-        {isProcessing ? (
-          <Loader2 className="w-8 h-8 animate-spin" />
-        ) : (
-          <div className="relative">
-            <FileArchive className="w-8 h-8" />
-            <FileCode className="w-4 h-4 absolute -bottom-1 -right-1 bg-card rounded-full" />
-          </div>
+    <div className="max-w-2xl mx-auto flex flex-col gap-4">
+      <div 
+        className={cn(
+          "relative border-2 border-dashed rounded-xl p-10 bg-slate-50 transition-all flex flex-col items-center justify-center gap-3",
+          selectedCount > 0 ? "border-indigo-400 bg-indigo-50/30" : "border-slate-300 hover:border-slate-400"
         )}
+      >
+        <input
+          id="hidden-file-input"
+          type="file"
+          multiple
+          accept=".zip,.xml"
+          onChange={handleFileUpload}
+          disabled={isProcessing}
+          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+        />
+        <Upload className={cn("w-10 h-10", selectedCount > 0 ? "text-indigo-500" : "text-slate-400")} />
+        <div className="text-center">
+          <p className="text-sm font-medium text-slate-700">
+            {selectedCount > 0 ? `${selectedCount} arquivos selecionados` : "Arraste seus arquivos .ZIP ou clique aqui"}
+          </p>
+          <p className="text-xs text-slate-400 mt-1">
+            {selectedCount > 0 ? "Clique em Processar para iniciar a análise" : "Apenas arquivos XML ou ZIP contendo XMLs"}
+          </p>
+        </div>
       </div>
-      <div className="text-center">
-        <h3 className="text-xl font-semibold mb-1">
-          {isProcessing ? "Processando arquivos..." : "Arraste seus arquivos aqui"}
-        </h3>
-        <p className="text-muted-foreground text-sm max-w-xs mx-auto">
-          Selecione arquivos ZIP contendo XMLs ou os próprios arquivos XML de NF-e/NFC-e
+
+      <div className="flex flex-col items-center">
+        <Button 
+          onClick={processFiles}
+          disabled={isProcessing || selectedCount === 0}
+          className="bg-indigo-600 hover:bg-indigo-700 text-white px-10 py-6 rounded-xl font-bold text-base shadow-lg shadow-indigo-200 transition-all disabled:opacity-50"
+        >
+          {isProcessing ? (
+            <>
+              <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+              Processando...
+            </>
+          ) : (
+            "Processar Dados"
+          )}
+        </Button>
+        <p className="text-[10px] text-slate-400 mt-3 uppercase tracking-tighter">
+          {selectedCount > 0 ? "Pronto para processar" : "Aguardando seleção de arquivos"}
         </p>
       </div>
-      <Button variant="outline" className="mt-2 pointer-events-none" disabled={isProcessing}>
-        <Upload className="w-4 h-4 mr-2" />
-        Escolher Arquivos
-      </Button>
     </div>
   );
 }

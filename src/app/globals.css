@@ -5,61 +5,39 @@
 
 @layer base {
   :root {
-    --background: 260 30% 98%;
-    --foreground: 266 50% 10%;
+    --background: 210 40% 98%;
+    --foreground: 222 47% 11%;
     --card: 0 0% 100%;
-    --card-foreground: 266 50% 10%;
+    --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
-    --popover-foreground: 266 50% 10%;
-    --primary: 266 100% 25%;
-    --primary-foreground: 260 30% 98%;
-    --secondary: 266 20% 95%;
-    --secondary-foreground: 266 100% 25%;
-    --muted: 266 10% 90%;
-    --muted-foreground: 266 20% 40%;
-    --accent: 274 100% 50%;
-    --accent-foreground: 260 30% 98%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 266 20% 88%;
-    --input: 266 20% 88%;
-    --ring: 266 100% 25%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 231 60% 45%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 210 40% 96%;
+    --accent-foreground: 222 47% 11%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 231 60% 45%;
     --radius: 0.75rem;
-    --chart-1: 266 100% 25%;
-    --chart-2: 274 100% 50%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
   }
-  .dark {
-    --background: 266 50% 5%;
-    --foreground: 260 30% 98%;
-    --card: 266 50% 8%;
-    --card-foreground: 260 30% 98%;
-    --popover: 266 50% 8%;
-    --popover-foreground: 260 30% 98%;
-    --primary: 266 100% 60%;
-    --primary-foreground: 266 50% 5%;
-    --secondary: 266 30% 15%;
-    --secondary-foreground: 260 30% 98%;
-    --muted: 266 30% 15%;
-    --muted-foreground: 266 20% 65%;
-    --accent: 274 100% 60%;
-    --accent-foreground: 266 50% 5%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 266 30% 20%;
-    --input: 266 30% 20%;
-    --ring: 266 100% 60%;
+}
+
+@layer components {
+  .tab-trigger-custom {
+    @apply py-4 px-1 text-sm font-medium transition-all text-slate-500 border-b-2 border-transparent hover:text-slate-700;
+  }
+  .tab-trigger-custom[data-state="active"] {
+    @apply border-indigo-600 text-indigo-700 font-bold bg-transparent shadow-none;
   }
 }
 
 @layer base {
-  * {
-    @apply border-border;
-  }
-  body {
-    @apply bg-background text-foreground;
-    font-feature-settings: "rlig" 1, "calt" 1;
-  }
+  * { @apply border-border; }
+  body { @apply bg-background text-foreground antialiased; }
 }

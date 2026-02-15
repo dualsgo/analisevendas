@@ -1,4 +1,3 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -24,7 +23,16 @@
     --border: 214 32% 91%;
     --input: 214 32% 91%;
     --ring: 24 100% 50%;
-    --radius: 1rem;
+    --radius: 1.5rem;
+    
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 222 47% 11%;
+    --sidebar-primary: 24 100% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 48 100% 96%;
+    --sidebar-accent-foreground: 24 100% 50%;
+    --sidebar-border: 48 100% 90%;
+    --sidebar-ring: 24 100% 50%;
   }
 }
 
@@ -37,12 +45,22 @@
   }
   
   .ri-card {
-    @apply bg-white rounded-2xl shadow-sm border-2 border-slate-100 hover:border-orange-200 transition-all duration-300;
+    @apply bg-white rounded-[2rem] shadow-sm border-2 border-slate-100 hover:border-orange-200 transition-all duration-300;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
   }
 }
 
 @layer base {
   * { @apply border-border; }
-  body { @apply bg-background text-foreground antialiased selection:bg-orange-200 selection:text-orange-900; }
-  h1, h2, h3, h4, h5, h6 { @apply font-bold tracking-tight; }
+  body { 
+    @apply bg-background text-foreground antialiased selection:bg-orange-200 selection:text-orange-900 overflow-x-hidden; 
+  }
+  h1, h2, h3, h4, h5, h6 { @apply font-black tracking-tight; }
 }

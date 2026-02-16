@@ -10,6 +10,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Button } from "@/components/ui/button";
 import { Sparkles, RefreshCcw, Loader2, FileText, ArrowDownLeft, ArrowUpRight, Ban } from "lucide-react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { cn } from "@/lib/utils";
 
 export default function Home() {
   const [parsedRows, setParsedRows] = useState<DetailedSaleRow[]>([]);

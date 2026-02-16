@@ -45,6 +45,7 @@ import { ConversionAudit } from "./ConversionAudit";
 import { DiscountAudit } from "./DiscountAudit";
 import { ExchangeManagement } from "./ExchangeManagement";
 import { TransactionList } from "./TransactionList";
+import { WhatsappReports } from "./WhatsappReports";
 
 interface SalesSummaryProps {
   data: DetailedSaleRow[];
@@ -180,7 +181,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
     { id: "auditoria", label: "Auditoria Descontos", icon: Percent, color: "text-rose-500" },
     { id: "trocas", label: "Gestão de Trocas", icon: ArrowRightLeft, color: "text-purple-500" },
     { id: "transacoes", label: "Todas Transações", icon: FileText },
-    { id: "whatsapp", label: "Relatório WhatsApp", icon: MessageCircle, color: "text-emerald-500" },
+    { id: "whatsapp", label: "Relatórios WhatsApp", icon: MessageCircle, color: "text-emerald-500" },
   ];
 
   const renderActiveTab = () => {
@@ -256,17 +257,18 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
         return <ExchangeManagement data={data} vinculos={vinculos} />;
       case "transacoes":
         return <TransactionList data={data} />;
+      case "whatsapp":
+        return <WhatsappReports data={data} vinculos={vinculos} />;
       default:
-        const ActiveIcon = (() => {
-          const item = navItems.find(n => n.id === activeTab);
-          return item?.icon || LayoutDashboard;
-        })();
-        
         return (
           <div className="flex-1 flex items-center justify-center p-8 md:p-12 bg-white rounded-[2rem] md:rounded-[3rem] border-2 border-dashed border-orange-100">
             <div className="text-center space-y-4">
               <div className="bg-orange-50 p-6 rounded-full inline-block">
-                <ActiveIcon className="w-10 h-10 md:w-12 md:h-12 text-orange-400" />
+                {(() => {
+                  const item = navItems.find(n => n.id === activeTab);
+                  const Icon = item?.icon || LayoutDashboard;
+                  return <Icon className="w-10 h-10 md:w-12 md:h-12 text-orange-400" />;
+                })()}
               </div>
               <h3 className="text-xl md:text-2xl font-black text-slate-800 uppercase tracking-tighter">Página em Construção</h3>
               <p className="text-sm md:text-base text-slate-500 font-medium max-w-xs mx-auto">Esta funcionalidade será migrada para o novo padrão estratégico em breve.</p>

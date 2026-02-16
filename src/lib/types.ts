@@ -79,6 +79,26 @@ export interface DetailedSaleRow {
   // Novos campos para status de arquivos
   is_cancelada?: boolean;
   is_error?: boolean;
+
+  // Campos Fiscais para 2ª Via
+  emitente?: {
+    xNome: string;
+    cnpj: string;
+    ie: string;
+    endereco: string;
+  };
+  protocolo?: {
+    nProt: string;
+    dhRecbto: string;
+    cStat: string;
+    xMotivo: string;
+  };
+  pagamentos_detalhe?: Array<{
+    tPag: string;
+    vPag: number;
+    tpIntegra?: string;
+  }>;
+  infCpl?: string;
 }
 
 export interface ChannelSummaryRow {

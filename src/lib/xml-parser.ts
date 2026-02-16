@@ -91,6 +91,12 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     const emit = getElement(infNFe, "emit");
     const enderEmit = emit ? getElement(emit, "enderEmit") : null;
     const cep_loja = enderEmit ? (getElement(enderEmit, "CEP")?.textContent || "").replace(/\D/g, "") : "";
+    
+    // Dados Emitente para 2ª Via
+    const xNomeEmit = emit ? getElement(emit, "xNome")?.textContent || "" : "";
+    const cnpjEmit = emit ? getElement(emit, "CNPJ")?.textContent || "" : "";
+    const ieEmit = emit ? getElement(emit, "IE")?.textContent || "" : "";
+    const enderEmitFull = enderEmit ? `${getElement(enderEmit, "xLgr")?.textContent}, ${getElement(enderEmit, "nro")?.textContent} - ${getElement(enderEmit, "xBairro")?.textContent}, ${getElement(enderEmit, "xMun")?.textContent} - ${getElement(enderEmit, "UF")?.textContent}` : "";
 
     const total = getElement(infNFe, "total");
     const icmsTot = total ? getElement(total, "ICMSTot") : null;
@@ -110,7 +116,7 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
       }
     });
 
-    const pagamentos: Record<string, number> = {};
+    const pagamentosDet: Array<{tPag: string, vPag: number, tpIntegra?: string}> = [];
     let vTrocoPag = 0;
     let tpIntegra = "";
     const pag = getElement(infNFe, "pag");
@@ -119,11 +125,22 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
       getElements(pag, "detPag").forEach(detPag => {
         const tPag = getElement(detPag, "tPag")?.textContent || "";
         const vPag = dec(getElement(detPag, "vPag")?.textContent);
-        pagamentos[tPag] = (pagamentos[tPag] || 0) + vPag;
         const card = getElement(detPag, "card");
-        if (card) tpIntegra = getElement(card, "tpIntegra")?.textContent || tpIntegra;
+        const tpInt = card ? getElement(card, "tpIntegra")?.textContent || "" : undefined;
+        pagamentosDet.push({ tPag, vPag, tpIntegra: tpInt });
+        if (tpInt) tpIntegra = tpInt;
       });
     }
+
+    // Protocolo SEFAZ
+    const protNFe = getElement(xmlDoc, "protNFe");
+    const infProt = protNFe ? getElement(protNFe, "infProt") : null;
+    const protocoloData = infProt ? {
+      nProt: getElement(infProt, "nProt")?.textContent || "",
+      dhRecbto: getElement(infProt, "dhRecbto")?.textContent || "",
+      cStat: getElement(infProt, "cStat")?.textContent || "",
+      xMotivo: getElement(infProt, "xMotivo")?.textContent || ""
+    } : undefined;
 
     const refNFes: string[] = [];
     getElements(ide, "NFref").forEach(ref => {
@@ -135,10 +152,10 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     const infCpl = infAdic ? (getElement(infAdic, "infCpl")?.textContent || "") : "";
     const vendedor = extractVendedor(infCpl);
 
-    const isPresencialPorTroco = vTrocoPag > 0 || (pagamentos["01"] || 0) > 0;
+    const isPresencialPorTroco = vTrocoPag > 0 || pagamentosDet.some(p => p.tPag === "01");
     const isEnderecoReal = !!cep_dest && !!cep_loja && cep_dest !== cep_loja;
     
-    const vTrocaCredito = pagamentos["05"] || 0;
+    const vTrocaCredito = pagamentosDet.filter(p => p.tPag === "05").reduce((acc, p) => acc + p.vPag, 0);
     const isTroca = vTrocaCredito > 0;
     const difTroca = vNFValue - vTrocaCredito;
 
@@ -174,7 +191,16 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
       cep_dest, cep_loja, is_cep_diferente_da_loja: isEnderecoReal, is_endereco_real: isEnderecoReal,
       cpf_cnpj_dest: cpf_cnpj, nome_dest, endereco_dest: "", tem_destinatario: !!cpf_cnpj,
       itens: itemsList,
-      is_cancelada: false
+      is_cancelada: false,
+      emitente: {
+        xNome: xNomeEmit,
+        cnpj: cnpjEmit,
+        ie: ieEmit,
+        endereco: enderEmitFull
+      },
+      protocolo: protocoloData,
+      pagamentos_detalhe: pagamentosDet,
+      infCpl
     };
   } catch (e) {
     return null;

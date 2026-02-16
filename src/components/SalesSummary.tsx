@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useMemo, useState } from "react";
@@ -11,7 +12,6 @@ import {
   Store, 
   TrendingUp, 
   Target, 
-  AlertCircle, 
   LayoutDashboard, 
   ArrowRightLeft, 
   FileText, 
@@ -44,6 +44,7 @@ import { VendorPerformance } from "./VendorPerformance";
 import { ConversionAudit } from "./ConversionAudit";
 import { DiscountAudit } from "./DiscountAudit";
 import { ExchangeManagement } from "./ExchangeManagement";
+import { TransactionList } from "./TransactionList";
 
 interface SalesSummaryProps {
   data: DetailedSaleRow[];
@@ -253,9 +254,13 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
         return <DiscountAudit data={data} />;
       case "trocas":
         return <ExchangeManagement data={data} vinculos={vinculos} />;
+      case "transacoes":
+        return <TransactionList data={data} />;
       default:
-        const activeItem = navItems.find(n => n.id === activeTab);
-        const ActiveIcon = activeItem?.icon || LayoutDashboard;
+        const ActiveIcon = (() => {
+          const item = navItems.find(n => n.id === activeTab);
+          return item?.icon || LayoutDashboard;
+        })();
         
         return (
           <div className="flex-1 flex items-center justify-center p-8 md:p-12 bg-white rounded-[2rem] md:rounded-[3rem] border-2 border-dashed border-orange-100">

@@ -40,6 +40,7 @@ import {
   SidebarTrigger,
   useSidebar
 } from "@/components/ui/sidebar";
+import { DailyPerformance } from "./DailyPerformance";
 
 interface SalesSummaryProps {
   data: DetailedSaleRow[];
@@ -84,8 +85,6 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
       const c = rows.length;
       const i = rows.reduce((acc, r) => acc + parseFloat(r.itens_qtd), 0);
       
-      // Cálculo de Cadastros (CPF em nota)
-      // Se for Loja Física, contamos os CPFs. Se for outro canal, é 100%.
       const identifiedCount = rows.filter(r => r.cpf_cnpj_dest && r.cpf_cnpj_dest.trim() !== "").length;
       const cadastrosPercent = isFisica ? (c > 0 ? (identifiedCount / c) * 100 : 0) : 100;
 
@@ -114,7 +113,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
         itens: iTroca,
         tkm: cTroca > 0 ? vTroca / cTroca : 0,
         pa: cTroca > 0 ? iTroca / cTroca : 0,
-        cadastros: 100, // Implicito em trocas
+        cadastros: 100,
         identified: cTroca
       }
     };
@@ -133,19 +132,19 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
       v += metricsByChannel.online.venda;
       c += metricsByChannel.online.cupons;
       i += metricsByChannel.online.itens;
-      iden += metricsByChannel.online.cupons; // 100%
+      iden += metricsByChannel.online.cupons;
     }
     if (selectedChannels.adicional) {
       v += metricsByChannel.adicional.venda;
       c += metricsByChannel.adicional.cupons;
       i += metricsByChannel.adicional.itens;
-      iden += metricsByChannel.adicional.cupons; // 100%
+      iden += metricsByChannel.adicional.cupons;
     }
     if (selectedChannels.troca) {
       v += metricsByChannel.troca.venda;
       c += metricsByChannel.troca.cupons;
       i += metricsByChannel.troca.itens;
-      iden += metricsByChannel.troca.cupons; // 100%
+      iden += metricsByChannel.troca.cupons;
     }
 
     const allDisabled = !selectedChannels.fisica && !selectedChannels.online && !selectedChannels.adicional && !selectedChannels.troca;
@@ -177,54 +176,11 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
     { id: "whatsapp", label: "Relatório WhatsApp", icon: MessageCircle, color: "text-emerald-500" },
   ];
 
-  return (
-    <div className="flex-1 flex flex-col md:flex-row h-full overflow-hidden">
-      <Sidebar className="border-r border-orange-100 bg-white" collapsible="offcanvas">
-        <SidebarContent className="p-4">
-          <SidebarGroup>
-            <SidebarGroupLabel className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-6">Menu de Navegação</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu className="gap-2">
-                {navItems.map((item) => (
-                  <SidebarMenuItem key={item.id}>
-                    <SidebarMenuButton 
-                      isActive={activeTab === item.id} 
-                      onClick={() => handleTabChange(item.id)}
-                      className={cn(
-                        "rounded-xl py-6 px-4 transition-all duration-300",
-                        activeTab === item.id 
-                          ? "bg-orange-500 text-white shadow-lg shadow-orange-100 font-black" 
-                          : "hover:bg-orange-50 text-slate-500 font-bold"
-                      )}
-                    >
-                      <item.icon className={cn("w-5 h-5 mr-3", activeTab !== item.id && item.color)} />
-                      <span className="text-sm">{item.label}</span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        </SidebarContent>
-      </Sidebar>
-
-      <div className="flex-1 overflow-y-auto bg-amber-50/20 p-4 md:p-8 flex flex-col gap-6 md:gap-8 scroll-smooth scrollbar-hide">
-        {showWelcome && (
-          <section className="bg-gradient-to-r from-orange-500 to-[#F37021] rounded-2xl md:rounded-[2.5rem] p-5 md:p-8 text-white shadow-xl flex flex-col md:flex-row items-center gap-4 relative animate-in slide-in-from-top-4 duration-500">
-            <Button variant="ghost" size="icon" onClick={() => setShowWelcome(false)} className="absolute top-2 right-2 text-white hover:bg-white/20 rounded-full">
-              <X className="w-5 h-5" />
-            </Button>
-            <div className="bg-white/20 p-3 rounded-full hidden lg:block"><Sparkles className="w-8 h-8 text-white" /></div>
-            <div className="flex-1 space-y-1 text-center md:text-left">
-              <h2 className="text-lg md:text-2xl font-black uppercase tracking-tighter">Performance Estratégica</h2>
-              <p className="text-orange-50 font-medium text-[11px] md:text-sm">Selecione e combine canais para analisar o resultado consolidado da unidade.</p>
-            </div>
-          </section>
-        )}
-
-        {activeTab === "geral" && (
+  const renderActiveTab = () => {
+    switch(activeTab) {
+      case "geral":
+        return (
           <div className="space-y-6 md:space-y-10 animate-in fade-in duration-500">
-            
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 bg-white p-4 rounded-3xl border-2 border-orange-100 shadow-sm">
               <ChannelSelector label="Loja Física" icon={Store} active={selectedChannels.fisica} color="text-slate-600" onToggle={() => toggleChannel('fisica')} />
               <ChannelSelector label="Retirada Online" icon={Smartphone} active={selectedChannels.online} color="text-sky-500" onToggle={() => toggleChannel('online')} />
@@ -277,23 +233,72 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
               <MetricCard title="Saldo de Trocas" icon={ArrowRightLeft} metrics={metricsByChannel.troca} color="border-purple-200" headerColor="bg-purple-50 text-purple-600" />
             </div>
           </div>
+        );
+      case "diario":
+        return <DailyPerformance data={data} />;
+      default:
+        const activeItem = navItems.find(n => n.id === activeTab);
+        const ActiveIcon = activeItem?.icon || LayoutDashboard;
+        return (
+          <div className="flex-1 flex items-center justify-center p-12 bg-white rounded-[3rem] border-2 border-dashed border-orange-100">
+            <div className="text-center space-y-4">
+              <div className="bg-orange-50 p-6 rounded-full inline-block">
+                <ActiveIcon className="w-12 h-12 text-orange-400" />
+              </div>
+              <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tighter">Página em Construção</h3>
+              <p className="text-slate-500 font-medium">Esta funcionalidade será migrada para o novo padrão estratégico em breve.</p>
+            </div>
+          </div>
+        );
+    }
+  };
+
+  return (
+    <div className="flex-1 flex flex-col md:flex-row h-full overflow-hidden">
+      <Sidebar className="border-r border-orange-100 bg-white" collapsible="offcanvas">
+        <SidebarContent className="p-4">
+          <SidebarGroup>
+            <SidebarGroupLabel className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-6">Menu de Navegação</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu className="gap-2">
+                {navItems.map((item) => (
+                  <SidebarMenuItem key={item.id}>
+                    <SidebarMenuButton 
+                      isActive={activeTab === item.id} 
+                      onClick={() => handleTabChange(item.id)}
+                      className={cn(
+                        "rounded-xl py-6 px-4 transition-all duration-300",
+                        activeTab === item.id 
+                          ? "bg-orange-500 text-white shadow-lg shadow-orange-100 font-black" 
+                          : "hover:bg-orange-50 text-slate-500 font-bold"
+                      )}
+                    >
+                      <item.icon className={cn("w-5 h-5 mr-3", activeTab !== item.id && item.color)} />
+                      <span className="text-sm">{item.label}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        </SidebarContent>
+      </Sidebar>
+
+      <div className="flex-1 overflow-y-auto bg-amber-50/20 p-4 md:p-8 flex flex-col gap-6 md:gap-8 scroll-smooth scrollbar-hide">
+        {showWelcome && (
+          <section className="bg-gradient-to-r from-orange-500 to-[#F37021] rounded-2xl md:rounded-[2.5rem] p-5 md:p-8 text-white shadow-xl flex flex-col md:flex-row items-center gap-4 relative animate-in slide-in-from-top-4 duration-500">
+            <Button variant="ghost" size="icon" onClick={() => setShowWelcome(false)} className="absolute top-2 right-2 text-white hover:bg-white/20 rounded-full">
+              <X className="w-5 h-5" />
+            </Button>
+            <div className="bg-white/20 p-3 rounded-full hidden lg:block"><Sparkles className="w-8 h-8 text-white" /></div>
+            <div className="flex-1 space-y-1 text-center md:text-left">
+              <h2 className="text-lg md:text-2xl font-black uppercase tracking-tighter">Performance Estratégica</h2>
+              <p className="text-orange-50 font-medium text-[11px] md:text-sm">Selecione e combine canais para analisar o resultado consolidado da unidade.</p>
+            </div>
+          </section>
         )}
 
-        {activeTab !== "geral" && (
-           <div className="flex-1 flex items-center justify-center p-12 bg-white rounded-[3rem] border-2 border-dashed border-orange-100">
-             <div className="text-center space-y-4">
-                <div className="bg-orange-50 p-6 rounded-full inline-block">
-                  {(() => {
-                    const activeItem = navItems.find(n => n.id === activeTab);
-                    const ActiveIcon = activeItem?.icon || LayoutDashboard;
-                    return <ActiveIcon className="w-12 h-12 text-orange-400" />;
-                  })()}
-                </div>
-                <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tighter">Página em Construção</h3>
-                <p className="text-slate-500 font-medium">Esta funcionalidade será migrada para o novo padrão estratégico em breve.</p>
-             </div>
-           </div>
-        )}
+        {renderActiveTab()}
       </div>
     </div>
   );

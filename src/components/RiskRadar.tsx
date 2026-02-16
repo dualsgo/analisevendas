@@ -16,7 +16,8 @@ import {
   AlertTriangle,
   AlertOctagon,
   CheckCircle2,
-  Clock
+  Clock,
+  Info
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -137,9 +138,23 @@ export function RiskRadar({ data }: RiskRadarProps) {
 
       {/* Grid de Alertas Ativos */}
       <div className="space-y-4">
-        <h3 className="text-xs font-black uppercase text-slate-400 tracking-widest px-2 flex items-center gap-2">
-          <ShieldAlert className="w-4 h-4" /> Alertas de Comportamento
-        </h3>
+        <div className="px-2 space-y-2">
+          <h3 className="text-xs font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
+            <ShieldAlert className="w-4 h-4" /> Alertas de Comportamento
+          </h3>
+          <div className="bg-orange-50/50 border-l-4 border-orange-400 p-4 rounded-r-xl">
+            <div className="flex items-start gap-3">
+              <Info className="w-4 h-4 text-orange-500 mt-0.5" />
+              <div className="space-y-1">
+                <p className="text-[11px] font-black text-orange-900 uppercase">Como interpretar estes alertas?</p>
+                <p className="text-[10px] text-orange-800/70 font-medium leading-relaxed">
+                  O sistema monitora constantemente os indicadores de cada colaborador e os compara com a média atual da unidade. Quando um comportamento apresenta um desvio acentuado (ex: dar muito mais desconto que o restante da equipe), o alerta é gerado para que a gestão possa investigar a causa e aplicar treinamentos corretivos.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
           {alerts.map((alert, i) => (
             <Card key={i} className="ri-card border-none bg-white p-5 space-y-4 relative overflow-hidden group">

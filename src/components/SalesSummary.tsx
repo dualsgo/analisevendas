@@ -41,6 +41,7 @@ import {
 } from "@/components/ui/sidebar";
 import { DailyPerformance } from "./DailyPerformance";
 import { VendorPerformance } from "./VendorPerformance";
+import { ConversionAudit } from "./ConversionAudit";
 
 interface SalesSummaryProps {
   data: DetailedSaleRow[];
@@ -172,7 +173,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
     { id: "geral", label: "Visão Geral", icon: LayoutDashboard },
     { id: "diario", label: "Performance Diária", icon: CalendarIcon },
     { id: "performance_vendedores", label: "Ranking Performance", icon: Award },
-    { id: "conversao", label: "Auditoria Conversão", icon: Target },
+    { id: "conversao", label: "Auditoria Pickup", icon: Smartphone, color: "text-sky-500" },
     { id: "auditoria", label: "Auditoria Descontos", icon: AlertCircle },
     { id: "trocas", label: "Gestão de Trocas", icon: ArrowRightLeft },
     { id: "transacoes", label: "Todas Transações", icon: FileText },
@@ -244,6 +245,8 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
         return <DailyPerformance data={data} />;
       case "performance_vendedores":
         return <VendorPerformance data={data} />;
+      case "conversao":
+        return <ConversionAudit data={data} />;
       default:
         const ActiveIcon = (() => {
           const item = navItems.find(n => n.id === activeTab);
@@ -370,3 +373,4 @@ function MetricCard({ title, icon: Icon, metrics, color, headerColor, showCadast
     </Card>
   );
 }
+

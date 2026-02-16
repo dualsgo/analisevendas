@@ -24,7 +24,8 @@ import {
   Zap,
   CheckCircle2,
   Circle,
-  UserCheck
+  UserCheck,
+  Award
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -41,6 +42,7 @@ import {
   useSidebar
 } from "@/components/ui/sidebar";
 import { DailyPerformance } from "./DailyPerformance";
+import { VendorPerformance } from "./VendorPerformance";
 
 interface SalesSummaryProps {
   data: DetailedSaleRow[];
@@ -168,8 +170,8 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
   const navItems = [
     { id: "geral", label: "Visão Geral", icon: LayoutDashboard },
     { id: "diario", label: "Performance Diária", icon: CalendarIcon },
-    { id: "venda_loja", label: "Performance Venda", icon: TrendingUp },
-    { id: "conversao", label: "Conversão Online", icon: Target },
+    { id: "performance_vendedores", label: "Ranking Performance", icon: Award },
+    { id: "conversao", label: "Auditoria Conversão", icon: Target },
     { id: "auditoria", label: "Auditoria Descontos", icon: AlertCircle },
     { id: "trocas", label: "Gestão de Trocas", icon: ArrowRightLeft },
     { id: "transacoes", label: "Todas Transações", icon: FileText },
@@ -236,9 +238,14 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
         );
       case "diario":
         return <DailyPerformance data={data} />;
+      case "performance_vendedores":
+        return <VendorPerformance data={data} />;
       default:
-        const activeItem = navItems.find(n => n.id === activeTab);
-        const ActiveIcon = activeItem?.icon || LayoutDashboard;
+        const ActiveIcon = (() => {
+          const item = navItems.find(n => n.id === activeTab);
+          return item ? item.icon : LayoutDashboard;
+        })();
+        
         return (
           <div className="flex-1 flex items-center justify-center p-12 bg-white rounded-[3rem] border-2 border-dashed border-orange-100">
             <div className="text-center space-y-4">
@@ -292,8 +299,8 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
             </Button>
             <div className="bg-white/20 p-3 rounded-full hidden lg:block"><Sparkles className="w-8 h-8 text-white" /></div>
             <div className="flex-1 space-y-1 text-center md:text-left">
-              <h2 className="text-lg md:text-2xl font-black uppercase tracking-tighter">Performance Estratégica</h2>
-              <p className="text-orange-50 font-medium text-[11px] md:text-sm">Selecione e combine canais para analisar o resultado consolidado da unidade.</p>
+              <h2 className="text-lg md:text-2xl font-black uppercase tracking-tighter">Gestão Estratégica</h2>
+              <p className="text-orange-50 font-medium text-[11px] md:text-sm">Analise o desempenho da loja física e e-commerce de forma integrada e transparente.</p>
             </div>
           </section>
         )}

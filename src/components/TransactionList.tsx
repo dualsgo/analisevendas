@@ -42,11 +42,15 @@ import {
   Filter,
   Download,
   Ban,
-  Printer
+  Printer,
+  Upload,
+  X
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, parseISO } from "date-fns";
 import { ThermalReceipt } from "./ThermalReceipt";
+import { parseXml } from "@/lib/xml-parser";
+import { useToast } from "@/hooks/use-toast";
 
 interface TransactionListProps {
   data: DetailedSaleRow[];
@@ -58,6 +62,7 @@ export function TransactionList({ data }: TransactionListProps) {
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [selectedTransaction, setSelectedTransaction] = useState<DetailedSaleRow | null>(null);
   const [showThermal, setShowThermal] = useState(false);
+  const { toast } = useToast();
 
   const filteredData = useMemo(() => {
     return data.filter(t => {
@@ -76,10 +81,74 @@ export function TransactionList({ data }: TransactionListProps) {
     });
   }, [data, searchTerm, selectedChannel, selectedStatus]);
 
+  const handleQuickPrint = (t: DetailedSaleRow) => {
+    setSelectedTransaction(t);
+    setShowThermal(true);
+  };
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.toLowerCase().endsWith(".xml")) {
+      toast({
+        title: "Arquivo inválido",
+        description: "Por favor, selecione um arquivo XML de nota fiscal.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const xmlContent = await file.text();
+      const parsed = parseXml(xmlContent);
+      if (parsed) {
+        setSelectedTransaction(parsed);
+        setShowThermal(true);
+        toast({
+          title: "XML Processado",
+          description: `Nota #${parsed.nf} carregada para impressão.`,
+        });
+      } else {
+        throw new Error("Falha no parse");
+      }
+    } catch (e) {
+      toast({
+        title: "Erro ao ler XML",
+        description: "Não foi possível processar este arquivo fiscal.",
+        variant: "destructive",
+      });
+    }
+    // Reset input
+    event.target.value = "";
+  };
+
   const formatBRL = (val: number) => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20">
+      {/* Upload Rápido para 2ª Via */}
+      <Card className="ri-card border-2 border-dashed border-orange-200 bg-orange-50/20 p-6 flex flex-col md:flex-row items-center gap-4 group transition-all hover:border-orange-400">
+        <div className="bg-orange-100 p-4 rounded-full group-hover:scale-110 transition-transform">
+          <Upload className="w-6 h-6 text-orange-600" />
+        </div>
+        <div className="flex-1 text-center md:text-left space-y-1">
+          <h3 className="text-sm font-black text-orange-900 uppercase">Gerar 2ª Via Avulsa</h3>
+          <p className="text-[10px] font-bold text-orange-700/70">Arraste um XML aqui para imprimir o cupom de 80mm instantaneamente.</p>
+        </div>
+        <div className="relative">
+          <Input 
+            type="file" 
+            accept=".xml" 
+            onChange={handleFileUpload}
+            className="absolute inset-0 opacity-0 cursor-pointer z-10"
+          />
+          <Button className="bg-orange-500 hover:bg-orange-600 text-white font-black rounded-xl gap-2 h-11 px-8 pointer-events-none">
+            ANEXAR XML
+          </Button>
+        </div>
+      </Card>
+
       {/* Filtros */}
       <Card className="ri-card border-none shadow-sm overflow-hidden">
         <div className="p-4 bg-white space-y-4">
@@ -144,8 +213,7 @@ export function TransactionList({ data }: TransactionListProps) {
                 <TableHead className="text-[10px] font-black uppercase text-slate-400">Colaborador</TableHead>
                 <TableHead className="text-[10px] font-black uppercase text-slate-400">Cliente</TableHead>
                 <TableHead className="text-[10px] font-black uppercase text-slate-400 text-right">Valor</TableHead>
-                <TableHead className="text-[10px] font-black uppercase text-slate-400 text-center">Status</TableHead>
-                <TableHead className="w-[50px]"></TableHead>
+                <TableHead className="text-[10px] font-black uppercase text-slate-400 text-center">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -173,13 +241,18 @@ export function TransactionList({ data }: TransactionListProps) {
                     <p className="text-[9px] text-slate-400 font-bold">{t.itens_qtd} ITENS</p>
                   </TableCell>
                   <TableCell className="text-center">
-                    {t.is_cancelada ? (
-                      <Badge className="bg-red-100 text-red-600 hover:bg-red-100 border-none text-[8px] font-black uppercase">Cancelada</Badge>
-                    ) : (
-                      <Badge className="bg-emerald-100 text-emerald-600 hover:bg-emerald-100 border-none text-[8px] font-black uppercase">Autorizada</Badge>
-                    )}
+                    <div className="flex items-center justify-center gap-2">
+                      <Button 
+                        size="icon" 
+                        variant="ghost" 
+                        className="h-8 w-8 text-orange-500 hover:text-orange-600 hover:bg-orange-50"
+                        onClick={(e) => { e.stopPropagation(); handleQuickPrint(t); }}
+                      >
+                        <Printer className="w-4 h-4" />
+                      </Button>
+                      <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-orange-500 transition-colors" />
+                    </div>
                   </TableCell>
-                  <TableCell><ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-orange-500 transition-colors" /></TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -195,11 +268,14 @@ export function TransactionList({ data }: TransactionListProps) {
                   <h5 className="text-sm font-black text-slate-800">NF #{t.nf}</h5>
                   <p className="text-[10px] text-slate-400 font-bold uppercase">{t.dhEmi ? format(parseISO(t.dhEmi), "dd/MM/yy HH:mm") : "--"}</p>
                 </div>
-                {t.is_cancelada ? (
-                  <Badge className="bg-red-500 text-white border-none text-[8px] font-black uppercase">Cancelada</Badge>
-                ) : (
-                  <Badge className="bg-emerald-500 text-white border-none text-[8px] font-black uppercase">Ativa</Badge>
-                )}
+                <Button 
+                  size="icon" 
+                  variant="outline" 
+                  className="h-9 w-9 text-orange-500 border-orange-100"
+                  onClick={(e) => { e.stopPropagation(); handleQuickPrint(t); }}
+                >
+                  <Printer className="w-4 h-4" />
+                </Button>
               </div>
               <div className="grid grid-cols-2 gap-4 py-3 border-y border-slate-50">
                  <div>
@@ -216,7 +292,10 @@ export function TransactionList({ data }: TransactionListProps) {
                    {getChannelIcon(t.canal_consolidado)}
                    <span className="text-[10px] font-black text-slate-500 uppercase">{t.canal_consolidado}</span>
                 </div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase">{t.itens_qtd} ITENS</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">{t.itens_qtd} ITENS</span>
+                  {t.is_cancelada && <Badge className="bg-red-500 text-white text-[8px] h-4">CANC</Badge>}
+                </div>
               </div>
             </div>
           ))}
@@ -239,9 +318,9 @@ export function TransactionList({ data }: TransactionListProps) {
                       </div>
                       <Button 
                         onClick={() => setShowThermal(true)}
-                        className="bg-orange-500 hover:bg-orange-600 text-white font-black rounded-xl gap-2"
+                        className="bg-orange-500 hover:bg-orange-600 text-white font-black rounded-xl gap-2 h-12 px-6 shadow-lg shadow-orange-900/20"
                       >
-                        <Printer className="w-4 h-4" /> 2ª VIA
+                        <Printer className="w-5 h-5" /> 2ª VIA TÉRMICA
                       </Button>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
@@ -318,7 +397,9 @@ export function TransactionList({ data }: TransactionListProps) {
               ) : (
                 <div className="p-6 md:p-12 overflow-y-auto">
                    <div className="flex justify-between items-center mb-10">
-                      <Button variant="ghost" onClick={() => setShowThermal(false)} className="font-black text-slate-400">VOLTAR</Button>
+                      <Button variant="ghost" onClick={() => setShowThermal(false)} className="font-black text-slate-400 hover:text-orange-500">
+                        <X className="w-4 h-4 mr-2" /> VOLTAR AO DETALHE
+                      </Button>
                       <SheetTitle className="text-sm font-black uppercase tracking-widest">Visualização 2ª Via</SheetTitle>
                    </div>
                    <ThermalReceipt data={selectedTransaction} />

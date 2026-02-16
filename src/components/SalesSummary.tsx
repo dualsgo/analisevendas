@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useMemo, useState } from "react";
@@ -44,6 +43,7 @@ import { DailyPerformance } from "./DailyPerformance";
 import { VendorPerformance } from "./VendorPerformance";
 import { ConversionAudit } from "./ConversionAudit";
 import { DiscountAudit } from "./DiscountAudit";
+import { ExchangeManagement } from "./ExchangeManagement";
 
 interface SalesSummaryProps {
   data: DetailedSaleRow[];
@@ -177,7 +177,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
     { id: "performance_vendedores", label: "Ranking Performance", icon: Award },
     { id: "conversao", label: "Auditoria Pickup", icon: Smartphone, color: "text-sky-500" },
     { id: "auditoria", label: "Auditoria Descontos", icon: Percent, color: "text-rose-500" },
-    { id: "trocas", label: "Gestão de Trocas", icon: ArrowRightLeft },
+    { id: "trocas", label: "Gestão de Trocas", icon: ArrowRightLeft, color: "text-purple-500" },
     { id: "transacoes", label: "Todas Transações", icon: FileText },
     { id: "whatsapp", label: "Relatório WhatsApp", icon: MessageCircle, color: "text-emerald-500" },
   ];
@@ -187,7 +187,6 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
       case "geral":
         return (
           <div className="space-y-6 md:space-y-10 animate-in fade-in duration-500">
-            {/* Seletores Mobile Otimizados */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 bg-white p-3 md:p-4 rounded-3xl border-2 border-orange-100 shadow-sm">
               <ChannelSelector label="Física" icon={Store} active={selectedChannels.fisica} color="text-slate-600" onToggle={() => toggleChannel('fisica')} />
               <ChannelSelector label="Online" icon={Smartphone} active={selectedChannels.online} color="text-sky-500" onToggle={() => toggleChannel('online')} />
@@ -195,7 +194,6 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
               <ChannelSelector label="Trocas" icon={ArrowRightLeft} active={selectedChannels.troca} color="text-purple-500" onToggle={() => toggleChannel('troca')} />
             </div>
 
-            {/* Card Consolidado Dinâmico */}
             <Card className="ri-card border-orange-400 border-4 bg-orange-50/30 overflow-hidden shadow-xl shadow-orange-100/50">
               <div className="p-4 bg-orange-50 border-b border-orange-200 flex flex-col md:flex-row items-center justify-between gap-3">
                 <div className="flex items-center gap-3 w-full md:w-auto">
@@ -253,6 +251,8 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
         return <ConversionAudit data={data} />;
       case "auditoria":
         return <DiscountAudit data={data} />;
+      case "trocas":
+        return <ExchangeManagement data={data} vinculos={vinculos} />;
       default:
         const activeItem = navItems.find(n => n.id === activeTab);
         const ActiveIcon = activeItem?.icon || LayoutDashboard;
@@ -377,4 +377,3 @@ function MetricCard({ title, icon: Icon, metrics, color, headerColor, showCadast
     </Card>
   );
 }
-

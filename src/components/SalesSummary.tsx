@@ -193,7 +193,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
               <ChannelSelector label="Trocas" icon={ArrowRightLeft} active={selectedChannels.troca} color="text-purple-500" onToggle={() => toggleChannel('troca')} />
             </div>
 
-            {/* Card Consolidado Dinâmico - Layout Refatorado para Evitar Sobreposição */}
+            {/* Card Consolidado Dinâmico */}
             <Card className="ri-card border-orange-400 border-4 bg-orange-50/30 overflow-hidden shadow-xl shadow-orange-100/50">
               <div className="p-4 bg-orange-50 border-b border-orange-200 flex flex-col md:flex-row items-center justify-between gap-3">
                 <div className="flex items-center gap-3 w-full md:w-auto">
@@ -207,10 +207,10 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
                 </div>
               </div>
               <CardContent className="p-6 md:p-10 space-y-8">
-                {/* Linha 1: Venda Total (Destaque Principal) */}
+                {/* Linha 1: Venda Total (Destaque Principal com Fonte Otimizada) */}
                 <div className="text-center lg:text-left border-b border-orange-100 pb-6">
                   <p className="text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Venda Total Consolidada</p>
-                  <p className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-slate-800 leading-tight tracking-tighter">
+                  <p className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-slate-800 leading-tight tracking-tighter">
                     {formatCurrency(consolidado.venda)}
                   </p>
                 </div>

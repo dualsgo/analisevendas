@@ -23,7 +23,8 @@ import {
   Smartphone,
   Zap,
   CheckCircle2,
-  Circle
+  Circle,
+  UserCheck
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -55,7 +56,6 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
   const [showWelcome, setShowWelcome] = useState(true);
   const { setOpenMobile } = useSidebar();
 
-  // Estados para os seletores de canais
   const [selectedChannels, setSelectedChannels] = useState({
     fisica: true,
     online: true,
@@ -72,34 +72,40 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
     setSelectedChannels(prev => ({ ...prev, [channel]: !prev[channel] }));
   };
 
-  // Separação dos dados por canal
   const metricsByChannel = useMemo(() => {
-    const saidas = data.filter(r => r.tpNF === 1 && !r.is_devolucao);
+    const saidas = data.filter(r => r.tpNF === 1 && !r.is_devolucao && !r.is_cancelada);
     
     const fisica = saidas.filter(r => r.canal === "LOJA_FISICA");
     const online = saidas.filter(r => r.canal === "RETIRADA_ONLINE");
     const adicional = saidas.filter(r => r.canal === "RETIRADA_ADICIONAL" || r.is_adicional || r.is_adicional_suspeito);
     
-    const calcMetrics = (rows: DetailedSaleRow[]) => {
+    const calcMetrics = (rows: DetailedSaleRow[], isFisica = false) => {
       const v = rows.reduce((acc, r) => acc + parseFloat(r.vNF), 0);
       const c = rows.length;
       const i = rows.reduce((acc, r) => acc + parseFloat(r.itens_qtd), 0);
+      
+      // Cálculo de Cadastros (CPF em nota)
+      // Se for Loja Física, contamos os CPFs. Se for outro canal, é 100%.
+      const identifiedCount = rows.filter(r => r.cpf_cnpj_dest && r.cpf_cnpj_dest.trim() !== "").length;
+      const cadastrosPercent = isFisica ? (c > 0 ? (identifiedCount / c) * 100 : 0) : 100;
+
       return {
         venda: v,
         cupons: c,
         itens: i,
         tkm: c > 0 ? v / c : 0,
-        pa: c > 0 ? i / c : 0
+        pa: c > 0 ? i / c : 0,
+        cadastros: cadastrosPercent,
+        identified: identifiedCount
       };
     };
 
-    // Para trocas, usamos o saldo dos vínculos (incremental)
     const vTroca = vinculos.reduce((acc, v) => acc + v.valor_diferenca, 0);
     const cTroca = vinculos.length;
     const iTroca = vinculos.reduce((acc, v) => acc + v.diferenca_itens, 0);
 
     return {
-      fisica: calcMetrics(fisica),
+      fisica: calcMetrics(fisica, true),
       online: calcMetrics(online),
       adicional: calcMetrics(adicional),
       troca: {
@@ -107,42 +113,47 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
         cupons: cTroca,
         itens: iTroca,
         tkm: cTroca > 0 ? vTroca / cTroca : 0,
-        pa: cTroca > 0 ? iTroca / cTroca : 0
+        pa: cTroca > 0 ? iTroca / cTroca : 0,
+        cadastros: 100, // Implicito em trocas
+        identified: cTroca
       }
     };
   }, [data, vinculos]);
 
-  // Cálculo do Consolidado Dinâmico
   const consolidado = useMemo(() => {
-    let v = 0, c = 0, i = 0;
+    let v = 0, c = 0, i = 0, iden = 0;
     
     if (selectedChannels.fisica) {
       v += metricsByChannel.fisica.venda;
       c += metricsByChannel.fisica.cupons;
       i += metricsByChannel.fisica.itens;
+      iden += metricsByChannel.fisica.identified;
     }
     if (selectedChannels.online) {
       v += metricsByChannel.online.venda;
       c += metricsByChannel.online.cupons;
       i += metricsByChannel.online.itens;
+      iden += metricsByChannel.online.cupons; // 100%
     }
     if (selectedChannels.adicional) {
       v += metricsByChannel.adicional.venda;
       c += metricsByChannel.adicional.cupons;
       i += metricsByChannel.adicional.itens;
+      iden += metricsByChannel.adicional.cupons; // 100%
     }
     if (selectedChannels.troca) {
       v += metricsByChannel.troca.venda;
       c += metricsByChannel.troca.cupons;
       i += metricsByChannel.troca.itens;
+      iden += metricsByChannel.troca.cupons; // 100%
     }
 
-    // Se nada selecionado, opção A: Exibir todos por padrão
     const allDisabled = !selectedChannels.fisica && !selectedChannels.online && !selectedChannels.adicional && !selectedChannels.troca;
     if (allDisabled) {
       v = metricsByChannel.fisica.venda + metricsByChannel.online.venda + metricsByChannel.adicional.venda + metricsByChannel.troca.venda;
       c = metricsByChannel.fisica.cupons + metricsByChannel.online.cupons + metricsByChannel.adicional.cupons + metricsByChannel.troca.cupons;
       i = metricsByChannel.fisica.itens + metricsByChannel.online.itens + metricsByChannel.adicional.itens + metricsByChannel.troca.itens;
+      iden = metricsByChannel.fisica.identified + metricsByChannel.online.cupons + metricsByChannel.adicional.cupons + metricsByChannel.troca.cupons;
     }
 
     return {
@@ -150,7 +161,8 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
       cupons: c,
       itens: i,
       tkm: c > 0 ? v / c : 0,
-      pa: c > 0 ? i / c : 0
+      pa: c > 0 ? i / c : 0,
+      cadastros: c > 0 ? (iden / c) * 100 : 0
     };
   }, [selectedChannels, metricsByChannel]);
 
@@ -213,43 +225,24 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
         {activeTab === "geral" && (
           <div className="space-y-6 md:space-y-10 animate-in fade-in duration-500">
             
-            {/* Seção de Seletores */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 bg-white p-4 rounded-3xl border-2 border-orange-100 shadow-sm">
-              <ChannelSelector 
-                label="Loja Física" 
-                icon={Store} 
-                active={selectedChannels.fisica} 
-                color="text-slate-600" 
-                onToggle={() => toggleChannel('fisica')} 
-              />
-              <ChannelSelector 
-                label="Retirada Online" 
-                icon={Smartphone} 
-                active={selectedChannels.online} 
-                color="text-sky-500" 
-                onToggle={() => toggleChannel('online')} 
-              />
-              <ChannelSelector 
-                label="Venda Adicional" 
-                icon={Zap} 
-                active={selectedChannels.adicional} 
-                color="text-emerald-500" 
-                onToggle={() => toggleChannel('adicional')} 
-              />
-              <ChannelSelector 
-                label="Saldo Trocas" 
-                icon={ArrowRightLeft} 
-                active={selectedChannels.troca} 
-                color="text-purple-500" 
-                onToggle={() => toggleChannel('troca')} 
-              />
+              <ChannelSelector label="Loja Física" icon={Store} active={selectedChannels.fisica} color="text-slate-600" onToggle={() => toggleChannel('fisica')} />
+              <ChannelSelector label="Retirada Online" icon={Smartphone} active={selectedChannels.online} color="text-sky-500" onToggle={() => toggleChannel('online')} />
+              <ChannelSelector label="Venda Adicional" icon={Zap} active={selectedChannels.adicional} color="text-emerald-500" onToggle={() => toggleChannel('adicional')} />
+              <ChannelSelector label="Saldo Trocas" icon={ArrowRightLeft} active={selectedChannels.troca} color="text-purple-500" onToggle={() => toggleChannel('troca')} />
             </div>
 
-            {/* Card Consolidado Dinâmico */}
             <Card className="ri-card border-orange-400 border-4 bg-orange-50/30 overflow-hidden">
-              <div className="p-4 bg-orange-50 border-b border-orange-200 flex items-center gap-3">
-                <Target className="w-6 h-6 text-orange-600" />
-                <h3 className="text-sm md:text-base font-black text-orange-800 uppercase tracking-tight">Consolidado Dinâmico</h3>
+              <div className="p-4 bg-orange-50 border-b border-orange-200 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Target className="w-6 h-6 text-orange-600" />
+                  <h3 className="text-sm md:text-base font-black text-orange-800 uppercase tracking-tight">Consolidado Dinâmico</h3>
+                </div>
+                <div className="flex items-center gap-2 bg-white px-4 py-1.5 rounded-full border border-orange-200">
+                   <UserCheck className="w-4 h-4 text-emerald-500" />
+                   <span className="text-[10px] font-black text-slate-500 uppercase">Cadastros (CPF):</span>
+                   <span className="text-sm font-black text-emerald-600">{consolidado.cadastros.toFixed(1)}%</span>
+                </div>
               </div>
               <CardContent className="p-6 md:p-10">
                 <div className="grid grid-cols-2 lg:grid-cols-5 gap-6 md:gap-10 text-center lg:text-left">
@@ -277,41 +270,15 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
               </CardContent>
             </Card>
 
-            {/* Grid de Canais Individuais */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
-              <MetricCard 
-                title="Venda Direta (Física)" 
-                icon={Store} 
-                metrics={metricsByChannel.fisica} 
-                color="border-slate-200" 
-                headerColor="bg-slate-50 text-slate-600"
-              />
-              <MetricCard 
-                title="Retirada Online" 
-                icon={Smartphone} 
-                metrics={metricsByChannel.online} 
-                color="border-sky-200" 
-                headerColor="bg-sky-50 text-sky-600"
-              />
-              <MetricCard 
-                title="Venda Adicional (Upsell)" 
-                icon={Zap} 
-                metrics={metricsByChannel.adicional} 
-                color="border-emerald-200" 
-                headerColor="bg-emerald-50 text-emerald-600"
-              />
-              <MetricCard 
-                title="Saldo de Trocas" 
-                icon={ArrowRightLeft} 
-                metrics={metricsByChannel.troca} 
-                color="border-purple-200" 
-                headerColor="bg-purple-50 text-purple-600"
-              />
+              <MetricCard title="Venda Direta (Física)" icon={Store} metrics={metricsByChannel.fisica} showCadastros color="border-slate-200" headerColor="bg-slate-50 text-slate-600" />
+              <MetricCard title="Retirada Online" icon={Smartphone} metrics={metricsByChannel.online} color="border-sky-200" headerColor="bg-sky-50 text-sky-600" />
+              <MetricCard title="Venda Adicional (Upsell)" icon={Zap} metrics={metricsByChannel.adicional} color="border-emerald-200" headerColor="bg-emerald-50 text-emerald-600" />
+              <MetricCard title="Saldo de Trocas" icon={ArrowRightLeft} metrics={metricsByChannel.troca} color="border-purple-200" headerColor="bg-purple-50 text-purple-600" />
             </div>
           </div>
         )}
 
-        {/* Placeholder para outras abas (mantendo consistência) */}
         {activeTab !== "geral" && (
            <div className="flex-1 flex items-center justify-center p-12 bg-white rounded-[3rem] border-2 border-dashed border-orange-100">
              <div className="text-center space-y-4">
@@ -350,14 +317,21 @@ function ChannelSelector({ label, icon: Icon, active, color, onToggle }: { label
   );
 }
 
-function MetricCard({ title, icon: Icon, metrics, color, headerColor }: { title: string, icon: any, metrics: any, color: string, headerColor: string }) {
+function MetricCard({ title, icon: Icon, metrics, color, headerColor, showCadastros = false }: { title: string, icon: any, metrics: any, color: string, headerColor: string, showCadastros?: boolean }) {
   return (
     <Card className={cn("ri-card border-2 overflow-hidden bg-white", color)}>
       <div className={cn("p-4 flex items-center justify-between", headerColor)}>
         <h4 className="text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
           <Icon className="w-4 h-4" /> {title}
         </h4>
-        <p className="text-lg font-black">{formatCurrency(metrics.venda)}</p>
+        <div className="flex flex-col items-end">
+           <p className="text-lg font-black">{formatCurrency(metrics.venda)}</p>
+           {showCadastros && (
+             <span className="text-[9px] font-black bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full flex items-center gap-1">
+               <UserCheck className="w-2.5 h-2.5" /> {metrics.cadastros.toFixed(1)}% CADASTRO
+             </span>
+           )}
+        </div>
       </div>
       <CardContent className="p-6 grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
         <div className="space-y-1">

@@ -75,6 +75,10 @@ export interface DetailedSaleRow {
 
   // Produtos
   itens: Item[];
+
+  // Novos campos para status de arquivos
+  is_cancelada?: boolean;
+  is_error?: boolean;
 }
 
 export interface ChannelSummaryRow {

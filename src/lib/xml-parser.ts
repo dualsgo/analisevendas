@@ -35,6 +35,26 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
   try {
     const parser = new DOMParser();
     const xmlDoc = parser.parseFromString(xmlString, "text/xml");
+    
+    // Identificação de Cancelamento
+    if (xmlDoc.getElementsByTagName("procEventoNFe").length > 0 || xmlDoc.getElementsByTagName("retCancNFe").length > 0) {
+      return {
+        is_cancelada: true,
+        chave: (xmlDoc.getElementsByTagName("chNFe")[0]?.textContent || "DESC"),
+        nf: "CANCELADA",
+        dhEmi: "", vendedor: "", tpNF: 1, finNFe: 1, natOp: "CANCELAMENTO",
+        canal: "CANCELADA", subcanal: "", canal_consolidado: "CANCELADA",
+        is_adicional: false, is_adicional_suspeito: false, motivo_adicional: "",
+        vNF: "0.00", itens_qtd: "0", desconto_total: "0.00", percentual_desconto: "0.00",
+        is_troca: false, vTroca: "0.00", dif_troca: "0.00", is_devolucao: false,
+        refNFe: [], refNFe_normalizadas: [], is_retirada_online: false, vTroco: "0.00",
+        is_presencial_por_troco: false, tpIntegra: "", tem_desconto: false, tipo_desconto: "",
+        status_auditoria: "", cep_dest: "", cep_loja: "", is_cep_diferente_da_loja: false,
+        is_endereco_real: false, cpf_cnpj_dest: "", nome_dest: "", endereco_dest: "",
+        tem_destinatario: false, itens: [], serie: "", modelo: ""
+      };
+    }
+
     if (!xmlDoc.documentElement || xmlDoc.getElementsByTagName("parsererror").length > 0) return null;
 
     const root = xmlDoc.documentElement;
@@ -153,7 +173,8 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
       status_auditoria: statusAuditoria,
       cep_dest, cep_loja, is_cep_diferente_da_loja: isEnderecoReal, is_endereco_real: isEnderecoReal,
       cpf_cnpj_dest: cpf_cnpj, nome_dest, endereco_dest: "", tem_destinatario: !!cpf_cnpj,
-      itens: itemsList
+      itens: itemsList,
+      is_cancelada: false
     };
   } catch (e) {
     return null;

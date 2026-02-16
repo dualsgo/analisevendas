@@ -25,7 +25,8 @@ import {
   CheckCircle2,
   Circle,
   UserCheck,
-  Award
+  Award,
+  Percent
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -42,6 +43,7 @@ import {
 import { DailyPerformance } from "./DailyPerformance";
 import { VendorPerformance } from "./VendorPerformance";
 import { ConversionAudit } from "./ConversionAudit";
+import { DiscountAudit } from "./DiscountAudit";
 
 interface SalesSummaryProps {
   data: DetailedSaleRow[];
@@ -174,7 +176,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
     { id: "diario", label: "Performance Diária", icon: CalendarIcon },
     { id: "performance_vendedores", label: "Ranking Performance", icon: Award },
     { id: "conversao", label: "Auditoria Pickup", icon: Smartphone, color: "text-sky-500" },
-    { id: "auditoria", label: "Auditoria Descontos", icon: AlertCircle },
+    { id: "auditoria", label: "Auditoria Descontos", icon: Percent, color: "text-rose-500" },
     { id: "trocas", label: "Gestão de Trocas", icon: ArrowRightLeft },
     { id: "transacoes", label: "Todas Transações", icon: FileText },
     { id: "whatsapp", label: "Relatório WhatsApp", icon: MessageCircle, color: "text-emerald-500" },
@@ -207,7 +209,6 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
                 </div>
               </div>
               <CardContent className="p-6 md:p-10 space-y-8">
-                {/* Linha 1: Venda Total (Destaque Principal com Fonte Otimizada) */}
                 <div className="text-center lg:text-left border-b border-orange-100 pb-6">
                   <p className="text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Venda Total Consolidada</p>
                   <p className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-slate-800 leading-tight tracking-tighter">
@@ -215,7 +216,6 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
                   </p>
                 </div>
 
-                {/* Linha 2: Métricas Operacionais */}
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 md:gap-10">
                   <div className="text-center lg:text-left">
                     <p className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Tickets</p>
@@ -237,7 +237,6 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
               </CardContent>
             </Card>
 
-            {/* Cards de Canal Individuais */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
               <MetricCard title="Venda Física" icon={Store} metrics={metricsByChannel.fisica} showCadastros color="border-slate-200" headerColor="bg-slate-50 text-slate-600" />
               <MetricCard title="Retirada Online" icon={Smartphone} metrics={metricsByChannel.online} color="border-sky-200" headerColor="bg-sky-50 text-sky-600" />
@@ -252,11 +251,11 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
         return <VendorPerformance data={data} />;
       case "conversao":
         return <ConversionAudit data={data} />;
+      case "auditoria":
+        return <DiscountAudit data={data} />;
       default:
-        const ActiveIcon = (() => {
-          const item = navItems.find(n => n.id === activeTab);
-          return item ? item.icon : LayoutDashboard;
-        })();
+        const activeItem = navItems.find(n => n.id === activeTab);
+        const ActiveIcon = activeItem?.icon || LayoutDashboard;
         
         return (
           <div className="flex-1 flex items-center justify-center p-8 md:p-12 bg-white rounded-[2rem] md:rounded-[3rem] border-2 border-dashed border-orange-100">
@@ -378,3 +377,4 @@ function MetricCard({ title, icon: Icon, metrics, color, headerColor, showCadast
     </Card>
   );
 }
+

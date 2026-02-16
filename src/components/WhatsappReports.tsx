@@ -20,7 +20,6 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   MessageCircle,
   Copy,
@@ -30,7 +29,8 @@ import {
   Smartphone,
   AlertTriangle,
   Zap,
-  LayoutDashboard
+  LayoutDashboard,
+  Trophy
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -80,12 +80,25 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
 
     // Métricas por Vendedor
     const vendors: Record<string, any> = {};
-    [...fisica, ...adicional].forEach(r => {
+    
+    // Processar Vendas Físicas
+    fisica.forEach(r => {
       const name = r.vendedor || "VENDEDOR";
-      if (!vendors[name]) vendors[name] = { venda: 0, cupons: 0, itens: 0, ident: 0 };
+      if (!vendors[name]) vendors[name] = { venda: 0, cupons: 0, itens: 0, ident: 0, adicionais: 0 };
       vendors[name].venda += parseFloat(r.vNF);
       vendors[name].cupons += 1;
       vendors[name].itens += parseFloat(r.itens_qtd);
+      if (r.cpf_cnpj_dest) vendors[name].ident += 1;
+    });
+
+    // Processar Vendas Adicionais
+    adicional.forEach(r => {
+      const name = r.vendedor || "VENDEDOR";
+      if (!vendors[name]) vendors[name] = { venda: 0, cupons: 0, itens: 0, ident: 0, adicionais: 0 };
+      vendors[name].venda += parseFloat(r.vNF);
+      vendors[name].cupons += 1;
+      vendors[name].itens += parseFloat(r.itens_qtd);
+      vendors[name].adicionais += 1; // Contador de Adicionais
       if (r.cpf_cnpj_dest) vendors[name].ident += 1;
     });
 
@@ -95,7 +108,8 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
         venda: v.venda,
         pa: v.cupons > 0 ? v.itens / v.cupons : 0,
         tkm: v.cupons > 0 ? v.venda / v.cupons : 0,
-        ident: v.cupons > 0 ? (v.ident / v.cupons) * 100 : 0
+        ident: v.cupons > 0 ? (v.ident / v.cupons) * 100 : 0,
+        adicionais: v.adicionais
       }))
       .sort((a, b) => b.venda - a.venda);
 
@@ -147,6 +161,28 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
           `${metrics.convPickup < 10 ? e("⚠️") + "*Alerta:* Conversão abaixo da meta!" : e("✅") + "*Status:* Bom desempenho de conversão."}`;
 
       case 'DAILY_CLOSING':
+        // Cálculo de Destaques para o Fechamento
+        const highlights: Record<string, string[]> = {};
+        
+        const winners = {
+          PA: [...metrics.vendorRanking].sort((a, b) => b.pa - a.pa)[0],
+          TKM: [...metrics.vendorRanking].sort((a, b) => b.tkm - a.tkm)[0],
+          Cadastros: [...metrics.vendorRanking].sort((a, b) => b.ident - a.ident)[0],
+          Adicionais: [...metrics.vendorRanking].sort((a, b) => b.adicionais - a.adicionais)[0]
+        };
+
+        Object.entries(winners).forEach(([kpi, vendor]) => {
+          if (vendor) {
+            if (!highlights[vendor.name]) highlights[vendor.name] = [];
+            highlights[vendor.name].push(kpi);
+          }
+        });
+
+        let highlightsText = "";
+        Object.entries(highlights).forEach(([name, kpis]) => {
+          highlightsText += `${e("⭐")}*${name}:* ${kpis.join(", ")}\n`;
+        });
+
         return `${e("📅")}*Fechamento do Dia – ${dateStr}*\n\n` +
           `A operação foi concluída com os seguintes indicadores:\n\n` +
           `${e("💰")}*Faturamento:* ${formatBRL(metrics.venda)}\n` +
@@ -154,7 +190,8 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
           `${e("💳")}*TKM Final:* ${formatBRL(metrics.tkm)}\n` +
           `${e("🆔")}*Identificação:* ${metrics.cadastros.toFixed(1)}%\n` +
           `${e("🚚")}*Conversão Pickup:* ${metrics.convPickup.toFixed(1)}%\n\n` +
-          `${e("⭐")}*Destaque:* ${metrics.vendorRanking[0]?.name || "Equipe"}`;
+          `${e("🏆")}*DESTAQUES DO DIA:*\n` +
+          (highlightsText || "Equipe toda engajada!");
 
       case 'STRATEGIC':
         return `${e("📈")}*Indicadores Estratégicos*\n\n` +

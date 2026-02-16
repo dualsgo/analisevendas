@@ -193,7 +193,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
               <ChannelSelector label="Trocas" icon={ArrowRightLeft} active={selectedChannels.troca} color="text-purple-500" onToggle={() => toggleChannel('troca')} />
             </div>
 
-            {/* Card Consolidado Dinâmico - Ajuste de Overlap */}
+            {/* Card Consolidado Dinâmico - Layout Refatorado para Evitar Sobreposição */}
             <Card className="ri-card border-orange-400 border-4 bg-orange-50/30 overflow-hidden shadow-xl shadow-orange-100/50">
               <div className="p-4 bg-orange-50 border-b border-orange-200 flex flex-col md:flex-row items-center justify-between gap-3">
                 <div className="flex items-center gap-3 w-full md:w-auto">
@@ -206,28 +206,31 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
                    <span className="text-sm font-black text-emerald-600">{consolidado.cadastros.toFixed(1)}%</span>
                 </div>
               </div>
-              <CardContent className="p-6 md:p-10">
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-6 md:gap-8">
-                  <div className="col-span-2 sm:col-span-3 lg:col-span-1 text-center lg:text-left">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Venda Total</p>
-                    <p className="text-2xl sm:text-3xl md:text-4xl font-black text-slate-800 leading-none break-words">
-                      {formatCurrency(consolidado.venda)}
-                    </p>
-                  </div>
+              <CardContent className="p-6 md:p-10 space-y-8">
+                {/* Linha 1: Venda Total (Destaque Principal) */}
+                <div className="text-center lg:text-left border-b border-orange-100 pb-6">
+                  <p className="text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Venda Total Consolidada</p>
+                  <p className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-slate-800 leading-tight tracking-tighter">
+                    {formatCurrency(consolidado.venda)}
+                  </p>
+                </div>
+
+                {/* Linha 2: Métricas Operacionais */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 md:gap-10">
                   <div className="text-center lg:text-left">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Tickets</p>
+                    <p className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Tickets</p>
                     <p className="text-xl md:text-2xl font-black text-slate-600">{consolidado.cupons}</p>
                   </div>
                   <div className="text-center lg:text-left">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Peças</p>
+                    <p className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Peças</p>
                     <p className="text-xl md:text-2xl font-black text-slate-600">{consolidado.itens}</p>
                   </div>
                   <div className="text-center lg:text-left">
-                    <p className="text-[10px] font-black text-orange-400 uppercase tracking-widest mb-1">Valor Médio</p>
+                    <p className="text-[9px] md:text-[10px] font-black text-orange-400 uppercase tracking-widest mb-1">Valor Médio</p>
                     <p className="text-xl md:text-2xl font-black text-orange-600">{formatCurrency(consolidado.tkm, true)}</p>
                   </div>
                   <div className="text-center lg:text-left">
-                    <p className="text-[10px] font-black text-sky-400 uppercase tracking-widest mb-1">P.A.</p>
+                    <p className="text-[9px] md:text-[10px] font-black text-sky-400 uppercase tracking-widest mb-1">P.A.</p>
                     <p className="text-xl md:text-2xl font-black text-sky-600">{consolidado.pa.toFixed(2)}</p>
                   </div>
                 </div>

@@ -25,7 +25,8 @@ import {
   Circle,
   UserCheck,
   Award,
-  Percent
+  Percent,
+  CircleAlert
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -46,6 +47,7 @@ import { DiscountAudit } from "./DiscountAudit";
 import { ExchangeManagement } from "./ExchangeManagement";
 import { TransactionList } from "./TransactionList";
 import { WhatsappReports } from "./WhatsappReports";
+import { LostOpportunities } from "./LostOpportunities";
 
 interface SalesSummaryProps {
   data: DetailedSaleRow[];
@@ -177,6 +179,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
     { id: "geral", label: "Visão Geral", icon: LayoutDashboard },
     { id: "diario", label: "Performance Diária", icon: CalendarIcon },
     { id: "performance_vendedores", label: "Ranking Performance", icon: Award },
+    { id: "oportunidades", label: "Oportunidades Perdidas", icon: CircleAlert, color: "text-orange-600" },
     { id: "conversao", label: "Auditoria Pickup", icon: Smartphone, color: "text-sky-500" },
     { id: "auditoria", label: "Auditoria Descontos", icon: Percent, color: "text-rose-500" },
     { id: "trocas", label: "Gestão de Trocas", icon: ArrowRightLeft, color: "text-purple-500" },
@@ -249,6 +252,8 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
         return <DailyPerformance data={data} />;
       case "performance_vendedores":
         return <VendorPerformance data={data} />;
+      case "oportunidades":
+        return <LostOpportunities data={data} vinculos={vinculos} />;
       case "conversao":
         return <ConversionAudit data={data} />;
       case "auditoria":

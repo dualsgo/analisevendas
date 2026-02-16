@@ -15,6 +15,7 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
+  CardDescription,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -293,8 +294,8 @@ export function VendorPerformance({ data }: VendorPerformanceProps) {
                   <div className="space-y-4">
                     <ComparisonRow label="Ticket Médio" value={formatBRL(selectedVendor.tkm)} storeAvg={storeAverage ? formatBRL(storeAverage.tkm) : ""} diff={storeAverage ? (selectedVendor.tkm - storeAverage.tkm) : 0} isCurrency />
                     <ComparisonRow label="P.A." value={selectedVendor.pa.toFixed(2)} storeAvg={storeAverage ? storeAverage.pa.toFixed(2) : ""} diff={storeAverage ? (selectedVendor.pa - storeAverage.pa) : 0} />
-                    <ComparisonRow label="Fidelização" value={`${selectedVendor.taxaIdentificacao.toFixed(1)}%`} storeAvg={storeAverage ? `${storeAverage.taxaIdentificacao.toFixed(1)}%` : ""} diff={storeAverage ? (selectedVendor.taxaIdentificacao - storeAverage.taxaIdentificacao) : 0} isPercent />
-                    <ComparisonRow label="Conversão" value={`${selectedVendor.taxaConversaoOnline.toFixed(1)}%`} storeAvg={storeAverage ? `${storeAverage.taxaConversaoOnline.toFixed(1)}%` : ""} diff={storeAverage ? (selectedVendor.taxaConversaoOnline - storeAverage.taxaConversaoOnline) : 0} isPercent />
+                    <ComparisonRow label="Fidelização" value={`${selectedVendor.taxaIdentificacao.toFixed(1)}%`} storeAvg={storeAverage ? `${selectedVendor.taxaIdentificacao.toFixed(1)}%` : ""} diff={storeAverage ? (selectedVendor.taxaIdentificacao - storeAverage.taxaIdentificacao) : 0} isPercent />
+                    <ComparisonRow label="Conversão" value={`${selectedVendor.taxaConversaoOnline.toFixed(1)}%`} storeAvg={storeAverage ? `${selectedVendor.taxaConversaoOnline.toFixed(1)}%` : ""} diff={storeAverage ? (selectedVendor.taxaConversaoOnline - storeAverage.taxaConversaoOnline) : 0} isPercent />
                   </div>
                 </div>
               </div>

@@ -193,7 +193,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
               <ChannelSelector label="Trocas" icon={ArrowRightLeft} active={selectedChannels.troca} color="text-purple-500" onToggle={() => toggleChannel('troca')} />
             </div>
 
-            {/* Card Consolidado Dinâmico */}
+            {/* Card Consolidado Dinâmico - Ajuste de Overlap */}
             <Card className="ri-card border-orange-400 border-4 bg-orange-50/30 overflow-hidden shadow-xl shadow-orange-100/50">
               <div className="p-4 bg-orange-50 border-b border-orange-200 flex flex-col md:flex-row items-center justify-between gap-3">
                 <div className="flex items-center gap-3 w-full md:w-auto">
@@ -207,26 +207,28 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
                 </div>
               </div>
               <CardContent className="p-6 md:p-10">
-                <div className="grid grid-cols-2 lg:grid-cols-5 gap-6 md:gap-10">
-                  <div className="col-span-2 lg:col-span-1 text-center lg:text-left">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-6 md:gap-8">
+                  <div className="col-span-2 sm:col-span-3 lg:col-span-1 text-center lg:text-left">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Venda Total</p>
-                    <p className="text-3xl md:text-4xl font-black text-slate-800">{formatCurrency(consolidado.venda)}</p>
+                    <p className="text-2xl sm:text-3xl md:text-4xl font-black text-slate-800 leading-none break-words">
+                      {formatCurrency(consolidado.venda)}
+                    </p>
                   </div>
                   <div className="text-center lg:text-left">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Tickets</p>
-                    <p className="text-xl md:text-3xl font-black text-slate-600">{consolidado.cupons}</p>
+                    <p className="text-xl md:text-2xl font-black text-slate-600">{consolidado.cupons}</p>
                   </div>
                   <div className="text-center lg:text-left">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Peças</p>
-                    <p className="text-xl md:text-3xl font-black text-slate-600">{consolidado.itens}</p>
+                    <p className="text-xl md:text-2xl font-black text-slate-600">{consolidado.itens}</p>
                   </div>
                   <div className="text-center lg:text-left">
                     <p className="text-[10px] font-black text-orange-400 uppercase tracking-widest mb-1">Valor Médio</p>
-                    <p className="text-xl md:text-3xl font-black text-orange-600">{formatCurrency(consolidado.tkm, true)}</p>
+                    <p className="text-xl md:text-2xl font-black text-orange-600">{formatCurrency(consolidado.tkm, true)}</p>
                   </div>
                   <div className="text-center lg:text-left">
                     <p className="text-[10px] font-black text-sky-400 uppercase tracking-widest mb-1">P.A.</p>
-                    <p className="text-xl md:text-3xl font-black text-sky-600">{consolidado.pa.toFixed(2)}</p>
+                    <p className="text-xl md:text-2xl font-black text-sky-600">{consolidado.pa.toFixed(2)}</p>
                   </div>
                 </div>
               </CardContent>
@@ -344,7 +346,7 @@ function MetricCard({ title, icon: Icon, metrics, color, headerColor, showCadast
           <Icon className="w-4 h-4" /> {title}
         </h4>
         <div className="flex flex-col items-start md:items-end">
-           <p className="text-lg font-black">{formatCurrency(metrics.venda)}</p>
+           <p className="text-base md:text-lg font-black">{formatCurrency(metrics.venda)}</p>
            {showCadastros && (
              <span className="text-[9px] font-black bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full flex items-center gap-1">
                <UserCheck className="w-2.5 h-2.5" /> {metrics.cadastros.toFixed(1)}% CADASTRO
@@ -355,22 +357,21 @@ function MetricCard({ title, icon: Icon, metrics, color, headerColor, showCadast
       <CardContent className="p-6 grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
         <div className="space-y-1">
           <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Tickets</p>
-          <p className="text-base font-black text-slate-700">{metrics.cupons}</p>
+          <p className="text-sm font-black text-slate-700">{metrics.cupons}</p>
         </div>
         <div className="space-y-1">
           <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Peças</p>
-          <p className="text-base font-black text-slate-700">{metrics.itens}</p>
+          <p className="text-sm font-black text-slate-700">{metrics.itens}</p>
         </div>
         <div className="space-y-1">
           <p className="text-[8px] font-black text-orange-400 uppercase tracking-widest">TKM</p>
-          <p className="text-base font-black text-orange-600">{formatCurrency(metrics.tkm, true)}</p>
+          <p className="text-sm font-black text-orange-600">{formatCurrency(metrics.tkm, true)}</p>
         </div>
         <div className="space-y-1">
           <p className="text-[8px] font-black text-sky-400 uppercase tracking-widest">P.A.</p>
-          <p className="text-base font-black text-sky-600">{metrics.pa.toFixed(2)}</p>
+          <p className="text-sm font-black text-sky-600">{metrics.pa.toFixed(2)}</p>
         </div>
       </CardContent>
     </Card>
   );
 }
-

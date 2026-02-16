@@ -101,23 +101,13 @@ export interface DetailedSaleRow {
   infCpl?: string;
 }
 
-export interface ChannelSummaryRow {
-  Canal: string;
-  Cupons: string;
-  Venda_Total: string;
-  Itens_Total: string;
-  TKM: string;
-  PA: string;
-}
-
-export interface VendorSummaryRow {
-  Canal: string;
-  Vendedor: string;
-  Cupons: string;
-  Venda_Total: string;
-  Itens_Total: string;
-  TKM: string;
-  PA: string;
+export interface UploadHistoryItem {
+  id: string;
+  timestamp: string;
+  periodo: string;
+  totalNotas: number;
+  valorTotal: number;
+  data: DetailedSaleRow[];
 }
 
 export interface VinculoTroca {

@@ -1,9 +1,9 @@
 
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import JSZip from "jszip";
-import { Upload, Loader2 } from "lucide-react";
+import { Upload, Loader2, FileCheck, FileX, AlertCircle, LayoutDashboard, ShieldAlert } from "lucide-react";
 import { parseXml } from "@/lib/xml-parser";
 import { DetailedSaleRow } from "@/lib/types";
 import { Button } from "@/components/ui/button";
@@ -16,127 +16,161 @@ interface UploadZoneProps {
 }
 
 export function UploadZone({ onDataParsed, isProcessing }: UploadZoneProps) {
+  const [dragActive, setDragActive] = useState(false);
   const [selectedCount, setSelectedCount] = useState(0);
+  const [errorCount, setErrorCount] = useState(0);
   const { toast } = useToast();
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
-    if (!files || files.length === 0) return;
+  const handleFiles = useCallback(async (files: FileList) => {
+    if (files.length === 0) return;
+    
     setSelectedCount(files.length);
-  };
-
-  const processFiles = async () => {
-    const fileInput = document.getElementById('hidden-file-input') as HTMLInputElement;
-    const files = fileInput?.files;
-    if (!files || files.length === 0) return;
-
+    setErrorCount(0);
+    
     const allRows: DetailedSaleRow[] = [];
-    let errorCount = 0;
+    let localErrorCount = 0;
 
-    try {
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        const fileName = file.name.toLowerCase();
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const fileName = file.name.toLowerCase();
 
-        try {
-          if (fileName.endsWith(".zip")) {
-            const zip = new JSZip();
-            const content = await zip.loadAsync(file);
-            const xmlEntries = Object.keys(content.files).filter(name => !content.files[name].dir && name.toLowerCase().endsWith(".xml"));
-            
-            for (const name of xmlEntries) {
-              try {
-                const xmlContent = await content.files[name].async("string");
-                const row = parseXml(xmlContent);
-                if (row) allRows.push(row);
-              } catch (e) {
-                console.error(`Erro ao ler XML ${name} dentro do ZIP:`, e);
-                errorCount++;
-              }
+      try {
+        if (fileName.endsWith(".zip")) {
+          const zip = new JSZip();
+          const content = await zip.loadAsync(file);
+          const xmlEntries = Object.keys(content.files).filter(name => !content.files[name].dir && name.toLowerCase().endsWith(".xml"));
+          
+          for (const name of xmlEntries) {
+            try {
+              const xmlContent = await content.files[name].async("string");
+              const row = parseXml(xmlContent);
+              if (row) allRows.push(row);
+              else localErrorCount++;
+            } catch (e) {
+              localErrorCount++;
             }
-          } else if (fileName.endsWith(".xml")) {
-            const xmlContent = await file.text();
-            const row = parseXml(xmlContent);
-            if (row) allRows.push(row);
           }
-        } catch (e) {
-          console.error(`Erro ao abrir arquivo ${fileName}:`, e);
-          errorCount++;
+        } else if (fileName.endsWith(".xml")) {
+          const xmlContent = await file.text();
+          const row = parseXml(xmlContent);
+          if (row) allRows.push(row);
+          else localErrorCount++;
+        } else {
+          localErrorCount++;
         }
+      } catch (e) {
+        localErrorCount++;
       }
+    }
 
-      if (allRows.length === 0) {
-        toast({
-          title: "Dados não encontrados",
-          description: "Não foi possível extrair notas fiscais válidas dos arquivos selecionados.",
-          variant: "destructive",
-        });
-      } else {
-        if (errorCount > 0) {
-          toast({
-            title: "Processamento parcial",
-            description: `Capturadas ${allRows.length} notas. ${errorCount} arquivos falharam.`,
-          });
-        }
-        onDataParsed(allRows);
-      }
-    } catch (error) {
-      console.error("Erro fatal no upload:", error);
+    if (allRows.length > 0) {
+      setErrorCount(localErrorCount);
+      onDataParsed(allRows);
+    } else {
       toast({
-        title: "Erro crítico no processamento",
-        description: "O lote de arquivos não pôde ser lido. Tente enviar menos arquivos por vez.",
+        title: "Falha na leitura",
+        description: "Nenhum XML válido no padrão SEFAZ (Modelo 65/55) foi identificado.",
         variant: "destructive",
       });
+      setSelectedCount(0);
+    }
+  }, [onDataParsed, toast]);
+
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") setDragActive(true);
+    else if (e.type === "dragleave") setDragActive(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleFiles(e.dataTransfer.files);
+    }
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    if (e.target.files && e.dataTransfer?.files[0] || e.target.files) {
+      handleFiles(e.target.files);
     }
   };
 
   return (
-    <div className="max-w-2xl mx-auto flex flex-col gap-4">
+    <div className="max-w-2xl mx-auto w-full space-y-6">
       <div 
+        onDragEnter={handleDrag}
+        onDragLeave={handleDrag}
+        onDragOver={handleDrag}
+        onDrop={handleDrop}
         className={cn(
-          "relative border-2 border-dashed rounded-xl p-10 bg-slate-50 transition-all flex flex-col items-center justify-center gap-3",
-          selectedCount > 0 ? "border-indigo-400 bg-indigo-50/30" : "border-slate-300 hover:border-slate-400"
+          "relative border-4 border-dashed rounded-[2.5rem] p-12 transition-all flex flex-col items-center justify-center gap-6 group",
+          dragActive ? "border-orange-400 bg-orange-50/50 scale-[1.02]" : "border-slate-100 bg-slate-50 hover:border-orange-200",
+          selectedCount > 0 && !isProcessing && "border-emerald-200 bg-emerald-50/20"
         )}
       >
         <input
-          id="hidden-file-input"
           type="file"
           multiple
           accept=".zip,.xml"
-          onChange={handleFileUpload}
+          onChange={handleChange}
           disabled={isProcessing}
-          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed z-10"
         />
-        <Upload className={cn("w-10 h-10", selectedCount > 0 ? "text-indigo-500" : "text-slate-400")} />
-        <div className="text-center">
-          <p className="text-sm font-medium text-slate-700">
-            {selectedCount > 0 ? `${selectedCount} arquivos selecionados` : "Arraste seus arquivos .ZIP ou clique aqui"}
+        
+        <div className={cn(
+          "p-6 rounded-full bg-white shadow-xl transition-transform duration-500 group-hover:scale-110",
+          selectedCount > 0 ? "text-emerald-500" : "text-orange-500"
+        )}>
+          {isProcessing ? (
+            <Loader2 className="w-12 h-12 animate-spin" />
+          ) : selectedCount > 0 ? (
+            <FileCheck className="w-12 h-12" />
+          ) : (
+            <Upload className="w-12 h-12" />
+          )}
+        </div>
+
+        <div className="text-center space-y-2">
+          <p className="text-lg font-black text-slate-700 uppercase tracking-tight">
+            {isProcessing ? "Analisando arquivos..." : 
+             selectedCount > 0 ? `${selectedCount} arquivos carregados` : 
+             "Solte seus XMLs ou ZIP aqui"}
           </p>
-          <p className="text-xs text-slate-400 mt-1">
-            {selectedCount > 0 ? "Clique em Processar para iniciar a análise" : "Apenas arquivos XML ou ZIP contendo XMLs"}
+          <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">
+            {selectedCount > 0 ? "O Solzinho está pronto para o diagnóstico" : "Padrão SEFAZ: Modelo 65 (NFC-e) e 55 (NF-e)"}
           </p>
         </div>
+
+        {errorCount > 0 && (
+          <div className="flex items-center gap-2 bg-rose-50 text-rose-600 px-4 py-2 rounded-full">
+            <FileX className="w-4 h-4" />
+            <span className="text-[10px] font-black uppercase">{errorCount} arquivos ignorados (inválidos)</span>
+          </div>
+        )}
       </div>
 
-      <div className="flex flex-col items-center">
-        <Button 
-          onClick={processFiles}
-          disabled={isProcessing || selectedCount === 0}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white px-10 py-6 rounded-xl font-bold text-base shadow-lg shadow-indigo-200 transition-all disabled:opacity-50"
-        >
-          {isProcessing ? (
-            <>
-              <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-              Processando...
-            </>
-          ) : (
-            "Processar Dados"
-          )}
-        </Button>
-        <p className="text-[10px] text-slate-400 mt-3 uppercase tracking-tighter">
-          {selectedCount > 0 ? "Pronto para processar" : "Aguardando seleção de arquivos"}
-        </p>
-      </div>
+      {!isProcessing && selectedCount === 0 && (
+        <div className="flex items-center justify-center gap-6 text-slate-300">
+          <div className="flex flex-col items-center gap-1">
+            <AlertCircle className="w-4 h-4" />
+            <span className="text-[8px] font-black uppercase">Seguro</span>
+          </div>
+          <div className="w-px h-8 bg-slate-100" />
+          <div className="flex flex-col items-center gap-1">
+            <LayoutDashboard className="w-4 h-4" />
+            <span className="text-[8px] font-black uppercase">Ágil</span>
+          </div>
+          <div className="w-px h-8 bg-slate-100" />
+          <div className="flex flex-col items-center gap-1">
+            <ShieldAlert className="w-4 h-4" />
+            <span className="text-[8px] font-black uppercase">Privado</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

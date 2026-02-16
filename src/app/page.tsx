@@ -1,21 +1,48 @@
 
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { UploadZone } from "@/components/UploadZone";
 import { SalesSummary } from "@/components/SalesSummary";
-import { DetailedSaleRow, VinculoTroca } from "@/lib/types";
+import { UploadDiagnosis } from "@/components/UploadDiagnosis";
+import { DetailedSaleRow, VinculoTroca, UploadHistoryItem } from "@/lib/types";
 import { detectarAdicionaisSuspeitos, vincularTrocas } from "@/lib/analysis-utils";
 import { Toaster } from "@/components/ui/toaster";
 import { Button } from "@/components/ui/button";
-import { Sparkles, RefreshCcw, Loader2, FileText, ArrowDownLeft, ArrowUpRight, Ban } from "lucide-react";
+import { 
+  Sparkles, 
+  RefreshCcw, 
+  Loader2, 
+  FileText, 
+  ArrowDownLeft, 
+  ArrowUpRight, 
+  Ban, 
+  History, 
+  Trash2,
+  ChevronRight,
+  Calendar
+} from "lucide-react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
+import { format, parseISO, min, max } from "date-fns";
 
 export default function Home() {
   const [parsedRows, setParsedRows] = useState<DetailedSaleRow[]>([]);
   const [vinculos, setVinculos] = useState<VinculoTroca[]>([]);
-  const [status, setStatus] = useState<"idle" | "processing" | "success">("idle");
+  const [status, setStatus] = useState<"idle" | "processing" | "analyzed" | "success">("idle");
+  const [history, setHistory] = useState<UploadHistoryItem[]>([]);
+
+  // Carregar histórico do localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem("ri_happy_upload_history");
+    if (saved) {
+      try {
+        setHistory(JSON.parse(saved));
+      } catch (e) {
+        console.error("Erro ao carregar histórico");
+      }
+    }
+  }, []);
 
   const handleDataParsed = (rows: DetailedSaleRow[]) => {
     setStatus("processing");
@@ -26,14 +53,50 @@ export default function Home() {
       
       setParsedRows(withSuspects);
       setVinculos(exchangeLinks || []);
-      setStatus("success");
+      
+      // Salvar no histórico
+      const saidas = withSuspects.filter(r => r.tpNF === 1 && !r.is_cancelada);
+      const dates = saidas.map(r => parseISO(r.dhEmi)).filter(d => !isNaN(d.getTime()));
+      const periodStr = dates.length > 0 ? 
+        `${format(min(dates), "dd/MM/yy")} - ${format(max(dates), "dd/MM/yy")}` : 
+        "Período Indefinido";
+
+      const newItem: UploadHistoryItem = {
+        id: Math.random().toString(36).substring(7),
+        timestamp: new Date().toISOString(),
+        periodo: periodStr,
+        totalNotas: withSuspects.length,
+        valorTotal: saidas.reduce((acc, r) => acc + parseFloat(r.vNF), 0),
+        data: withSuspects
+      };
+
+      const updatedHistory = [newItem, ...history].slice(0, 5);
+      setHistory(updatedHistory);
+      localStorage.setItem("ri_happy_upload_history", JSON.stringify(updatedHistory));
+
+      setStatus("analyzed");
     }, 1500);
+  };
+
+  const handleConfirmDashboard = () => {
+    setStatus("success");
   };
 
   const handleReset = () => {
     setParsedRows([]);
     setVinculos([]);
     setStatus("idle");
+  };
+
+  const handleReopenHistory = (item: UploadHistoryItem) => {
+    setParsedRows(item.data);
+    setVinculos(vincularTrocas(detectarAdicionaisSuspeitos(item.data)));
+    setStatus("success");
+  };
+
+  const handleClearHistory = () => {
+    setHistory([]);
+    localStorage.removeItem("ri_happy_upload_history");
   };
 
   // Estatísticas de Arquivos para o Top Bar
@@ -86,7 +149,7 @@ export default function Home() {
               </div>
             )}
             
-            {status === "success" && (
+            {(status === "success" || status === "analyzed") && (
               <Button 
                 variant="outline" 
                 size="sm" 
@@ -94,7 +157,7 @@ export default function Home() {
                 className="bg-white border-orange-500 text-orange-600 hover:bg-orange-50 gap-1 md:gap-2 font-black rounded-full shadow-sm text-[10px] md:text-xs"
               >
                 <RefreshCcw className="w-3 h-3 md:w-4 h-4" />
-                <span className="hidden sm:inline">IMPORTAR NOVAMENTE</span>
+                <span className="hidden sm:inline">NOVO UPLOAD</span>
                 <span className="sm:hidden">RESET</span>
               </Button>
             )}
@@ -102,8 +165,8 @@ export default function Home() {
         </header>
 
         <div className="flex-1 flex flex-col overflow-hidden">
-          {status !== "success" ? (
-            <div className="flex-1 flex items-center justify-center p-4">
+          {status === "idle" || status === "processing" ? (
+            <div className="flex-1 flex flex-col items-center justify-center p-4 gap-8">
               <section className="bg-white rounded-[2rem] md:rounded-[2.5rem] shadow-2xl shadow-orange-100 border-4 border-white p-6 md:p-12 text-center animate-in zoom-in duration-500 max-w-2xl w-full">
                 <div className="mb-6 md:mb-10">
                   <div className="inline-block bg-orange-100 text-orange-600 px-4 py-1.5 rounded-full text-[10px] md:text-xs font-black uppercase mb-4 tracking-widest">Início da Jornada</div>
@@ -125,7 +188,43 @@ export default function Home() {
                   </div>
                 )}
               </section>
+
+              {/* Histórico de Uploads */}
+              {status === "idle" && history.length > 0 && (
+                <section className="w-full max-w-2xl space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                  <div className="flex items-center justify-between px-4">
+                    <h3 className="text-xs font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
+                      <History className="w-4 h-4" /> Uploados Recentes
+                    </h3>
+                    <Button variant="ghost" size="sm" onClick={handleClearHistory} className="text-[10px] font-black text-rose-500 hover:text-rose-600 hover:bg-rose-50">
+                      LIMPAR TUDO
+                    </Button>
+                  </div>
+                  <div className="space-y-3">
+                    {history.map((item) => (
+                      <div 
+                        key={item.id} 
+                        onClick={() => handleReopenHistory(item)}
+                        className="bg-white/60 hover:bg-white p-4 rounded-2xl border-2 border-slate-100 hover:border-orange-200 transition-all cursor-pointer group flex items-center justify-between"
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className="p-3 bg-orange-50 rounded-xl group-hover:scale-110 transition-transform">
+                            <Calendar className="w-5 h-5 text-orange-500" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-black text-slate-700 uppercase">{item.periodo}</p>
+                            <p className="text-[10px] text-slate-400 font-bold uppercase">{item.totalNotas} notas • {item.valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                          </div>
+                        </div>
+                        <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-orange-500 group-hover:translate-x-1 transition-all" />
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
             </div>
+          ) : status === "analyzed" ? (
+            <UploadDiagnosis data={parsedRows} vinculos={vinculos} onConfirm={handleConfirmDashboard} />
           ) : (
             <SalesSummary data={parsedRows} vinculos={vinculos} />
           )}

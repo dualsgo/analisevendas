@@ -28,6 +28,13 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   TrendingUp,
   Target,
   UserCheck,
@@ -67,7 +74,6 @@ export function VendorPerformance({ data }: VendorPerformanceProps) {
     direction: 'desc'
   });
 
-  // Filtro de base: Físico + Adicionais
   const baseData = useMemo(() => {
     return data.filter(r => !r.is_cancelada);
   }, [data]);
@@ -77,21 +83,17 @@ export function VendorPerformance({ data }: VendorPerformanceProps) {
     const onlinePickups = baseData.filter(r => r.canal === "RETIRADA_ONLINE");
     const physicalSales = baseData.filter(r => r.tpNF === 1 && (r.canal === "LOJA_FISICA" || r.canal === "RETIRADA_ADICIONAL" || r.is_adicional || r.is_adicional_suspeito));
 
-    // Agrupar vendas físicas/adicionais por vendedor
     physicalSales.forEach(r => {
       const name = r.vendedor || "VENDEDOR NÃO IDENTIFICADO";
       if (!vendors[name]) vendors[name] = [];
       vendors[name].push(r);
     });
 
-    // Calcular métricas
-    const results: VendorMetrics[] = Object.entries(vendors).map(([name, rows]) => {
+    return Object.entries(vendors).map(([name, rows]) => {
       const venda = rows.reduce((acc, r) => acc + parseFloat(r.vNF), 0);
       const cupons = rows.length;
       const itens = rows.reduce((acc, r) => acc + parseFloat(r.itens_qtd), 0);
       const cadastros = rows.filter(r => r.cpf_cnpj_dest && r.cpf_cnpj_dest.trim() !== "").length;
-      
-      // Atendimentos Online vinculados (Onde este vendedor fez o adicional para o mesmo CPF/Dia)
       const cpfsDoVendedor = new Set(rows.map(r => r.cpf_cnpj_dest).filter(Boolean));
       const atendimentosOnline = onlinePickups.filter(p => cpfsDoVendedor.has(p.cpf_cnpj_dest)).length;
       const retiradasComAdicional = rows.filter(r => (r.is_adicional || r.is_adicional_suspeito) && r.chave_retirada_associada).length;
@@ -110,14 +112,11 @@ export function VendorPerformance({ data }: VendorPerformanceProps) {
         taxaConversaoOnline: atendimentosOnline > 0 ? (retiradasComAdicional / atendimentosOnline) * 100 : 0
       };
     });
-
-    return results;
   }, [baseData]);
 
   const storeAverage = useMemo(() => {
     if (metricsByVendor.length === 0) return null;
     const count = metricsByVendor.length;
-    
     return {
       venda: metricsByVendor.reduce((acc, v) => acc + v.venda, 0) / count,
       tkm: metricsByVendor.reduce((acc, v) => acc + v.tkm, 0) / count,
@@ -146,197 +145,157 @@ export function VendorPerformance({ data }: VendorPerformanceProps) {
     }));
   };
 
-  const formatBRL = (val: number) => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const formatBRL = (val: number, isMobile = false) => {
+    if (isMobile && val >= 1000) return `R$ ${(val / 1000).toFixed(1)}k`;
+    return val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  };
+
+  const metricLabels: Record<string, string> = {
+    venda: "Venda Total",
+    cupons: "Tickets",
+    tkm: "TKM",
+    pa: "P.A.",
+    taxaIdentificacao: "Identificação",
+    taxaConversaoOnline: "Conversão Online"
+  };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      {/* Resumo da Loja */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-        <SummaryCard 
-          label="Venda (Física+Adic)" 
-          value={formatBRL(metricsByVendor.reduce((acc, v) => acc + v.venda, 0))} 
-          avg={storeAverage ? formatBRL(storeAverage.venda) : ""}
-          icon={TrendingUp} 
-          color="text-orange-500" 
-        />
-        <SummaryCard 
-          label="TKM Médio Loja" 
-          value={storeAverage ? formatBRL(storeAverage.tkm) : "R$ 0,00"} 
-          icon={Target} 
-          color="text-purple-500" 
-        />
-        <SummaryCard 
-          label="P.A. Médio Loja" 
-          value={storeAverage ? storeAverage.pa.toFixed(2) : "0.00"} 
-          icon={Zap} 
-          color="text-sky-500" 
-        />
-        <SummaryCard 
-          label="Taxa Identificação" 
-          value={storeAverage ? `${storeAverage.taxaIdentificacao.toFixed(1)}%` : "0%"} 
-          icon={UserCheck} 
-          color="text-emerald-500" 
-        />
-        <SummaryCard 
-          label="Conversão Online" 
-          value={storeAverage ? `${storeAverage.taxaConversaoOnline.toFixed(1)}%` : "0%"} 
-          icon={Smartphone} 
-          color="text-pink-500" 
-        />
+      {/* Resumo da Loja Grid Responsivo */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4">
+        <SummaryCard label="Venda Loja" value={formatBRL(metricsByVendor.reduce((acc, v) => acc + v.venda, 0), true)} icon={TrendingUp} color="text-orange-500" />
+        <SummaryCard label="TKM Médio" value={storeAverage ? formatBRL(storeAverage.tkm, true) : "R$ 0"} icon={Target} color="text-purple-500" />
+        <SummaryCard label="P.A. Médio" value={storeAverage ? storeAverage.pa.toFixed(2) : "0"} icon={Zap} color="text-sky-500" />
+        <SummaryCard label="Fidelização" value={storeAverage ? `${storeAverage.taxaIdentificacao.toFixed(1)}%` : "0%"} icon={UserCheck} color="text-emerald-500" />
+        <SummaryCard label="Conv. Online" value={storeAverage ? `${storeAverage.taxaConversaoOnline.toFixed(1)}%` : "0%"} icon={Smartphone} color="text-pink-500" />
       </div>
 
-      {/* Controles e Tabela */}
       <Card className="ri-card overflow-hidden border-none shadow-xl">
-        <CardHeader className="bg-white border-b border-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-4 p-6">
+        <CardHeader className="bg-white border-b border-slate-50 flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-5 md:p-6">
           <div className="space-y-1">
-            <CardTitle className="text-sm font-black uppercase tracking-tight text-slate-600 flex items-center gap-2">
-              Ranking de Performance <Badge variant="outline" className="bg-orange-50 text-orange-600 border-orange-100">{sortedAndFilteredVendors.length} Vendedores</Badge>
+            <CardTitle className="text-xs md:text-sm font-black uppercase tracking-tight text-slate-600 flex items-center gap-2">
+              Performance de Vendedores <Badge variant="outline" className="bg-orange-50 text-orange-600 border-orange-100 px-2">{sortedAndFilteredVendors.length}</Badge>
             </CardTitle>
           </div>
-          <div className="relative w-full md:w-72">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <Input 
-              placeholder="Buscar colaborador..." 
-              className="pl-9 rounded-xl border-slate-100 bg-slate-50/50 focus:bg-white transition-all"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1 sm:w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Input 
+                placeholder="Buscar..." 
+                className="pl-9 rounded-xl border-slate-100 bg-slate-50/50"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            {/* Mobile-only sorting dropdown */}
+            <div className="lg:hidden">
+              <Select value={sortConfig.key} onValueChange={(v) => handleSort(v as keyof VendorMetrics)}>
+                <SelectTrigger className="rounded-xl border-slate-100 bg-slate-50/50 h-10 font-bold text-[10px] uppercase">
+                  <SelectValue placeholder="Ordenar por" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(metricLabels).map(([key, label]) => (
+                    <SelectItem key={key} value={key}>{label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
+          {/* Desktop Table */}
+          <div className="hidden lg:block overflow-x-auto">
             <Table>
               <TableHeader className="bg-slate-50/50">
                 <TableRow className="border-slate-50">
                   <TableHead className="w-[200px] text-[10px] font-black uppercase text-slate-400">Colaborador</TableHead>
-                  <SortableHead label="Venda Total" sortKey="venda" currentSort={sortConfig} onSort={handleSort} />
+                  <SortableHead label="Venda" sortKey="venda" currentSort={sortConfig} onSort={handleSort} />
                   <SortableHead label="TKM" sortKey="tkm" currentSort={sortConfig} onSort={handleSort} />
                   <SortableHead label="P.A." sortKey="pa" currentSort={sortConfig} onSort={handleSort} />
-                  <SortableHead label="% Identif." sortKey="taxaIdentificacao" currentSort={sortConfig} onSort={handleSort} />
+                  <SortableHead label="% Ident." sortKey="taxaIdentificacao" currentSort={sortConfig} onSort={handleSort} />
                   <SortableHead label="Conv. Online" sortKey="taxaConversaoOnline" currentSort={sortConfig} onSort={handleSort} />
                   <TableHead className="w-[50px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {sortedAndFilteredVendors.map((v) => (
-                  <TableRow 
-                    key={v.name} 
-                    className="hover:bg-orange-50/30 border-slate-50 cursor-pointer group"
-                    onClick={() => setSelectedVendor(v)}
-                  >
+                  <TableRow key={v.name} className="hover:bg-orange-50/30 border-slate-50 cursor-pointer group" onClick={() => setSelectedVendor(v)}>
                     <TableCell className="py-4">
                       <p className="text-xs font-black text-slate-700 uppercase leading-none">{v.name}</p>
                       <p className="text-[9px] text-slate-400 font-bold mt-1 uppercase">{v.cupons} Tickets</p>
                     </TableCell>
-                    <TableCell>
-                      <ComparisonCell 
-                        value={formatBRL(v.venda)} 
-                        isAbove={storeAverage ? v.venda > storeAverage.venda : false} 
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <ComparisonCell 
-                        value={formatBRL(v.tkm)} 
-                        isAbove={storeAverage ? v.tkm > storeAverage.tkm : false} 
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <ComparisonCell 
-                        value={v.pa.toFixed(2)} 
-                        isAbove={storeAverage ? v.pa > storeAverage.pa : false} 
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <ComparisonCell 
-                        value={`${v.taxaIdentificacao.toFixed(1)}%`} 
-                        isAbove={storeAverage ? v.taxaIdentificacao > storeAverage.taxaIdentificacao : false} 
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <ComparisonCell 
-                        value={`${v.taxaConversaoOnline.toFixed(1)}%`} 
-                        isAbove={storeAverage ? v.taxaConversaoOnline > storeAverage.taxaConversaoOnline : false} 
-                        showNeutral={v.atendimentosOnline === 0}
-                      />
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-orange-500 transition-colors" />
-                    </TableCell>
+                    <TableCell><ComparisonCell value={formatBRL(v.venda)} isAbove={storeAverage ? v.venda > storeAverage.venda : false} /></TableCell>
+                    <TableCell><ComparisonCell value={formatBRL(v.tkm)} isAbove={storeAverage ? v.tkm > storeAverage.tkm : false} /></TableCell>
+                    <TableCell><ComparisonCell value={v.pa.toFixed(2)} isAbove={storeAverage ? v.pa > storeAverage.pa : false} /></TableCell>
+                    <TableCell><ComparisonCell value={`${v.taxaIdentificacao.toFixed(1)}%`} isAbove={storeAverage ? v.taxaIdentificacao > storeAverage.taxaIdentificacao : false} /></TableCell>
+                    <TableCell><ComparisonCell value={`${v.taxaConversaoOnline.toFixed(1)}%`} isAbove={storeAverage ? v.taxaConversaoOnline > storeAverage.taxaConversaoOnline : false} showNeutral={v.atendimentosOnline === 0} /></TableCell>
+                    <TableCell className="text-right"><ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-orange-500 transition-colors" /></TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           </div>
+
+          {/* Mobile Cards View */}
+          <div className="lg:hidden p-4 space-y-4">
+            {sortedAndFilteredVendors.map((v) => (
+              <div key={v.name} className="bg-white border-2 border-slate-50 rounded-2xl p-4 shadow-sm space-y-4" onClick={() => setSelectedVendor(v)}>
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h5 className="text-sm font-black text-slate-800 uppercase leading-tight">{v.name}</h5>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase">{v.cupons} Cupons no período</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-lg font-black text-slate-900 leading-none">{formatBRL(v.venda, true)}</p>
+                    <Badge variant="outline" className={cn("mt-1 text-[8px] h-4 font-black border-none", v.venda > (storeAverage?.venda || 0) ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700")}>
+                      {v.venda > (storeAverage?.venda || 0) ? <ArrowUp className="w-2 h-2 mr-0.5" /> : <ArrowDown className="w-2 h-2 mr-0.5" />}
+                      VENDA
+                    </Badge>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-50">
+                  <MobileMetric label="Tickets / Peças" value={`${v.cupons} | ${v.itens}`} />
+                  <MobileMetric label="TKM" value={formatBRL(v.tkm, true)} isAbove={storeAverage ? v.tkm > storeAverage.tkm : false} />
+                  <MobileMetric label="P.A." value={v.pa.toFixed(2)} isAbove={storeAverage ? v.pa > storeAverage.pa : false} />
+                  <MobileMetric label="Identificação" value={`${v.taxaIdentificacao.toFixed(1)}%`} isAbove={storeAverage ? v.taxaIdentificacao > storeAverage.taxaIdentificacao : false} />
+                  <div className="col-span-2">
+                    <MobileMetric label="Conversão Online" value={`${v.taxaConversaoOnline.toFixed(1)}%`} isAbove={storeAverage ? v.taxaConversaoOnline > storeAverage.taxaConversaoOnline : false} subValue={`Atendimentos: ${v.atendimentosOnline}`} />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </CardContent>
       </Card>
 
-      {/* Detalhamento Lateral */}
+      {/* Sheet Detalhamento Responsivo */}
       <Sheet open={!!selectedVendor} onOpenChange={(open) => !open && setSelectedVendor(null)}>
         <SheetContent className="w-full sm:max-w-md bg-white border-l-4 border-orange-500 p-0 overflow-y-auto">
           {selectedVendor && (
             <div className="h-full flex flex-col">
-              <div className="bg-[#FFD100] p-8 space-y-2 border-b-4 border-orange-500">
-                <SheetTitle className="text-2xl font-black text-orange-900 uppercase tracking-tighter">{selectedVendor.name}</SheetTitle>
-                <SheetDescription className="text-orange-800 font-bold uppercase text-[10px] tracking-widest">Detalhamento Individual de Performance</SheetDescription>
+              <div className="bg-[#FFD100] p-6 md:p-8 space-y-2 border-b-4 border-orange-500">
+                <SheetTitle className="text-xl md:text-2xl font-black text-orange-900 uppercase tracking-tighter">{selectedVendor.name}</SheetTitle>
+                <SheetDescription className="text-orange-800 font-bold uppercase text-[9px] md:text-[10px] tracking-widest">Análise de Performance Individual</SheetDescription>
               </div>
-              
-              <div className="p-8 space-y-8 flex-1">
-                <div className="grid grid-cols-2 gap-4">
+              <div className="p-6 md:p-8 space-y-6 md:space-y-8 flex-1">
+                <div className="grid grid-cols-2 gap-3 md:gap-4">
                   <DetailMiniCard label="Venda Bruta" value={formatBRL(selectedVendor.venda)} />
                   <DetailMiniCard label="Tickets" value={selectedVendor.cupons} />
-                  <DetailMiniCard label="Peças" value={selectedVendor.itens} />
-                  <DetailMiniCard label="Retiradas Atendidas" value={selectedVendor.atendimentosOnline} />
+                  <DetailMiniCard label="TKM" value={formatBRL(selectedVendor.tkm)} />
+                  <DetailMiniCard label="P.A." value={selectedVendor.pa.toFixed(2)} />
                 </div>
-
                 <div className="space-y-4">
-                  <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
-                    <TrendingUp className="w-3 h-3" /> Comparação com Média da Loja
-                  </h4>
+                  <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2"><TrendingUp className="w-3 h-3" /> Comparativo vs Média Loja</h4>
                   <div className="space-y-3">
-                    <ComparisonRow 
-                      label="Ticket Médio" 
-                      value={formatBRL(selectedVendor.tkm)} 
-                      storeAvg={storeAverage ? formatBRL(storeAverage.tkm) : ""} 
-                      diff={storeAverage ? (selectedVendor.tkm - storeAverage.tkm) : 0} 
-                      isCurrency 
-                    />
-                    <ComparisonRow 
-                      label="Peças por Atendimento" 
-                      value={selectedVendor.pa.toFixed(2)} 
-                      storeAvg={storeAverage ? storeAverage.pa.toFixed(2) : ""} 
-                      diff={storeAverage ? (selectedVendor.pa - storeAverage.pa) : 0} 
-                    />
-                    <ComparisonRow 
-                      label="Taxa de Identificação" 
-                      value={`${selectedVendor.taxaIdentificacao.toFixed(1)}%`} 
-                      storeAvg={storeAverage ? `${storeAverage.taxaIdentificacao.toFixed(1)}%` : ""} 
-                      diff={storeAverage ? (selectedVendor.taxaIdentificacao - storeAverage.taxaIdentificacao) : 0} 
-                      isPercent
-                    />
-                    <ComparisonRow 
-                      label="Conversão Online" 
-                      value={`${selectedVendor.taxaConversaoOnline.toFixed(1)}%`} 
-                      storeAvg={storeAverage ? `${storeAverage.taxaConversaoOnline.toFixed(1)}%` : ""} 
-                      diff={storeAverage ? (selectedVendor.taxaConversaoOnline - storeAverage.taxaConversaoOnline) : 0} 
-                      isPercent
-                    />
-                  </div>
-                </div>
-
-                <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 flex gap-4">
-                  <div className="p-3 bg-white rounded-full"><Info className="w-5 h-5 text-slate-400" /></div>
-                  <div>
-                    <p className="text-[10px] font-black text-slate-500 uppercase">Insight Estratégico</p>
-                    <p className="text-xs text-slate-600 font-medium leading-relaxed mt-1">
-                      {selectedVendor.taxaConversaoOnline > (storeAverage?.taxaConversaoOnline || 0) 
-                        ? "Este colaborador possui forte habilidade em converter retiradas online em vendas presenciais." 
-                        : "Há oportunidade de melhoria na abordagem de upsell durante o atendimento de retiradas online."}
-                    </p>
+                    <ComparisonRow label="Ticket Médio" value={formatBRL(selectedVendor.tkm)} storeAvg={storeAverage ? formatBRL(storeAverage.tkm) : ""} diff={storeAverage ? (selectedVendor.tkm - storeAverage.tkm) : 0} isCurrency />
+                    <ComparisonRow label="P.A." value={selectedVendor.pa.toFixed(2)} storeAvg={storeAverage ? storeAverage.pa.toFixed(2) : ""} diff={storeAverage ? (selectedVendor.pa - storeAverage.pa) : 0} />
+                    <ComparisonRow label="Fidelização" value={`${selectedVendor.taxaIdentificacao.toFixed(1)}%`} storeAvg={storeAverage ? `${storeAverage.taxaIdentificacao.toFixed(1)}%` : ""} diff={storeAverage ? (selectedVendor.taxaIdentificacao - storeAverage.taxaIdentificacao) : 0} isPercent />
+                    <ComparisonRow label="Conversão" value={`${selectedVendor.taxaConversaoOnline.toFixed(1)}%`} storeAvg={storeAverage ? `${storeAverage.taxaConversaoOnline.toFixed(1)}%` : ""} diff={storeAverage ? (selectedVendor.taxaConversaoOnline - storeAverage.taxaConversaoOnline) : 0} isPercent />
                   </div>
                 </div>
               </div>
-
-              <div className="p-8 border-t bg-slate-50">
+              <div className="p-6 md:p-8 border-t bg-slate-50 mt-auto">
                 <Button onClick={() => setSelectedVendor(null)} className="w-full bg-orange-500 hover:bg-orange-600 font-black rounded-xl py-6">FECHAR DETALHES</Button>
               </div>
             </div>
@@ -349,28 +308,40 @@ export function VendorPerformance({ data }: VendorPerformanceProps) {
 
 function SummaryCard({ label, value, avg, icon: Icon, color }: { label: string, value: string, avg?: string, icon: any, color: string }) {
   return (
-    <Card className="ri-card border-none bg-white p-5 space-y-3">
+    <Card className="ri-card border-none bg-white p-4 md:p-5 space-y-2 md:space-y-3">
       <div className="flex items-center justify-between">
-        <div className={cn("p-2 rounded-xl bg-slate-50", color)}>
+        <div className={cn("p-1.5 md:p-2 rounded-xl bg-slate-50", color)}>
           <Icon className="w-4 h-4" />
         </div>
-        {avg && <span className="text-[8px] font-black text-slate-300 uppercase tracking-tighter">Avg: {avg}</span>}
+        {avg && <span className="hidden sm:block text-[8px] font-black text-slate-300 uppercase tracking-tighter">Média: {avg}</span>}
       </div>
       <div>
-        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{label}</p>
-        <p className="text-lg font-black text-slate-800">{value}</p>
+        <p className="text-[8px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest">{label}</p>
+        <p className="text-sm md:text-lg font-black text-slate-800">{value}</p>
       </div>
     </Card>
+  );
+}
+
+function MobileMetric({ label, value, isAbove, subValue }: { label: string, value: string, isAbove?: boolean, subValue?: string }) {
+  return (
+    <div className="space-y-1">
+      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{label}</p>
+      <div className="flex items-center gap-1.5">
+        <span className="text-xs font-black text-slate-700">{value}</span>
+        {isAbove !== undefined && (
+          isAbove ? <ArrowUp className="w-2.5 h-2.5 text-emerald-500" /> : <ArrowDown className="w-2.5 h-2.5 text-rose-500" />
+        )}
+      </div>
+      {subValue && <p className="text-[8px] text-slate-400 font-medium">{subValue}</p>}
+    </div>
   );
 }
 
 function SortableHead({ label, sortKey, currentSort, onSort }: { label: string, sortKey: keyof VendorMetrics, currentSort: any, onSort: any }) {
   const isActive = currentSort.key === sortKey;
   return (
-    <TableHead 
-      className="text-[10px] font-black uppercase text-slate-400 cursor-pointer hover:text-orange-500 transition-colors"
-      onClick={() => onSort(sortKey)}
-    >
+    <TableHead className="text-[10px] font-black uppercase text-slate-400 cursor-pointer hover:text-orange-500 transition-colors" onClick={() => onSort(sortKey)}>
       <div className="flex items-center gap-1">
         {label}
         {isActive && (currentSort.direction === 'desc' ? <ArrowDown className="w-3 h-3" /> : <ArrowUp className="w-3 h-3" />)}
@@ -384,11 +355,7 @@ function ComparisonCell({ value, isAbove, showNeutral = false }: { value: string
   return (
     <div className="flex items-center gap-2">
       <span className="text-xs font-bold text-slate-700">{value}</span>
-      {isAbove ? (
-        <Badge className="bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-50 px-1 py-0 h-4 min-w-[32px] justify-center"><ArrowUp className="w-2 h-2" /></Badge>
-      ) : (
-        <Badge className="bg-rose-50 text-rose-600 border-rose-100 hover:bg-rose-50 px-1 py-0 h-4 min-w-[32px] justify-center"><ArrowDown className="w-2 h-2" /></Badge>
-      )}
+      {isAbove ? <ArrowUp className="w-3 h-3 text-emerald-500" /> : <ArrowDown className="w-3 h-3 text-rose-500" />}
     </div>
   );
 }
@@ -397,7 +364,7 @@ function DetailMiniCard({ label, value }: { label: string, value: string | numbe
   return (
     <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
       <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{label}</p>
-      <p className="text-base font-black text-slate-800">{value}</p>
+      <p className="text-sm md:text-base font-black text-slate-800">{value}</p>
     </div>
   );
 }
@@ -409,17 +376,14 @@ function ComparisonRow({ label, value, storeAvg, diff, isCurrency = false, isPer
     : (isPercent ? `${diff > 0 ? '+' : ''}${diff.toFixed(1)}%` : `${diff > 0 ? '+' : ''}${diff.toFixed(2)}`);
 
   return (
-    <div className="flex items-center justify-between p-4 bg-white rounded-2xl border-2 border-slate-50">
-      <div>
-        <p className="text-xs font-black text-slate-800">{label}</p>
-        <p className="text-[9px] font-bold text-slate-400 uppercase">Média Loja: {storeAvg}</p>
+    <div className="flex items-center justify-between p-4 bg-white rounded-2xl border-2 border-slate-50 gap-4">
+      <div className="min-w-0">
+        <p className="text-xs font-black text-slate-800 truncate">{label}</p>
+        <p className="text-[9px] font-bold text-slate-400 uppercase">Avg: {storeAvg}</p>
       </div>
-      <div className="text-right">
+      <div className="text-right shrink-0">
         <p className="text-sm font-black text-slate-700">{value}</p>
-        <span className={cn(
-          "text-[10px] font-black flex items-center gap-1 justify-end",
-          isPositive ? "text-emerald-600" : "text-rose-600"
-        )}>
+        <span className={cn("text-[10px] font-black flex items-center gap-1 justify-end", isPositive ? "text-emerald-600" : "text-rose-600")}>
           {isPositive ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />}
           {formattedDiff}
         </span>

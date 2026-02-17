@@ -21,19 +21,19 @@ export function detectarAdicionaisSuspeitos(rows: DetailedSaleRow[]): DetailedSa
     }
   });
 
-  // Segundo passo: Validar vendas que o parser marcou como Adicional apenas pelo desconto
-  // Se não houver pickup no dia para aquele CPF, ela não é uma venda adicional estratégica.
+  // Segundo passo: Validar e reclassificar falsos positivos
+  // Se foi marcada como ADICIONAL (pelo desconto de 10%) mas não tem pickup no dia para aquele CPF
   rows.forEach(r => {
     if (r.tpNF === 1 && !r.is_cancelada && r.cpf_cnpj_dest) {
       const date = r.dhEmi.substring(0, 10);
       const vendasCpf = notasPorCpf[r.cpf_cnpj_dest] || [];
       const temPickupNoDia = vendasCpf.some(v => v.is_retirada_online && v.dhEmi.substring(0, 10) === date);
 
-      // Se foi marcada como ADICIONAL (pelo desconto de 10%) mas não tem pickup no dia
       if (r.is_adicional && !temPickupNoDia) {
         r.is_adicional = false;
         r.tipo_desconto = "PADRÃO";
         r.canal = "LOJA_FISICA";
+        r.canal_consolidado = "VENDA_LOJA";
         r.status_auditoria = "DESCONTO APLICADO";
       }
 
@@ -44,7 +44,7 @@ export function detectarAdicionaisSuspeitos(rows: DetailedSaleRow[]): DetailedSa
     }
   });
 
-  // Terceiro passo: Vincular logicamente as vendas aos pickups existentes
+  // Terceiro passo: Vincular logicamente as vendas presenciais aos pickups existentes
   Object.values(notasPorCpf).forEach(notasCpf => {
     // Agrupar notas do cliente por data
     const notasPorData: Record<string, DetailedSaleRow[]> = {};
@@ -66,7 +66,7 @@ export function detectarAdicionaisSuspeitos(rows: DetailedSaleRow[]): DetailedSa
           outra.chave_retirada_associada = retRef.chave;
           outra.data_retirada_associada = retRef.dhEmi;
           
-          // Análise de ordem cronológica
+          // Análise de ordem cronológica (se emitido antes ou depois da baixa do pickup)
           const tOutra = new Date(outra.dhEmi).getTime();
           const tRet = new Date(retRef.dhEmi).getTime();
           outra.tipo_retirada_associada = tOutra < tRet ? "ANTES" : "DEPOIS";
@@ -76,6 +76,7 @@ export function detectarAdicionaisSuspeitos(rows: DetailedSaleRow[]): DetailedSa
           if (!outra.is_adicional) {
             outra.is_adicional_suspeito = true;
             outra.motivo_adicional = "Venda presencial no mesmo dia de uma retirada online";
+            outra.canal = "RETIRADA_ADICIONAL";
           }
         });
       }

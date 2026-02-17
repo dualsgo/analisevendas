@@ -156,7 +156,7 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     if (tpIntegra === "2") pickup_score++; // 1. Integração Digital
     if (vTrocoPag === 0) pickup_score++; // 2. Sem Troco
     if (pagamentosDet.every(p => p.tPag !== "01")) pickup_score++; // 3. Sem Dinheiro
-    if (/RETIRADA|PICKUP|OMNICHANNEL|SITE|MAGAZINE|ML|MAGALU/i.test(infCpl)) pickup_score++; // 4. Palavras Chave
+    if (/RETIRADA|PICKUP|OMNICHANNEL|SITE|MAGAZINE|ML|MAGALU|SITE/i.test(infCpl)) pickup_score++; // 4. Palavras Chave
     if (vendedor === "VENDEDOR NÃO IDENTIFICADO" || /SITE|ECOMMERCE|INTEGRADOR/i.test(vendedor)) pickup_score++; // 5. Sem vendedor físico
 
     // Identificação de Pickup Online: Score mínimo 3 para ser considerado Pickup

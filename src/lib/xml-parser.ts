@@ -14,14 +14,16 @@ function dec(s: string | null | undefined): number {
   return isNaN(num) ? 0 : num;
 }
 
+const delimiters = ["Email:", "E-mail:", "Telefone:", "ID PIX", ".::", ";", "ID:", "CPF:", "CNPJ:", "Endereço:", "Data:", "Op:", "Mat:"];
+
 function extractVendedor(infCpl: string): string {
   if (!infCpl) return "VENDEDOR NÃO IDENTIFICADO";
-  const vLabel = /Vendedor:|Vend:|Atendente:/i;
+  const vLabel = /Vendedor:|Vend:|Atendente:|Op:|Operador:/i;
   const match = infCpl.match(vLabel);
   if (!match || match.index === undefined) return "VENDEDOR NÃO IDENTIFICADO";
   const startIdx = match.index + match[0].length;
   let candidate = infCpl.substring(startIdx).trim();
-  const delimiters = ["Email:", "E-mail:", "Telefone:", "ID PIX", ".::", ";", "ID:", "CPF:", "CNPJ:", "Endereço:", "Data:"];
+
   let endIdx = candidate.length;
   for (const d of delimiters) {
     const dIdx = candidate.toUpperCase().indexOf(d.toUpperCase());
@@ -29,14 +31,23 @@ function extractVendedor(infCpl: string): string {
   }
   const multiSpace = candidate.match(/\s{2,}/);
   if (multiSpace && multiSpace.index !== undefined && multiSpace.index < endIdx) endIdx = multiSpace.index;
-  return candidate.substring(0, endIdx).trim() || "VENDEDOR NÃO IDENTIFICADO";
+
+  let result = candidate.substring(0, endIdx).trim();
+
+  // Heurística: remover ID numérico no final (ex: "JOAO SILVA 12345")
+  const trailingIdMatch = result.match(/\s+\d+$/);
+  if (trailingIdMatch && trailingIdMatch.index) {
+    result = result.substring(0, trailingIdMatch.index);
+  }
+
+  return result || "VENDEDOR NÃO IDENTIFICADO";
 }
 
 export function parseXml(xmlString: string): DetailedSaleRow | null {
   try {
     const parser = new DOMParser();
     const xmlDoc = parser.parseFromString(xmlString, "text/xml");
-    
+
     // Identificação de Evento de Cancelamento
     if (xmlDoc.getElementsByTagName("procEventoNFe").length > 0 || xmlDoc.getElementsByTagName("retCancNFe").length > 0) {
       return {
@@ -92,7 +103,7 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     const emit = getElement(infNFe, "emit");
     const enderEmit = emit ? getElement(emit, "enderEmit") : null;
     const cep_loja = enderEmit ? (getElement(enderEmit, "CEP")?.textContent || "").replace(/\D/g, "") : "";
-    
+
     const xNomeEmit = emit ? getElement(emit, "xNome")?.textContent || "" : "";
     const cnpjEmit = emit ? getElement(emit, "CNPJ")?.textContent || "" : "";
     const ieEmit = emit ? getElement(emit, "IE")?.textContent || "" : "";
@@ -116,7 +127,7 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
       }
     });
 
-    const pagamentosDet: Array<{tPag: string, vPag: number, tpIntegra?: string}> = [];
+    const pagamentosDet: Array<{ tPag: string, vPag: number, tpIntegra?: string }> = [];
     let vTrocoPag = 0;
     let tpIntegraValue = "";
     const pag = getElement(infNFe, "pag");
@@ -154,18 +165,18 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     // NOVA MATRIZ DE SCORE (0 a 5)
     let pickup_score = 0;
     // 1. Integração Digital (tpIntegra = 2)
-    if (tpIntegraValue === "2") pickup_score++; 
+    if (tpIntegraValue === "2") pickup_score++;
     // 2. Ausência de Troco
-    if (vTrocoPag === 0) pickup_score++; 
+    if (vTrocoPag === 0) pickup_score++;
     // 3. Restrição de Espécie (Sem código 01 - Dinheiro)
-    if (pagamentosDet.every(p => p.tPag !== "01")) pickup_score++; 
+    if (pagamentosDet.every(p => p.tPag !== "01")) pickup_score++;
     // 4. Padrão do Nome do Cliente (Presença de Minúsculas = Digital)
     if (/[a-z]/.test(nome_dest)) pickup_score++;
     // 5. Emissor Sistêmico
-    if (vendedor === "VENDEDOR NÃO IDENTIFICADO" || /SITE|ECOMM|INT|POS/i.test(vendedor)) pickup_score++; 
+    if (vendedor === "VENDEDOR NÃO IDENTIFICADO" || /SITE|ECOMM|INT|POS/i.test(vendedor)) pickup_score++;
 
     const isRetiradaOnline = pickup_score >= 3;
-    
+
     const vTrocaCredito = pagamentosDet.filter(p => p.tPag === "05").reduce((acc, p) => acc + p.vPag, 0);
     const isTroca = vTrocaCredito > 0;
     const difTroca = vNFValue - vTrocaCredito;
@@ -173,10 +184,10 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     const valorTotalProds = itemsList.reduce((acc, it) => acc + it.vProd, 0);
     const descontoTotal = itemsList.reduce((acc, it) => acc + it.vDesc, 0);
     const percentualDesconto = valorTotalProds > 0 ? (descontoTotal / valorTotalProds) : 0;
-    
+
     const isAdicionalDoc = percentualDesconto >= ADICIONAL_PERCENT_MIN && percentualDesconto <= ADICIONAL_PERCENT_MAX;
     const isMostruario = percentualDesconto >= MOSTRUARIO_PERCENT_MIN && percentualDesconto <= MOSTRUARIO_PERCENT_MAX;
-    
+
     const isDevolucao = tpNF === 0 && (finNFe === 4 || natOp.toLowerCase().includes("devolucao"));
 
     return {
@@ -190,7 +201,7 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
       is_troca: isTroca, vTroca: vTrocaCredito.toFixed(2), dif_troca: difTroca.toFixed(2),
       is_devolucao: isDevolucao, refNFe: refNFes, refNFe_normalizadas: refNFes.map(r => r.replace(/\D/g, "")),
       is_retirada_online: isRetiradaOnline, vTroco: vTrocoPag.toFixed(2), is_presencial_por_troco: !isRetiradaOnline, tpIntegra: tpIntegraValue,
-      tem_desconto: descontoTotal > 0, tipo_desconto: isAdicionalDoc ? "ADICIONAL" : (isMostruario ? "MOSTRUÁRIO" : "PADRÃO"), 
+      tem_desconto: descontoTotal > 0, tipo_desconto: isAdicionalDoc ? "ADICIONAL" : (isMostruario ? "MOSTRUÁRIO" : "PADRÃO"),
       status_auditoria: isAdicionalDoc ? "PADRÃO ADICIONAL" : (descontoTotal > 0 ? "DESCONTO APLICADO" : "SEM DESCONTO"),
       cep_dest, cep_loja, is_cep_diferente_da_loja: !!cep_dest && cep_dest !== cep_loja,
       is_endereco_real: !!cep_dest, cpf_cnpj_dest: cpf_cnpj, nome_dest, endereco_dest: "", tem_destinatario: !!cpf_cnpj,

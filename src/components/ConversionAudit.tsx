@@ -44,9 +44,33 @@ import {
   XCircle,
   ShoppingBag,
   AlertCircle,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, parseISO } from "date-fns";
+
+// Helper component for sortable headers (Reused)
+function SortableHeader({ label, sortKey, currentSort, onSort, className }: any) {
+  const isSorted = currentSort.key === sortKey;
+  
+  return (
+    <TableHead 
+      className={cn("text-[10px] font-black uppercase text-slate-400 cursor-pointer hover:text-sky-600 hover:bg-slate-100 transition-colors select-none", className)}
+      onClick={() => onSort(sortKey)}
+    >
+      <div className={cn("flex items-center gap-1", className?.includes("text-right") && "justify-end", className?.includes("justify-center") && "justify-center")}>
+        {label}
+        {isSorted ? (
+          currentSort.direction === "asc" ? <ArrowUp className="w-3 h-3 text-sky-500" /> : <ArrowDown className="w-3 h-3 text-sky-500" />
+        ) : (
+          <ArrowUpDown className="w-3 h-3 text-slate-200" />
+        )}
+      </div>
+    </TableHead>
+  );
+}
 
 interface ConversionAuditProps {
   data: DetailedSaleRow[];
@@ -57,10 +81,19 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
   const [filterAdicional, setFilterAdicional] = useState<"all" | "with" | "without">("all");
   const [selectedOrder, setSelectedOrder] = useState<DetailedSaleRow | null>(null);
 
-  // Filtrar apenas pedidos de Retirada Online
   const pickupOrders = useMemo(() => {
     return data.filter(r => r.canal === "RETIRADA_ONLINE" && !r.is_cancelada);
   }, [data]);
+
+  // Sorting Config
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" }>({ key: "nf", direction: "desc" });
+
+  const handleSort = (key: string) => {
+    setSortConfig(current => ({
+      key,
+      direction: current.key === key && current.direction === "asc" ? "desc" : "asc"
+    }));
+  };
 
   // Mapear adicionais vinculados para acesso rápido
   const vinculadosMap = useMemo(() => {
@@ -75,7 +108,7 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
   }, [data]);
 
   const filteredOrders = useMemo(() => {
-    return pickupOrders.filter(order => {
+    let result = pickupOrders.filter(order => {
       const matchesSearch = 
         order.nf.includes(searchTerm) || 
         (order.cpf_cnpj_dest?.includes(searchTerm)) || 
@@ -89,7 +122,28 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
 
       return matchesSearch && matchesAdicional;
     });
-  }, [pickupOrders, searchTerm, filterAdicional, vinculadosMap]);
+
+    // Apply Sorting
+    return result.sort((a, b) => {
+      const { key, direction } = sortConfig;
+      const modifier = direction === "asc" ? 1 : -1;
+
+      switch(key) {
+        case "nf":
+          return (parseInt(a.nf) - parseInt(b.nf)) * modifier;
+        case "cliente":
+          return a.nome_dest.localeCompare(b.nome_dest) * modifier;
+        case "valor":
+          return (parseFloat(a.vNF) - parseFloat(b.vNF)) * modifier;
+        case "status":
+          const hasAdicionalA = !!vinculadosMap[a.chave];
+          const hasAdicionalB = !!vinculadosMap[b.chave];
+          return (hasAdicionalA === hasAdicionalB ? 0 : hasAdicionalA ? -1 : 1) * modifier;
+        default:
+          return 0;
+      }
+    });
+  }, [pickupOrders, searchTerm, filterAdicional, vinculadosMap, sortConfig]);
 
   const stats = useMemo(() => {
     const total = pickupOrders.length;
@@ -150,10 +204,10 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
           <Table>
             <TableHeader className="bg-slate-50/50">
               <TableRow className="border-slate-50 h-10">
-                <TableHead className="text-[10px] font-black uppercase text-slate-400 pl-6">NF / Data</TableHead>
-                <TableHead className="text-[10px] font-black uppercase text-slate-400">Cliente</TableHead>
-                <TableHead className="text-[10px] font-black uppercase text-slate-400 text-right">Valor Site</TableHead>
-                <TableHead className="text-[10px] font-black uppercase text-slate-400 text-center">Status Adicional</TableHead>
+                <SortableHeader label="NF / Data" sortKey="nf" currentSort={sortConfig} onSort={handleSort} className="pl-6" />
+                <SortableHeader label="Cliente" sortKey="cliente" currentSort={sortConfig} onSort={handleSort} />
+                <SortableHeader label="Valor Site" sortKey="valor" currentSort={sortConfig} onSort={handleSort} className="text-right" />
+                <SortableHeader label="Status Adicional" sortKey="status" currentSort={sortConfig} onSort={handleSort} className="text-center justify-center" />
                 <TableHead className="w-[50px]"></TableHead>
               </TableRow>
             </TableHeader>

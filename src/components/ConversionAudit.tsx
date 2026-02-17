@@ -115,7 +115,7 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
           value={stats.suspeitos} 
           icon={AlertCircle} 
           color="text-amber-500" 
-          subLabel="Score < 4"
+          subLabel="Confiança < 4"
         />
       </div>
 
@@ -152,7 +152,6 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
               <TableRow className="border-slate-50 h-10">
                 <TableHead className="text-[10px] font-black uppercase text-slate-400 pl-6">NF / Data</TableHead>
                 <TableHead className="text-[10px] font-black uppercase text-slate-400">Cliente</TableHead>
-                <TableHead className="text-[10px] font-black uppercase text-slate-400 text-center">Score Auditoria</TableHead>
                 <TableHead className="text-[10px] font-black uppercase text-slate-400 text-right">Valor Site</TableHead>
                 <TableHead className="text-[10px] font-black uppercase text-slate-400 text-center">Status Adicional</TableHead>
                 <TableHead className="w-[50px]"></TableHead>
@@ -160,11 +159,9 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
             </TableHeader>
             <TableBody>
               {filteredOrders.map((order) => {
-                const score = order.pickup_match_fields ?? 0;
                 const adicionais = vinculadosMap[order.chave] || [];
                 const hasAdicional = adicionais.length > 0;
                 const valorAdicional = adicionais.reduce((acc, a) => acc + parseFloat(a.vNF), 0);
-                const isHighConfidence = score >= 4;
 
                 return (
                   <TableRow key={order.chave} className="hover:bg-sky-50/30 border-slate-50 cursor-pointer group transition-colors h-14" onClick={() => setSelectedOrder(order)}>
@@ -173,20 +170,8 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
                       <p className="text-[9px] text-slate-400 font-bold uppercase">{order.dhEmi ? format(parseISO(order.dhEmi), "dd/MM HH:mm") : "--"}</p>
                     </TableCell>
                     <TableCell>
-                      <p className="text-xs font-black text-slate-700 uppercase truncate max-w-[150px]">{order.nome_dest}</p>
+                      <p className="text-xs font-black text-slate-700 uppercase truncate max-w-[200px]">{order.nome_dest}</p>
                       <p className="text-[9px] text-slate-400 font-bold">CPF: {order.cpf_cnpj_dest ? `***.${order.cpf_cnpj_dest.slice(-4)}` : "---"}</p>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <div className="flex justify-center">
-                        <Badge className={cn(
-                          "text-[9px] font-black border-none px-3 h-6",
-                          isHighConfidence 
-                            ? "bg-emerald-500 text-white shadow-sm shadow-emerald-200" 
-                            : "bg-yellow-400 text-yellow-900 shadow-sm shadow-yellow-100"
-                        )}>
-                          {score}/5 CRITÉRIOS
-                        </Badge>
-                      </div>
                     </TableCell>
                     <TableCell className="text-right">
                       <p className="text-xs font-black text-slate-700">{formatBRL(parseFloat(order.vNF))}</p>
@@ -213,7 +198,6 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
         {/* Mobile View */}
         <div className="lg:hidden space-y-3">
           {filteredOrders.map((order) => {
-            const score = order.pickup_match_fields ?? 0;
             return (
               <div key={order.chave} className="bg-white border-2 border-slate-50 rounded-2xl p-4 shadow-sm space-y-4" onClick={() => setSelectedOrder(order)}>
                 <div className="flex justify-between items-start">
@@ -221,15 +205,10 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
                     <h5 className="text-sm font-black text-slate-800">Pedido #{order.nf}</h5>
                     <p className="text-[9px] text-slate-400 font-bold uppercase">{order.dhEmi ? format(parseISO(order.dhEmi), "dd/MM/yy HH:mm") : "--"}</p>
                   </div>
-                  <Badge className={cn(
-                    "text-[8px] font-black px-2 h-5", 
-                    score >= 4 ? "bg-emerald-500 text-white" : "bg-yellow-400 text-yellow-900"
-                  )}>
-                    {score}/5
-                  </Badge>
+                  <ChevronRight className="w-4 h-4 text-slate-300" />
                 </div>
                 <div className="flex justify-between items-center py-2 border-y border-slate-50">
-                  <span className="text-[10px] font-black text-slate-500 uppercase">{order.nome_dest}</span>
+                  <span className="text-[10px] font-black text-slate-500 uppercase truncate max-w-[150px]">{order.nome_dest}</span>
                   <span className="text-xs font-black text-slate-900">{formatBRL(parseFloat(order.vNF))}</span>
                 </div>
                 <div className="flex justify-between items-center">
@@ -238,7 +217,6 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
                   ) : (
                     <Badge variant="outline" className="text-slate-300 text-[8px] font-black uppercase">Sem Adicional</Badge>
                   )}
-                  <ChevronRight className="w-4 h-4 text-slate-300" />
                 </div>
               </div>
             );
@@ -253,7 +231,7 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
               <Smartphone className="w-6 h-6" /> Auditoria NF #{selectedOrder?.nf}
             </SheetTitle>
             <SheetDescription className="text-white/80 font-bold text-[10px] uppercase tracking-wider">
-              Critérios de classificação identificados no documento fiscal.
+              Detalhamento dos itens e faturamento adicional vinculado.
             </SheetDescription>
           </SheetHeader>
           
@@ -274,28 +252,6 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
               </div>
 
               <div className="p-6 md:p-8 space-y-8 flex-1">
-                {/* MATRIZ DE CRITÉRIOS ATUALIZADA */}
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
-                      <CheckCircle2 className="w-3.5 h-3.5" /> Matriz de Classificação (Audit)
-                    </h4>
-                    <Badge className={cn(
-                      "text-[10px] font-black px-3",
-                      (selectedOrder.pickup_match_fields ?? 0) >= 4 ? "bg-emerald-500 text-white" : "bg-yellow-400 text-yellow-900"
-                    )}>
-                      SCORE: {selectedOrder.pickup_match_fields ?? 0}/5
-                    </Badge>
-                  </div>
-                  <div className="grid grid-cols-1 gap-2">
-                    <CriteriaItem label="1. Integração Digital (tpIntegra: 2)" met={selectedOrder.tpIntegra === "2"} />
-                    <CriteriaItem label="2. Ausência de Troco (Venda Líquida)" met={parseFloat(selectedOrder.vTroco) === 0} />
-                    <CriteriaItem label="3. Restrição de Espécie (Sem Dinheiro)" met={selectedOrder.pagamentos_detalhe?.every(p => p.tPag !== "01") ?? true} />
-                    <CriteriaItem label="4. Ortografia do Cliente (Presença de Minúsculas)" met={/[a-z]/.test(selectedOrder.nome_dest)} />
-                    <CriteriaItem label="5. Emissor Sistêmico (SITE/ECOMM/INT)" met={selectedOrder.vendedor === "VENDEDOR NÃO IDENTIFICADO" || /SITE|ECOMM|INT|POS/i.test(selectedOrder.vendedor)} />
-                  </div>
-                </div>
-
                 <div className="space-y-4">
                   <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
                     <ShoppingBag className="w-3.5 h-3.5" /> Itens do Pedido Original
@@ -333,7 +289,7 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
                               "text-[8px] font-black uppercase border-none",
                               adic.is_adicional_suspeito ? "bg-amber-500 text-white" : "bg-emerald-500 text-white"
                             )}>
-                              {adic.is_adicional_suspeito ? "Suspeito (S/ Desc)" : "Confirmado (10%)"}
+                              {adic.is_adicional_suspeito ? "Suspeito" : "Confirmado"}
                             </Badge>
                           </div>
                         </div>
@@ -372,14 +328,5 @@ function KPIStat({ label, value, icon: Icon, color, subLabel }: any) {
         <p className="text-sm md:text-lg font-black text-slate-800 leading-none">{value}</p>
       </div>
     </Card>
-  );
-}
-
-function CriteriaItem({ label, met }: { label: string, met: boolean }) {
-  return (
-    <div className="flex items-center justify-between p-2.5 rounded-lg border border-slate-100 bg-white">
-      <span className={cn("text-[10px] font-bold uppercase", met ? "text-slate-600" : "text-slate-400")}>{label}</span>
-      {met ? <CheckCircle2 className="w-4 h-4 text-emerald-500" /> : <AlertCircle className="w-4 h-4 text-amber-400" />}
-    </div>
   );
 }

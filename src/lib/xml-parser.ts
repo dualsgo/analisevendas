@@ -52,7 +52,7 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
         is_presencial_por_troco: false, tpIntegra: "", tem_desconto: false, tipo_desconto: "",
         status_auditoria: "", cep_dest: "", cep_loja: "", is_cep_diferente_da_loja: false,
         is_endereco_real: false, cpf_cnpj_dest: "", nome_dest: "", endereco_dest: "",
-        tem_destinatario: false, itens: [], serie: "", modelo: ""
+        tem_destinatario: false, itens: [], serie: "", modelo: "", pickup_match_fields: 0
       };
     }
 
@@ -151,8 +151,16 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     const infCpl = infAdic ? (getElement(infAdic, "infCpl")?.textContent || "") : "";
     const vendedor = extractVendedor(infCpl);
 
-    // Identificação de Pickup Online: Pagamento Digital (tpIntegra 2) e sem indicativos de venda presencial manual
-    const isRetiradaOnline = tpIntegra === "2" && pagamentosDet.every(p => p.tPag !== "01");
+    // LOGICA DE CLASSIFICAÇÃO PICKUP REFINADA (Score de 0 a 5)
+    let pickup_score = 0;
+    if (tpIntegra === "2") pickup_score++; // 1. Integração Digital
+    if (vTrocoPag === 0) pickup_score++; // 2. Sem Troco
+    if (pagamentosDet.every(p => p.tPag !== "01")) pickup_score++; // 3. Sem Dinheiro
+    if (/RETIRADA|PICKUP|OMNICHANNEL|SITE|MAGAZINE|ML|MAGALU/i.test(infCpl)) pickup_score++; // 4. Palavras Chave
+    if (vendedor === "VENDEDOR NÃO IDENTIFICADO" || /SITE|ECOMMERCE|INTEGRADOR/i.test(vendedor)) pickup_score++; // 5. Sem vendedor físico
+
+    // Identificação de Pickup Online: Score mínimo 3 para ser considerado Pickup
+    const isRetiradaOnline = pickup_score >= 3;
     
     // Identificação de Troca: Uso do meio de pagamento 05 (Crédito Loja)
     const vTrocaCredito = pagamentosDet.filter(p => p.tPag === "05").reduce((acc, p) => acc + p.vPag, 0);
@@ -189,7 +197,8 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
       emitente: { xNome: xNomeEmit, cnpj: cnpjEmit, ie: ieEmit, endereco: enderEmitFull },
       protocolo: protocoloData,
       pagamentos_detalhe: pagamentosDet,
-      infCpl
+      infCpl,
+      pickup_match_fields: pickup_score
     };
   } catch (e) {
     return null;

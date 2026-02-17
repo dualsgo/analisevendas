@@ -55,6 +55,7 @@ export interface DetailedSaleRow {
   vTroco: string;
   is_presencial_por_troco: boolean;
   tpIntegra: string;
+  pickup_match_fields: number; // 0 a 5 - Nível de certeza do pickup
   
   // Auditoria
   tem_desconto: boolean;

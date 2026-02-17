@@ -32,17 +32,6 @@ function extractVendedor(infCpl: string): string {
   return candidate.substring(0, endIdx).trim() || "VENDEDOR NÃO IDENTIFICADO";
 }
 
-/**
- * Critério 4: Padrão do Nome do Vendedor
- * Nome em formato "Primeira maiúscula + minúsculas" (ex: Luiza)
- */
-function isVendorNameStandard(name: string): boolean {
-  if (!name || name === "VENDEDOR NÃO IDENTIFICADO") return false;
-  // Regex para Capitalized Name (Ex: Maria Silva)
-  const pattern = /^[A-ZÀ-Ÿ][a-zà-ÿ]+(\s[A-ZÀ-Ÿ][a-zà-ÿ]+)*$/;
-  return pattern.test(name);
-}
-
 export function parseXml(xmlString: string): DetailedSaleRow | null {
   try {
     const parser = new DOMParser();
@@ -164,14 +153,14 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
 
     // NOVA MATRIZ DE SCORE (0 a 5)
     let pickup_score = 0;
-    // 1. Integração Digital
+    // 1. Integração Digital (tpIntegra = 2)
     if (tpIntegraValue === "2") pickup_score++; 
     // 2. Ausência de Troco
     if (vTrocoPag === 0) pickup_score++; 
     // 3. Restrição de Espécie (Sem código 01 - Dinheiro)
     if (pagamentosDet.every(p => p.tPag !== "01")) pickup_score++; 
-    // 4. Padrão do Nome do Vendedor (Título Case)
-    if (isVendorNameStandard(vendedor)) pickup_score++;
+    // 4. Padrão do Nome do Cliente (Presença de Minúsculas = Digital)
+    if (/[a-z]/.test(nome_dest)) pickup_score++;
     // 5. Emissor Sistêmico
     if (vendedor === "VENDEDOR NÃO IDENTIFICADO" || /SITE|ECOMM|INT|POS/i.test(vendedor)) pickup_score++; 
 

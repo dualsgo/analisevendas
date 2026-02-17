@@ -250,18 +250,18 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
 
       <Sheet open={!!selectedOrder} onOpenChange={(open) => !open && setSelectedOrder(null)}>
         <SheetContent className="w-full sm:max-w-xl bg-white border-l-4 border-sky-500 p-0 overflow-y-auto">
-          <SheetHeader className="sr-only">
-            <SheetTitle>Auditoria de Pedido</SheetTitle>
-            <SheetDescription>Detalhes dos critérios fiscais atendidos pelo documento.</SheetDescription>
+          <SheetHeader className="p-6 md:p-8 bg-sky-500 text-white">
+            <SheetTitle className="text-xl md:text-2xl font-black uppercase text-white flex items-center gap-3">
+              <Smartphone className="w-6 h-6" /> Auditoria NF #{selectedOrder?.nf}
+            </SheetTitle>
+            <SheetDescription className="text-white/80 font-bold text-[10px] uppercase tracking-wider">
+              Detalhes dos critérios fiscais atendidos pelo documento.
+            </SheetDescription>
           </SheetHeader>
           
           {selectedOrder && (
             <div className="h-full flex flex-col">
-              <div className="bg-sky-500 p-6 md:p-8 space-y-4 text-white">
-                <div className="flex items-center gap-3">
-                  <Smartphone className="w-6 h-6" />
-                  <h2 className="text-xl md:text-2xl font-black uppercase text-white">Auditoria NF #{selectedOrder.nf}</h2>
-                </div>
+              <div className="bg-sky-500 px-6 pb-6 md:px-8 md:pb-8 text-white">
                 <div className="grid grid-cols-2 gap-4 border-t border-white/20 pt-4">
                   <div>
                     <p className="text-[10px] font-bold uppercase opacity-80">Cliente</p>
@@ -293,7 +293,7 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
                     <CriteriaItem label="1. Integração Digital (tpIntegra: 2)" met={selectedOrder.tpIntegra === "2"} />
                     <CriteriaItem label="2. Ausência de Troco (Venda Líquida)" met={parseFloat(selectedOrder.vTroco) === 0} />
                     <CriteriaItem label="3. Restrição de Espécie (Sem Dinheiro)" met={selectedOrder.pagamentos_detalhe?.every(p => p.tPag !== "01") ?? true} />
-                    <CriteriaItem label="4. Padrão Ortográfico do Vendedor (Nome Próprio)" met={/^[A-ZÀ-Ÿ][a-zà-ÿ]+(\s[A-ZÀ-Ÿ][a-zà-ÿ]+)*$/.test(selectedOrder.vendedor)} />
+                    <CriteriaItem label="4. Ortografia do Cliente (Presença de Minúsculas)" met={/[a-z]/.test(selectedOrder.nome_dest)} />
                     <CriteriaItem label="5. Emissor Sistêmico (SITE/ECOMM/INT)" met={selectedOrder.vendedor === "VENDEDOR NÃO IDENTIFICADO" || /SITE|ECOMM|INT|POS/i.test(selectedOrder.vendedor)} />
                   </div>
                 </div>

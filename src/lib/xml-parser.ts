@@ -1,6 +1,7 @@
 
 import { DetailedSaleRow, Item } from "./types";
 
+// Faixas de desconto padrão Ri Happy para identificação de estratégia
 const ADICIONAL_PERCENT_MIN = 0.08;
 const ADICIONAL_PERCENT_MAX = 0.12;
 const MOSTRUARIO_PERCENT_MIN = 0.045;
@@ -15,7 +16,7 @@ function dec(s: string | null | undefined): number {
 
 function extractVendedor(infCpl: string): string {
   if (!infCpl) return "VENDEDOR NÃO IDENTIFICADO";
-  const vLabel = /Vendedor:|Vend:/i;
+  const vLabel = /Vendedor:|Vend:|Atendente:/i;
   const match = infCpl.match(vLabel);
   if (!match || match.index === undefined) return "VENDEDOR NÃO IDENTIFICADO";
   const startIdx = match.index + match[0].length;
@@ -36,7 +37,7 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     const parser = new DOMParser();
     const xmlDoc = parser.parseFromString(xmlString, "text/xml");
     
-    // Identificação de Cancelamento
+    // Identificação de Evento de Cancelamento
     if (xmlDoc.getElementsByTagName("procEventoNFe").length > 0 || xmlDoc.getElementsByTagName("retCancNFe").length > 0) {
       return {
         is_cancelada: true,
@@ -92,11 +93,10 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     const enderEmit = emit ? getElement(emit, "enderEmit") : null;
     const cep_loja = enderEmit ? (getElement(enderEmit, "CEP")?.textContent || "").replace(/\D/g, "") : "";
     
-    // Dados Emitente para 2ª Via
     const xNomeEmit = emit ? getElement(emit, "xNome")?.textContent || "" : "";
     const cnpjEmit = emit ? getElement(emit, "CNPJ")?.textContent || "" : "";
     const ieEmit = emit ? getElement(emit, "IE")?.textContent || "" : "";
-    const enderEmitFull = enderEmit ? `${getElement(enderEmit, "xLgr")?.textContent}, ${getElement(enderEmit, "nro")?.textContent} - ${getElement(enderEmit, "xBairro")?.textContent}, ${getElement(enderEmit, "xMun")?.textContent} - ${getElement(enderEmit, "UF")?.textContent}` : "";
+    const enderEmitFull = enderEmit ? `${getElement(enderEmit, "xLgr")?.textContent}, ${getElement(enderEmit, "nro")?.textContent} - ${getElement(enderEmit, "xBairro")?.textContent}` : "";
 
     const total = getElement(infNFe, "total");
     const icmsTot = total ? getElement(total, "ICMSTot") : null;
@@ -132,7 +132,6 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
       });
     }
 
-    // Protocolo SEFAZ
     const protNFe = getElement(xmlDoc, "protNFe");
     const infProt = protNFe ? getElement(protNFe, "infProt") : null;
     const protocoloData = infProt ? {
@@ -152,9 +151,10 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     const infCpl = infAdic ? (getElement(infAdic, "infCpl")?.textContent || "") : "";
     const vendedor = extractVendedor(infCpl);
 
-    const isPresencialPorTroco = vTrocoPag > 0 || pagamentosDet.some(p => p.tPag === "01");
-    const isEnderecoReal = !!cep_dest && !!cep_loja && cep_dest !== cep_loja;
+    // Identificação de Pickup Online: Pagamento Digital (tpIntegra 2) e sem indicativos de venda presencial manual
+    const isRetiradaOnline = tpIntegra === "2" && pagamentosDet.every(p => p.tPag !== "01");
     
+    // Identificação de Troca: Uso do meio de pagamento 05 (Crédito Loja)
     const vTrocaCredito = pagamentosDet.filter(p => p.tPag === "05").reduce((acc, p) => acc + p.vPag, 0);
     const isTroca = vTrocaCredito > 0;
     const difTroca = vNFValue - vTrocaCredito;
@@ -163,41 +163,30 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     const descontoTotal = itemsList.reduce((acc, it) => acc + it.vDesc, 0);
     const percentualDesconto = valorTotalProds > 0 ? (descontoTotal / valorTotalProds) : 0;
     
+    // Classificação de Estratégia de Desconto
     const isAdicionalDoc = percentualDesconto >= ADICIONAL_PERCENT_MIN && percentualDesconto <= ADICIONAL_PERCENT_MAX;
     const isMostruario = percentualDesconto >= MOSTRUARIO_PERCENT_MIN && percentualDesconto <= MOSTRUARIO_PERCENT_MAX;
     
-    const isRetiradaOnline = tpIntegra === "2" && isEnderecoReal && !isPresencialPorTroco;
-    const isDevolucao = tpNF === 0 && (finNFe === 4 || natOp.toLowerCase().includes("devolucao") || natOp.toLowerCase().includes("entrada"));
-
-    // Auditoria Inicial baseada em faixas
-    let statusAuditoria = "NÃO CLASSIFICADO";
-    if (isAdicionalDoc) statusAuditoria = "PADRÃO ADICIONAL";
-    else if (isMostruario) statusAuditoria = "PADRÃO MOSTRUÁRIO";
-    else if (descontoTotal > 0) statusAuditoria = "FORA DO PADRÃO";
+    const isDevolucao = tpNF === 0 && (finNFe === 4 || natOp.toLowerCase().includes("devolucao"));
 
     return {
       chave, nf, serie: getElement(ide, "serie")?.textContent || "", modelo: getElement(ide, "mod")?.textContent || "", dhEmi, vendedor,
       tpNF, finNFe, natOp,
-      canal: isTroca ? (difTroca > 0.01 ? "TROCA_COM_DIFERENÇA" : "TROCA_SEM_DIFERENÇA") : (isRetiradaOnline ? "RETIRADA_ONLINE" : (isAdicionalDoc ? "RETIRADA_ADICIONAL" : "LOJA_FISICA")),
+      canal: isTroca ? "TROCA" : (isRetiradaOnline ? "RETIRADA_ONLINE" : (isAdicionalDoc ? "RETIRADA_ADICIONAL" : "LOJA_FISICA")),
       subcanal: "", canal_consolidado: isTroca ? "TROCA" : (isRetiradaOnline ? "RETIRADA_ONLINE" : "VENDA_LOJA"),
-      is_adicional: isAdicionalDoc, is_adicional_suspeito: false, motivo_adicional: isAdicionalDoc ? "DESCONTO PARA ADICIONAL" : "",
+      is_adicional: isAdicionalDoc, is_adicional_suspeito: false, motivo_adicional: isAdicionalDoc ? "DESCONTO PADRÃO ADICIONAL" : "",
       vNF: vNFValue.toFixed(2), itens_qtd: itemsList.reduce((acc, it) => acc + it.qCom, 0).toString(),
       desconto_total: descontoTotal.toFixed(2), percentual_desconto: percentualDesconto.toFixed(4),
       is_troca: isTroca, vTroca: vTrocaCredito.toFixed(2), dif_troca: difTroca.toFixed(2),
       is_devolucao: isDevolucao, refNFe: refNFes, refNFe_normalizadas: refNFes.map(r => r.replace(/\D/g, "")),
-      is_retirada_online: isRetiradaOnline, vTroco: vTrocoPag.toFixed(2), is_presencial_por_troco: isPresencialPorTroco, tpIntegra,
+      is_retirada_online: isRetiradaOnline, vTroco: vTrocoPag.toFixed(2), is_presencial_por_troco: !isRetiradaOnline, tpIntegra,
       tem_desconto: descontoTotal > 0, tipo_desconto: isAdicionalDoc ? "ADICIONAL" : (isMostruario ? "MOSTRUÁRIO" : "PADRÃO"), 
-      status_auditoria: statusAuditoria,
-      cep_dest, cep_loja, is_cep_diferente_da_loja: isEnderecoReal, is_endereco_real: isEnderecoReal,
-      cpf_cnpj_dest: cpf_cnpj, nome_dest, endereco_dest: "", tem_destinatario: !!cpf_cnpj,
+      status_auditoria: isAdicionalDoc ? "PADRÃO ADICIONAL" : (descontoTotal > 0 ? "DESCONTO APLICADO" : "SEM DESCONTO"),
+      cep_dest, cep_loja, is_cep_diferente_da_loja: !!cep_dest && cep_dest !== cep_loja,
+      is_endereco_real: !!cep_dest, cpf_cnpj_dest: cpf_cnpj, nome_dest, endereco_dest: "", tem_destinatario: !!cpf_cnpj,
       itens: itemsList,
       is_cancelada: false,
-      emitente: {
-        xNome: xNomeEmit,
-        cnpj: cnpjEmit,
-        ie: ieEmit,
-        endereco: enderEmitFull
-      },
+      emitente: { xNome: xNomeEmit, cnpj: cnpjEmit, ie: ieEmit, endereco: enderEmitFull },
       protocolo: protocoloData,
       pagamentos_detalhe: pagamentosDet,
       infCpl

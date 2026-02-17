@@ -110,14 +110,14 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
   const formatBRL = (val: number) => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
   return (
-    <div className="space-y-6 md:space-y-8 animate-in fade-in duration-500 pb-20">
+    <div className="space-y-6 animate-in fade-in duration-500 pb-20">
       {/* Resumo do Canal Pickup */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         <KPIStat label="Pedidos Pickup" value={stats.total} icon={Smartphone} color="text-sky-500" />
         <KPIStat label="Taxa Conversão" value={`${stats.taxaConversao.toFixed(1)}%`} icon={Target} color="text-orange-500" />
         <KPIStat label="Venda Incremental" value={formatBRL(stats.valorAdicional)} icon={Zap} color="text-emerald-500" />
         <KPIStat 
-          label="Pedidos Suspeitos" 
+          label="Auditoria Fraca" 
           value={stats.suspeitos} 
           icon={AlertCircle} 
           color="text-amber-500" 
@@ -169,7 +169,7 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
                 const adicionais = vinculadosMap[order.chave] || [];
                 const hasAdicional = adicionais.length > 0;
                 const valorAdicional = adicionais.reduce((acc, a) => acc + parseFloat(a.vNF), 0);
-                const isSuspect = order.pickup_match_fields < 4;
+                const isReliable = order.pickup_match_fields >= 4;
 
                 return (
                   <TableRow key={order.chave} className="hover:bg-sky-50/30 border-slate-50 cursor-pointer group transition-colors h-16" onClick={() => setSelectedOrder(order)}>
@@ -184,8 +184,10 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
                     <TableCell className="text-center">
                       <div className="flex justify-center">
                         <Badge className={cn(
-                          "text-[9px] font-black border-none px-2",
-                          order.pickup_match_fields >= 4 ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
+                          "text-[9px] font-black border-none px-3 h-6",
+                          isReliable 
+                            ? "bg-emerald-500 text-white shadow-sm shadow-emerald-200" 
+                            : "bg-yellow-400 text-yellow-900 shadow-sm shadow-yellow-100"
                         )}>
                           {order.pickup_match_fields}/5 CRITÉRIOS
                         </Badge>
@@ -198,7 +200,7 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
                     <TableCell className="text-center">
                       {hasAdicional ? (
                         <div className="flex flex-col items-center">
-                          <Badge className="bg-emerald-500 text-white border-none text-[8px] font-black uppercase px-2">Convertido</Badge>
+                          <Badge className="bg-emerald-100 text-emerald-700 border-none text-[8px] font-black uppercase px-2">Convertido</Badge>
                           <p className="text-[10px] text-emerald-600 font-black mt-1">+{formatBRL(valorAdicional)}</p>
                         </div>
                       ) : (
@@ -222,7 +224,10 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
                   <h5 className="text-sm font-black text-slate-800">Pedido #{order.nf}</h5>
                   <p className="text-[9px] text-slate-400 font-bold uppercase">{format(parseISO(order.dhEmi), "dd/MM/yy HH:mm")}</p>
                 </div>
-                <Badge className={cn("text-[8px] font-black px-2", order.pickup_match_fields >= 4 ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700")}>
+                <Badge className={cn(
+                  "text-[8px] font-black px-2 h-5", 
+                  order.pickup_match_fields >= 4 ? "bg-emerald-500 text-white" : "bg-yellow-400 text-yellow-900"
+                )}>
                   {order.pickup_match_fields}/5
                 </Badge>
               </div>
@@ -245,12 +250,17 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
 
       <Sheet open={!!selectedOrder} onOpenChange={(open) => !open && setSelectedOrder(null)}>
         <SheetContent className="w-full sm:max-w-xl bg-white border-l-4 border-sky-500 p-0 overflow-y-auto">
+          <SheetHeader className="sr-only">
+            <SheetTitle>Auditoria de Pedido</SheetTitle>
+            <SheetDescription>Detalhes dos critérios fiscais atendidos pelo documento.</SheetDescription>
+          </SheetHeader>
+          
           {selectedOrder && (
             <div className="h-full flex flex-col">
               <div className="bg-sky-500 p-6 md:p-8 space-y-4 text-white">
                 <div className="flex items-center gap-3">
                   <Smartphone className="w-6 h-6" />
-                  <SheetTitle className="text-xl md:text-2xl font-black uppercase text-white">Auditoria NF #{selectedOrder.nf}</SheetTitle>
+                  <h2 className="text-xl md:text-2xl font-black uppercase text-white">Auditoria NF #{selectedOrder.nf}</h2>
                 </div>
                 <div className="grid grid-cols-2 gap-4 border-t border-white/20 pt-4">
                   <div>
@@ -268,9 +278,17 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
               <div className="p-6 md:p-8 space-y-8 flex-1">
                 {/* MATRIZ DE CRITÉRIOS ATUALIZADA */}
                 <div className="space-y-4">
-                  <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
-                    <CheckCircle2 className="w-3.5 h-3.5" /> Matriz de Classificação (Audit)
-                  </h4>
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
+                      <CheckCircle2 className="w-3.5 h-3.5" /> Matriz de Classificação (Audit)
+                    </h4>
+                    <Badge className={cn(
+                      "text-[10px] font-black px-3",
+                      selectedOrder.pickup_match_fields >= 4 ? "bg-emerald-500 text-white" : "bg-yellow-400 text-yellow-900"
+                    )}>
+                      SCORE: {selectedOrder.pickup_match_fields}/5
+                    </Badge>
+                  </div>
                   <div className="grid grid-cols-1 gap-2">
                     <CriteriaItem label="1. Integração Digital (tpIntegra: 2)" met={selectedOrder.tpIntegra === "2"} />
                     <CriteriaItem label="2. Ausência de Troco (Venda Líquida)" met={parseFloat(selectedOrder.vTroco) === 0} />

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
@@ -110,7 +111,7 @@ export default function Home() {
 
   return (
     <SidebarProvider>
-      <main className="min-h-screen bg-amber-50/30 font-body w-full flex flex-col">
+      <main className="h-screen w-full bg-amber-50/30 font-body flex flex-col overflow-hidden">
         {/* Header Fixo Ri Happy Style */}
         <header className="bg-[#FFD100] border-b-4 border-orange-500 text-orange-900 shadow-md h-16 md:h-20 flex items-center sticky top-0 z-[60] shrink-0">
           <div className="container mx-auto px-4 flex items-center justify-between gap-4">
@@ -163,72 +164,78 @@ export default function Home() {
           </div>
         </header>
 
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden">
           {status === "idle" || status === "processing" ? (
-            <div className="flex-1 flex flex-col items-center justify-center p-4 md:p-8 gap-8 md:gap-12">
-              <section className="bg-white rounded-[2rem] md:rounded-[3rem] shadow-2xl shadow-orange-100/50 border-4 border-white p-6 md:p-16 text-center animate-in zoom-in duration-500 max-w-2xl w-full">
-                <div className="mb-8 md:mb-12">
-                  <div className="inline-block bg-orange-100 text-orange-600 px-5 py-2 rounded-full text-[10px] md:text-xs font-black uppercase mb-6 tracking-widest">Início da Jornada</div>
-                  <h2 className="text-2xl md:text-4xl font-black text-slate-800 tracking-tighter mb-4 leading-tight uppercase">Pronto para encontrar oportunidades?</h2>
-                  <p className="text-slate-500 font-medium text-sm md:text-lg leading-relaxed max-w-md mx-auto">
-                    Arraste seus pacotes <span className="text-orange-500 font-bold">ZIP</span> ou <span className="text-orange-500 font-bold">XMLs</span> das notas fiscais. O Solzinho fará todo o trabalho pesado!
-                  </p>
-                </div>
-                
-                <UploadZone onDataParsed={handleDataParsed} isProcessing={status === "processing"} />
-
-                {status === "processing" && (
-                  <div className="mt-10 md:mt-16 flex flex-col items-center gap-6 text-orange-600">
-                    <div className="relative">
-                       <Loader2 className="w-12 h-12 md:w-20 h-12 animate-spin opacity-20" />
-                       <Sparkles className="w-6 h-6 md:w-10 h-10 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-bounce" />
-                    </div>
-                    <span className="text-sm md:text-xl font-black animate-pulse tracking-tight uppercase">Analisando nota por nota...</span>
+            <div className="h-full flex flex-col items-center justify-center p-4 md:p-8">
+              <div className={cn(
+                "w-full max-w-6xl flex flex-col gap-6",
+                history.length > 0 && "lg:grid lg:grid-cols-12 lg:gap-8 items-start"
+              )}>
+                {/* Seção de Upload */}
+                <section className={cn(
+                  "bg-white rounded-[2rem] md:rounded-[3rem] shadow-2xl shadow-orange-100/50 border-4 border-white p-6 md:p-10 text-center animate-in zoom-in duration-500",
+                  history.length > 0 ? "lg:col-span-7" : "max-w-2xl mx-auto w-full"
+                )}>
+                  <div className="mb-6 md:mb-8">
+                    <div className="inline-block bg-orange-100 text-orange-600 px-4 py-1.5 rounded-full text-[9px] md:text-[10px] font-black uppercase mb-4 tracking-widest">Início da Jornada</div>
+                    <h2 className="text-xl md:text-3xl font-black text-slate-800 tracking-tighter mb-2 leading-tight uppercase">Pronto para encontrar oportunidades?</h2>
+                    <p className="text-slate-500 font-medium text-xs md:text-sm leading-relaxed max-w-md mx-auto">
+                      Arraste seus pacotes <span className="text-orange-500 font-bold">ZIP</span> ou <span className="text-orange-500 font-bold">XMLs</span>. O Solzinho fará o resto!
+                    </p>
                   </div>
-                )}
-              </section>
+                  
+                  <UploadZone onDataParsed={handleDataParsed} isProcessing={status === "processing"} />
 
-              {/* Histórico de Uploads */}
-              {status === "idle" && history.length > 0 && (
-                <section className="w-full max-w-2xl space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700 px-2">
-                  <div className="flex items-center justify-between px-4">
-                    <h3 className="text-xs font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
-                      <History className="w-4 h-4" /> Uploads Recentes
-                    </h3>
-                    <Button variant="ghost" size="sm" onClick={handleClearHistory} className="text-[10px] font-black text-rose-500 hover:text-rose-600 hover:bg-rose-50 rounded-full h-8">
-                      LIMPAR TUDO
-                    </Button>
-                  </div>
-                  <div className="space-y-4">
-                    {history.map((item) => (
-                      <div 
-                        key={item.id} 
-                        onClick={() => handleReopenHistory(item)}
-                        className="bg-white/60 hover:bg-white p-5 rounded-[1.5rem] border-2 border-slate-100 hover:border-orange-200 transition-all cursor-pointer group flex items-center justify-between shadow-sm"
-                      >
-                        <div className="flex items-center gap-5">
-                          <div className="p-3.5 bg-orange-50 rounded-2xl group-hover:scale-110 transition-transform">
-                            <Calendar className="w-6 h-6 text-orange-500" />
-                          </div>
-                          <div>
-                            <p className="text-sm md:text-base font-black text-slate-700 uppercase leading-none mb-1.5">{item.periodo}</p>
-                            <p className="text-[10px] md:text-xs text-slate-400 font-bold uppercase tracking-wide">
-                              {item.totalNotas} notas • {item.valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-black text-orange-500 opacity-0 group-hover:opacity-100 transition-opacity uppercase mr-2 hidden sm:inline">Reabrir</span>
-                          <ChevronRight className="w-6 h-6 text-slate-300 group-hover:text-orange-500 group-hover:translate-x-1 transition-all" />
-                        </div>
+                  {status === "processing" && (
+                    <div className="mt-8 flex flex-col items-center gap-4 text-orange-600">
+                      <div className="relative">
+                         <Loader2 className="w-10 h-10 md:w-12 h-12 animate-spin opacity-20" />
+                         <Sparkles className="w-5 h-5 md:w-6 h-6 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-bounce" />
                       </div>
-                    ))}
-                  </div>
+                      <span className="text-xs md:text-sm font-black animate-pulse tracking-tight uppercase">Analisando nota por nota...</span>
+                    </div>
+                  )}
                 </section>
-              )}
+
+                {/* Histórico de Uploads */}
+                {status === "idle" && history.length > 0 && (
+                  <section className="lg:col-span-5 space-y-4 animate-in fade-in slide-in-from-right-4 duration-700 px-2">
+                    <div className="flex items-center justify-between px-4">
+                      <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
+                        <History className="w-3.5 h-3.5" /> Uploads Recentes
+                      </h3>
+                      <Button variant="ghost" size="sm" onClick={handleClearHistory} className="text-[9px] font-black text-rose-500 hover:text-rose-600 hover:bg-rose-50 rounded-full h-7">
+                        LIMPAR
+                      </Button>
+                    </div>
+                    <div className="space-y-3">
+                      {history.map((item) => (
+                        <div 
+                          key={item.id} 
+                          onClick={() => handleReopenHistory(item)}
+                          className="bg-white/60 hover:bg-white p-4 rounded-[1.25rem] border-2 border-slate-100 hover:border-orange-200 transition-all cursor-pointer group flex items-center justify-between shadow-sm"
+                        >
+                          <div className="flex items-center gap-4">
+                            <div className="p-2.5 bg-orange-50 rounded-xl group-hover:scale-110 transition-transform">
+                              <Calendar className="w-5 h-5 text-orange-500" />
+                            </div>
+                            <div>
+                              <p className="text-xs md:text-sm font-black text-slate-700 uppercase leading-none mb-1">{item.periodo}</p>
+                              <p className="text-[9px] md:text-[10px] text-slate-400 font-bold uppercase tracking-wide">
+                                {item.totalNotas} notas • {item.valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                              </p>
+                            </div>
+                          </div>
+                          <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-orange-500 group-hover:translate-x-1 transition-all" />
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                )}
+              </div>
             </div>
           ) : status === "analyzed" ? (
-            <div className="flex-1 overflow-y-auto p-4 md:p-8">
+            <div className="flex-1 p-4 md:p-8">
               <UploadDiagnosis data={parsedRows} vinculos={vinculos} onConfirm={handleConfirmDashboard} />
             </div>
           ) : (

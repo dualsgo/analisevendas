@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useMemo } from "react";
@@ -64,7 +65,7 @@ export function UploadDiagnosis({ data, vinculos, onConfirm }: UploadDiagnosisPr
     
     // Inconsistências de Troca
     const unlinkedExchanges = saidas.filter(r => r.is_troca && !vinculos.some(v => v.chave_saida === r.chave)).length;
-    if (unlinkedExchanges > 0) alerts.push(`${unlinkedExchanges} trocas não puderam ser vinculadas automaticamente.`);
+    if (unlinkedExchanges > 0) alerts.push(`${unlinkedExchanges} trocas sem vínculo automático.`);
 
     // Saúde
     let health: 'healthy' | 'attention' | 'critical' = 'healthy';
@@ -81,89 +82,73 @@ export function UploadDiagnosis({ data, vinculos, onConfirm }: UploadDiagnosisPr
   const formatBRL = (val: number) => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
   return (
-    <div className="space-y-10 animate-in zoom-in-95 duration-500 max-w-4xl mx-auto py-4 md:py-10">
+    <div className="space-y-6 md:space-y-8 animate-in zoom-in-95 duration-500 max-w-5xl mx-auto py-2 md:py-6 h-full flex flex-col">
       {/* Header Diagnóstico */}
-      <div className="text-center space-y-6">
+      <div className="text-center space-y-3 shrink-0">
         <div className={cn(
-          "inline-flex items-center gap-3 px-8 py-3 rounded-full font-black text-sm md:text-base border-2 shadow-sm",
+          "inline-flex items-center gap-2 px-6 py-2 rounded-full font-black text-xs md:text-sm border-2 shadow-sm",
           stats.health === 'healthy' ? "bg-emerald-50 border-emerald-200 text-emerald-600" :
           stats.health === 'attention' ? "bg-amber-50 border-amber-200 text-amber-600" :
           "bg-rose-50 border-rose-200 text-rose-600"
         )}>
-          {stats.health === 'healthy' ? <CheckCircle2 className="w-5 h-5" /> : <ShieldAlert className="w-5 h-5" />}
-          SAÚDE DO PERÍODO: {stats.health === 'healthy' ? 'SAUDÁVEL' : stats.health === 'attention' ? 'ATENÇÃO' : 'CRÍTICO'}
+          {stats.health === 'healthy' ? <CheckCircle2 className="w-4 h-4" /> : <ShieldAlert className="w-4 h-4" />}
+          SAÚDE: {stats.health === 'healthy' ? 'SAUDÁVEL' : stats.health === 'attention' ? 'ATENÇÃO' : 'CRÍTICO'}
         </div>
-        <h2 className="text-3xl md:text-5xl font-black text-slate-800 tracking-tighter uppercase leading-tight">Diagnóstico Inicial</h2>
-        <div className="flex items-center justify-center gap-3 text-slate-400 font-bold uppercase text-[11px] md:text-xs tracking-[0.2em]">
-          <Calendar className="w-4 h-4" />
+        <h2 className="text-2xl md:text-4xl font-black text-slate-800 tracking-tighter uppercase leading-tight">Diagnóstico Inicial</h2>
+        <div className="flex items-center justify-center gap-2 text-slate-400 font-bold uppercase text-[10px] md:text-xs tracking-widest">
+          <Calendar className="w-3.5 h-3.5" />
           {format(stats.startDate, "dd/MM/yyyy")} — {format(stats.endDate, "dd/MM/yyyy")}
         </div>
       </div>
 
-      {/* Cards de Resumo */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
-        <SummaryCard 
-          label="Faturamento Total" 
-          value={formatBRL(stats.vTotal)} 
-          subValue={`${stats.cupons} Cupons Processados`}
-          icon={TrendingUp} 
-          color="text-orange-500" 
-        />
-        <SummaryCard 
-          label="PA Médio Detectado" 
-          value={stats.pa.toFixed(2)} 
-          subValue={`${stats.itens} Peças Totais`}
-          icon={Target} 
-          color="text-sky-500" 
-        />
-        <SummaryCard 
-          label="Identificação (CPF)" 
-          value={`${stats.identPerc.toFixed(1)}%`} 
-          subValue={`${stats.identPerc > 85 ? 'Excelente performance' : 'Pode melhorar'}`}
-          icon={UserCheck} 
-          color="text-emerald-500" 
-        />
+      {/* Cards de Resumo e Mix */}
+      <div className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-6 min-h-0">
+        <div className="md:col-span-4 space-y-4">
+          <SummaryCard label="Faturamento" value={formatBRL(stats.vTotal)} subValue={`${stats.cupons} cupons`} icon={TrendingUp} color="text-orange-500" />
+          <SummaryCard label="PA Médio" value={stats.pa.toFixed(2)} subValue={`${stats.itens} peças`} icon={Target} color="text-sky-500" />
+          <SummaryCard label="Fidelização" value={`${stats.identPerc.toFixed(1)}%`} subValue="Identificação CPF" icon={UserCheck} color="text-emerald-500" />
+        </div>
+
+        <div className="md:col-span-8 flex flex-col gap-6">
+          <Card className="ri-card border-none shadow-xl bg-white overflow-hidden flex-1 flex flex-col">
+            <div className="bg-slate-50/80 p-4 border-b border-slate-100 flex items-center justify-between">
+              <h3 className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Composição</h3>
+              <Badge variant="outline" className="bg-white text-slate-400 font-black px-2 py-0.5 text-[9px] uppercase">{data.length} notas</Badge>
+            </div>
+            <div className="p-6 md:p-8 grid grid-cols-2 gap-y-8 gap-x-12 my-auto">
+              <MixItem label="Retiradas Online" value={stats.pickups} icon={Smartphone} color="text-sky-500" />
+              <MixItem label="Vendas Adicionais" value={stats.adicionais} icon={TrendingUp} color="text-emerald-500" />
+              <MixItem label="Atend. Troca" value={stats.trocas} icon={ArrowRightLeft} color="text-purple-500" />
+              <MixItem label="Canceladas" value={stats.canceladas} icon={Ban} color="text-rose-500" />
+            </div>
+          </Card>
+
+          {stats.alerts.length > 0 && (
+            <div className="space-y-2 shrink-0">
+              <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-2">Alertas</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {stats.alerts.slice(0, 4).map((alert, i) => (
+                  <div key={i} className="flex items-center gap-3 p-3 bg-orange-50/50 border-l-4 border-orange-400 rounded-r-xl shadow-sm">
+                    <AlertTriangle className="w-4 h-4 text-orange-500 shrink-0" />
+                    <span className="text-[11px] font-bold text-orange-900 leading-tight truncate">{alert}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Mix do Período */}
-      <Card className="ri-card overflow-hidden border-none shadow-xl bg-white">
-        <div className="bg-slate-50/80 p-5 border-b border-slate-100 flex items-center justify-between">
-          <h3 className="text-[11px] md:text-xs font-black uppercase text-slate-500 tracking-[0.1em]">Composição Detectada</h3>
-          <Badge variant="outline" className="bg-white text-slate-400 font-black px-3 py-1 text-[10px] uppercase">{data.length} Notas Totais</Badge>
-        </div>
-        <CardContent className="p-6 md:p-10 grid grid-cols-2 lg:grid-cols-4 gap-8 md:gap-12">
-          <MixItem label="Retiradas Online" value={stats.pickups} icon={Smartphone} color="text-sky-500" />
-          <MixItem label="Vendas Adicionais" value={stats.adicionais} icon={TrendingUp} color="text-emerald-500" />
-          <MixItem label="Atend. Troca" value={stats.trocas} icon={ArrowRightLeft} color="text-purple-500" />
-          <MixItem label="Canceladas" value={stats.canceladas} icon={Ban} color="text-rose-500" />
-        </CardContent>
-      </Card>
-
-      {/* Alertas e Inconsistências */}
-      {stats.alerts.length > 0 && (
-        <div className="space-y-4">
-          <h3 className="text-xs font-black uppercase text-slate-400 tracking-widest px-4">Alertas de Processamento</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {stats.alerts.map((alert, i) => (
-              <div key={i} className="flex items-center gap-4 p-5 bg-orange-50/50 border-l-4 border-orange-400 rounded-r-2xl shadow-sm">
-                <AlertTriangle className="w-6 h-6 text-orange-500 shrink-0" />
-                <span className="text-[13px] font-bold text-orange-900 leading-snug">{alert}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* CTA Final */}
-      <div className="flex flex-col items-center gap-6 pt-10">
+      <div className="flex flex-col items-center gap-4 pt-4 shrink-0 border-t border-slate-100">
         <Button 
           onClick={onConfirm}
-          className="bg-orange-500 hover:bg-orange-600 text-white font-black rounded-[1.5rem] h-16 md:h-20 px-12 md:px-20 text-lg md:text-xl shadow-2xl shadow-orange-200 gap-4 group w-full sm:w-auto transition-all hover:scale-[1.02]"
+          className="bg-orange-500 hover:bg-orange-600 text-white font-black rounded-2xl h-14 md:h-16 px-12 md:px-20 text-base md:text-lg shadow-xl shadow-orange-200 gap-3 group w-full sm:w-auto transition-all hover:scale-[1.02]"
         >
           ACESSAR DASHBOARD COMPLETO
-          <ArrowRight className="w-6 h-6 group-hover:translate-x-2 transition-transform" />
+          <ArrowRight className="w-5 h-5 group-hover:translate-x-2 transition-transform" />
         </Button>
-        <p className="text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-[0.2em] text-center">Todos os dados foram validados conforme padrão SEFAZ</p>
+        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Dados validados conforme padrão SEFAZ</p>
       </div>
     </div>
   );
@@ -171,14 +156,14 @@ export function UploadDiagnosis({ data, vinculos, onConfirm }: UploadDiagnosisPr
 
 function SummaryCard({ label, value, subValue, icon: Icon, color }: any) {
   return (
-    <Card className="ri-card border-none bg-white p-6 md:p-8 flex flex-col gap-6 shadow-sm hover:shadow-md transition-shadow">
-      <div className={cn("p-4 rounded-2xl bg-slate-50 w-fit", color)}>
-        <Icon className="w-7 h-7 md:w-8 md:h-8" />
+    <Card className="ri-card border-none bg-white p-4 md:p-5 flex items-center gap-4 shadow-sm hover:shadow-md transition-shadow">
+      <div className={cn("p-2.5 rounded-xl bg-slate-50 shrink-0", color)}>
+        <Icon className="w-6 h-6" />
       </div>
-      <div className="space-y-1">
-        <p className="text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest leading-none mb-2">{label}</p>
-        <p className="text-2xl md:text-3xl font-black text-slate-800 tracking-tighter leading-none">{value}</p>
-        <p className="text-[10px] md:text-xs font-bold text-slate-400 pt-2">{subValue}</p>
+      <div className="min-w-0">
+        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">{label}</p>
+        <p className="text-base md:text-lg font-black text-slate-800 leading-none truncate">{value}</p>
+        <p className="text-[9px] font-bold text-slate-400 mt-1 uppercase">{subValue}</p>
       </div>
     </Card>
   );
@@ -186,14 +171,14 @@ function SummaryCard({ label, value, subValue, icon: Icon, color }: any) {
 
 function MixItem({ label, value, icon: Icon, color }: any) {
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-3">
-        <div className={cn("p-2 rounded-xl bg-slate-50", color)}>
-          <Icon className="w-4 h-4 md:w-5 md:h-5" />
+    <div className="space-y-2">
+      <div className="flex items-center gap-2">
+        <div className={cn("p-1.5 rounded-lg bg-slate-50", color)}>
+          <Icon className="w-3.5 h-3.5" />
         </div>
-        <span className="text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-tight">{label}</span>
+        <span className="text-[9px] font-black text-slate-400 uppercase tracking-tight truncate">{label}</span>
       </div>
-      <p className="text-2xl md:text-3xl font-black text-slate-700 leading-none">{value}</p>
+      <p className="text-xl md:text-2xl font-black text-slate-700 leading-none">{value}</p>
     </div>
   );
 }

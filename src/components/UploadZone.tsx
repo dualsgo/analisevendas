@@ -100,15 +100,15 @@ export function UploadZone({ onDataParsed, isProcessing }: UploadZoneProps) {
   };
 
   return (
-    <div className="max-w-2xl mx-auto w-full space-y-6">
+    <div className="w-full space-y-4">
       <div 
         onDragEnter={handleDrag}
         onDragLeave={handleDrag}
         onDragOver={handleDrag}
         onDrop={handleDrop}
         className={cn(
-          "relative border-4 border-dashed rounded-[2.5rem] p-12 transition-all flex flex-col items-center justify-center gap-6 group",
-          dragActive ? "border-orange-400 bg-orange-50/50 scale-[1.02]" : "border-slate-100 bg-slate-50 hover:border-orange-200",
+          "relative border-4 border-dashed rounded-[2rem] p-8 md:p-10 transition-all flex flex-col items-center justify-center gap-4 group min-h-[200px]",
+          dragActive ? "border-orange-400 bg-orange-50/50 scale-[1.01]" : "border-slate-100 bg-slate-50 hover:border-orange-200",
           selectedCount > 0 && !isProcessing && "border-emerald-200 bg-emerald-50/20"
         )}
       >
@@ -122,51 +122,51 @@ export function UploadZone({ onDataParsed, isProcessing }: UploadZoneProps) {
         />
         
         <div className={cn(
-          "p-6 rounded-full bg-white shadow-xl transition-transform duration-500 group-hover:scale-110",
+          "p-4 rounded-full bg-white shadow-lg transition-transform duration-500 group-hover:scale-110",
           selectedCount > 0 ? "text-emerald-500" : "text-orange-500"
         )}>
           {isProcessing ? (
-            <Loader2 className="w-12 h-12 animate-spin" />
+            <Loader2 className="w-8 h-8 animate-spin" />
           ) : selectedCount > 0 ? (
-            <FileCheck className="w-12 h-12" />
+            <FileCheck className="w-8 h-8" />
           ) : (
-            <Upload className="w-12 h-12" />
+            <Upload className="w-8 h-8" />
           )}
         </div>
 
-        <div className="text-center space-y-2">
-          <p className="text-lg font-black text-slate-700 uppercase tracking-tight">
-            {isProcessing ? "Analisando arquivos..." : 
+        <div className="text-center space-y-1">
+          <p className="text-base font-black text-slate-700 uppercase tracking-tight">
+            {isProcessing ? "Analisando..." : 
              selectedCount > 0 ? `${selectedCount} arquivos carregados` : 
              "Solte seus XMLs ou ZIP aqui"}
           </p>
-          <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">
-            {selectedCount > 0 ? "O Solzinho está pronto para o diagnóstico" : "Padrão SEFAZ: Modelo 65 (NFC-e) e 55 (NF-e)"}
+          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+            {selectedCount > 0 ? "Diagnóstico em andamento" : "Padrão SEFAZ (Modelo 65 e 55)"}
           </p>
         </div>
 
         {errorCount > 0 && (
-          <div className="flex items-center gap-2 bg-rose-50 text-rose-600 px-4 py-2 rounded-full">
-            <FileX className="w-4 h-4" />
-            <span className="text-[10px] font-black uppercase">{errorCount} arquivos ignorados (inválidos)</span>
+          <div className="flex items-center gap-2 bg-rose-50 text-rose-600 px-3 py-1.5 rounded-full">
+            <FileX className="w-3.5 h-3.5" />
+            <span className="text-[9px] font-black uppercase">{errorCount} arquivos inválidos</span>
           </div>
         )}
       </div>
 
       {!isProcessing && selectedCount === 0 && (
-        <div className="flex items-center justify-center gap-6 text-slate-300">
-          <div className="flex flex-col items-center gap-1">
-            <AlertCircle className="w-4 h-4" />
+        <div className="flex items-center justify-center gap-4 text-slate-300">
+          <div className="flex items-center gap-1.5">
+            <AlertCircle className="w-3 h-3" />
             <span className="text-[8px] font-black uppercase">Seguro</span>
           </div>
-          <div className="w-px h-8 bg-slate-100" />
-          <div className="flex flex-col items-center gap-1">
-            <LayoutDashboard className="w-4 h-4" />
+          <div className="w-px h-4 bg-slate-200" />
+          <div className="flex items-center gap-1.5">
+            <LayoutDashboard className="w-3 h-3" />
             <span className="text-[8px] font-black uppercase">Ágil</span>
           </div>
-          <div className="w-px h-8 bg-slate-100" />
-          <div className="flex flex-col items-center gap-1">
-            <ShieldAlert className="w-4 h-4" />
+          <div className="w-px h-4 bg-slate-200" />
+          <div className="flex items-center gap-1.5">
+            <ShieldAlert className="w-3 h-3" />
             <span className="text-[8px] font-black uppercase">Privado</span>
           </div>
         </div>

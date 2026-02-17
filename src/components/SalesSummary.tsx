@@ -196,7 +196,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
       case "geral":
         return (
           <div className="space-y-6 md:space-y-8 animate-in fade-in duration-500">
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 bg-white p-3 md:p-4 rounded-[1.5rem] border-2 border-orange-100 shadow-sm">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 bg-white p-3 md:p-4 rounded-2xl border-2 border-orange-100 shadow-sm">
               <ChannelSelector label="Loja Física" icon={Store} active={selectedChannels.fisica} color="text-slate-600" onToggle={() => toggleChannel('fisica')} />
               <ChannelSelector label="Pickup" icon={Smartphone} active={selectedChannels.online} color="text-sky-500" onToggle={() => toggleChannel('online')} />
               <ChannelSelector label="Adicional" icon={Zap} active={selectedChannels.adicional} color="text-emerald-500" onToggle={() => toggleChannel('adicional')} />
@@ -207,17 +207,17 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
               <div className="p-3 md:p-4 bg-orange-50 border-b border-orange-200 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Target className="w-5 h-5 text-orange-600" />
-                  <h3 className="text-xs md:text-sm font-black text-orange-800 uppercase tracking-tight">Consolidado</h3>
+                  <h3 className="text-sm font-bold text-orange-800 uppercase tracking-tight">Consolidado</h3>
                 </div>
                 <div className="flex items-center gap-2 bg-white px-4 py-1.5 rounded-full border border-orange-200 shadow-sm">
                    <UserCheck className="w-4 h-4 text-emerald-500" />
-                   <span className="text-[10px] font-black text-emerald-600">{consolidado.cadastros.toFixed(1)}% IDENT.</span>
+                   <span className="text-xs font-bold text-emerald-600">{consolidado.cadastros.toFixed(1)}% IDENT.</span>
                 </div>
               </div>
-              <CardContent className="p-6 md:p-8 space-y-6">
+              <CardContent className="p-5 md:p-6 space-y-6">
                 <div className="text-center lg:text-left border-b border-orange-100 pb-6">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Faturamento Consolidado</p>
-                  <p className="text-3xl sm:text-4xl font-black text-slate-800 tracking-tighter">
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Faturamento Consolidado</p>
+                  <p className="text-3xl sm:text-5xl font-black text-slate-800 tracking-tighter">
                     {formatCurrency(consolidado.venda)}
                   </p>
                 </div>
@@ -259,7 +259,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
       <Sidebar className="border-r border-orange-100 bg-white" collapsible="offcanvas">
         <SidebarContent className="p-3 md:p-4">
           <SidebarGroup>
-            <SidebarGroupLabel className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-4 px-2">Menu Estratégico</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-xs font-bold uppercase text-slate-400 tracking-widest mb-4 px-2">Menu Estratégico</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu className="gap-1.5">
                 {navItems.map((item) => (
@@ -275,7 +275,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
                       )}
                     >
                       <item.icon className={cn("w-4 h-4 mr-3 shrink-0", activeTab !== item.id && (item.color || "text-slate-400"))} />
-                      <span className="text-[13px] tracking-tight">{item.label}</span>
+                      <span className="text-sm font-medium tracking-tight">{item.label}</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}
@@ -310,8 +310,8 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
 function QuickMetric({ label, value, color }: any) {
   return (
     <div className="space-y-1">
-      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</p>
-      <p className={cn("text-xl md:text-2xl font-black", color || "text-slate-700")}>{value}</p>
+      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{label}</p>
+      <p className={cn("text-xl md:text-3xl font-black", color || "text-slate-700")}>{value}</p>
     </div>
   );
 }
@@ -326,7 +326,7 @@ function ChannelSelector({ label, icon: Icon, active, color, onToggle }: any) {
       )}
     >
       <Icon className={cn("w-5 h-5", active ? color : "text-slate-400")} />
-      <span className={cn("text-[9px] font-black uppercase text-center leading-none", active ? "text-slate-800" : "text-slate-400")}>{label}</span>
+      <span className={cn("text-xs font-bold uppercase text-center leading-none", active ? "text-slate-800" : "text-slate-400")}>{label}</span>
     </div>
   );
 }
@@ -335,17 +335,17 @@ function FixedChannelCard({ title, metrics, color }: any) {
   return (
     <Card className={cn("ri-card border-2 overflow-hidden bg-white shadow-sm", color)}>
       <div className="p-3 bg-slate-50/50 border-b flex justify-between items-center">
-        <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-600">{title}</h4>
-        <p className="text-sm font-black text-slate-800">{formatCurrency(metrics.venda, true)}</p>
+        <h4 className="text-xs font-bold uppercase tracking-widest text-slate-600">{title}</h4>
+        <p className="text-base font-black text-slate-800">{formatCurrency(metrics.venda, true)}</p>
       </div>
       <CardContent className="p-4 grid grid-cols-2 gap-3 text-center">
         <div className="space-y-0.5">
-          <p className="text-[8px] font-black text-slate-400 uppercase">TKM</p>
-          <p className="text-xs font-black text-orange-600">{formatCurrency(metrics.tkm, true)}</p>
+          <p className="text-[10px] font-bold text-slate-400 uppercase">TKM</p>
+          <p className="text-sm font-bold text-orange-600">{formatCurrency(metrics.tkm, true)}</p>
         </div>
         <div className="space-y-0.5">
-          <p className="text-[8px] font-black text-slate-400 uppercase">P.A.</p>
-          <p className="text-xs font-black text-sky-600">{metrics.pa.toFixed(2)}</p>
+          <p className="text-[10px] font-bold text-slate-400 uppercase">P.A.</p>
+          <p className="text-sm font-bold text-sky-600">{metrics.pa.toFixed(2)}</p>
         </div>
       </CardContent>
     </Card>

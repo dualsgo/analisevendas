@@ -143,7 +143,7 @@ export function TransactionList({ data }: TransactionListProps) {
             onChange={handleFileUpload}
             className="absolute inset-0 opacity-0 cursor-pointer z-10"
           />
-          <Button className="bg-orange-500 hover:bg-orange-600 text-white font-black rounded-xl gap-2 h-11 px-8 pointer-events-none">
+          <Button className="bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl gap-2 h-11 px-8 pointer-events-none text-sm">
             ANEXAR XML
           </Button>
         </div>
@@ -156,7 +156,7 @@ export function TransactionList({ data }: TransactionListProps) {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <Input 
               placeholder="Buscar por NF, Chave, Cliente ou CPF..." 
-              className="pl-9 rounded-xl border-slate-100 bg-slate-50/50 h-11"
+              className="pl-9 rounded-xl border-slate-100 bg-slate-50/50 h-11 text-sm text-slate-700 font-medium"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -166,14 +166,14 @@ export function TransactionList({ data }: TransactionListProps) {
             <div className="space-y-1.5">
               <label className="text-[9px] font-black text-slate-400 uppercase px-1">Canal de Venda</label>
               <Select value={selectedChannel} onValueChange={setSelectedChannel}>
-                <SelectTrigger className="rounded-xl border-slate-100 bg-slate-50/50 h-10 font-bold">
+                <SelectTrigger className="rounded-xl border-slate-100 bg-slate-50/50 h-10 font-bold text-xs">
                   <SelectValue placeholder="Todos os Canais" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todos os Canais</SelectItem>
-                  <SelectItem value="VENDA_LOJA">Venda Loja</SelectItem>
-                  <SelectItem value="RETIRADA_ONLINE">Retirada Online</SelectItem>
-                  <SelectItem value="TROCA">Troca</SelectItem>
+                  <SelectItem value="all" className="text-xs font-medium">Todos os Canais</SelectItem>
+                  <SelectItem value="VENDA_LOJA" className="text-xs font-medium">Venda Loja</SelectItem>
+                  <SelectItem value="RETIRADA_ONLINE" className="text-xs font-medium">Retirada Online</SelectItem>
+                  <SelectItem value="TROCA" className="text-xs font-medium">Troca</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -193,7 +193,7 @@ export function TransactionList({ data }: TransactionListProps) {
             </div>
 
             <div className="flex items-end">
-               <Badge variant="outline" className="h-10 w-full justify-center bg-slate-50 border-slate-100 text-slate-400 font-bold text-[10px]">
+               <Badge variant="outline" className="h-10 w-full justify-center bg-slate-50 border-slate-100 text-slate-500 font-bold text-xs">
                  Total: {filteredData.length} registros
                </Badge>
             </div>
@@ -208,37 +208,37 @@ export function TransactionList({ data }: TransactionListProps) {
           <Table>
             <TableHeader className="bg-slate-50/50">
               <TableRow className="border-slate-50">
-                <TableHead className="text-[10px] font-black uppercase text-slate-400">NF / Emissão</TableHead>
-                <TableHead className="text-[10px] font-black uppercase text-slate-400">Canal / Tipo</TableHead>
-                <TableHead className="text-[10px] font-black uppercase text-slate-400">Colaborador</TableHead>
-                <TableHead className="text-[10px] font-black uppercase text-slate-400">Cliente</TableHead>
-                <TableHead className="text-[10px] font-black uppercase text-slate-400 text-right">Valor</TableHead>
-                <TableHead className="text-[10px] font-black uppercase text-slate-400 text-center">Ações</TableHead>
+                <TableHead className="text-xs font-bold uppercase text-slate-500">NF / Emissão</TableHead>
+                <TableHead className="text-xs font-bold uppercase text-slate-500">Canal / Tipo</TableHead>
+                <TableHead className="text-xs font-bold uppercase text-slate-500">Colaborador</TableHead>
+                <TableHead className="text-xs font-bold uppercase text-slate-500">Cliente</TableHead>
+                <TableHead className="text-xs font-bold uppercase text-slate-500 text-right">Valor</TableHead>
+                <TableHead className="text-xs font-bold uppercase text-slate-500 text-center">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredData.map((t) => (
                 <TableRow key={t.chave} className="hover:bg-slate-50 cursor-pointer group" onClick={() => { setSelectedTransaction(t); setShowThermal(false); }}>
                   <TableCell>
-                    <p className="text-xs font-black text-slate-700">#{t.nf}</p>
-                    <p className="text-[10px] text-slate-400 font-bold uppercase">{t.dhEmi ? format(parseISO(t.dhEmi), "dd/MM HH:mm") : "--"}</p>
+                    <p className="text-sm font-bold text-slate-700">#{t.nf}</p>
+                    <p className="text-xs text-slate-400 font-medium uppercase">{t.dhEmi ? format(parseISO(t.dhEmi), "dd/MM HH:mm") : "--"}</p>
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
                        {getChannelIcon(t.canal_consolidado)}
-                       <span className="text-[10px] font-black text-slate-500 uppercase">{t.canal_consolidado.replace("_", " ")}</span>
+                       <span className="text-xs font-bold text-slate-600 uppercase">{t.canal_consolidado.replace("_", " ")}</span>
                     </div>
                   </TableCell>
                   <TableCell>
-                    <p className="text-xs font-black text-slate-600 uppercase truncate max-w-[120px]">{t.vendedor}</p>
+                    <p className="text-xs font-bold text-slate-600 uppercase truncate max-w-[120px]">{t.vendedor}</p>
                   </TableCell>
                   <TableCell>
-                    <p className="text-xs font-black text-slate-700 uppercase truncate max-w-[150px]">{t.nome_dest || "Consumidor"}</p>
-                    <p className="text-[9px] text-slate-400 font-bold">{t.cpf_cnpj_dest ? `***.${t.cpf_cnpj_dest.slice(-4)}-**` : "NÃO IDENTIFICADO"}</p>
+                    <p className="text-xs font-bold text-slate-700 uppercase truncate max-w-[150px]">{t.nome_dest || "Consumidor"}</p>
+                    <p className="text-[10px] text-slate-400 font-medium">{t.cpf_cnpj_dest ? `***.${t.cpf_cnpj_dest.slice(-4)}-**` : "NÃO IDENTIFICADO"}</p>
                   </TableCell>
                   <TableCell className="text-right">
-                    <p className="text-xs font-black text-slate-900">{formatBRL(parseFloat(t.vNF))}</p>
-                    <p className="text-[9px] text-slate-400 font-bold">{t.itens_qtd} ITENS</p>
+                    <p className="text-sm font-bold text-slate-900">{formatBRL(parseFloat(t.vNF))}</p>
+                    <p className="text-[10px] text-slate-400 font-medium">{t.itens_qtd} ITENS</p>
                   </TableCell>
                   <TableCell className="text-center">
                     <div className="flex items-center justify-center gap-2">
@@ -265,8 +265,8 @@ export function TransactionList({ data }: TransactionListProps) {
             <div key={t.chave} className="bg-white border-2 border-slate-50 rounded-2xl p-4 shadow-sm space-y-4" onClick={() => { setSelectedTransaction(t); setShowThermal(false); }}>
               <div className="flex justify-between items-start">
                 <div>
-                  <h5 className="text-sm font-black text-slate-800">NF #{t.nf}</h5>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase">{t.dhEmi ? format(parseISO(t.dhEmi), "dd/MM/yy HH:mm") : "--"}</p>
+                  <h5 className="text-sm font-bold text-slate-800">NF #{t.nf}</h5>
+                  <p className="text-xs text-slate-400 font-medium uppercase">{t.dhEmi ? format(parseISO(t.dhEmi), "dd/MM/yy HH:mm") : "--"}</p>
                 </div>
                 <Button 
                   size="icon" 
@@ -280,20 +280,20 @@ export function TransactionList({ data }: TransactionListProps) {
               <div className="grid grid-cols-2 gap-4 py-3 border-y border-slate-50">
                  <div>
                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Colaborador</p>
-                   <p className="text-[10px] font-black text-slate-700 uppercase">{t.vendedor}</p>
+                   <p className="text-xs font-bold text-slate-700 uppercase">{t.vendedor}</p>
                  </div>
                  <div className="text-right">
-                   <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Valor Total</p>
-                   <p className="text-xs font-black text-slate-900">{formatBRL(parseFloat(t.vNF))}</p>
+                   <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Valor Total</p>
+                   <p className="text-sm font-bold text-slate-900">{formatBRL(parseFloat(t.vNF))}</p>
                  </div>
               </div>
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-2">
                    {getChannelIcon(t.canal_consolidado)}
-                   <span className="text-[10px] font-black text-slate-500 uppercase">{t.canal_consolidado}</span>
+                   <span className="text-xs font-bold text-slate-500 uppercase">{t.canal_consolidado}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase">{t.itens_qtd} ITENS</span>
+                  <span className="text-xs font-bold text-slate-400 uppercase">{t.itens_qtd} ITENS</span>
                   {t.is_cancelada && <Badge className="bg-red-500 text-white text-[8px] h-4">CANC</Badge>}
                 </div>
               </div>
@@ -352,8 +352,8 @@ export function TransactionList({ data }: TransactionListProps) {
                              <p className="text-[10px] text-slate-600 font-bold">{selectedTransaction.protocolo?.nProt || "---"}</p>
                            </div>
                            <div>
-                             <p className="text-[8px] font-black text-slate-400 uppercase">Status</p>
-                             <p className="text-[10px] text-slate-600 font-bold uppercase">{selectedTransaction.protocolo?.xMotivo || "Ativa"}</p>
+                             <p className="text-[8px] font-bold text-slate-400 uppercase">Status</p>
+                             <p className="text-xs text-slate-600 font-bold uppercase">{selectedTransaction.protocolo?.xMotivo || "Ativa"}</p>
                            </div>
                         </div>
                       </div>
@@ -368,10 +368,10 @@ export function TransactionList({ data }: TransactionListProps) {
                         {selectedTransaction.itens.map((item, idx) => (
                           <div key={idx} className="flex justify-between items-center p-3 bg-white rounded-xl border border-slate-100">
                             <div className="flex-1 min-w-0 pr-4">
-                              <p className="text-xs font-black text-slate-700 truncate uppercase">{item.xProd}</p>
-                              <p className="text-[9px] text-slate-400 font-bold uppercase">Cod: {item.cProd} | Qtd: {item.qCom}</p>
+                              <p className="text-sm font-bold text-slate-700 truncate uppercase">{item.xProd}</p>
+                              <p className="text-xs text-slate-400 font-medium uppercase">Cod: {item.cProd} | Qtd: {item.qCom}</p>
                             </div>
-                            <p className="text-xs font-black text-slate-600">{formatBRL(item.vProd)}</p>
+                            <p className="text-sm font-bold text-slate-600">{formatBRL(item.vProd)}</p>
                           </div>
                         ))}
                       </div>

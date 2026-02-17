@@ -140,7 +140,7 @@ export function UploadZone({ onDataParsed, isProcessing }: UploadZoneProps) {
              selectedCount > 0 ? `${selectedCount} arquivos carregados` : 
              "Solte seus XMLs ou ZIP aqui"}
           </p>
-          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+          <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">
             {selectedCount > 0 ? "Diagnóstico em andamento" : "Padrão SEFAZ (Modelo 65 e 55)"}
           </p>
         </div>
@@ -148,7 +148,7 @@ export function UploadZone({ onDataParsed, isProcessing }: UploadZoneProps) {
         {errorCount > 0 && (
           <div className="flex items-center gap-2 bg-rose-50 text-rose-600 px-3 py-1.5 rounded-full">
             <FileX className="w-3.5 h-3.5" />
-            <span className="text-[9px] font-black uppercase">{errorCount} arquivos inválidos</span>
+            <span className="text-xs font-bold uppercase">{errorCount} arquivos inválidos</span>
           </div>
         )}
       </div>
@@ -157,17 +157,17 @@ export function UploadZone({ onDataParsed, isProcessing }: UploadZoneProps) {
         <div className="flex items-center justify-center gap-4 text-slate-300">
           <div className="flex items-center gap-1.5">
             <AlertCircle className="w-3 h-3" />
-            <span className="text-[8px] font-black uppercase">Seguro</span>
+            <span className="text-[10px] font-bold uppercase">Seguro</span>
           </div>
           <div className="w-px h-4 bg-slate-200" />
           <div className="flex items-center gap-1.5">
             <LayoutDashboard className="w-3 h-3" />
-            <span className="text-[8px] font-black uppercase">Ágil</span>
+            <span className="text-[10px] font-bold uppercase">Ágil</span>
           </div>
           <div className="w-px h-4 bg-slate-200" />
           <div className="flex items-center gap-1.5">
             <ShieldAlert className="w-3 h-3" />
-            <span className="text-[8px] font-black uppercase">Privado</span>
+            <span className="text-[10px] font-bold uppercase">Privado</span>
           </div>
         </div>
       )}

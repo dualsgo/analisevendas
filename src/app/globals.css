@@ -45,7 +45,7 @@
   }
   
   .ri-card {
-    @apply bg-white rounded-[2rem] shadow-sm border-2 border-slate-100 hover:border-orange-200 transition-all duration-300;
+    @apply bg-white rounded-2xl shadow-sm border-2 border-slate-100 hover:border-orange-200 transition-all duration-300;
   }
 
   .scrollbar-hide::-webkit-scrollbar {

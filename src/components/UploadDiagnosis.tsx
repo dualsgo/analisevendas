@@ -86,17 +86,17 @@ export function UploadDiagnosis({ data, vinculos, onConfirm }: UploadDiagnosisPr
       {/* Header Diagnóstico */}
       <div className="text-center space-y-3 shrink-0">
         <div className={cn(
-          "inline-flex items-center gap-2 px-6 py-2 rounded-full font-black text-xs md:text-sm border-2 shadow-sm",
+          "inline-flex items-center gap-2 px-6 py-2 rounded-full font-black text-sm md:text-base border-2 shadow-sm",
           stats.health === 'healthy' ? "bg-emerald-50 border-emerald-200 text-emerald-600" :
           stats.health === 'attention' ? "bg-amber-50 border-amber-200 text-amber-600" :
           "bg-rose-50 border-rose-200 text-rose-600"
         )}>
-          {stats.health === 'healthy' ? <CheckCircle2 className="w-4 h-4" /> : <ShieldAlert className="w-4 h-4" />}
+          {stats.health === 'healthy' ? <CheckCircle2 className="w-5 h-5" /> : <ShieldAlert className="w-5 h-5" />}
           SAÚDE: {stats.health === 'healthy' ? 'SAUDÁVEL' : stats.health === 'attention' ? 'ATENÇÃO' : 'CRÍTICO'}
         </div>
-        <h2 className="text-2xl md:text-4xl font-black text-slate-800 tracking-tighter uppercase leading-tight">Diagnóstico Inicial</h2>
-        <div className="flex items-center justify-center gap-2 text-slate-400 font-bold uppercase text-[10px] md:text-xs tracking-widest">
-          <Calendar className="w-3.5 h-3.5" />
+        <h2 className="text-2xl md:text-5xl font-black text-slate-800 tracking-tighter uppercase leading-tight">Diagnóstico Inicial</h2>
+        <div className="flex items-center justify-center gap-2 text-slate-400 font-bold uppercase text-xs md:text-sm tracking-widest">
+          <Calendar className="w-4 h-4" />
           {format(stats.startDate, "dd/MM/yyyy")} — {format(stats.endDate, "dd/MM/yyyy")}
         </div>
       </div>
@@ -112,8 +112,8 @@ export function UploadDiagnosis({ data, vinculos, onConfirm }: UploadDiagnosisPr
         <div className="md:col-span-8 flex flex-col gap-6">
           <Card className="ri-card border-none shadow-xl bg-white overflow-hidden flex-1 flex flex-col">
             <div className="bg-slate-50/80 p-4 border-b border-slate-100 flex items-center justify-between">
-              <h3 className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Composição</h3>
-              <Badge variant="outline" className="bg-white text-slate-400 font-black px-2 py-0.5 text-[9px] uppercase">{data.length} notas</Badge>
+              <h3 className="text-xs font-bold uppercase text-slate-500 tracking-widest">Composição</h3>
+              <Badge variant="outline" className="bg-white text-slate-400 font-bold px-2 py-0.5 text-[10px] uppercase">{data.length} notas</Badge>
             </div>
             <div className="p-6 md:p-8 grid grid-cols-2 gap-y-8 gap-x-12 my-auto">
               <MixItem label="Retiradas Online" value={stats.pickups} icon={Smartphone} color="text-sky-500" />
@@ -130,7 +130,7 @@ export function UploadDiagnosis({ data, vinculos, onConfirm }: UploadDiagnosisPr
                 {stats.alerts.slice(0, 4).map((alert, i) => (
                   <div key={i} className="flex items-center gap-3 p-3 bg-orange-50/50 border-l-4 border-orange-400 rounded-r-xl shadow-sm">
                     <AlertTriangle className="w-4 h-4 text-orange-500 shrink-0" />
-                    <span className="text-[11px] font-bold text-orange-900 leading-tight truncate">{alert}</span>
+                    <span className="text-xs font-medium text-orange-900 leading-tight truncate">{alert}</span>
                   </div>
                 ))}
               </div>
@@ -161,9 +161,9 @@ function SummaryCard({ label, value, subValue, icon: Icon, color }: any) {
         <Icon className="w-6 h-6" />
       </div>
       <div className="min-w-0">
-        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">{label}</p>
-        <p className="text-base md:text-lg font-black text-slate-800 leading-none truncate">{value}</p>
-        <p className="text-[9px] font-bold text-slate-400 mt-1 uppercase">{subValue}</p>
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">{label}</p>
+        <p className="text-lg md:text-2xl font-black text-slate-800 leading-none truncate">{value}</p>
+        <p className="text-[10px] font-medium text-slate-400 mt-1 uppercase">{subValue}</p>
       </div>
     </Card>
   );
@@ -174,11 +174,11 @@ function MixItem({ label, value, icon: Icon, color }: any) {
     <div className="space-y-2">
       <div className="flex items-center gap-2">
         <div className={cn("p-1.5 rounded-lg bg-slate-50", color)}>
-          <Icon className="w-3.5 h-3.5" />
+          <Icon className="w-4 h-4" />
         </div>
-        <span className="text-[9px] font-black text-slate-400 uppercase tracking-tight truncate">{label}</span>
+        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight truncate">{label}</span>
       </div>
-      <p className="text-xl md:text-2xl font-black text-slate-700 leading-none">{value}</p>
+      <p className="text-2xl md:text-3xl font-black text-slate-700 leading-none">{value}</p>
     </div>
   );
 }

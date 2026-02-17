@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useMemo, useState } from "react";
@@ -27,7 +28,8 @@ import {
   CircleAlert,
   Layers,
   Activity,
-  ShieldAlert
+  ShieldAlert,
+  Users
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -177,7 +179,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
   const navItems = [
     { id: "geral", label: "Visão Geral", icon: LayoutDashboard },
     { id: "diario", label: "Performance Diária", icon: CalendarIcon },
-    { id: "performance_vendedores", label: "Ranking Performance", icon: Award },
+    { id: "performance_vendedores", label: "Performance Vendedores", icon: Award },
     { id: "composicao", label: "Composição", icon: Layers, color: "text-indigo-500" },
     { id: "produtividade", label: "Produtividade", icon: Activity, color: "text-cyan-500" },
     { id: "radar", label: "Radar de Risco", icon: ShieldAlert, color: "text-rose-600" },

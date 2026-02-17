@@ -1,6 +1,13 @@
-import { History, Calendar, ChevronRight } from "lucide-react";
+import { useState, useMemo } from "react";
+import { History, Calendar, ChevronRight, ArrowUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { UploadHistoryItem } from "@/lib/types";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface UploadHistoryProps {
   history: UploadHistoryItem[];
@@ -8,7 +15,26 @@ interface UploadHistoryProps {
   onClear: () => void;
 }
 
+type SortOption = "date" | "value" | "count";
+
 export function UploadHistory({ history, onReopen, onClear }: UploadHistoryProps) {
+  const [sortBy, setSortBy] = useState<SortOption>("date");
+
+  const sortedHistory = useMemo(() => {
+    return [...history].sort((a, b) => {
+      switch (sortBy) {
+        case "date":
+          return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+        case "value":
+          return b.valorTotal - a.valorTotal;
+        case "count":
+          return b.totalNotas - a.totalNotas;
+        default:
+          return 0;
+      }
+    });
+  }, [history, sortBy]);
+
   if (history.length === 0) return null;
 
   const handleClear = () => {
@@ -23,12 +49,27 @@ export function UploadHistory({ history, onReopen, onClear }: UploadHistoryProps
         <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
           <History className="w-3.5 h-3.5" /> Uploads Recentes
         </h3>
-        <Button variant="ghost" size="sm" onClick={handleClear} className="text-[9px] font-black text-rose-500 hover:text-rose-600 hover:bg-rose-50 rounded-full h-7">
-          LIMPAR
-        </Button>
+        <div className="flex items-center gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-7 text-[9px] font-bold text-slate-500 hover:text-orange-600 gap-1">
+                <ArrowUpDown className="w-3 h-3" />
+                {sortBy === "date" ? "DATA" : sortBy === "value" ? "VALOR" : "QTD"}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setSortBy("date")} className="text-xs font-bold">Mais Recentes</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setSortBy("value")} className="text-xs font-bold">Maior Valor</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setSortBy("count")} className="text-xs font-bold">Mais Notas</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Button variant="ghost" size="sm" onClick={handleClear} className="text-[9px] font-black text-rose-500 hover:text-rose-600 hover:bg-rose-50 rounded-full h-7">
+            LIMPAR
+          </Button>
+        </div>
       </div>
       <div className="space-y-3">
-        {history.map((item) => (
+        {sortedHistory.map((item) => (
           <div 
             key={item.id} 
             onClick={() => onReopen(item)}

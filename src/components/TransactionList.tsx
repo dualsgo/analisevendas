@@ -37,14 +37,9 @@ import {
   Percent,
   Calendar,
   User,
-  Zap,
-  ChevronRight,
-  Filter,
-  Download,
-  Ban,
-  Printer,
-  Upload,
-  X
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, parseISO } from "date-fns";
@@ -56,16 +51,51 @@ interface TransactionListProps {
   data: DetailedSaleRow[];
 }
 
+type SortConfig = {
+  key: string;
+  direction: "asc" | "desc";
+};
+
+// Helper component for sortable headers
+function SortableHeader({ label, sortKey, currentSort, onSort, className }: any) {
+  const isSorted = currentSort.key === sortKey;
+  
+  return (
+    <TableHead 
+      className={cn("text-xs font-bold uppercase text-slate-500 cursor-pointer hover:text-orange-600 hover:bg-slate-100 transition-colors select-none", className)}
+      onClick={() => onSort(sortKey)}
+    >
+      <div className={cn("flex items-center gap-1", className?.includes("text-right") && "justify-end")}>
+        {label}
+        {isSorted ? (
+          currentSort.direction === "asc" ? <ArrowUp className="w-3 h-3 text-orange-500" /> : <ArrowDown className="w-3 h-3 text-orange-500" />
+        ) : (
+          <ArrowUpDown className="w-3 h-3 text-slate-300" />
+        )}
+      </div>
+    </TableHead>
+  );
+}
+
 export function TransactionList({ data }: TransactionListProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedChannel, setSelectedChannel] = useState("all");
   const [selectedStatus, setSelectedStatus] = useState("all");
+  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: "nf", direction: "desc" });
+  
   const [selectedTransaction, setSelectedTransaction] = useState<DetailedSaleRow | null>(null);
   const [showThermal, setShowThermal] = useState(false);
   const { toast } = useToast();
 
+  const handleSort = (key: string) => {
+    setSortConfig(current => ({
+      key,
+      direction: current.key === key && current.direction === "asc" ? "desc" : "asc"
+    }));
+  };
+
   const filteredData = useMemo(() => {
-    return data.filter(t => {
+    let result = data.filter(t => {
       const matchesSearch = 
         t.nf.includes(searchTerm) || 
         t.chave.includes(searchTerm) || 
@@ -79,7 +109,28 @@ export function TransactionList({ data }: TransactionListProps) {
 
       return matchesSearch && matchesChannel && matchesStatus;
     });
-  }, [data, searchTerm, selectedChannel, selectedStatus]);
+
+    // Apply Sorting
+    return result.sort((a, b) => {
+      const { key, direction } = sortConfig;
+      const modifier = direction === "asc" ? 1 : -1;
+
+      switch(key) {
+        case "valor":
+          return (parseFloat(a.vNF) - parseFloat(b.vNF)) * modifier;
+        case "nf":
+          return (parseInt(a.nf) - parseInt(b.nf)) * modifier;
+        case "canal":
+          return a.canal_consolidado.localeCompare(b.canal_consolidado) * modifier;
+        case "vendedor":
+          return a.vendedor.localeCompare(b.vendedor) * modifier;
+        case "cliente":
+          return (a.nome_dest || "").localeCompare(b.nome_dest || "") * modifier;
+        default:
+          return 0;
+      }
+    });
+  }, [data, searchTerm, selectedChannel, selectedStatus, sortConfig]);
 
   const handleQuickPrint = (t: DetailedSaleRow) => {
     setSelectedTransaction(t);
@@ -208,11 +259,11 @@ export function TransactionList({ data }: TransactionListProps) {
           <Table>
             <TableHeader className="bg-slate-50/50">
               <TableRow className="border-slate-50">
-                <TableHead className="text-xs font-bold uppercase text-slate-500">NF / Emissão</TableHead>
-                <TableHead className="text-xs font-bold uppercase text-slate-500">Canal / Tipo</TableHead>
-                <TableHead className="text-xs font-bold uppercase text-slate-500">Colaborador</TableHead>
-                <TableHead className="text-xs font-bold uppercase text-slate-500">Cliente</TableHead>
-                <TableHead className="text-xs font-bold uppercase text-slate-500 text-right">Valor</TableHead>
+                <SortableHeader label="NF / Emissão" sortKey="nf" currentSort={sortConfig} onSort={handleSort} />
+                <SortableHeader label="Canal / Tipo" sortKey="canal" currentSort={sortConfig} onSort={handleSort} />
+                <SortableHeader label="Colaborador" sortKey="vendedor" currentSort={sortConfig} onSort={handleSort} />
+                <SortableHeader label="Cliente" sortKey="cliente" currentSort={sortConfig} onSort={handleSort} />
+                <SortableHeader label="Valor" sortKey="valor" currentSort={sortConfig} onSort={handleSort} className="text-right" />
                 <TableHead className="text-xs font-bold uppercase text-slate-500 text-center">Ações</TableHead>
               </TableRow>
             </TableHeader>

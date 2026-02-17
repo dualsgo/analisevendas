@@ -32,6 +32,17 @@ function extractVendedor(infCpl: string): string {
   return candidate.substring(0, endIdx).trim() || "VENDEDOR NÃO IDENTIFICADO";
 }
 
+/**
+ * Critério 4: Padrão do Nome do Vendedor
+ * Nome em formato "Primeira maiúscula + minúsculas" (ex: Luiza)
+ */
+function isVendorNameStandard(name: string): boolean {
+  if (!name || name === "VENDEDOR NÃO IDENTIFICADO") return false;
+  // Regex para Capitalized Name (Ex: Maria Silva)
+  const pattern = /^[A-ZÀ-Ÿ][a-zà-ÿ]+(\s[A-ZÀ-Ÿ][a-zà-ÿ]+)*$/;
+  return pattern.test(name);
+}
+
 export function parseXml(xmlString: string): DetailedSaleRow | null {
   try {
     const parser = new DOMParser();
@@ -151,14 +162,18 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     const infCpl = infAdic ? (getElement(infAdic, "infCpl")?.textContent || "") : "";
     const vendedor = extractVendedor(infCpl);
 
-    // LOGICA DE CLASSIFICAÇÃO PICKUP REFINADA (Score de 0 a 5)
-    // Atualização: Inclusão de "PACOTE" nas keywords
+    // NOVA MATRIZ DE SCORE (0 a 5)
     let pickup_score = 0;
+    // 1. Integração Digital
     if (tpIntegraValue === "2") pickup_score++; 
+    // 2. Ausência de Troco
     if (vTrocoPag === 0) pickup_score++; 
+    // 3. Restrição de Espécie (Sem código 01 - Dinheiro)
     if (pagamentosDet.every(p => p.tPag !== "01")) pickup_score++; 
-    if (/RETIRADA|PICKUP|OMNICHANNEL|SITE|MAGAZINE|ML|MAGALU|PACOTE/i.test(infCpl)) pickup_score++; 
-    if (vendedor === "VENDEDOR NÃO IDENTIFICADO" || /SITE|ECOMMERCE|INTEGRADOR/i.test(vendedor)) pickup_score++; 
+    // 4. Padrão do Nome do Vendedor (Título Case)
+    if (isVendorNameStandard(vendedor)) pickup_score++;
+    // 5. Emissor Sistêmico
+    if (vendedor === "VENDEDOR NÃO IDENTIFICADO" || /SITE|ECOMM|INT|POS/i.test(vendedor)) pickup_score++; 
 
     const isRetiradaOnline = pickup_score >= 3;
     

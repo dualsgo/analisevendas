@@ -62,9 +62,9 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
   const [filterAdicional, setFilterAdicional] = useState<"all" | "with" | "without">("all");
   const [selectedOrder, setSelectedOrder] = useState<DetailedSaleRow | null>(null);
 
-  // Filtrar apenas pedidos de Retirada Online (Canal ou com alto score de pickup)
+  // Filtrar apenas pedidos de Retirada Online (Score >= 3)
   const pickupOrders = useMemo(() => {
-    return data.filter(r => (r.canal === "RETIRADA_ONLINE" || r.pickup_match_fields >= 3) && !r.is_cancelada);
+    return data.filter(r => r.canal === "RETIRADA_ONLINE" && !r.is_cancelada);
   }, [data]);
 
   // Mapear adicionais vinculados para acesso rápido
@@ -266,17 +266,17 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
               </div>
 
               <div className="p-6 md:p-8 space-y-8 flex-1">
-                {/* MATRIZ DE CRITÉRIOS */}
+                {/* MATRIZ DE CRITÉRIOS ATUALIZADA */}
                 <div className="space-y-4">
                   <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
                     <CheckCircle2 className="w-3.5 h-3.5" /> Matriz de Classificação (Audit)
                   </h4>
                   <div className="grid grid-cols-1 gap-2">
-                    <CriteriaItem label="Integração Digital (tpIntegra: 2)" met={selectedOrder.tpIntegra === "2"} />
-                    <CriteriaItem label="Ausência de Troco (Venda Líquida)" met={parseFloat(selectedOrder.vTroco) === 0} />
-                    <CriteriaItem label="Sem Pagamento em Dinheiro" met={selectedOrder.pagamentos_detalhe?.every(p => p.tPag !== "01") ?? true} />
-                    <CriteriaItem label="Keywords Fiscais (RETIRADA/SITE)" met={/RETIRADA|PICKUP|SITE|OMNI/i.test(selectedOrder.infCpl || "")} />
-                    <CriteriaItem label="Emissor Externo/E-commerce" met={selectedOrder.vendedor === "VENDEDOR NÃO IDENTIFICADO" || /SITE|ECOMM/i.test(selectedOrder.vendedor)} />
+                    <CriteriaItem label="1. Integração Digital (tpIntegra: 2)" met={selectedOrder.tpIntegra === "2"} />
+                    <CriteriaItem label="2. Ausência de Troco (Venda Líquida)" met={parseFloat(selectedOrder.vTroco) === 0} />
+                    <CriteriaItem label="3. Restrição de Espécie (Sem Dinheiro)" met={selectedOrder.pagamentos_detalhe?.every(p => p.tPag !== "01") ?? true} />
+                    <CriteriaItem label="4. Padrão Ortográfico do Vendedor (Nome Próprio)" met={/^[A-ZÀ-Ÿ][a-zà-ÿ]+(\s[A-ZÀ-Ÿ][a-zà-ÿ]+)*$/.test(selectedOrder.vendedor)} />
+                    <CriteriaItem label="5. Emissor Sistêmico (SITE/ECOMM/INT)" met={selectedOrder.vendedor === "VENDEDOR NÃO IDENTIFICADO" || /SITE|ECOMM|INT|POS/i.test(selectedOrder.vendedor)} />
                   </div>
                 </div>
 
@@ -309,11 +309,16 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
                           <div>
                             <p className="text-[10px] font-black text-emerald-600 uppercase">Cupom #{adic.nf}</p>
                             <p className="text-sm font-black text-emerald-800 uppercase">{adic.vendedor}</p>
-                            <p className="text-[9px] font-bold text-emerald-600">EMISSÃO: {format(parseISO(adic.dhEmi), "HH:mm")}</p>
+                            <p className="text-[9px] font-bold text-emerald-600">STATUS: {adic.status_auditoria}</p>
                           </div>
                           <div className="text-right">
                             <p className="text-lg font-black text-emerald-800">{formatBRL(parseFloat(adic.vNF))}</p>
-                            <Badge className="bg-emerald-500 text-white border-none text-[8px] font-black uppercase">Vínculo CPF</Badge>
+                            <Badge className={cn(
+                              "text-[8px] font-black uppercase border-none",
+                              adic.is_adicional_suspeito ? "bg-amber-500 text-white" : "bg-emerald-500 text-white"
+                            )}>
+                              {adic.is_adicional_suspeito ? "Suspeito (S/ Desc)" : "Confirmado (10%)"}
+                            </Badge>
                           </div>
                         </div>
                       ))}
@@ -322,7 +327,7 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
                     <div className="bg-slate-50 p-8 rounded-2xl border-2 border-dashed border-slate-200 text-center">
                       <XCircle className="w-8 h-8 text-slate-300 mx-auto mb-2" />
                       <p className="text-xs font-black text-slate-400 uppercase">Nenhum adicional vinculado</p>
-                      <p className="text-[10px] text-slate-400 font-medium px-4 mt-1">O cliente não realizou compras presenciais no dia desta retirada.</p>
+                      <p className="text-[10px] text-slate-400 font-medium px-4 mt-1">O cliente não realizou compras presenciais na data desta retirada.</p>
                     </div>
                   )}
                 </div>

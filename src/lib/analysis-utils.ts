@@ -2,18 +2,16 @@
 import { DetailedSaleRow, VinculoTroca } from "./types";
 
 /**
- * Identifica vendas presenciais que ocorreram no mesmo dia de uma retirada online (Pickup)
+ * Identifica vendas presenciais que ocorreram próximas a uma retirada online (Pickup)
  * para o mesmo CPF, classificando-as como vendas adicionais (incrementais).
  * 
- * Regra Ri Happy: 
- * - ADICIONAL: Desconto ~10% + Mesmo CPF + Mesma Data de um Pickup.
- * - ADICIONAL SUSPEITO: Sem Desconto 10% + Mesmo CPF + Mesma Data de um Pickup.
- * - PADRÃO: Desconto 10% SEM Pickup no dia (reclassificado para Venda Normal).
+ * Refino: Janela temporal de 2 horas para evitar falsos positivos de compras independentes.
  */
 export function detectarAdicionaisSuspeitos(rows: DetailedSaleRow[]): DetailedSaleRow[] {
+  const JANELA_TEMPORAL_MS = 2 * 60 * 60 * 1000; // 2 horas
   const notasPorCpf: Record<string, DetailedSaleRow[]> = {};
   
-  // Primeiro passo: Mapear todas as notas de saída por CPF
+  // Primeiro passo: Mapear todas as notas de saída válidas por CPF
   rows.forEach(r => {
     if (r.tpNF === 1 && r.cpf_cnpj_dest && !r.is_cancelada) {
       if (!notasPorCpf[r.cpf_cnpj_dest]) notasPorCpf[r.cpf_cnpj_dest] = [];
@@ -21,64 +19,64 @@ export function detectarAdicionaisSuspeitos(rows: DetailedSaleRow[]): DetailedSa
     }
   });
 
-  // Segundo passo: Validar e reclassificar falsos positivos
-  // Se foi marcada como ADICIONAL (pelo desconto de 10%) mas não tem pickup no dia para aquele CPF
+  // Segundo passo: Pré-processamento e limpeza de estados anteriores
   rows.forEach(r => {
-    if (r.tpNF === 1 && !r.is_cancelada && r.cpf_cnpj_dest) {
-      const date = r.dhEmi.substring(0, 10);
-      const vendasCpf = notasPorCpf[r.cpf_cnpj_dest] || [];
-      const temPickupNoDia = vendasCpf.some(v => v.is_retirada_online && v.dhEmi.substring(0, 10) === date);
-
-      if (r.is_adicional && !temPickupNoDia) {
-        r.is_adicional = false;
-        r.tipo_desconto = "PADRÃO";
-        r.canal = "LOJA_FISICA";
-        r.canal_consolidado = "VENDA_LOJA";
-        r.status_auditoria = "DESCONTO APLICADO";
-      }
-
-      // Limpar flags de suspeito para re-análise
+    if (r.tpNF === 1 && !r.is_cancelada) {
       r.is_adicional_suspeito = false;
       r.chave_retirada_associada = undefined;
       r.data_retirada_associada = undefined;
+      r.tipo_retirada_associada = undefined;
     }
   });
 
-  // Terceiro passo: Vincular logicamente as vendas presenciais aos pickups existentes
+  // Terceiro passo: Vínculo por CPF + Janela Temporal
   Object.values(notasPorCpf).forEach(notasCpf => {
-    // Agrupar notas do cliente por data
-    const notasPorData: Record<string, DetailedSaleRow[]> = {};
-    notasCpf.forEach(n => {
-      const data = n.dhEmi.substring(0, 10);
-      if (!notasPorData[data]) notasPorData[data] = [];
-      notasPorData[data].push(n);
-    });
+    const retiradas = notasCpf.filter(n => n.is_retirada_online);
+    const outras = notasCpf.filter(n => !n.is_retirada_online && !n.is_troca);
 
-    Object.values(notasPorData).forEach(notasDia => {
-      const retiradas = notasDia.filter(n => n.is_retirada_online);
-      // "Outras" são vendas presenciais (não retirada, não troca)
-      const outras = notasDia.filter(n => !n.is_retirada_online && !n.is_troca);
+    outras.forEach(outra => {
+      const tOutra = new Date(outra.dhEmi).getTime();
+      
+      // Encontra a retirada mais próxima dentro da janela de 2h
+      let melhorRetirada: DetailedSaleRow | null = null;
+      let menorDif = JANELA_TEMPORAL_MS + 1;
 
-      if (retiradas.length > 0 && outras.length > 0) {
-        // Vincula todas as outras vendas presenciais do dia ao primeiro pickup encontrado
-        const retRef = retiradas[0];
-        outras.forEach(outra => {
-          outra.chave_retirada_associada = retRef.chave;
-          outra.data_retirada_associada = retRef.dhEmi;
-          
-          // Análise de ordem cronológica (se emitido antes ou depois da baixa do pickup)
-          const tOutra = new Date(outra.dhEmi).getTime();
-          const tRet = new Date(retRef.dhEmi).getTime();
-          outra.tipo_retirada_associada = tOutra < tRet ? "ANTES" : "DEPOIS";
+      retiradas.forEach(ret => {
+        const tRet = new Date(ret.dhEmi).getTime();
+        const diff = Math.abs(tOutra - tRet);
+        
+        if (diff <= JANELA_TEMPORAL_MS && diff < menorDif) {
+          menorDif = diff;
+          melhorRetirada = ret;
+        }
+      });
 
-          // Se já era um adicional (pelo desconto de 10% validado), apenas confirma
-          // Se não era (venda normal), marca como suspeito (venda casada sem desconto oficial)
-          if (!outra.is_adicional) {
-            outra.is_adicional_suspeito = true;
-            outra.motivo_adicional = "Venda presencial no mesmo dia de uma retirada online";
-            outra.canal = "RETIRADA_ADICIONAL";
-          }
-        });
+      if (melhorRetirada) {
+        const retRef: DetailedSaleRow = melhorRetirada;
+        outra.chave_retirada_associada = retRef.chave;
+        outra.data_retirada_associada = retRef.dhEmi;
+        outra.tipo_retirada_associada = tOutra < new Date(retRef.dhEmi).getTime() ? "ANTES" : "DEPOIS";
+
+        // Classificação A: Tinha desconto de ~10% e agora confirmamos o pickup próximo
+        if (outra.is_adicional) {
+          outra.canal = "RETIRADA_ADICIONAL";
+          outra.tipo_desconto = "ADICIONAL";
+        } else {
+          // Classificação B: Sem desconto oficial, mas vinculada por proximidade (Suspeito)
+          outra.is_adicional_suspeito = true;
+          outra.motivo_adicional = "Venda presencial em janela de 2h de uma retirada online";
+          outra.canal = "RETIRADA_ADICIONAL";
+        }
+      } else {
+        // QUARTO PASSO: Filtro de Falso Positivo
+        // Se tinha 10% de desconto mas não tem pickup em 2h, rebaixa para Loja Física
+        if (outra.is_adicional) {
+          outra.is_adicional = false;
+          outra.tipo_desconto = "PADRÃO";
+          outra.canal = "LOJA_FISICA";
+          outra.canal_consolidado = "VENDA_LOJA";
+          outra.status_auditoria = "DESCONTO APLICADO (SEM PICKUP VINCULADO)";
+        }
       }
     });
   });

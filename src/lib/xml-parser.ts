@@ -118,7 +118,7 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
 
     const pagamentosDet: Array<{tPag: string, vPag: number, tpIntegra?: string}> = [];
     let vTrocoPag = 0;
-    let tpIntegra = "";
+    let tpIntegraValue = "";
     const pag = getElement(infNFe, "pag");
     if (pag) {
       vTrocoPag = dec(getElement(pag, "vTroco")?.textContent);
@@ -128,7 +128,7 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
         const card = getElement(detPag, "card");
         const tpInt = card ? getElement(card, "tpIntegra")?.textContent || "" : undefined;
         pagamentosDet.push({ tPag, vPag, tpIntegra: tpInt });
-        if (tpInt) tpIntegra = tpInt;
+        if (tpInt) tpIntegraValue = tpInt;
       });
     }
 
@@ -152,17 +152,16 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     const vendedor = extractVendedor(infCpl);
 
     // LOGICA DE CLASSIFICAÇÃO PICKUP REFINADA (Score de 0 a 5)
+    // Atualização: Inclusão de "PACOTE" nas keywords
     let pickup_score = 0;
-    if (tpIntegra === "2") pickup_score++; // 1. Integração Digital
-    if (vTrocoPag === 0) pickup_score++; // 2. Sem Troco
-    if (pagamentosDet.every(p => p.tPag !== "01")) pickup_score++; // 3. Sem Dinheiro
-    if (/RETIRADA|PICKUP|OMNICHANNEL|SITE|MAGAZINE|ML|MAGALU|SITE/i.test(infCpl)) pickup_score++; // 4. Palavras Chave
-    if (vendedor === "VENDEDOR NÃO IDENTIFICADO" || /SITE|ECOMMERCE|INTEGRADOR/i.test(vendedor)) pickup_score++; // 5. Sem vendedor físico
+    if (tpIntegraValue === "2") pickup_score++; 
+    if (vTrocoPag === 0) pickup_score++; 
+    if (pagamentosDet.every(p => p.tPag !== "01")) pickup_score++; 
+    if (/RETIRADA|PICKUP|OMNICHANNEL|SITE|MAGAZINE|ML|MAGALU|PACOTE/i.test(infCpl)) pickup_score++; 
+    if (vendedor === "VENDEDOR NÃO IDENTIFICADO" || /SITE|ECOMMERCE|INTEGRADOR/i.test(vendedor)) pickup_score++; 
 
-    // Identificação de Pickup Online: Score mínimo 3 para ser considerado Pickup
     const isRetiradaOnline = pickup_score >= 3;
     
-    // Identificação de Troca: Uso do meio de pagamento 05 (Crédito Loja)
     const vTrocaCredito = pagamentosDet.filter(p => p.tPag === "05").reduce((acc, p) => acc + p.vPag, 0);
     const isTroca = vTrocaCredito > 0;
     const difTroca = vNFValue - vTrocaCredito;
@@ -171,7 +170,6 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     const descontoTotal = itemsList.reduce((acc, it) => acc + it.vDesc, 0);
     const percentualDesconto = valorTotalProds > 0 ? (descontoTotal / valorTotalProds) : 0;
     
-    // Classificação de Estratégia de Desconto
     const isAdicionalDoc = percentualDesconto >= ADICIONAL_PERCENT_MIN && percentualDesconto <= ADICIONAL_PERCENT_MAX;
     const isMostruario = percentualDesconto >= MOSTRUARIO_PERCENT_MIN && percentualDesconto <= MOSTRUARIO_PERCENT_MAX;
     
@@ -187,7 +185,7 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
       desconto_total: descontoTotal.toFixed(2), percentual_desconto: percentualDesconto.toFixed(4),
       is_troca: isTroca, vTroca: vTrocaCredito.toFixed(2), dif_troca: difTroca.toFixed(2),
       is_devolucao: isDevolucao, refNFe: refNFes, refNFe_normalizadas: refNFes.map(r => r.replace(/\D/g, "")),
-      is_retirada_online: isRetiradaOnline, vTroco: vTrocoPag.toFixed(2), is_presencial_por_troco: !isRetiradaOnline, tpIntegra,
+      is_retirada_online: isRetiradaOnline, vTroco: vTrocoPag.toFixed(2), is_presencial_por_troco: !isRetiradaOnline, tpIntegra: tpIntegraValue,
       tem_desconto: descontoTotal > 0, tipo_desconto: isAdicionalDoc ? "ADICIONAL" : (isMostruario ? "MOSTRUÁRIO" : "PADRÃO"), 
       status_auditoria: isAdicionalDoc ? "PADRÃO ADICIONAL" : (descontoTotal > 0 ? "DESCONTO APLICADO" : "SEM DESCONTO"),
       cep_dest, cep_loja, is_cep_diferente_da_loja: !!cep_dest && cep_dest !== cep_loja,

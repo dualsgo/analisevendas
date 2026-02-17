@@ -38,17 +38,12 @@ import {
   Search,
   Target,
   Zap,
-  AlertTriangle,
   ChevronRight,
   Smartphone,
   CheckCircle2,
   XCircle,
-  User,
   ShoppingBag,
-  Info,
-  Calendar,
   AlertCircle,
-  FileText
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, parseISO } from "date-fns";
@@ -62,7 +57,7 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
   const [filterAdicional, setFilterAdicional] = useState<"all" | "with" | "without">("all");
   const [selectedOrder, setSelectedOrder] = useState<DetailedSaleRow | null>(null);
 
-  // Filtrar apenas pedidos de Retirada Online (Score >= 3)
+  // Filtrar apenas pedidos de Retirada Online
   const pickupOrders = useMemo(() => {
     return data.filter(r => r.canal === "RETIRADA_ONLINE" && !r.is_cancelada);
   }, [data]);
@@ -79,12 +74,11 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
     return map;
   }, [data]);
 
-  // Aplicar filtros de pesquisa e status
   const filteredOrders = useMemo(() => {
     return pickupOrders.filter(order => {
       const matchesSearch = 
         order.nf.includes(searchTerm) || 
-        order.cpf_cnpj_dest.includes(searchTerm) || 
+        (order.cpf_cnpj_dest?.includes(searchTerm)) || 
         order.nome_dest.toLowerCase().includes(searchTerm.toLowerCase());
       
       const hasAdicional = !!vinculadosMap[order.chave];
@@ -102,7 +96,7 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
     const comAdicional = pickupOrders.filter(o => !!vinculadosMap[o.chave]).length;
     const valorAdicional = Object.values(vinculadosMap).flat().reduce((acc, o) => acc + parseFloat(o.vNF), 0);
     const taxaConversao = total > 0 ? (comAdicional / total) * 100 : 0;
-    const suspeitos = pickupOrders.filter(o => o.pickup_match_fields < 4).length;
+    const suspeitos = pickupOrders.filter(o => (o.pickup_match_fields ?? 0) < 4).length;
 
     return { total, comAdicional, valorAdicional, taxaConversao, suspeitos };
   }, [pickupOrders, vinculadosMap]);
@@ -110,9 +104,9 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
   const formatBRL = (val: number) => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 pb-20">
-      {/* Resumo do Canal Pickup */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+    <div className="space-y-4 animate-in fade-in duration-500 pb-10">
+      {/* Resumo do Canal Pickup Compacto */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <KPIStat label="Pedidos Pickup" value={stats.total} icon={Smartphone} color="text-sky-500" />
         <KPIStat label="Taxa Conversão" value={`${stats.taxaConversao.toFixed(1)}%`} icon={Target} color="text-orange-500" />
         <KPIStat label="Venda Incremental" value={formatBRL(stats.valorAdicional)} icon={Zap} color="text-emerald-500" />
@@ -126,18 +120,18 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
       </div>
 
       <Card className="ri-card border-none shadow-sm overflow-hidden">
-        <div className="p-4 bg-white flex flex-col md:flex-row gap-4">
+        <div className="p-3 bg-white flex flex-col md:flex-row gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <Input 
               placeholder="Buscar por NF, CPF ou Cliente..." 
-              className="pl-9 rounded-xl border-slate-100 bg-slate-50/50 h-11 text-xs font-bold"
+              className="pl-9 rounded-xl border-slate-100 bg-slate-50/50 h-10 text-xs font-bold"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
           <Select value={filterAdicional} onValueChange={(v: any) => setFilterAdicional(v)}>
-            <SelectTrigger className="w-full md:w-64 rounded-xl border-slate-100 bg-slate-50/50 h-11 font-black text-[10px] uppercase">
+            <SelectTrigger className="w-full md:w-56 rounded-xl border-slate-100 bg-slate-50/50 h-10 font-black text-[10px] uppercase">
               <SelectValue placeholder="Status Adicional" />
             </SelectTrigger>
             <SelectContent>
@@ -149,47 +143,48 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
         </div>
       </Card>
 
-      <div className="space-y-4">
+      <div className="space-y-3">
         <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-2">Auditoria de Pedidos ({filteredOrders.length})</h3>
 
-        <div className="hidden lg:block bg-white rounded-[2rem] border-2 border-slate-50 overflow-hidden shadow-sm">
+        <div className="hidden lg:block bg-white rounded-[1.5rem] border-2 border-slate-50 overflow-hidden shadow-sm">
           <Table>
             <TableHeader className="bg-slate-50/50">
-              <TableRow className="border-slate-50 h-12">
-                <TableHead className="text-[10px] font-black uppercase text-slate-400 pl-8">NF / Data</TableHead>
+              <TableRow className="border-slate-50 h-10">
+                <TableHead className="text-[10px] font-black uppercase text-slate-400 pl-6">NF / Data</TableHead>
                 <TableHead className="text-[10px] font-black uppercase text-slate-400">Cliente</TableHead>
                 <TableHead className="text-[10px] font-black uppercase text-slate-400 text-center">Score Auditoria</TableHead>
                 <TableHead className="text-[10px] font-black uppercase text-slate-400 text-right">Valor Site</TableHead>
                 <TableHead className="text-[10px] font-black uppercase text-slate-400 text-center">Status Adicional</TableHead>
-                <TableHead className="w-[60px]"></TableHead>
+                <TableHead className="w-[50px]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredOrders.map((order) => {
+                const score = order.pickup_match_fields ?? 0;
                 const adicionais = vinculadosMap[order.chave] || [];
                 const hasAdicional = adicionais.length > 0;
                 const valorAdicional = adicionais.reduce((acc, a) => acc + parseFloat(a.vNF), 0);
-                const isReliable = order.pickup_match_fields >= 4;
+                const isHighConfidence = score >= 4;
 
                 return (
-                  <TableRow key={order.chave} className="hover:bg-sky-50/30 border-slate-50 cursor-pointer group transition-colors h-16" onClick={() => setSelectedOrder(order)}>
-                    <TableCell className="pl-8">
+                  <TableRow key={order.chave} className="hover:bg-sky-50/30 border-slate-50 cursor-pointer group transition-colors h-14" onClick={() => setSelectedOrder(order)}>
+                    <TableCell className="pl-6">
                       <p className="text-xs font-black text-slate-700">#{order.nf}</p>
-                      <p className="text-[9px] text-slate-400 font-bold uppercase">{format(parseISO(order.dhEmi), "dd/MM HH:mm")}</p>
+                      <p className="text-[9px] text-slate-400 font-bold uppercase">{order.dhEmi ? format(parseISO(order.dhEmi), "dd/MM HH:mm") : "--"}</p>
                     </TableCell>
                     <TableCell>
                       <p className="text-xs font-black text-slate-700 uppercase truncate max-w-[150px]">{order.nome_dest}</p>
-                      <p className="text-[9px] text-slate-400 font-bold">CPF: ***.{order.cpf_cnpj_dest.slice(-4)}-**</p>
+                      <p className="text-[9px] text-slate-400 font-bold">CPF: {order.cpf_cnpj_dest ? `***.${order.cpf_cnpj_dest.slice(-4)}` : "---"}</p>
                     </TableCell>
                     <TableCell className="text-center">
                       <div className="flex justify-center">
                         <Badge className={cn(
                           "text-[9px] font-black border-none px-3 h-6",
-                          isReliable 
+                          isHighConfidence 
                             ? "bg-emerald-500 text-white shadow-sm shadow-emerald-200" 
                             : "bg-yellow-400 text-yellow-900 shadow-sm shadow-yellow-100"
                         )}>
-                          {order.pickup_match_fields}/5 CRITÉRIOS
+                          {score}/5 CRITÉRIOS
                         </Badge>
                       </div>
                     </TableCell>
@@ -200,14 +195,14 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
                     <TableCell className="text-center">
                       {hasAdicional ? (
                         <div className="flex flex-col items-center">
-                          <Badge className="bg-emerald-100 text-emerald-700 border-none text-[8px] font-black uppercase px-2">Convertido</Badge>
-                          <p className="text-[10px] text-emerald-600 font-black mt-1">+{formatBRL(valorAdicional)}</p>
+                          <Badge className="bg-emerald-100 text-emerald-700 border-none text-[8px] font-black uppercase px-2 h-4">Convertido</Badge>
+                          <p className="text-[10px] text-emerald-600 font-black mt-0.5">+{formatBRL(valorAdicional)}</p>
                         </div>
                       ) : (
-                        <Badge variant="outline" className="bg-slate-50 text-slate-300 border-slate-200 text-[8px] font-black uppercase px-2">Oportunidade</Badge>
+                        <Badge variant="outline" className="bg-slate-50 text-slate-300 border-slate-200 text-[8px] font-black uppercase px-2 h-4">Oportunidade</Badge>
                       )}
                     </TableCell>
-                    <TableCell className="pr-6 text-right"><ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-sky-500 transition-all" /></TableCell>
+                    <TableCell className="pr-4 text-right"><ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-sky-500 transition-all" /></TableCell>
                   </TableRow>
                 );
               })}
@@ -217,34 +212,37 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
 
         {/* Mobile View */}
         <div className="lg:hidden space-y-3">
-          {filteredOrders.map((order) => (
-            <div key={order.chave} className="bg-white border-2 border-slate-50 rounded-2xl p-4 shadow-sm space-y-4" onClick={() => setSelectedOrder(order)}>
-              <div className="flex justify-between items-start">
-                <div>
-                  <h5 className="text-sm font-black text-slate-800">Pedido #{order.nf}</h5>
-                  <p className="text-[9px] text-slate-400 font-bold uppercase">{format(parseISO(order.dhEmi), "dd/MM/yy HH:mm")}</p>
+          {filteredOrders.map((order) => {
+            const score = order.pickup_match_fields ?? 0;
+            return (
+              <div key={order.chave} className="bg-white border-2 border-slate-50 rounded-2xl p-4 shadow-sm space-y-4" onClick={() => setSelectedOrder(order)}>
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h5 className="text-sm font-black text-slate-800">Pedido #{order.nf}</h5>
+                    <p className="text-[9px] text-slate-400 font-bold uppercase">{order.dhEmi ? format(parseISO(order.dhEmi), "dd/MM/yy HH:mm") : "--"}</p>
+                  </div>
+                  <Badge className={cn(
+                    "text-[8px] font-black px-2 h-5", 
+                    score >= 4 ? "bg-emerald-500 text-white" : "bg-yellow-400 text-yellow-900"
+                  )}>
+                    {score}/5
+                  </Badge>
                 </div>
-                <Badge className={cn(
-                  "text-[8px] font-black px-2 h-5", 
-                  order.pickup_match_fields >= 4 ? "bg-emerald-500 text-white" : "bg-yellow-400 text-yellow-900"
-                )}>
-                  {order.pickup_match_fields}/5
-                </Badge>
+                <div className="flex justify-between items-center py-2 border-y border-slate-50">
+                  <span className="text-[10px] font-black text-slate-500 uppercase">{order.nome_dest}</span>
+                  <span className="text-xs font-black text-slate-900">{formatBRL(parseFloat(order.vNF))}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  {vinculadosMap[order.chave] ? (
+                    <Badge className="bg-emerald-500 text-white text-[8px] font-black uppercase">Adicional Vinculado</Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-slate-300 text-[8px] font-black uppercase">Sem Adicional</Badge>
+                  )}
+                  <ChevronRight className="w-4 h-4 text-slate-300" />
+                </div>
               </div>
-              <div className="flex justify-between items-center py-2 border-y border-slate-50">
-                <span className="text-[10px] font-black text-slate-500 uppercase">{order.nome_dest}</span>
-                <span className="text-xs font-black text-slate-900">{formatBRL(parseFloat(order.vNF))}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                {vinculadosMap[order.chave] ? (
-                  <Badge className="bg-emerald-500 text-white text-[8px] font-black uppercase">Adicional Vinculado</Badge>
-                ) : (
-                  <Badge variant="outline" className="text-slate-300 text-[8px] font-black uppercase">Sem Adicional</Badge>
-                )}
-                <ChevronRight className="w-4 h-4 text-slate-300" />
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
@@ -255,7 +253,7 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
               <Smartphone className="w-6 h-6" /> Auditoria NF #{selectedOrder?.nf}
             </SheetTitle>
             <SheetDescription className="text-white/80 font-bold text-[10px] uppercase tracking-wider">
-              Detalhes dos critérios fiscais atendidos pelo documento.
+              Critérios de classificação identificados no documento fiscal.
             </SheetDescription>
           </SheetHeader>
           
@@ -266,7 +264,7 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
                   <div>
                     <p className="text-[10px] font-bold uppercase opacity-80">Cliente</p>
                     <p className="text-sm font-black uppercase">{selectedOrder.nome_dest}</p>
-                    <p className="text-[10px] font-bold opacity-70">CPF: {selectedOrder.cpf_cnpj_dest}</p>
+                    <p className="text-[10px] font-bold opacity-70">CPF: {selectedOrder.cpf_cnpj_dest || "---"}</p>
                   </div>
                   <div className="text-right">
                     <p className="text-[10px] font-bold uppercase opacity-80">Valor Site</p>
@@ -284,9 +282,9 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
                     </h4>
                     <Badge className={cn(
                       "text-[10px] font-black px-3",
-                      selectedOrder.pickup_match_fields >= 4 ? "bg-emerald-500 text-white" : "bg-yellow-400 text-yellow-900"
+                      (selectedOrder.pickup_match_fields ?? 0) >= 4 ? "bg-emerald-500 text-white" : "bg-yellow-400 text-yellow-900"
                     )}>
-                      SCORE: {selectedOrder.pickup_match_fields}/5
+                      SCORE: {selectedOrder.pickup_match_fields ?? 0}/5
                     </Badge>
                   </div>
                   <div className="grid grid-cols-1 gap-2">
@@ -345,7 +343,7 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
                     <div className="bg-slate-50 p-8 rounded-2xl border-2 border-dashed border-slate-200 text-center">
                       <XCircle className="w-8 h-8 text-slate-300 mx-auto mb-2" />
                       <p className="text-xs font-black text-slate-400 uppercase">Nenhum adicional vinculado</p>
-                      <p className="text-[10px] text-slate-400 font-medium px-4 mt-1">O cliente não realizou compras presenciais na data desta retirada.</p>
+                      <p className="text-[10px] text-slate-400 font-medium px-4 mt-1">Nenhuma venda presencial vinculada por CPF e Data.</p>
                     </div>
                   )}
                 </div>
@@ -364,14 +362,14 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
 
 function KPIStat({ label, value, icon: Icon, color, subLabel }: any) {
   return (
-    <Card className="ri-card border-none bg-white p-4 md:p-5 flex flex-col justify-between gap-3 shadow-sm">
+    <Card className="ri-card border-none bg-white p-3 md:p-4 flex flex-col justify-between gap-2 shadow-sm">
       <div className="flex items-center justify-between">
-        <div className={cn("p-2 rounded-xl bg-slate-50 shadow-inner", color)}><Icon className="w-4 h-4 md:w-5 md:h-5" /></div>
+        <div className={cn("p-2 rounded-xl bg-slate-50 shadow-inner", color)}><Icon className="w-4 h-4" /></div>
         {subLabel && <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{subLabel}</span>}
       </div>
       <div>
-        <p className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1.5">{label}</p>
-        <p className="text-base md:text-xl font-black text-slate-800 leading-none">{value}</p>
+        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">{label}</p>
+        <p className="text-sm md:text-lg font-black text-slate-800 leading-none">{value}</p>
       </div>
     </Card>
   );
@@ -379,7 +377,7 @@ function KPIStat({ label, value, icon: Icon, color, subLabel }: any) {
 
 function CriteriaItem({ label, met }: { label: string, met: boolean }) {
   return (
-    <div className="flex items-center justify-between p-3 rounded-lg border border-slate-100 bg-white">
+    <div className="flex items-center justify-between p-2.5 rounded-lg border border-slate-100 bg-white">
       <span className={cn("text-[10px] font-bold uppercase", met ? "text-slate-600" : "text-slate-400")}>{label}</span>
       {met ? <CheckCircle2 className="w-4 h-4 text-emerald-500" /> : <AlertCircle className="w-4 h-4 text-amber-400" />}
     </div>

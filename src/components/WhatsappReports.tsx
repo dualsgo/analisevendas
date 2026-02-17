@@ -79,38 +79,58 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
     // Pickup
     const convPickup = online.length > 0 ? (cAdicional / online.length) * 100 : 0;
 
+    // Mapeamento de Pickups para Clientes (para vincular ao vendedor que atendeu o cliente no físico)
+    const onlinePerCustomer = new Map<string, number>();
+    online.forEach(p => {
+      if (p.cpf_cnpj_dest) {
+        onlinePerCustomer.set(p.cpf_cnpj_dest, (onlinePerCustomer.get(p.cpf_cnpj_dest) || 0) + 1);
+      }
+    });
+
     // Métricas por Vendedor
     const vendors: Record<string, any> = {};
+    const vendorCustomers = new Map<string, Set<string>>();
     
-    // Processar Vendas Físicas
-    fisica.forEach(r => {
+    const processVendorSale = (r: DetailedSaleRow) => {
       const name = r.vendedor || "VENDEDOR";
-      if (!vendors[name]) vendors[name] = { venda: 0, cupons: 0, itens: 0, ident: 0, adicionais: 0 };
+      if (!vendors[name]) vendors[name] = { venda: 0, cupons: 0, itens: 0, ident: 0, adicionais: 0, pickups: 0 };
       vendors[name].venda += parseFloat(r.vNF);
       vendors[name].cupons += 1;
       vendors[name].itens += parseFloat(r.itens_qtd);
-      if (r.cpf_cnpj_dest) vendors[name].ident += 1;
+      if (r.cpf_cnpj_dest) {
+        vendors[name].ident += 1;
+        if (!vendorCustomers.has(name)) vendorCustomers.set(name, new Set());
+        vendorCustomers.get(name)!.add(r.cpf_cnpj_dest);
+      }
+      if (r.is_adicional || r.is_adicional_suspeito) {
+        vendors[name].adicionais += 1;
+      }
+    };
+
+    fisica.forEach(processVendorSale);
+    adicional.forEach(processVendorSale);
+
+    // Associar atendimentos de pickup aos vendedores baseados no CPF do cliente atendido
+    vendorCustomers.forEach((customers, vendorName) => {
+      let totalPickups = 0;
+      customers.forEach(cpf => {
+        totalPickups += onlinePerCustomer.get(cpf) || 0;
+      });
+      if (vendors[vendorName]) {
+        vendors[vendorName].pickups = totalPickups;
+      }
     });
 
-    // Processar Vendas Adicionais
-    adicional.forEach(r => {
-      const name = r.vendedor || "VENDEDOR";
-      if (!vendors[name]) vendors[name] = { venda: 0, cupons: 0, itens: 0, ident: 0, adicionais: 0 };
-      vendors[name].venda += parseFloat(r.vNF);
-      vendors[name].cupons += 1;
-      vendors[name].itens += parseFloat(r.itens_qtd);
-      vendors[name].adicionais += 1;
-      if (r.cpf_cnpj_dest) vendors[name].ident += 1;
-    });
-
-    const vendorRanking = Object.entries(vendors)
+    const vendorPerformanceList = Object.entries(vendors)
       .map(([name, v]) => ({
         name,
         venda: v.venda,
         pa: v.cupons > 0 ? v.itens / v.cupons : 0,
         tkm: v.cupons > 0 ? v.venda / v.cupons : 0,
         ident: v.cupons > 0 ? (v.ident / v.cupons) * 100 : 0,
-        adicionais: v.adicionais
+        adicionais: v.adicionais,
+        pickups: v.pickups,
+        conv: v.pickups > 0 ? (v.adicionais / v.pickups) * 100 : 0
       }))
       .sort((a, b) => b.venda - a.venda);
 
@@ -125,7 +145,7 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
       adicionais: cAdicional,
       convPickup,
       trocas: vinculos.length,
-      vendorRanking
+      vendorPerformanceList
     };
   }, [data, vinculos]);
 
@@ -162,11 +182,32 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
 
       case 'VENDOR_PERFORMANCE':
         let perfText = `${e("👤")}*Performance de Vendedores – ${dateStr}*\n\n`;
-        metrics.vendorRanking.forEach((v) => {
+        metrics.vendorPerformanceList.forEach((v) => {
           perfText += `*${v.name}*\n` +
             `${e("💰")}R$ ${v.venda.toLocaleString('pt-BR')}\n` +
-            `${e("🎯")}PA ${v.pa.toFixed(2)}` + 
-            (isDetailed ? ` | ${e("🆔")}${v.ident.toFixed(0)}%` : "") + "\n\n";
+            `${e("🎯")}PA ${v.pa.toFixed(2)}`;
+          
+          if (v.tkm > 0) {
+            perfText += ` | ${e("💳")}TKM ${formatBRL(v.tkm)}`;
+          }
+          
+          perfText += "\n";
+
+          if (isDetailed && v.ident > 0) {
+            perfText += `${e("🆔")}${v.ident.toFixed(0)}% Identificação\n`;
+          }
+
+          if (v.pickups > 0) {
+            perfText += `${e("🚚")}${v.pickups} Retiradas`;
+            if (v.adicionais > 0) {
+              perfText += ` | ${e("➕")}${v.adicionais} Adic. (${v.conv.toFixed(0)}%)`;
+            }
+            perfText += "\n";
+          } else if (v.adicionais > 0) {
+            perfText += `${e("➕")}${v.adicionais} Vendas Adicionais\n`;
+          }
+          
+          perfText += "\n";
         });
         return perfText;
 
@@ -180,10 +221,10 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
       case 'DAILY_CLOSING':
         const highlights: Record<string, string[]> = {};
         const winners = {
-          PA: [...metrics.vendorRanking].sort((a, b) => b.pa - a.pa)[0],
-          TKM: [...metrics.vendorRanking].sort((a, b) => b.tkm - a.tkm)[0],
-          Cadastros: [...metrics.vendorRanking].sort((a, b) => b.ident - a.ident)[0],
-          Adicionais: [...metrics.vendorRanking].sort((a, b) => b.adicionais - a.adicionais)[0]
+          PA: [...metrics.vendorPerformanceList].sort((a, b) => b.pa - a.pa)[0],
+          TKM: [...metrics.vendorPerformanceList].sort((a, b) => b.tkm - a.tkm)[0],
+          Cadastros: [...metrics.vendorPerformanceList].sort((a, b) => b.ident - a.ident)[0],
+          Adicionais: [...metrics.vendorPerformanceList].sort((a, b) => b.adicionais - a.adicionais)[0]
         };
 
         Object.entries(winners).forEach(([kpi, vendor]) => {

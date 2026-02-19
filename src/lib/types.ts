@@ -128,4 +128,10 @@ export interface VinculoTroca {
   valor_diferenca: number;
   metodo_vinculo: string;
   confianca: number;
+  // Métricas de Eficiência
+  tempo_atendimento_min: number;
+  atendimentos_vendedor_intervalo: number;
+  atendimentos_loja_intervalo: number;
+  score_qualidade: number;
+  diagnostico: string;
 }

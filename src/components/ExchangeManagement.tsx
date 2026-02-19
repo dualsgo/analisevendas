@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useMemo, useState } from "react";
@@ -41,7 +42,11 @@ import {
   Info,
   Calendar,
   XCircle,
-  ArrowRight
+  ArrowRight,
+  Clock,
+  Zap,
+  Users,
+  Trophy
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, parseISO } from "date-fns";
@@ -58,13 +63,11 @@ export function ExchangeManagement({ data, vinculos }: ExchangeManagementProps) 
 
   const formatBRL = (val: number) => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-  // Lista de vendedores únicos
   const vendors = useMemo(() => {
     const v = new Set(vinculos.map(v => v.vendedor).filter(Boolean));
     return Array.from(v).sort();
   }, [vinculos]);
 
-  // Filtrar Vínculos
   const filteredVinculos = useMemo(() => {
     return vinculos.filter(v => {
       const matchesSearch = 
@@ -84,47 +87,39 @@ export function ExchangeManagement({ data, vinculos }: ExchangeManagementProps) 
     });
   }, [vinculos, searchTerm, vendorFilter, statusFilter]);
 
-  // KPIs
   const stats = useMemo(() => {
     const count = filteredVinculos.length;
-    const totalDevolvido = filteredVinculos.reduce((acc, v) => acc + v.valor_devolvido, 0);
-    const totalUtilizado = filteredVinculos.reduce((acc, v) => acc + v.valor_trocado, 0);
     const totalDiferenca = filteredVinculos.reduce((acc, v) => acc + v.valor_diferenca, 0);
-    const totalItensDev = filteredVinculos.reduce((acc, v) => acc + v.itens_devolvidos, 0);
-    const totalItensTro = filteredVinculos.reduce((acc, v) => acc + v.itens_trocados, 0);
+    const avgTime = count > 0 ? filteredVinculos.reduce((acc, v) => acc + v.tempo_atendimento_min, 0) / count : 0;
+    const avgScore = count > 0 ? filteredVinculos.reduce((acc, v) => acc + v.score_qualidade, 0) / count : 0;
 
     return {
       count,
-      totalDevolvido,
-      totalUtilizado,
       totalDiferenca,
-      totalItensDev,
-      totalItensTro,
-      avgDiff: count > 0 ? totalDiferenca / count : 0,
-      percCompensado: count > 0 ? (filteredVinculos.filter(v => Math.abs(v.valor_diferenca) < 0.1).length / count) * 100 : 0
+      avgTime,
+      avgScore,
+      excelentes: filteredVinculos.filter(v => v.score_qualidade >= 80).length
     };
   }, [filteredVinculos]);
 
-  // Função para buscar dados da nota no array original
   const getSaleData = (chave: string) => data.find(d => d.chave === chave);
 
   return (
     <div className="space-y-6 md:space-y-8 animate-in fade-in duration-500 pb-20">
-      {/* KPIs do Canal de Trocas */}
+      {/* KPIs Estratégicos de Troca */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         <KPIStat label="Total de Trocas" value={stats.count} icon={ArrowRightLeft} color="text-slate-500" />
-        <KPIStat label="Total Devolvido" value={formatBRL(stats.totalDevolvido)} icon={ArrowDownCircle} color="text-rose-500" />
-        <KPIStat label="Saldo Gerado" value={formatBRL(stats.totalDiferenca)} icon={TrendingUp} color="text-emerald-500" />
+        <KPIStat label="Impacto Venda" value={formatBRL(stats.totalDiferenca)} icon={TrendingUp} color="text-emerald-500" />
+        <KPIStat label="Tempo Médio" value={`${stats.avgTime.toFixed(0)} min`} icon={Clock} color="text-sky-500" />
         <KPIStat 
-          label="Compensadas" 
-          value={`${stats.percCompensado.toFixed(1)}%`} 
-          icon={CheckCircle2} 
+          label="Trocas de Ouro" 
+          value={stats.excelentes} 
+          icon={Trophy} 
           color="text-orange-500" 
-          subLabel="Saldo Zero"
+          subLabel={`Score Médio: ${stats.avgScore.toFixed(0)}`}
         />
       </div>
 
-      {/* Filtros */}
       <Card className="ri-card border-none shadow-sm overflow-hidden">
         <div className="p-4 bg-white space-y-4">
           <div className="relative">
@@ -171,16 +166,15 @@ export function ExchangeManagement({ data, vinculos }: ExchangeManagementProps) 
         </div>
       </Card>
 
-      {/* Lista Agrupada com Accordion */}
       <div className="space-y-4">
-        <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-2">Gestão de Trocas Vinculadas ({filteredVinculos.length})</h3>
+        <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-2">Análise de Eficiência ({filteredVinculos.length})</h3>
         
         <Accordion type="single" collapsible className="space-y-4">
           {filteredVinculos.map((vinc, idx) => {
             const entryNote = getSaleData(vinc.chave_entrada);
             const exitNote = getSaleData(vinc.chave_saida);
-            const statusColor = vinc.valor_diferenca > 0.1 ? "emerald" : (vinc.valor_diferenca < -0.1 ? "rose" : "orange");
-            const isLossInPA = vinc.diferenca_itens < 0;
+            const isGood = vinc.score_qualidade >= 60;
+            const isCritical = vinc.score_qualidade < 40;
 
             return (
               <AccordionItem key={idx} value={`troca-${idx}`} className="ri-card border-none bg-white overflow-hidden shadow-sm">
@@ -188,54 +182,103 @@ export function ExchangeManagement({ data, vinculos }: ExchangeManagementProps) 
                   <div className="flex-1 grid grid-cols-2 md:grid-cols-5 gap-4 items-center text-left">
                     <div className="col-span-2 md:col-span-1">
                       <p className="text-xs font-black text-slate-800 uppercase truncate">{vinc.nome_cliente || "Final Consumidor"}</p>
-                      <p className="text-[9px] text-slate-400 font-bold">{format(parseISO(vinc.data_entrada), "dd/MM/yy")}</p>
+                      <p className="text-[9px] text-slate-400 font-bold">{vinc.vendedor}</p>
                     </div>
                     
                     <div className="hidden md:block">
-                      <p className="text-[9px] text-slate-400 font-black uppercase mb-0.5">Entrada</p>
-                      <p className="text-xs font-black text-slate-600">{formatBRL(vinc.valor_devolvido)}</p>
+                      <p className="text-[9px] text-slate-400 font-black uppercase mb-0.5">Tempo</p>
+                      <div className="flex items-center gap-1.5">
+                        <Clock className={cn("w-3 h-3", vinc.tempo_atendimento_min > 25 ? "text-rose-500" : "text-sky-500")} />
+                        <span className="text-xs font-black text-slate-600">{vinc.tempo_atendimento_min} min</span>
+                      </div>
                     </div>
 
                     <div className="hidden md:block">
-                      <p className="text-[9px] text-slate-400 font-black uppercase mb-0.5">Saída</p>
-                      <p className="text-xs font-black text-slate-600">{formatBRL(vinc.valor_trocado)}</p>
-                    </div>
-
-                    <div className="text-right md:text-left">
                       <p className="text-[9px] text-slate-400 font-black uppercase mb-0.5">Diferença</p>
                       <p className={cn("text-xs font-black", vinc.valor_diferenca > 0 ? "text-emerald-600" : (vinc.valor_diferenca < 0 ? "text-rose-600" : "text-orange-600"))}>
                         {vinc.valor_diferenca > 0 ? "+" : ""}{formatBRL(vinc.valor_diferenca)}
                       </p>
                     </div>
 
+                    <div className="text-right md:text-left">
+                      <p className="text-[9px] text-slate-400 font-black uppercase mb-0.5">Score Qualidade</p>
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 h-1.5 bg-slate-100 rounded-full max-w-[60px] hidden sm:block">
+                          <div 
+                            className={cn("h-full rounded-full", isGood ? "bg-emerald-500" : (isCritical ? "bg-rose-500" : "bg-orange-500"))} 
+                            style={{ width: `${vinc.score_qualidade}%` }} 
+                          />
+                        </div>
+                        <span className="text-xs font-black text-slate-700">{vinc.score_qualidade}</span>
+                      </div>
+                    </div>
+
                     <div className="col-span-1 md:text-right">
                       <Badge className={cn(
                         "text-[8px] font-black uppercase border-none",
-                        statusColor === "emerald" ? "bg-emerald-500 text-white" : (statusColor === "rose" ? "bg-rose-500 text-white" : "bg-orange-500 text-white")
+                        isGood ? "bg-emerald-500 text-white" : (isCritical ? "bg-rose-500 text-white" : "bg-orange-500 text-white")
                       )}>
-                        {vinc.valor_diferenca > 0.1 ? "Complementar" : (vinc.valor_diferenca < -0.1 ? "Crédito" : "Compensada")}
+                        {vinc.diagnostico.split(' ')[0]}
                       </Badge>
                     </div>
                   </div>
                 </AccordionTrigger>
 
                 <AccordionContent className="px-4 md:px-6 pb-6 pt-2 border-t border-slate-50 space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  {/* Dashboard de Eficiência da Troca */}
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    <Card className="bg-slate-50 border-none p-4 flex flex-col justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-white rounded-lg shadow-sm"><Clock className="w-4 h-4 text-sky-500" /></div>
+                        <div>
+                          <p className="text-[10px] font-black text-slate-400 uppercase">Tempo de Atendimento</p>
+                          <p className="text-lg font-black text-slate-700">{vinc.tempo_atendimento_min} minutos</p>
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-[9px] font-bold text-slate-400 uppercase">Início: {format(parseISO(vinc.data_entrada), "HH:mm")}</p>
+                        <p className="text-[9px] font-bold text-slate-400 uppercase">Fim: {format(parseISO(vinc.data_saida), "HH:mm")}</p>
+                      </div>
+                    </Card>
+
+                    <Card className="bg-slate-50 border-none p-4 flex flex-col justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-white rounded-lg shadow-sm"><Users className="w-4 h-4 text-purple-500" /></div>
+                        <div>
+                          <p className="text-[10px] font-black text-slate-400 uppercase">Custo de Oportunidade</p>
+                          <p className="text-lg font-black text-slate-700">{vinc.atendimentos_loja_intervalo} Vendas na Loja</p>
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-[9px] font-bold text-slate-400 uppercase">Vendedor atendeu +{vinc.atendimentos_vendedor_intervalo} clientes</p>
+                        <p className="text-[9px] font-bold text-slate-400 uppercase">Enquanto processava esta troca</p>
+                      </div>
+                    </Card>
+
+                    <Card className={cn("border-none p-4 flex flex-col justify-between gap-4", isGood ? "bg-emerald-50" : (isCritical ? "bg-rose-50" : "bg-orange-50"))}>
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-white rounded-lg shadow-sm"><Zap className={cn("w-4 h-4", isGood ? "text-emerald-500" : "text-orange-500")} /></div>
+                        <div>
+                          <p className="text-[10px] font-black text-slate-400 uppercase">Diagnóstico Ri Happy</p>
+                          <p className={cn("text-sm font-black uppercase", isGood ? "text-emerald-700" : "text-orange-700")}>{vinc.diagnostico}</p>
+                        </div>
+                      </div>
+                      <div className="text-[9px] font-bold text-slate-500 leading-tight uppercase">
+                        Score {vinc.score_qualidade}/100 baseado em Upsell, PA e Eficiência Temporal.
+                      </div>
+                    </Card>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4">
                     {/* Detalhe da Devolução */}
                     <div className="space-y-4">
-                      <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                        <h4 className="text-[10px] font-black uppercase text-rose-500 flex items-center gap-2">
-                          <ArrowDownCircle className="w-3 h-3" /> Nota de Entrada (Devolução)
-                        </h4>
-                        <span className="text-[10px] font-black text-slate-400">NF: {entryNote?.nf || "N/A"}</span>
-                      </div>
+                      <h4 className="text-[10px] font-black uppercase text-rose-500 flex items-center gap-2">
+                        <ArrowDownCircle className="w-3 h-3" /> Devolução (Entrada) - NF {entryNote?.nf}
+                      </h4>
                       <div className="space-y-2">
                         {entryNote?.itens.map((it, i) => (
                           <div key={i} className="flex justify-between items-center p-2 bg-slate-50 rounded-lg">
-                            <div className="flex-1 min-w-0 pr-4">
-                              <p className="text-[10px] font-black text-slate-700 truncate uppercase">{it.xProd}</p>
-                              <p className="text-[9px] text-slate-400 font-bold">Qtd: {it.qCom}</p>
-                            </div>
+                            <span className="text-[10px] font-black text-slate-700 uppercase truncate">{it.xProd}</span>
                             <span className="text-[10px] font-black text-slate-600">{formatBRL(it.vProd)}</span>
                           </div>
                         ))}
@@ -244,61 +287,19 @@ export function ExchangeManagement({ data, vinculos }: ExchangeManagementProps) 
 
                     {/* Detalhe da Troca */}
                     <div className="space-y-4">
-                      <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                        <h4 className="text-[10px] font-black uppercase text-emerald-500 flex items-center gap-2">
-                          <ArrowUpCircle className="w-3 h-3" /> Nota de Saída (Nova Venda)
-                        </h4>
-                        <span className="text-[10px] font-black text-slate-400">NF: {exitNote?.nf || "N/A"}</span>
-                      </div>
+                      <h4 className="text-[10px] font-black uppercase text-emerald-500 flex items-center gap-2">
+                        <ArrowUpCircle className="w-3 h-3" /> Nova Venda (Saída) - NF {exitNote?.nf}
+                      </h4>
                       <div className="space-y-2">
                         {exitNote?.itens.map((it, i) => (
                           <div key={i} className="flex justify-between items-center p-2 bg-white border border-slate-100 rounded-lg">
-                            <div className="flex-1 min-w-0 pr-4">
-                              <p className="text-[10px] font-black text-slate-700 truncate uppercase">{it.xProd}</p>
-                              <p className="text-[9px] text-slate-400 font-bold">Qtd: {it.qCom}</p>
-                            </div>
+                            <span className="text-[10px] font-black text-slate-700 uppercase truncate">{it.xProd}</span>
                             <span className="text-[10px] font-black text-emerald-600">{formatBRL(it.vProd)}</span>
                           </div>
                         ))}
                       </div>
                     </div>
                   </div>
-
-                  {/* Resumo Final da Sessão */}
-                  <div className="p-4 bg-slate-50 rounded-2xl border-2 border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4">
-                    <div className="flex items-center gap-4">
-                       <div className="p-3 bg-white rounded-xl shadow-sm">
-                          <User className="w-4 h-4 text-slate-400" />
-                       </div>
-                       <div>
-                          <p className="text-[9px] font-black text-slate-400 uppercase">Colaborador</p>
-                          <p className="text-xs font-black text-slate-800 uppercase">{vinc.vendedor}</p>
-                       </div>
-                    </div>
-
-                    <div className="flex items-center gap-6 text-center md:text-right">
-                       <div>
-                          <p className="text-[9px] font-black text-slate-400 uppercase">Diferença Peças</p>
-                          <p className={cn("text-sm font-black", vinc.diferenca_itens >= 0 ? "text-emerald-600" : "text-rose-600")}>
-                             {vinc.diferenca_itens > 0 ? "+" : ""}{vinc.diferenca_itens} ITENS
-                          </p>
-                       </div>
-                       <div className="w-px h-8 bg-slate-200 hidden md:block" />
-                       <div>
-                          <p className="text-[9px] font-black text-slate-400 uppercase">Impacto Saldo</p>
-                          <p className={cn("text-lg font-black", vinc.valor_diferenca >= 0 ? "text-emerald-600" : "text-rose-600")}>
-                             {formatBRL(vinc.valor_diferenca)}
-                          </p>
-                       </div>
-                    </div>
-                  </div>
-                  
-                  {isLossInPA && (
-                    <div className="bg-rose-50 text-rose-700 p-3 rounded-xl border border-rose-100 flex items-center gap-3">
-                       <AlertTriangle className="w-4 h-4 shrink-0" />
-                       <p className="text-[10px] font-bold">Atenção: Esta troca resultou em redução de PA (Cliente levou menos peças do que devolveu).</p>
-                    </div>
-                  )}
                 </AccordionContent>
               </AccordionItem>
             );

@@ -23,7 +23,6 @@ export function detectarAdicionaisSuspeitos(rows: DetailedSaleRow[]): DetailedSa
   outrasSaidas.forEach(outra => {
     const cpf = outra.cpf_cnpj_dest;
     if (!cpf) {
-      // Se tem desconto mas não tem CPF, é rebaixada para padrão (Filtro de Falso Positivo)
       if (outra.is_adicional) {
         outra.is_adicional = false;
         outra.canal = "LOJA_FISICA";
@@ -36,27 +35,23 @@ export function detectarAdicionaisSuspeitos(rows: DetailedSaleRow[]): DetailedSa
     const pickupsDoCliente = pickupsPorCpf.get(cpf) || [];
     const dataOutra = outra.dhEmi.substring(0, 10);
     
-    // Vínculo Obrigatório: Mesmo CPF + Mesma Data
     const pickupVinculada = pickupsDoCliente.find(p => p.dhEmi.substring(0, 10) === dataOutra);
 
     if (pickupVinculada) {
       outra.chave_retirada_associada = pickupVinculada.chave;
       outra.data_retirada_associada = pickupVinculada.dhEmi;
       
-      // Gatilho de Desconto (Classe A)
       if (outra.is_adicional) {
         outra.canal = "RETIRADA_ADICIONAL";
         outra.tipo_desconto = "ADICIONAL";
         outra.status_auditoria = "ADICIONAL CONFIRMADO";
       } else {
-        // Sem Desconto (Classe B)
         outra.is_adicional_suspeito = true;
         outra.canal = "RETIRADA_ADICIONAL";
         outra.motivo_adicional = "Vínculo CPF/Data (Sem desconto)";
         outra.status_auditoria = "ADICIONAL SUSPEITO";
       }
     } else {
-      // Filtro de Falso Positivo: Se tem desconto 8-12% mas NÃO tem vínculo
       if (outra.is_adicional) {
         outra.is_adicional = false;
         outra.canal = "LOJA_FISICA";
@@ -88,7 +83,7 @@ export function vincularTrocas(rows: DetailedSaleRow[]): VinculoTroca[] {
     for (const ref of refs) {
       const saida = saidasPorChaveNorm.get(ref);
       if (saida && !saidasVinculadas.has(saida.chave)) {
-        vinculos.push(criarVinculo(entrada, saida, "Referência Fiscal (NFref)"));
+        vinculos.push(criarVinculo(entrada, saida, "Referência Fiscal (NFref)", rows));
         saidasVinculadas.add(saida.chave);
         entradasVinculadas.add(entrada.chave);
         break;
@@ -111,7 +106,7 @@ export function vincularTrocas(rows: DetailedSaleRow[]): VinculoTroca[] {
       );
 
       if (match) {
-        vinculos.push(criarVinculo(entrada, match, "CPF + Valor de Crédito"));
+        vinculos.push(criarVinculo(entrada, match, "CPF + Valor de Crédito", rows));
         saidasVinculadas.add(match.chave);
         entradasVinculadas.add(entrada.chave);
       }
@@ -130,7 +125,7 @@ export function vincularTrocas(rows: DetailedSaleRow[]): VinculoTroca[] {
     );
 
     if (match) {
-      vinculos.push(criarVinculo(entrada, match, "Valor de Crédito (Sem Identif.)"));
+      vinculos.push(criarVinculo(entrada, match, "Valor de Crédito (Sem Identif.)", rows));
       saidasVinculadas.add(match.chave);
       entradasVinculadas.add(entrada.chave);
     }
@@ -139,11 +134,54 @@ export function vincularTrocas(rows: DetailedSaleRow[]): VinculoTroca[] {
   return vinculos;
 }
 
-function criarVinculo(entrada: DetailedSaleRow, saida: DetailedSaleRow, metodo: string): VinculoTroca {
+function criarVinculo(entrada: DetailedSaleRow, saida: DetailedSaleRow, metodo: string, allRows: DetailedSaleRow[]): VinculoTroca {
   const vEntrada = parseFloat(entrada.vNF);
   const vSaida = parseFloat(saida.vNF);
   const vCredito = parseFloat(saida.vTroca);
   const vDiferenca = parseFloat(saida.dif_troca);
+
+  // Cálculo de Tempo e Produtividade
+  const tEntrada = new Date(entrada.dhEmi).getTime();
+  const tSaida = new Date(saida.dhEmi).getTime();
+  const tempoMin = Math.abs(tSaida - tEntrada) / 60000;
+
+  // Vendas no intervalo (Exclui as próprias notas do vínculo)
+  const intervaloVendedor = allRows.filter(r => 
+    r.vendedor === saida.vendedor && 
+    r.tpNF === 1 && 
+    r.chave !== saida.chave &&
+    new Date(r.dhEmi).getTime() >= Math.min(tEntrada, tSaida) &&
+    new Date(r.dhEmi).getTime() <= Math.max(tEntrada, tSaida)
+  ).length;
+
+  const intervaloLoja = allRows.filter(r => 
+    r.tpNF === 1 && 
+    r.chave !== saida.chave &&
+    new Date(r.dhEmi).getTime() >= Math.min(tEntrada, tSaida) &&
+    new Date(r.dhEmi).getTime() <= Math.max(tEntrada, tSaida)
+  ).length;
+
+  // Score de Qualidade (0-100)
+  let score = 50;
+  let diag = "Troca Operacional";
+
+  if (vDiferenca > 0.1) score += 20; // Upsell
+  if (vDiferenca > 100) score += 10; // Alto Upsell
+  if (vDiferenca < -0.1) score -= 20; // Perda de Receita (Crédito)
+  
+  const diffItens = parseInt(saida.itens_qtd) - parseInt(entrada.itens_qtd);
+  if (diffItens > 0) score += 10; // Ganho de PA
+  if (diffItens < 0) score -= 15; // Perda de PA
+
+  if (tempoMin < 10) score += 10; // Agilidade
+  if (tempoMin > 30 && intervaloLoja > 5) {
+    score -= 15; // Ineficiência em pico
+    diag = "Troca Ineficiente (Lenta em horário de pico)";
+  }
+
+  if (score >= 80) diag = "Troca de Ouro (Excelente Upsell/PA)";
+  else if (score >= 60) diag = "Troca Qualitativa (Resultado Positivo)";
+  else if (score < 40) diag = "Troca de Risco (Baixo resultado / Longa)";
 
   return {
     chave_entrada: entrada.chave,
@@ -152,15 +190,20 @@ function criarVinculo(entrada: DetailedSaleRow, saida: DetailedSaleRow, metodo: 
     nome_cliente: entrada.nome_dest || saida.nome_dest,
     vendedor: saida.vendedor,
     data_entrada: entrada.dhEmi,
-    data_saida: entrada.dhEmi,
+    data_saida: saida.dhEmi,
     itens_devolvidos: parseInt(entrada.itens_qtd),
     itens_trocados: parseInt(saida.itens_qtd),
-    diferenca_itens: parseInt(saida.itens_qtd) - parseInt(entrada.itens_qtd),
+    diferenca_itens: diffItens,
     valor_devolvido: vEntrada,
     valor_trocado: vSaida,
     valor_credito: vCredito,
     valor_diferenca: vDiferenca,
     metodo_vinculo: metodo,
-    confianca: metodo.includes("Fiscal") ? 1.0 : (metodo.includes("CPF") ? 0.9 : 0.7)
+    confianca: metodo.includes("Fiscal") ? 1.0 : (metodo.includes("CPF") ? 0.9 : 0.7),
+    tempo_atendimento_min: Math.round(tempoMin),
+    atendimentos_vendedor_intervalo: intervaloVendedor,
+    atendimentos_loja_intervalo: intervaloLoja,
+    score_qualidade: score,
+    diagnostico: diag
   };
 }

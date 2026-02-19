@@ -27,7 +27,6 @@ export function detectarAdicionaisSuspeitos(rows: DetailedSaleRow[]): DetailedSa
     const temDescontoEstrategico = parseFloat(nota.percentual_desconto) >= 0.08 && parseFloat(nota.percentual_desconto) <= 0.12;
 
     if (!cpf) {
-      // Se não tem CPF mas tem desconto de 10%, é um falso positivo de adicional
       if (nota.is_adicional) {
         nota.is_adicional = false;
         nota.canal = "LOJA_FISICA";
@@ -59,7 +58,6 @@ export function detectarAdicionaisSuspeitos(rows: DetailedSaleRow[]): DetailedSa
         nota.status_auditoria = "ADICIONAL SUSPEITO";
       }
     } else {
-      // FILTRO DE FALSO POSITIVO: Se tinha desconto de 10% mas não tem pickup no dia, REBAIXA
       if (nota.is_adicional || temDescontoEstrategico) {
         nota.is_adicional = false;
         nota.is_adicional_suspeito = false;
@@ -91,7 +89,7 @@ export function vincularTrocas(rows: DetailedSaleRow[]): VinculoTroca[] {
     for (const ref of refs) {
       const saida = saidasPorChaveNorm.get(ref);
       if (saida && !saidasVinculadas.has(saida.chave)) {
-        vinculos.push(criarVinculo(entrada, saida, "Referência Fiscal (NFref)", rows));
+        vinculos.push(criarVinculo(entrada, saida, "Referência Fiscal (NFref)"));
         saidasVinculadas.add(saida.chave);
         entradasVinculadas.add(entrada.chave);
         break;
@@ -114,7 +112,7 @@ export function vincularTrocas(rows: DetailedSaleRow[]): VinculoTroca[] {
       );
 
       if (match) {
-        vinculos.push(criarVinculo(entrada, match, "CPF + Valor de Crédito", rows));
+        vinculos.push(criarVinculo(entrada, match, "CPF + Valor de Crédito"));
         saidasVinculadas.add(match.chave);
         entradasVinculadas.add(entrada.chave);
       }
@@ -133,7 +131,7 @@ export function vincularTrocas(rows: DetailedSaleRow[]): VinculoTroca[] {
     );
 
     if (match) {
-      vinculos.push(criarVinculo(entrada, match, "Valor de Crédito (Sem Identif.)", rows));
+      vinculos.push(criarVinculo(entrada, match, "Valor de Crédito (Sem Identif.)"));
       saidasVinculadas.add(match.chave);
       entradasVinculadas.add(entrada.chave);
     }
@@ -142,58 +140,31 @@ export function vincularTrocas(rows: DetailedSaleRow[]): VinculoTroca[] {
   return vinculos;
 }
 
-function criarVinculo(entrada: DetailedSaleRow, saida: DetailedSaleRow, metodo: string, allRows: DetailedSaleRow[]): VinculoTroca {
+function criarVinculo(entrada: DetailedSaleRow, saida: DetailedSaleRow, metodo: string): VinculoTroca {
   const vEntrada = parseFloat(entrada.vNF);
   const vSaida = parseFloat(saida.vNF);
   const vCredito = parseFloat(saida.vTroca);
   const vDiferenca = parseFloat(saida.dif_troca);
 
-  const tEntrada = new Date(entrada.dhEmi).getTime();
-  const tSaida = new Date(saida.dhEmi).getTime();
-  
-  // O intervalo de atendimento é entre a entrada (devolução) e a saída (nova venda)
-  const tStart = Math.min(tEntrada, tSaida);
-  const tEnd = Math.max(tEntrada, tSaida);
-  const tempoMin = Math.abs(tSaida - tEntrada) / 60000;
-
-  // Analisar atendimentos (outras saídas) dentro deste intervalo
-  const atendimentosNoIntervalo = allRows.filter(r => {
-    if (r.tpNF !== 1 || r.is_cancelada || r.chave === saida.chave) return false;
-    const tNote = new Date(r.dhEmi).getTime();
-    return tNote >= tStart && tNote <= tEnd;
-  });
-
-  const intervaloVendedor = atendimentosNoIntervalo.filter(r => r.vendedor === saida.vendedor).length;
-  const intervaloLoja = atendimentosNoIntervalo.length;
-
   let score = 50;
   let diag = "Troca Operacional";
 
-  // Métrica 1: Valor Financeiro (Upsell)
+  // Métrica 1: Valor Financeiro (Upsell) - Peso 40
   if (vDiferenca > 0.1) score += 20; 
-  if (vDiferenca > 100) score += 10;
-  if (vDiferenca < -0.1) score -= 20; 
+  if (vDiferenca > 100) score += 15;
+  if (vDiferenca < -0.1) score -= 30; 
   
-  // Métrica 2: Peças por Atendimento (PA)
+  // Métrica 2: Peças por Atendimento (PA) - Peso 30
   const diffItens = parseInt(saida.itens_qtd) - parseInt(entrada.itens_qtd);
-  if (diffItens > 0) score += 10; 
-  if (diffItens < 0) score -= 15; 
+  if (diffItens > 0) score += 20; 
+  if (diffItens < 0) score -= 20; 
 
-  // Métrica 3: Eficiência de Tempo vs Movimento
-  if (tempoMin < 10) score += 10; // Ágil
-  
-  // Se demorou mais de 25 min e a loja estava com movimento (> 3 vendas), houve custo de oportunidade alto
-  if (tempoMin > 25 && intervaloLoja > 3) {
-    score -= 20; 
-    diag = "Troca Ineficiente (Retenção em horário de pico)";
-  } else if (tempoMin > 40) {
-    score -= 10;
-    diag = "Troca Crítica (Tempo excessivo)";
-  }
+  // Métrica 3: Identificação de Cliente - Peso 10
+  if (saida.cpf_cnpj_dest) score += 10;
 
   if (score >= 80) diag = "Troca de Ouro (Excelente Upsell/PA)";
   else if (score >= 60) diag = "Troca Qualitativa (Resultado Positivo)";
-  else if (score < 40) diag = "Troca de Risco (Baixo resultado / Longa)";
+  else if (score < 40) diag = "Troca de Baixa Eficiência";
 
   return {
     chave_entrada: entrada.chave,
@@ -212,10 +183,7 @@ function criarVinculo(entrada: DetailedSaleRow, saida: DetailedSaleRow, metodo: 
     valor_diferenca: vDiferenca,
     metodo_vinculo: metodo,
     confianca: metodo.includes("Fiscal") ? 1.0 : (metodo.includes("CPF") ? 0.9 : 0.7),
-    tempo_atendimento_min: Math.round(tempoMin),
-    atendimentos_vendedor_intervalo: intervaloVendedor,
-    atendimentos_loja_intervalo: intervaloLoja,
-    score_qualidade: score,
+    score_qualidade: Math.max(0, Math.min(100, score)),
     diagnostico: diag
   };
 }

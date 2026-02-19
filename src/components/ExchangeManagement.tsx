@@ -34,13 +34,11 @@ import {
   ArrowDownCircle,
   ArrowUpCircle,
   TrendingUp,
-  Clock,
   Zap,
-  Users,
   Trophy,
-  AlertTriangle,
-  CheckCircle2,
-  ChevronRight
+  Package,
+  UserCheck,
+  CheckCircle2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, parseISO } from "date-fns";
@@ -84,14 +82,14 @@ export function ExchangeManagement({ data, vinculos }: ExchangeManagementProps) 
   const stats = useMemo(() => {
     const count = filteredVinculos.length;
     const totalDiferenca = filteredVinculos.reduce((acc, v) => acc + v.valor_diferenca, 0);
-    const avgTime = count > 0 ? filteredVinculos.reduce((acc, v) => acc + v.tempo_atendimento_min, 0) / count : 0;
     const avgScore = count > 0 ? filteredVinculos.reduce((acc, v) => acc + v.score_qualidade, 0) / count : 0;
+    const itensExtra = filteredVinculos.reduce((acc, v) => acc + v.diferenca_itens, 0);
 
     return {
       count,
       totalDiferenca,
-      avgTime,
       avgScore,
+      itensExtra,
       excelentes: filteredVinculos.filter(v => v.score_qualidade >= 80).length
     };
   }, [filteredVinculos]);
@@ -103,8 +101,8 @@ export function ExchangeManagement({ data, vinculos }: ExchangeManagementProps) 
       {/* KPIs Estratégicos de Troca */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         <KPIStat label="Total de Trocas" value={stats.count} icon={ArrowRightLeft} color="text-slate-500" />
-        <KPIStat label="Impacto Venda" value={formatBRL(stats.totalDiferenca)} icon={TrendingUp} color="text-emerald-500" />
-        <KPIStat label="Tempo Médio" value={`${stats.avgTime.toFixed(0)} min`} icon={Clock} color="text-sky-500" />
+        <KPIStat label="Impacto Faturamento" value={formatBRL(stats.totalDiferenca)} icon={TrendingUp} color="text-emerald-500" />
+        <KPIStat label="Saldo de Itens" value={stats.itensExtra > 0 ? `+${stats.itensExtra}` : stats.itensExtra} icon={Package} color="text-sky-500" />
         <KPIStat 
           label="Trocas de Ouro" 
           value={stats.excelentes} 
@@ -161,7 +159,7 @@ export function ExchangeManagement({ data, vinculos }: ExchangeManagementProps) 
       </Card>
 
       <div className="space-y-4">
-        <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-2">Análise de Eficiência ({filteredVinculos.length})</h3>
+        <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-2">Análise de Qualidade ({filteredVinculos.length})</h3>
         
         <Accordion type="single" collapsible className="space-y-4">
           {filteredVinculos.map((vinc, idx) => {
@@ -180,15 +178,15 @@ export function ExchangeManagement({ data, vinculos }: ExchangeManagementProps) 
                     </div>
                     
                     <div className="hidden md:block">
-                      <p className="text-[9px] text-slate-400 font-black uppercase mb-0.5">Tempo Gasto</p>
+                      <p className="text-[9px] text-slate-400 font-black uppercase mb-0.5">Diferença PA</p>
                       <div className="flex items-center gap-1.5">
-                        <Clock className={cn("w-3 h-3", vinc.tempo_atendimento_min > 25 ? "text-rose-500" : "text-sky-500")} />
-                        <span className="text-xs font-black text-slate-600">{vinc.tempo_atendimento_min} min</span>
+                        <Package className={cn("w-3 h-3", vinc.diferenca_itens > 0 ? "text-emerald-500" : (vinc.diferenca_itens < 0 ? "text-rose-500" : "text-slate-400"))} />
+                        <span className="text-xs font-black text-slate-600">{vinc.diferenca_itens > 0 ? `+${vinc.diferenca_itens}` : vinc.diferenca_itens} itens</span>
                       </div>
                     </div>
 
                     <div className="hidden md:block">
-                      <p className="text-[9px] text-slate-400 font-black uppercase mb-0.5">Diferença R$</p>
+                      <p className="text-[9px] text-slate-400 font-black uppercase mb-0.5">Venda Adicional</p>
                       <p className={cn("text-xs font-black", vinc.valor_diferenca > 0 ? "text-emerald-600" : (vinc.valor_diferenca < 0 ? "text-rose-600" : "text-orange-600"))}>
                         {vinc.valor_diferenca > 0 ? "+" : ""}{formatBRL(vinc.valor_diferenca)}
                       </p>
@@ -219,40 +217,39 @@ export function ExchangeManagement({ data, vinculos }: ExchangeManagementProps) 
                 </AccordionTrigger>
 
                 <AccordionContent className="px-4 md:px-6 pb-6 pt-2 border-t border-slate-50 space-y-6">
-                  {/* Dashboard de Eficiência da Troca */}
+                  {/* Dashboard de Inteligência da Troca */}
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                     <Card className="bg-slate-50 border-none p-4 flex flex-col justify-between gap-4">
                       <div className="flex items-center gap-3">
-                        <div className="p-2 bg-white rounded-lg shadow-sm"><Clock className="w-4 h-4 text-sky-500" /></div>
+                        <div className="p-2 bg-white rounded-lg shadow-sm"><TrendingUp className="w-4 h-4 text-emerald-500" /></div>
                         <div>
-                          <p className="text-[10px] font-black text-slate-400 uppercase">Duração do Atendimento</p>
-                          <p className="text-lg font-black text-slate-700">{vinc.tempo_atendimento_min} minutos</p>
+                          <p className="text-[10px] font-black text-slate-400 uppercase">Impacto Financeiro</p>
+                          <p className="text-lg font-black text-slate-700">{vinc.valor_diferenca > 0 ? `Ganho de ${formatBRL(vinc.valor_diferenca)}` : (vinc.valor_diferenca < 0 ? `Perda de ${formatBRL(Math.abs(vinc.valor_diferenca))}` : "Saldo Zero")}</p>
                         </div>
                       </div>
                       <div className="space-y-1">
                         <div className="flex justify-between">
-                          <span className="text-[9px] font-bold text-slate-400 uppercase">Devolução (Início):</span>
-                          <span className="text-[9px] font-black text-slate-600">{entryNote?.dhEmi ? format(parseISO(entryNote.dhEmi), "HH:mm:ss") : "--"}</span>
+                          <span className="text-[9px] font-bold text-slate-400 uppercase">Valor Devolvido:</span>
+                          <span className="text-[9px] font-black text-slate-600">{formatBRL(vinc.valor_devolvido)}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-[9px] font-bold text-slate-400 uppercase">Venda Troca (Fim):</span>
-                          <span className="text-[9px] font-black text-slate-600">{exitNote?.dhEmi ? format(parseISO(exitNote.dhEmi), "HH:mm:ss") : "--"}</span>
+                          <span className="text-[9px] font-bold text-slate-400 uppercase">Valor Nova Venda:</span>
+                          <span className="text-[9px] font-black text-slate-600">{formatBRL(vinc.valor_trocado)}</span>
                         </div>
                       </div>
                     </Card>
 
                     <Card className="bg-slate-50 border-none p-4 flex flex-col justify-between gap-4">
                       <div className="flex items-center gap-3">
-                        <div className="p-2 bg-white rounded-lg shadow-sm"><Users className="w-4 h-4 text-purple-500" /></div>
+                        <div className="p-2 bg-white rounded-lg shadow-sm"><Package className="w-4 h-4 text-sky-500" /></div>
                         <div>
-                          <p className="text-[10px] font-black text-slate-400 uppercase">Custo de Oportunidade</p>
-                          <p className="text-lg font-black text-slate-700">{vinc.atendimentos_loja_intervalo} Vendas na Loja</p>
+                          <p className="text-[10px] font-black text-slate-400 uppercase">Variação de PA</p>
+                          <p className="text-lg font-black text-slate-700">{vinc.diferenca_itens > 0 ? `+${vinc.diferenca_itens} itens no cupom` : (vinc.diferenca_itens < 0 ? `${vinc.diferenca_itens} itens (perda)` : "Mesma quantidade")}</p>
                         </div>
                       </div>
                       <div className="space-y-1">
                         <p className="text-[9px] font-bold text-slate-500 leading-tight uppercase">
-                          Enquanto este vendedor processava a troca, a unidade emitiu <strong>{vinc.atendimentos_loja_intervalo} cupons</strong>. 
-                          O vendedor realizou <strong>{vinc.atendimentos_vendedor_intervalo} outras vendas</strong> no mesmo intervalo.
+                          A troca resultou em um PA de {vinc.itens_trocados} itens, contra {vinc.itens_devolvidos} itens devolvidos pelo cliente.
                         </p>
                       </div>
                     </Card>
@@ -261,12 +258,12 @@ export function ExchangeManagement({ data, vinculos }: ExchangeManagementProps) 
                       <div className="flex items-center gap-3">
                         <div className="p-2 bg-white rounded-lg shadow-sm"><Zap className={cn("w-4 h-4", isGood ? "text-emerald-500" : "text-orange-500")} /></div>
                         <div>
-                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Diagnóstico Operacional</p>
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Conclusão Estratégica</p>
                           <p className={cn("text-sm font-black uppercase leading-tight", isGood ? "text-emerald-700" : "text-orange-700")}>{vinc.diagnostico}</p>
                         </div>
                       </div>
                       <div className="text-[9px] font-bold text-slate-500 leading-tight uppercase">
-                        Score {vinc.score_qualidade}/100. Avaliação baseada em Upsell, Diferença de PA e Agilidade vs Fluxo de Loja.
+                        {vinc.cpf_cliente ? "Cliente identificado. Operação rastreável e segura." : "Atenção: Cliente não identificado nesta operação."}
                       </div>
                     </Card>
                   </div>

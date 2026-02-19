@@ -476,19 +476,3 @@ function ValueDetail({ label, value, color, strike = false }: any) {
     </div>
   );
 }
-
-function KPIStat({ label, value, icon: Icon, color }: { label: string, value: string | number, icon: any, color: string }) {
-  return (
-    <Card className="ri-card border-none bg-white p-4 md:p-5 flex flex-col justify-between gap-3 shadow-sm">
-      <div className="flex items-center justify-between">
-        <div className={cn("p-2 rounded-xl bg-slate-50", color)}>
-          <Icon className="w-4 h-4 md:w-5 md:h-5" />
-        </div>
-      </div>
-      <div>
-        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">{label}</p>
-        <p className="text-base md:text-xl font-black text-slate-800">{value}</p>
-      </div>
-    </Card>
-  );
-}

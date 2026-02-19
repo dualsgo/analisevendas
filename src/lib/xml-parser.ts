@@ -113,7 +113,7 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
 
     const itemsList: Item[] = [];
     
-    // Passagem 1: Extrair itens básicos
+    // Extração de itens
     getElements(infNFe, "det").forEach(det => {
       const prod = getElement(det, "prod");
       if (prod) {
@@ -132,37 +132,29 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
       }
     });
 
-    // Passagem 2: Aplicar Regra de Campanha (Complementaridade)
-    // Se houver um item com desconto de 99.9% (brinde) E um item com desconto simbólico de R$ 0,01 (sinalizador), é Campanha.
-    let hasExtremeDiscount = false; // Item que saiu a 0,01
-    let hasSymbolicDiscount = false; // Item com desconto de 0,01
+    // REGRA DE CAMPANHA (COMPLEMENTARIDADE): 99% + 0,01%
+    let hasExtremeDiscountItem = false; // Item que saiu a R$ 0,01 via desconto
+    let hasSymbolicDiscountItem = false; // Item que teve R$ 0,01 de desconto total
 
     itemsList.forEach(item => {
       const unitPriceFinal = (item.vProd - item.vDesc) / item.qCom;
       const unitDiscount = item.vDesc / item.qCom;
-      const percDesc = item.vProd > 0 ? (item.vDesc / item.vProd) : 0;
 
-      // 1. Detectar brinde (Preço final ~0,01 mas preço original relevante)
+      // 1. Detectar brinde (Preço final ~0,01 via desconto significativo)
       if (unitPriceFinal > 0 && unitPriceFinal <= 0.015 && item.vProd > 0.10) {
-        hasExtremeDiscount = true;
+        hasExtremeDiscountItem = true;
         item.is_campanha = true;
       }
 
-      // 2. Detectar sinalizador (Desconto ~0,01 mas preço original relevante)
+      // 2. Detectar sinalizador (Desconto de exatamente 0,01 em preço normal)
       if (unitDiscount > 0 && unitDiscount <= 0.015 && item.vProd > 0.10) {
-        hasSymbolicDiscount = true;
-        item.is_campanha = true;
-      }
-
-      // 3. Regra de Segurança por Porcentagem (Casos de valores altos)
-      if (percDesc > 0.999) {
-        hasExtremeDiscount = true;
+        hasSymbolicDiscountItem = true;
         item.is_campanha = true;
       }
     });
 
-    // A nota só é "CAMPANHA" se houver indício de mecânica promocional casada
-    const isCampanhaNota = hasExtremeDiscount || hasSymbolicDiscount;
+    // A nota só é classificada como CAMPANHA se houver o par complementar (99% e 0,01%)
+    const isCampanhaNota = hasExtremeDiscountItem && hasSymbolicDiscountItem;
 
     const pagamentosDet: Array<{ tPag: string, vPag: number, tpIntegra?: string }> = [];
     let vTrocoPag = 0;
@@ -199,7 +191,7 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     const infCpl = infAdic ? (getElement(infAdic, "infCpl")?.textContent || "") : "";
     const vendedor = extractVendedor(infCpl);
 
-    // Score de Pickup (Etapa 1)
+    // Score de Pickup
     let pickup_score = 0;
     if (tpIntegraValue === "2") pickup_score++;
     if (vTrocoPag === 0) pickup_score++;
@@ -222,7 +214,7 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
 
     const isDevolucao = tpNF === 0 && (finNFe === 4 || natOp.toLowerCase().includes("devolucao"));
 
-    // Determinar Tipo de Desconto Final
+    // Determinação final do tipo de desconto
     let tipoDescontoFinal = "PADRÃO";
     if (isCampanhaNota) tipoDescontoFinal = "CAMPANHA";
     else if (isAdicionalDoc) tipoDescontoFinal = "ADICIONAL";

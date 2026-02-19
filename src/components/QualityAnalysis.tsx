@@ -4,7 +4,7 @@ import React, { useMemo } from "react";
 import { DetailedSaleRow, VinculoTroca } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Boxes, UserCheck, Star, ShoppingBag, ShieldCheck, HelpCircle } from "lucide-react";
+import { Boxes, UserCheck, Star, ShoppingBag, ShieldCheck, HelpCircle, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface QualityAnalysisProps {
@@ -114,6 +114,13 @@ export function QualityAnalysis({ data, vinculos }: QualityAnalysisProps) {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-6 space-y-6">
+              <div className="bg-slate-50 p-4 rounded-xl mb-4 border border-slate-100 flex gap-3 items-start">
+                <Info className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                <p className="text-[10px] text-slate-600 font-medium leading-relaxed italic">
+                  "A <strong>Cesta Complementar</strong> é o objetivo de toda loja Ri Happy. Ela indica que o vendedor ouviu o cliente e sugeriu algo que faz sentido."
+                </p>
+              </div>
+
               <BasketItem 
                 label="Cesta de Valor (Complementar)" 
                 desc="Venda consultiva: brinquedo + pilha/extra." 
@@ -135,13 +142,6 @@ export function QualityAnalysis({ data, vinculos }: QualityAnalysisProps) {
                 total={activeSales.length} 
                 color="bg-rose-400" 
               />
-              
-              <div className="bg-slate-50 p-4 rounded-xl mt-4 border border-slate-100">
-                <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Dica Estratégica</p>
-                <p className="text-[10px] text-slate-600 font-medium leading-relaxed">
-                  A <strong>Cesta Complementar</strong> é o objetivo de toda loja Ri Happy. Ela indica que o vendedor ouviu o cliente e sugeriu algo que faz sentido.
-                </p>
-              </div>
             </CardContent>
           </Card>
         </div>

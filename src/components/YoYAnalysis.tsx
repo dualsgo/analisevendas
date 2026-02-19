@@ -250,9 +250,14 @@ export function YoYAnalysis({ data }: YoYAnalysisProps) {
               <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-2">Análise Executiva</h3>
               
               <YoYAlert 
-                title="Status de Qualidade"
-                desc={stats.diff.percTKM < 0 ? "A saúde do ticket caiu. Clientes estão gastando menos por visita que o ano anterior." : "Excelente! A equipe está conseguindo extrair mais valor de cada atendimento."}
-                type={stats.diff.percTKM < 0 ? "danger" : "success"}
+                title="Status de Conclusão"
+                desc={stats.diff.percVenda > 0 
+                  ? (stats.impacto.fluxo > stats.impacto.tkm 
+                    ? "Seu crescimento é impulsionado pelo fluxo de pessoas. A equipe está operando em 'modo passivo', dependendo do tráfego externo." 
+                    : "Crescimento de alta qualidade! Sua equipe está vencendo através da técnica de venda (TKM/PA), compensando qualquer variação de fluxo.")
+                  : "O faturamento recuou. Analise a matriz ao lado para identificar se o problema foi a falta de gente na loja ou a perda de argumentação de venda."
+                }
+                type={stats.diff.percVenda > 0 ? "success" : "danger"}
               />
 
               {aiError && (

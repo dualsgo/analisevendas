@@ -50,6 +50,17 @@ export function ElasticityAnalysis({ data }: ElasticityAnalysisProps) {
     });
   }, [chartData]);
 
+  const diagnosis = useMemo(() => {
+    if (stats.length < 4) return null;
+    const noDisc = stats[0];
+    const hiDisc = stats[2]; // Estratégico 7-12%
+    
+    const isWorking = hiDisc.avgPA > noDisc.avgPA + 0.3;
+    const lossValue = hiDisc.avgPA <= noDisc.avgPA;
+
+    return { isWorking, lossValue };
+  }, [stats]);
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20">
       {/* Guia Didático */}
@@ -116,15 +127,25 @@ export function ElasticityAnalysis({ data }: ElasticityAnalysisProps) {
             </Card>
           ))}
 
-          <div className="bg-amber-50 p-5 rounded-2xl border border-amber-100 space-y-3 mt-6">
-            <div className="flex items-center gap-2 text-amber-700">
-              <AlertTriangle className="w-4 h-4" />
-              <span className="text-[10px] font-black uppercase tracking-widest">Diagnóstico de Margem</span>
+          {diagnosis && (
+            <div className={cn(
+              "p-5 rounded-2xl border space-y-3 mt-6",
+              diagnosis.lossValue ? "bg-rose-50 border-rose-100 text-rose-800" : "bg-emerald-50 border-emerald-100 text-emerald-800"
+            )}>
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4" />
+                <span className="text-[10px] font-black uppercase tracking-widest">Leitura Estratégica</span>
+              </div>
+              <p className="text-[11px] font-medium leading-relaxed italic">
+                {diagnosis.lossValue 
+                  ? "Atenção: O faturamento com desconto tem um PA menor ou igual à venda orgânica. Você está 'pagando' para o cliente levar menos peças. Pare a estratégia imediatamente." 
+                  : (diagnosis.isWorking 
+                    ? "O desconto está funcionando! Clientes que recebem incentivo estão saindo com cestas significativamente maiores." 
+                    : "Efeito neutro: O desconto está apenas mantendo o PA, sem crescimento real de volume.")
+                }
+              </p>
             </div>
-            <p className="text-[11px] font-medium text-amber-800 leading-relaxed italic">
-              "Para ser saudável, a faixa de 12% deve ter um PA pelo menos 0.5 superior à faixa sem desconto. Se forem iguais, pare de dar desconto agressivo."
-            </p>
-          </div>
+          )}
         </div>
       </div>
     </div>

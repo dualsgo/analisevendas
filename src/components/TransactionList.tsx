@@ -42,7 +42,8 @@ import {
   Upload,
   Printer,
   X,
-  ChevronRight
+  ChevronRight,
+  Zap
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, parseISO } from "date-fns";
@@ -191,7 +192,7 @@ export function TransactionList({ data }: TransactionListProps) {
           <p className="text-[10px] font-bold text-orange-700/70">Arraste um XML aqui para imprimir o cupom de 80mm instantaneamente.</p>
         </div>
         <div className="relative">
-          <Input 
+          <input 
             type="file" 
             accept=".xml" 
             onChange={handleFileUpload}

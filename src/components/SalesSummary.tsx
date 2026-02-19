@@ -29,7 +29,8 @@ import {
   Layers,
   Activity,
   ShieldAlert,
-  Users
+  Users,
+  ShieldCheck
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -54,6 +55,7 @@ import { LostOpportunities } from "./LostOpportunities";
 import { SalesComposition } from "./SalesComposition";
 import { OperationalProductivity } from "./OperationalProductivity";
 import { RiskRadar } from "./RiskRadar";
+import { ComplianceAudit } from "./ComplianceAudit";
 
 interface SalesSummaryProps {
   data: DetailedSaleRow[];
@@ -182,6 +184,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
     { id: "performance_vendedores", label: "Performance Vendedores", icon: Award },
     { id: "composicao", label: "Composição", icon: Layers, color: "text-indigo-500" },
     { id: "produtividade", label: "Produtividade", icon: Activity, color: "text-cyan-500" },
+    { id: "compliance", label: "Auditoria PA", icon: ShieldCheck, color: "text-red-600" },
     { id: "radar", label: "Radar de Risco", icon: ShieldAlert, color: "text-rose-600" },
     { id: "oportunidades", label: "Oportunidades", icon: CircleAlert, color: "text-orange-600" },
     { id: "conversao", label: "Audit. Pickup", icon: Smartphone, color: "text-sky-500" },
@@ -243,6 +246,8 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
       case "performance_vendedores": return <VendorPerformance data={data} />;
       case "composicao": return <SalesComposition data={data} vinculos={vinculos} />;
       case "produtividade": return <OperationalProductivity data={data} />;
+      case "fraude":
+      case "compliance": return <ComplianceAudit data={data} />;
       case "oportunidades": return <LostOpportunities data={data} vinculos={vinculos} />;
       case "radar": return <RiskRadar data={data} />;
       case "conversao": return <ConversionAudit data={data} />;

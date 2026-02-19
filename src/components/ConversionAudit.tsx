@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useMemo, useState } from "react";
@@ -46,7 +45,9 @@ import {
   AlertCircle,
   ArrowUp,
   ArrowDown,
-  ArrowUpDown
+  ArrowUpDown,
+  User,
+  History
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, parseISO } from "date-fns";
@@ -155,16 +156,28 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
 
   return (
     <div className="space-y-4 animate-in fade-in duration-500 pb-10">
+      {/* Guia Didático */}
+      <div className="bg-white rounded-[2rem] p-6 border-2 border-sky-100 shadow-sm space-y-3">
+        <div className="flex items-center gap-3 text-sky-600">
+          <Smartphone className="w-6 h-6" />
+          <h1 className="text-xl md:text-2xl font-black uppercase tracking-tight">Auditoria de Conversão & Adicionais</h1>
+        </div>
+        <p className="text-sm text-slate-500 font-medium leading-relaxed">
+          O cliente que compra no site e retira na loja é a maior oportunidade de **venda incremental**. 
+          Este painel monitora quais operadores estão transformando essa retirada em uma nova venda presencial (Upsell).
+        </p>
+      </div>
+
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <KPIStat label="Pedidos Pickup" value={stats.total} icon={Smartphone} color="text-sky-500" />
         <KPIStat label="Taxa Conversão" value={`${stats.taxaConversao.toFixed(1)}%`} icon={Target} color="text-orange-500" />
         <KPIStat label="Venda Incremental" value={formatBRL(stats.valorAdicional)} icon={Zap} color="text-emerald-500" />
         <KPIStat 
-          label="Auditoria Fraca" 
-          value={stats.suspeitos} 
+          label="Score de Vínculo" 
+          value={stats.suspeitos > 0 ? "ATENÇÃO" : "SAUDÁVEL"} 
           icon={AlertCircle} 
-          color="text-amber-500" 
-          subLabel="Score < 4"
+          color={stats.suspeitos > 0 ? "text-rose-500" : "text-emerald-500"} 
+          subLabel={`${stats.suspeitos} ordens c/ score baixo`}
         />
       </div>
 
@@ -230,7 +243,7 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
                       {hasAdicional ? (
                         <div className="flex flex-col items-center">
                           <Badge className="bg-emerald-100 text-emerald-700 border-none text-[8px] font-black uppercase px-2 h-4">Convertido</Badge>
-                          <p className="text-[10px] text-emerald-600 font-black mt-0.5">+{formatBRL(valorAdicional)}</p>
+                          <p className="text-[9px] text-emerald-600 font-black mt-0.5">+{formatBRL(valorAdicional)}</p>
                         </div>
                       ) : (
                         <Badge variant="outline" className="bg-slate-50 text-slate-300 border-slate-200 text-[8px] font-black uppercase px-2 h-4">Oportunidade</Badge>
@@ -302,7 +315,7 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
               <div className="p-6 md:p-8 space-y-8 flex-1">
                 <div className="space-y-4">
                   <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
-                    <ShoppingBag className="w-3.5 h-3.5" /> Itens do Pedido Original
+                    <ShoppingBag className="w-3.5 h-3.5" /> Itens do Pedido Original (Site)
                   </h4>
                   <div className="space-y-2">
                     {selectedOrder.itens.map((item, idx) => (
@@ -319,25 +332,40 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
 
                 <div className="space-y-4 pt-4 border-t border-dashed">
                   <h4 className="text-[10px] font-black uppercase text-orange-500 tracking-widest flex items-center gap-2">
-                    <Zap className="w-3.5 h-3.5" /> Venda Adicional Identificada
+                    <Zap className="w-3.5 h-3.5" /> Atendimento Adicional Presencial (Loja)
                   </h4>
                   {vinculadosMap[selectedOrder.chave] ? (
                     <div className="space-y-4">
                       {vinculadosMap[selectedOrder.chave].map((adic, aIdx) => (
-                        <div key={aIdx} className="bg-emerald-50 p-4 rounded-xl border-2 border-emerald-100 flex justify-between items-center">
-                          <div>
-                            <p className="text-[10px] font-black text-emerald-600 uppercase">Cupom #{adic.nf}</p>
-                            <p className="text-sm font-black text-emerald-800 uppercase">{adic.vendedor}</p>
-                            <p className="text-[9px] font-bold text-emerald-600">STATUS: {adic.status_auditoria}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-lg font-black text-emerald-800">{formatBRL(parseFloat(adic.vNF))}</p>
+                        <div key={aIdx} className="bg-emerald-50 p-4 rounded-xl border-2 border-emerald-100 space-y-4">
+                          <div className="flex justify-between items-start">
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <User className="w-3.5 h-3.5 text-emerald-600" />
+                                <p className="text-sm font-black text-emerald-800 uppercase">{adic.vendedor}</p>
+                              </div>
+                              <p className="text-[10px] font-black text-emerald-600 uppercase">Cupom #{adic.nf} • {format(parseISO(adic.dhEmi), "dd/MM HH:mm")}</p>
+                            </div>
                             <Badge className={cn(
                               "text-[8px] font-black uppercase border-none",
                               adic.is_adicional_suspeito ? "bg-amber-500 text-white" : "bg-emerald-500 text-white"
                             )}>
-                              {adic.is_adicional_suspeito ? "Suspeito" : "Confirmado"}
+                              {adic.is_adicional_suspeito ? "Vínculo Sugerido" : "Adicional Confirmado"}
                             </Badge>
+                          </div>
+                          
+                          <div className="space-y-2 border-t border-emerald-100 pt-3">
+                            {adic.itens.map((it, iIdx) => (
+                              <div key={iIdx} className="flex justify-between items-center text-[10px]">
+                                <span className="font-bold text-emerald-700 uppercase truncate max-w-[250px]">{it.xProd}</span>
+                                <span className="font-black text-emerald-800">{formatBRL(it.vProd)}</span>
+                              </div>
+                            ))}
+                          </div>
+
+                          <div className="flex justify-between items-end pt-2 border-t border-emerald-100">
+                            <p className="text-[9px] font-bold text-emerald-600 uppercase">Total Adicional:</p>
+                            <p className="text-base font-black text-emerald-800">{formatBRL(parseFloat(adic.vNF))}</p>
                           </div>
                         </div>
                       ))}

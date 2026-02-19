@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useMemo, useState } from "react";
@@ -70,6 +69,7 @@ import { AdvancedAnalytics } from "./AdvancedAnalytics";
 import { QualityAnalysis } from "./QualityAnalysis";
 import { BottleneckDiagnosis } from "./BottleneckDiagnosis";
 import { YoYAnalysis } from "./YoYAnalysis";
+import { TeamProductivityAI } from "./TeamProductivityAI";
 
 interface SalesSummaryProps {
   data: DetailedSaleRow[];
@@ -147,8 +147,8 @@ const TAB_INSIGHTS: Record<string, { title: string; desc: string }> = {
     desc: "Mapeamento de cupons de 1 item e retiradas online sem venda sugerida. Onde está o seu lucro extra?"
   },
   conversao: {
-    title: "Eficiência Pickup",
-    desc: "Transforme o cliente de retirada em faturamento adicional presencial através do argumento técnico."
+    title: "Eficiência Pickup & Adicionais",
+    desc: "Transforme o cliente de retirada em faturamento adicional presencial através do argumento técnico e monitoramento de operador."
   },
   auditoria: {
     title: "Gestão de Margem",
@@ -294,7 +294,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
     { id: "compliance", label: "Auditoria PA", icon: ShieldCheck, color: "text-red-600" },
     { id: "radar", label: "Radar de Risco", icon: ShieldAlert, color: "text-rose-600" },
     { id: "oportunidades", label: "Oportunidades", icon: CircleAlert, color: "text-orange-600" },
-    { id: "conversao", label: "Audit. Pickup", icon: Smartphone, color: "text-sky-500" },
+    { id: "conversao", label: "Audit. Conversão", icon: Smartphone, color: "text-sky-500" },
     { id: "auditoria", label: "Audit. Descontos", icon: Percent, color: "text-rose-500" },
     { id: "trocas", label: "Audit. Trocas", icon: ArrowRightLeft, color: "text-purple-500" },
     { id: "transacoes", label: "Transações", icon: FileText },
@@ -408,7 +408,10 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
           <section className="bg-gradient-to-br from-orange-500 to-[#F37021] rounded-2xl p-4 md:p-6 text-white shadow-xl flex items-center gap-4 relative shrink-0 overflow-hidden group border-4 border-orange-400">
             <div className="bg-white/20 p-3 rounded-full hidden lg:block shrink-0"><Sparkles className="w-6 h-6 text-white" /></div>
             <div className="flex-1 space-y-1 text-center md:text-left">
-              <h2 className="text-lg md:text-xl font-black uppercase tracking-tight leading-none italic">{currentInsight.title}</h2>
+              <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 mb-1">
+                <h2 className="text-lg md:text-xl font-black uppercase tracking-tight leading-none italic">{currentInsight.title}</h2>
+                <TeamProductivityAI data={data} />
+              </div>
               <p className="text-orange-50 font-medium text-xs md:text-sm opacity-90 leading-relaxed max-w-2xl">
                 {currentInsight.desc}
               </p>

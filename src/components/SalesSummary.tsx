@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useMemo, useState } from "react";
@@ -31,7 +30,8 @@ import {
   ShieldAlert,
   Users,
   ShieldCheck,
-  BrainCircuit
+  BrainCircuit,
+  MessageSquare
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -58,6 +58,7 @@ import { OperationalProductivity } from "./OperationalProductivity";
 import { RiskRadar } from "./RiskRadar";
 import { ComplianceAudit } from "./ComplianceAudit";
 import { AISummary } from "./AISummary";
+import { AIChat } from "./AIChat";
 
 interface SalesSummaryProps {
   data: DetailedSaleRow[];
@@ -183,6 +184,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
   const navItems = [
     { id: "geral", label: "Visão Geral", icon: LayoutDashboard },
     { id: "ai_insights", label: "Insights IA", icon: BrainCircuit, color: "text-orange-500 font-black" },
+    { id: "ai_chat", label: "Chat Estratégico", icon: MessageSquare, color: "text-sky-500 font-bold" },
     { id: "diario", label: "Performance Diária", icon: CalendarIcon },
     { id: "performance_vendedores", label: "Performance Vendedores", icon: Award },
     { id: "composicao", label: "Composição", icon: Layers, color: "text-indigo-500" },
@@ -246,6 +248,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
           </div>
         );
       case "ai_insights": return <AISummary data={data} vinculos={vinculos} />;
+      case "ai_chat": return <AIChat data={data} vinculos={vinculos} />;
       case "diario": return <DailyPerformance data={data} />;
       case "performance_vendedores": return <VendorPerformance data={data} />;
       case "composicao": return <SalesComposition data={data} vinculos={vinculos} />;

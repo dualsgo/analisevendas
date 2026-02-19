@@ -11,12 +11,11 @@ import {
   Tooltip, 
   ResponsiveContainer, 
   Cell, 
-  CartesianGrid,
-  Legend
+  CartesianGrid
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Info, Target, TrendingUp, Percent, AlertTriangle } from "lucide-react";
+import { TrendingUp, AlertTriangle, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ElasticityAnalysisProps {
@@ -37,10 +36,10 @@ export function ElasticityAnalysis({ data }: ElasticityAnalysisProps) {
 
   const stats = useMemo(() => {
     const ranges = [
-      { min: 0, max: 2, label: "0-2%" },
-      { min: 2, max: 7, label: "2-7%" },
-      { min: 7, max: 12, label: "7-12%" },
-      { min: 12, max: 100, label: "12%+" },
+      { min: 0, max: 2, label: "Sem Desconto (0-2%)" },
+      { min: 2, max: 7, label: "Desconto Leve (2-7%)" },
+      { min: 7, max: 12, label: "Estratégico (7-12%)" },
+      { min: 12, max: 100, label: "Agressivo (12%+)" },
     ];
 
     return ranges.map(r => {
@@ -53,35 +52,38 @@ export function ElasticityAnalysis({ data }: ElasticityAnalysisProps) {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20">
-      <div className="bg-white rounded-[2rem] p-6 border-2 border-orange-100 shadow-sm space-y-4">
+      {/* Guia Didático */}
+      <div className="bg-white rounded-[2rem] p-6 md:p-8 border-2 border-orange-100 shadow-sm space-y-4">
         <div className="flex items-center gap-3 text-orange-500">
           <TrendingUp className="w-6 h-6" />
-          <h1 className="text-xl font-black uppercase tracking-tight">Elasticidade de Desconto</h1>
+          <h1 className="text-xl md:text-2xl font-black uppercase tracking-tight">O desconto está valendo a pena?</h1>
         </div>
-        <p className="text-sm text-slate-500 font-medium leading-relaxed">
-          O desconto está "comprando" PA ou apenas reduzindo a margem? 
-          Este gráfico cruza o <strong>% de Desconto (Eixo X)</strong> com a <strong>Quantidade de Peças (Eixo Y)</strong>. 
-          Se a nuvem de pontos não sobe conforme o desconto aumenta, você está usando o desconto como um atalho ineficiente.
+        <p className="text-sm text-slate-500 font-medium leading-relaxed max-w-4xl">
+          Esta análise cruza o <strong>Investimento (Desconto %)</strong> com o <strong>Retorno (Peças por Atendimento)</strong>. 
+          <br/><br/>
+          <span className="text-slate-800 font-bold">Como ler o gráfico:</span> Se os pontos sobem conforme caminham para a direita, o desconto está funcionando. Se os pontos continuam "baixos" mesmo com desconto alto, o vendedor está perdendo margem sem aumentar a cesta do cliente.
         </p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="ri-card border-none lg:col-span-2 overflow-hidden shadow-xl">
           <CardHeader className="bg-slate-50/50 border-b p-6">
-            <CardTitle className="text-xs font-black uppercase text-slate-500 tracking-widest">Correlação Desconto vs PA</CardTitle>
+            <CardTitle className="text-xs font-black uppercase text-slate-500 tracking-widest flex items-center gap-2">
+              <Info className="w-4 h-4" /> Mapa de Eficiência: Desconto vs Retorno em PA
+            </CardTitle>
           </CardHeader>
           <CardContent className="p-6">
             <div className="h-[400px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                  <XAxis type="number" dataKey="discount" name="Desconto" unit="%" axisLine={false} tick={{fontSize: 10, fontWeight: 700}} />
-                  <YAxis type="number" dataKey="pa" name="PA" unit=" it" axisLine={false} tick={{fontSize: 10, fontWeight: 700}} />
+                  <XAxis type="number" dataKey="discount" name="Desconto" unit="%" axisLine={false} tick={{fontSize: 10, fontWeight: 700}} label={{ value: 'Quanto de Desconto foi dado (%)', position: 'insideBottom', offset: -10, fontSize: 10, fontWeight: 800 }} />
+                  <YAxis type="number" dataKey="pa" name="PA" unit=" it" axisLine={false} tick={{fontSize: 10, fontWeight: 700}} label={{ value: 'Quantas Peças o cliente levou', angle: -90, position: 'insideLeft', fontSize: 10, fontWeight: 800 }} />
                   <ZAxis type="number" dataKey="value" range={[50, 400]} name="Valor R$" />
                   <Tooltip cursor={{ strokeDasharray: '3 3' }} contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} />
                   <Scatter name="Vendas" data={chartData} fill="#F37021" fillOpacity={0.6}>
                     {chartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.discount > 12 ? '#ef4444' : '#F37021'} />
+                      <Cell key={`cell-${index}`} fill={entry.discount > 12 ? '#ef4444' : (entry.discount > 7 ? '#39B54A' : '#F37021')} />
                     ))}
                   </Scatter>
                 </ScatterChart>
@@ -91,12 +93,15 @@ export function ElasticityAnalysis({ data }: ElasticityAnalysisProps) {
         </Card>
 
         <div className="space-y-4">
-          <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-2">Eficiência por Faixa</h3>
+          <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-2">Resumo por Faixa de Incentivo</h3>
           {stats.map((s, i) => (
             <Card key={i} className="ri-card border-none bg-white p-4 shadow-sm">
               <div className="flex justify-between items-center mb-2">
-                <Badge variant="outline" className="bg-slate-50 text-slate-600 font-black border-slate-100">{s.label}</Badge>
-                <span className="text-[10px] font-bold text-slate-400 uppercase">{s.count} cupons</span>
+                <Badge variant="outline" className={cn(
+                  "font-black border-none px-3",
+                  s.min >= 7 && s.min < 12 ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"
+                )}>{s.label}</Badge>
+                <span className="text-[10px] font-bold text-slate-400 uppercase">{s.count} vendas</span>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -104,7 +109,7 @@ export function ElasticityAnalysis({ data }: ElasticityAnalysisProps) {
                   <p className="text-lg font-black text-slate-800">{s.avgPA.toFixed(2)}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-[8px] font-black text-slate-400 uppercase mb-0.5">TKM Médio</p>
+                  <p className="text-[8px] font-black text-slate-400 uppercase mb-0.5">Ticket Médio</p>
                   <p className="text-lg font-black text-orange-600">R$ {s.avgValue.toFixed(0)}</p>
                 </div>
               </div>
@@ -114,10 +119,10 @@ export function ElasticityAnalysis({ data }: ElasticityAnalysisProps) {
           <div className="bg-amber-50 p-5 rounded-2xl border border-amber-100 space-y-3 mt-6">
             <div className="flex items-center gap-2 text-amber-700">
               <AlertTriangle className="w-4 h-4" />
-              <span className="text-[10px] font-black uppercase tracking-widest">Alerta de Margem</span>
+              <span className="text-[10px] font-black uppercase tracking-widest">Diagnóstico de Margem</span>
             </div>
             <p className="text-[11px] font-medium text-amber-800 leading-relaxed italic">
-              "Vendas com mais de 12% de desconto devem apresentar PA 30% superior à média orgânica. Caso contrário, o desconto é apenas perda de lucro."
+              "Para ser saudável, a faixa de 12% deve ter um PA pelo menos 0.5 superior à faixa sem desconto. Se forem iguais, pare de dar desconto agressivo."
             </p>
           </div>
         </div>

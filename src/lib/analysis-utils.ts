@@ -150,38 +150,45 @@ function criarVinculo(entrada: DetailedSaleRow, saida: DetailedSaleRow, metodo: 
 
   const tEntrada = new Date(entrada.dhEmi).getTime();
   const tSaida = new Date(saida.dhEmi).getTime();
+  
+  // O intervalo de atendimento é entre a entrada (devolução) e a saída (nova venda)
+  const tStart = Math.min(tEntrada, tSaida);
+  const tEnd = Math.max(tEntrada, tSaida);
   const tempoMin = Math.abs(tSaida - tEntrada) / 60000;
 
-  const intervaloVendedor = allRows.filter(r => 
-    r.vendedor === saida.vendedor && 
-    r.tpNF === 1 && 
-    r.chave !== saida.chave &&
-    new Date(r.dhEmi).getTime() >= Math.min(tEntrada, tSaida) &&
-    new Date(r.dhEmi).getTime() <= Math.max(tEntrada, tSaida)
-  ).length;
+  // Analisar atendimentos (outras saídas) dentro deste intervalo
+  const atendimentosNoIntervalo = allRows.filter(r => {
+    if (r.tpNF !== 1 || r.is_cancelada || r.chave === saida.chave) return false;
+    const tNote = new Date(r.dhEmi).getTime();
+    return tNote >= tStart && tNote <= tEnd;
+  });
 
-  const intervaloLoja = allRows.filter(r => 
-    r.tpNF === 1 && 
-    r.chave !== saida.chave &&
-    new Date(r.dhEmi).getTime() >= Math.min(tEntrada, tSaida) &&
-    new Date(r.dhEmi).getTime() <= Math.max(tEntrada, tSaida)
-  ).length;
+  const intervaloVendedor = atendimentosNoIntervalo.filter(r => r.vendedor === saida.vendedor).length;
+  const intervaloLoja = atendimentosNoIntervalo.length;
 
   let score = 50;
   let diag = "Troca Operacional";
 
+  // Métrica 1: Valor Financeiro (Upsell)
   if (vDiferenca > 0.1) score += 20; 
   if (vDiferenca > 100) score += 10;
   if (vDiferenca < -0.1) score -= 20; 
   
+  // Métrica 2: Peças por Atendimento (PA)
   const diffItens = parseInt(saida.itens_qtd) - parseInt(entrada.itens_qtd);
   if (diffItens > 0) score += 10; 
   if (diffItens < 0) score -= 15; 
 
-  if (tempoMin < 10) score += 10; 
-  if (tempoMin > 30 && intervaloLoja > 5) {
-    score -= 15; 
-    diag = "Troca Ineficiente (Lenta em horário de pico)";
+  // Métrica 3: Eficiência de Tempo vs Movimento
+  if (tempoMin < 10) score += 10; // Ágil
+  
+  // Se demorou mais de 25 min e a loja estava com movimento (> 3 vendas), houve custo de oportunidade alto
+  if (tempoMin > 25 && intervaloLoja > 3) {
+    score -= 20; 
+    diag = "Troca Ineficiente (Retenção em horário de pico)";
+  } else if (tempoMin > 40) {
+    score -= 10;
+    diag = "Troca Crítica (Tempo excessivo)";
   }
 
   if (score >= 80) diag = "Troca de Ouro (Excelente Upsell/PA)";

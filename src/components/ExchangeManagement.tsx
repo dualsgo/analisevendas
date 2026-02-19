@@ -34,19 +34,13 @@ import {
   ArrowDownCircle,
   ArrowUpCircle,
   TrendingUp,
-  AlertTriangle,
-  CheckCircle2,
-  Package,
-  User,
-  ShoppingBag,
-  Info,
-  Calendar,
-  XCircle,
-  ArrowRight,
   Clock,
   Zap,
   Users,
-  Trophy
+  Trophy,
+  AlertTriangle,
+  CheckCircle2,
+  ChevronRight
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, parseISO } from "date-fns";
@@ -126,7 +120,7 @@ export function ExchangeManagement({ data, vinculos }: ExchangeManagementProps) 
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <Input 
               placeholder="Buscar por Cliente, CPF ou Chave da Nota..." 
-              className="pl-9 rounded-xl border-slate-100 bg-slate-50/50 h-11"
+              className="pl-9 rounded-xl border-slate-100 bg-slate-50/50 h-11 text-xs font-bold"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -136,7 +130,7 @@ export function ExchangeManagement({ data, vinculos }: ExchangeManagementProps) 
             <div className="space-y-1.5">
               <label className="text-[9px] font-black text-slate-400 uppercase px-1">Colaborador</label>
               <Select value={vendorFilter} onValueChange={setVendorFilter}>
-                <SelectTrigger className="rounded-xl border-slate-100 bg-slate-50/50 h-10 font-bold">
+                <SelectTrigger className="rounded-xl border-slate-100 bg-slate-50/50 h-10 font-bold text-xs uppercase">
                   <SelectValue placeholder="Todos os Vendedores" />
                 </SelectTrigger>
                 <SelectContent>
@@ -151,7 +145,7 @@ export function ExchangeManagement({ data, vinculos }: ExchangeManagementProps) 
             <div className="space-y-1.5">
               <label className="text-[9px] font-black text-slate-400 uppercase px-1">Status Financeiro</label>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="rounded-xl border-slate-100 bg-slate-50/50 h-10 font-bold">
+                <SelectTrigger className="rounded-xl border-slate-100 bg-slate-50/50 h-10 font-bold text-xs uppercase">
                   <SelectValue placeholder="Qualquer Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -182,11 +176,11 @@ export function ExchangeManagement({ data, vinculos }: ExchangeManagementProps) 
                   <div className="flex-1 grid grid-cols-2 md:grid-cols-5 gap-4 items-center text-left">
                     <div className="col-span-2 md:col-span-1">
                       <p className="text-xs font-black text-slate-800 uppercase truncate">{vinc.nome_cliente || "Final Consumidor"}</p>
-                      <p className="text-[9px] text-slate-400 font-bold">{vinc.vendedor}</p>
+                      <p className="text-[9px] text-slate-400 font-bold uppercase">{vinc.vendedor}</p>
                     </div>
                     
                     <div className="hidden md:block">
-                      <p className="text-[9px] text-slate-400 font-black uppercase mb-0.5">Tempo</p>
+                      <p className="text-[9px] text-slate-400 font-black uppercase mb-0.5">Tempo Gasto</p>
                       <div className="flex items-center gap-1.5">
                         <Clock className={cn("w-3 h-3", vinc.tempo_atendimento_min > 25 ? "text-rose-500" : "text-sky-500")} />
                         <span className="text-xs font-black text-slate-600">{vinc.tempo_atendimento_min} min</span>
@@ -194,7 +188,7 @@ export function ExchangeManagement({ data, vinculos }: ExchangeManagementProps) 
                     </div>
 
                     <div className="hidden md:block">
-                      <p className="text-[9px] text-slate-400 font-black uppercase mb-0.5">Diferença</p>
+                      <p className="text-[9px] text-slate-400 font-black uppercase mb-0.5">Diferença R$</p>
                       <p className={cn("text-xs font-black", vinc.valor_diferenca > 0 ? "text-emerald-600" : (vinc.valor_diferenca < 0 ? "text-rose-600" : "text-orange-600"))}>
                         {vinc.valor_diferenca > 0 ? "+" : ""}{formatBRL(vinc.valor_diferenca)}
                       </p>
@@ -231,13 +225,19 @@ export function ExchangeManagement({ data, vinculos }: ExchangeManagementProps) 
                       <div className="flex items-center gap-3">
                         <div className="p-2 bg-white rounded-lg shadow-sm"><Clock className="w-4 h-4 text-sky-500" /></div>
                         <div>
-                          <p className="text-[10px] font-black text-slate-400 uppercase">Tempo de Atendimento</p>
+                          <p className="text-[10px] font-black text-slate-400 uppercase">Duração do Atendimento</p>
                           <p className="text-lg font-black text-slate-700">{vinc.tempo_atendimento_min} minutos</p>
                         </div>
                       </div>
                       <div className="space-y-1">
-                        <p className="text-[9px] font-bold text-slate-400 uppercase">Início: {format(parseISO(vinc.data_entrada), "HH:mm")}</p>
-                        <p className="text-[9px] font-bold text-slate-400 uppercase">Fim: {format(parseISO(vinc.data_saida), "HH:mm")}</p>
+                        <div className="flex justify-between">
+                          <span className="text-[9px] font-bold text-slate-400 uppercase">Devolução (Início):</span>
+                          <span className="text-[9px] font-black text-slate-600">{entryNote?.dhEmi ? format(parseISO(entryNote.dhEmi), "HH:mm:ss") : "--"}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-[9px] font-bold text-slate-400 uppercase">Venda Troca (Fim):</span>
+                          <span className="text-[9px] font-black text-slate-600">{exitNote?.dhEmi ? format(parseISO(exitNote.dhEmi), "HH:mm:ss") : "--"}</span>
+                        </div>
                       </div>
                     </Card>
 
@@ -250,21 +250,23 @@ export function ExchangeManagement({ data, vinculos }: ExchangeManagementProps) 
                         </div>
                       </div>
                       <div className="space-y-1">
-                        <p className="text-[9px] font-bold text-slate-400 uppercase">Vendedor atendeu +{vinc.atendimentos_vendedor_intervalo} clientes</p>
-                        <p className="text-[9px] font-bold text-slate-400 uppercase">Enquanto processava esta troca</p>
+                        <p className="text-[9px] font-bold text-slate-500 leading-tight uppercase">
+                          Enquanto este vendedor processava a troca, a unidade emitiu <strong>{vinc.atendimentos_loja_intervalo} cupons</strong>. 
+                          O vendedor realizou <strong>{vinc.atendimentos_vendedor_intervalo} outras vendas</strong> no mesmo intervalo.
+                        </p>
                       </div>
                     </Card>
 
-                    <Card className={cn("border-none p-4 flex flex-col justify-between gap-4", isGood ? "bg-emerald-50" : (isCritical ? "bg-rose-50" : "bg-orange-50"))}>
+                    <Card className={cn("border-none p-4 flex flex-col justify-between gap-4 shadow-sm", isGood ? "bg-emerald-50" : (isCritical ? "bg-rose-50" : "bg-orange-50"))}>
                       <div className="flex items-center gap-3">
                         <div className="p-2 bg-white rounded-lg shadow-sm"><Zap className={cn("w-4 h-4", isGood ? "text-emerald-500" : "text-orange-500")} /></div>
                         <div>
-                          <p className="text-[10px] font-black text-slate-400 uppercase">Diagnóstico Ri Happy</p>
-                          <p className={cn("text-sm font-black uppercase", isGood ? "text-emerald-700" : "text-orange-700")}>{vinc.diagnostico}</p>
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Diagnóstico Operacional</p>
+                          <p className={cn("text-sm font-black uppercase leading-tight", isGood ? "text-emerald-700" : "text-orange-700")}>{vinc.diagnostico}</p>
                         </div>
                       </div>
                       <div className="text-[9px] font-bold text-slate-500 leading-tight uppercase">
-                        Score {vinc.score_qualidade}/100 baseado em Upsell, PA e Eficiência Temporal.
+                        Score {vinc.score_qualidade}/100. Avaliação baseada em Upsell, Diferença de PA e Agilidade vs Fluxo de Loja.
                       </div>
                     </Card>
                   </div>
@@ -273,13 +275,16 @@ export function ExchangeManagement({ data, vinculos }: ExchangeManagementProps) 
                     {/* Detalhe da Devolução */}
                     <div className="space-y-4">
                       <h4 className="text-[10px] font-black uppercase text-rose-500 flex items-center gap-2">
-                        <ArrowDownCircle className="w-3 h-3" /> Devolução (Entrada) - NF {entryNote?.nf}
+                        <ArrowDownCircle className="w-3 h-3" /> Itens Devolvidos (Entrada) - NF {entryNote?.nf}
                       </h4>
                       <div className="space-y-2">
                         {entryNote?.itens.map((it, i) => (
-                          <div key={i} className="flex justify-between items-center p-2 bg-slate-50 rounded-lg">
-                            <span className="text-[10px] font-black text-slate-700 uppercase truncate">{it.xProd}</span>
-                            <span className="text-[10px] font-black text-slate-600">{formatBRL(it.vProd)}</span>
+                          <div key={i} className="flex justify-between items-center p-2.5 bg-slate-50 rounded-xl border border-slate-100">
+                            <div className="min-w-0 pr-4">
+                              <p className="text-[10px] font-black text-slate-700 uppercase truncate">{it.xProd}</p>
+                              <p className="text-[8px] text-slate-400 font-bold uppercase">Cod: {it.cProd}</p>
+                            </div>
+                            <span className="text-[10px] font-black text-slate-600 whitespace-nowrap">{formatBRL(it.vProd)}</span>
                           </div>
                         ))}
                       </div>
@@ -288,13 +293,16 @@ export function ExchangeManagement({ data, vinculos }: ExchangeManagementProps) 
                     {/* Detalhe da Troca */}
                     <div className="space-y-4">
                       <h4 className="text-[10px] font-black uppercase text-emerald-500 flex items-center gap-2">
-                        <ArrowUpCircle className="w-3 h-3" /> Nova Venda (Saída) - NF {exitNote?.nf}
+                        <ArrowUpCircle className="w-3 h-3" /> Itens Novos (Saída) - NF {exitNote?.nf}
                       </h4>
                       <div className="space-y-2">
                         {exitNote?.itens.map((it, i) => (
-                          <div key={i} className="flex justify-between items-center p-2 bg-white border border-slate-100 rounded-lg">
-                            <span className="text-[10px] font-black text-slate-700 uppercase truncate">{it.xProd}</span>
-                            <span className="text-[10px] font-black text-emerald-600">{formatBRL(it.vProd)}</span>
+                          <div key={i} className="flex justify-between items-center p-2.5 bg-white border-2 border-emerald-50 rounded-xl">
+                            <div className="min-w-0 pr-4">
+                              <p className="text-[10px] font-black text-slate-700 uppercase truncate">{it.xProd}</p>
+                              <p className="text-[8px] text-slate-400 font-bold uppercase">Cod: {it.cProd}</p>
+                            </div>
+                            <span className="text-[10px] font-black text-emerald-600 whitespace-nowrap">{formatBRL(it.vProd)}</span>
                           </div>
                         ))}
                       </div>
@@ -320,8 +328,8 @@ function KPIStat({ label, value, icon: Icon, color, subLabel }: { label: string,
         {subLabel && <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">{subLabel}</span>}
       </div>
       <div>
-        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">{label}</p>
-        <p className="text-sm md:text-xl font-black text-slate-800">{value}</p>
+        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1.5">{label}</p>
+        <p className="text-sm md:text-xl font-black text-slate-800 tracking-tight leading-none">{value}</p>
       </div>
     </Card>
   );

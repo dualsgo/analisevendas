@@ -1,13 +1,8 @@
 import { useState, useEffect, useMemo } from "react";
 import { DetailedSaleRow, VinculoTroca, UploadHistoryItem } from "@/lib/types";
-import { detectingAdicionaisSuspeitos, vincularTrocas } from "@/lib/analysis-utils"; // Adjust import if needed
-// Note: original page.tsx imported detectingAdicionaisSuspeitos as detectingAdicionaisSuspeitos? No, it was detectingAdicionaisSuspeitos.
-// Let me double check usage in page.tsx: import { detectarAdicionaisSuspeitos, vincularTrocas } from "@/lib/analysis-utils";
-// Wait, detectingAdicionaisSuspeitos vs detectarAdicionaisSuspeitos. I should use what's in page.tsx.
-// page.tsx line 9: import { detectarAdicionaisSuspeitos, vincularTrocas } from "@/lib/analysis-utils";
-
 import { detectarAdicionaisSuspeitos, vincularTrocas as vincularTrocasUtils } from "@/lib/analysis-utils";
 import { format, parseISO, min, max } from "date-fns";
+import { useToast } from "@/hooks/use-toast";
 
 type ProcessingStatus = "idle" | "processing" | "analyzed" | "success";
 
@@ -16,6 +11,7 @@ export function useSalesProcessor() {
     const [vinculos, setVinculos] = useState<VinculoTroca[]>([]);
     const [status, setStatus] = useState<ProcessingStatus>("idle");
     const [history, setHistory] = useState<UploadHistoryItem[]>([]);
+    const { toast } = useToast();
 
     // Load history from localStorage
     useEffect(() => {
@@ -49,11 +45,15 @@ export function useSalesProcessor() {
     // Save to sessionStorage whenever state changes significantly
     useEffect(() => {
         if (status === "success" || status === "analyzed") {
-            sessionStorage.setItem("ri_happy_current_session", JSON.stringify({
-                rows: parsedRows,
-                links: vinculos,
-                currentStatus: status
-            }));
+            try {
+                sessionStorage.setItem("ri_happy_current_session", JSON.stringify({
+                    rows: parsedRows,
+                    links: vinculos,
+                    currentStatus: status
+                }));
+            } catch (e) {
+                console.warn("Session storage quota exceeded - active session not saved");
+            }
         } else if (status === "idle") {
             sessionStorage.removeItem("ri_happy_current_session");
         }
@@ -62,8 +62,6 @@ export function useSalesProcessor() {
     const processData = (rows: DetailedSaleRow[]) => {
         setStatus("processing");
 
-        // Using a tiny timeout just to allow UI to update to "processing" state before heavy lifting
-        // But removing the long 1500ms delay.
         setTimeout(() => {
             try {
                 const withSuspects = detectarAdicionaisSuspeitos(rows);
@@ -78,8 +76,12 @@ export function useSalesProcessor() {
                 setStatus("analyzed");
             } catch (error) {
                 console.error("Erro ao processar dados:", error);
-                setStatus("idle"); // or error state
-                alert("Ocorreu um erro ao processar os arquivos.");
+                setStatus("idle");
+                toast({
+                    title: "Erro no processamento",
+                    description: "Não foi possível analisar os arquivos XML selecionados.",
+                    variant: "destructive",
+                });
             }
         }, 100);
     };
@@ -102,7 +104,30 @@ export function useSalesProcessor() {
 
         const updatedHistory = [newItem, ...history].slice(0, 5);
         setHistory(updatedHistory);
-        localStorage.setItem("ri_happy_upload_history", JSON.stringify(updatedHistory));
+        
+        // Strategy to handle QuotaExceededError in localStorage
+        const attemptSave = (list: UploadHistoryItem[]) => {
+            try {
+                localStorage.setItem("ri_happy_upload_history", JSON.stringify(list));
+                return true;
+            } catch (e) {
+                return false;
+            }
+        };
+
+        if (!attemptSave(updatedHistory)) {
+            // Plan B: Save only the most recent with full data, and others as metadata only
+            const lightHistory = updatedHistory.map((item, idx) => 
+                idx === 0 ? item : { ...item, data: [] }
+            );
+            
+            if (!attemptSave(lightHistory)) {
+                // Plan C: All items as metadata only (reopening will require re-upload)
+                const metadataOnly = updatedHistory.map(item => ({ ...item, data: [] }));
+                attemptSave(metadataOnly);
+                console.warn("LocalStorage quota reached. History items saved as metadata only.");
+            }
+        }
     };
 
     const confirmDashboard = () => {
@@ -117,8 +142,17 @@ export function useSalesProcessor() {
     };
 
     const reopenHistory = (item: UploadHistoryItem) => {
+        if (!item.data || item.data.length === 0) {
+            toast({
+                title: "Dados não disponíveis",
+                description: "O limite de armazenamento do navegador foi atingido e os detalhes deste upload não puderam ser recuperados. Por favor, anexe os arquivos novamente.",
+                variant: "destructive"
+            });
+            return;
+        }
+        
         const processedRows = detectarAdicionaisSuspeitos(item.data);
-        setParsedRows(item.data); // item.data might already be processed if saved that way, but reprocessing ensures consistency
+        setParsedRows(item.data);
         setVinculos(vincularTrocasUtils(processedRows));
         setStatus("success");
     };

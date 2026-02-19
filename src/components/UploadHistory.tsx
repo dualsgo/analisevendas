@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { History, Calendar, ChevronRight, ArrowUpDown } from "lucide-react";
+import { History, Calendar, ChevronRight, ArrowUpDown, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { UploadHistoryItem } from "@/lib/types";
 import {
@@ -8,6 +8,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface UploadHistoryProps {
   history: UploadHistoryItem[];
@@ -69,26 +75,44 @@ export function UploadHistory({ history, onReopen, onClear }: UploadHistoryProps
         </div>
       </div>
       <div className="space-y-3">
-        {sortedHistory.map((item) => (
-          <div 
-            key={item.id} 
-            onClick={() => onReopen(item)}
-            className="bg-white/60 hover:bg-white p-4 rounded-[1.25rem] border-2 border-slate-100 hover:border-orange-200 transition-all cursor-pointer group flex items-center justify-between shadow-sm"
-          >
-            <div className="flex items-center gap-4">
-              <div className="p-2.5 bg-orange-50 rounded-xl group-hover:scale-110 transition-transform">
-                <Calendar className="w-5 h-5 text-orange-500" />
+        <TooltipProvider>
+          {sortedHistory.map((item) => {
+            const isDataLost = !item.data || item.data.length === 0;
+            
+            return (
+              <div 
+                key={item.id} 
+                onClick={() => onReopen(item)}
+                className="bg-white/60 hover:bg-white p-4 rounded-[1.25rem] border-2 border-slate-100 hover:border-orange-200 transition-all cursor-pointer group flex items-center justify-between shadow-sm"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="p-2.5 bg-orange-50 rounded-xl group-hover:scale-110 transition-transform">
+                    <Calendar className="w-5 h-5 text-orange-500" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <p className="text-xs md:text-sm font-black text-slate-700 uppercase leading-none">{item.periodo}</p>
+                      {isDataLost && (
+                        <Tooltip>
+                          <TooltipTrigger>
+                            <AlertCircle className="w-3 h-3 text-amber-500" />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p className="text-[10px] font-bold">Dados expirados. Requer novo upload.</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                    </div>
+                    <p className="text-[9px] md:text-[10px] text-slate-400 font-bold uppercase tracking-wide">
+                      {item.totalNotas} notas • {item.valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </p>
+                  </div>
+                </div>
+                <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-orange-500 group-hover:translate-x-1 transition-all" />
               </div>
-              <div>
-                <p className="text-xs md:text-sm font-black text-slate-700 uppercase leading-none mb-1">{item.periodo}</p>
-                <p className="text-[9px] md:text-[10px] text-slate-400 font-bold uppercase tracking-wide">
-                  {item.totalNotas} notas • {item.valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                </p>
-              </div>
-            </div>
-            <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-orange-500 group-hover:translate-x-1 transition-all" />
-          </div>
-        ))}
+            );
+          })}
+        </TooltipProvider>
       </div>
     </section>
   );

@@ -43,7 +43,8 @@ import {
   Printer,
   X,
   ChevronRight,
-  Zap
+  Zap,
+  Package
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, parseISO } from "date-fns";
@@ -83,6 +84,7 @@ function SortableHeader({ label, sortKey, currentSort, onSort, className }: any)
 
 export function TransactionList({ data }: TransactionListProps) {
   const [searchTerm, setSearchTerm] = useState("");
+  const [itemCodeSearch, setItemCodeSearch] = useState("");
   const [selectedChannel, setSelectedChannel] = useState("all");
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: "nf", direction: "desc" });
@@ -106,12 +108,14 @@ export function TransactionList({ data }: TransactionListProps) {
         t.nome_dest.toLowerCase().includes(searchTerm.toLowerCase()) ||
         t.cpf_cnpj_dest.includes(searchTerm);
       
+      const matchesItemCode = itemCodeSearch === "" || t.itens.some(item => item.cProd === itemCodeSearch || item.cProd.includes(itemCodeSearch));
+      
       const matchesChannel = selectedChannel === "all" || t.canal_consolidado === selectedChannel;
       const matchesStatus = selectedStatus === "all" || 
         (selectedStatus === "cancelada" && t.is_cancelada) || 
         (selectedStatus === "ativa" && !t.is_cancelada);
 
-      return matchesSearch && matchesChannel && matchesStatus;
+      return matchesSearch && matchesItemCode && matchesChannel && matchesStatus;
     });
 
     // Apply Sorting
@@ -134,7 +138,7 @@ export function TransactionList({ data }: TransactionListProps) {
           return 0;
       }
     });
-  }, [data, searchTerm, selectedChannel, selectedStatus, sortConfig]);
+  }, [data, searchTerm, itemCodeSearch, selectedChannel, selectedStatus, sortConfig]);
 
   const handleQuickPrint = (t: DetailedSaleRow) => {
     setSelectedTransaction(t);
@@ -207,14 +211,25 @@ export function TransactionList({ data }: TransactionListProps) {
       {/* Filtros */}
       <Card className="ri-card border-none shadow-sm overflow-hidden">
         <div className="p-4 bg-white space-y-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <Input 
-              placeholder="Buscar por NF, Chave, Cliente ou CPF..." 
-              className="pl-9 rounded-xl border-slate-100 bg-slate-50/50 h-11 text-sm text-slate-700 font-medium"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Input 
+                placeholder="Buscar por NF, Chave, Cliente ou CPF..." 
+                className="pl-9 rounded-xl border-slate-100 bg-slate-50/50 h-11 text-sm text-slate-700 font-medium"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <div className="relative md:w-64">
+              <Package className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Input 
+                placeholder="Filtrar por Código do Item..." 
+                className="pl-9 rounded-xl border-slate-100 bg-slate-50/50 h-11 text-sm text-slate-700 font-medium"
+                value={itemCodeSearch}
+                onChange={(e) => setItemCodeSearch(e.target.value)}
+              />
+            </div>
           </div>
           
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -305,7 +320,7 @@ export function TransactionList({ data }: TransactionListProps) {
                       >
                         <Printer className="w-4 h-4" />
                       </Button>
-                      <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-orange-500 transition-colors" />
+                      <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-orange-500 transition-all group-hover:translate-x-1" />
                     </div>
                   </TableCell>
                 </TableRow>
@@ -421,7 +436,12 @@ export function TransactionList({ data }: TransactionListProps) {
                       </h4>
                       <div className="space-y-2">
                         {selectedTransaction.itens.map((item, idx) => (
-                          <div key={idx} className="flex justify-between items-center p-3 bg-white rounded-xl border border-slate-100">
+                          <div key={idx} className={cn(
+                            "flex justify-between items-center p-3 rounded-xl border transition-all",
+                            (itemCodeSearch && (item.cProd === itemCodeSearch || item.cProd.includes(itemCodeSearch))) 
+                              ? "bg-orange-50 border-orange-200 shadow-sm" 
+                              : "bg-white border-slate-100"
+                          )}>
                             <div className="flex-1 min-w-0 pr-4">
                               <p className="text-sm font-bold text-slate-700 truncate uppercase">{item.xProd}</p>
                               <p className="text-xs text-slate-400 font-medium uppercase">Cod: {item.cProd} | Qtd: {item.qCom}</p>

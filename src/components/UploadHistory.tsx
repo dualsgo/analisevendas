@@ -43,8 +43,10 @@ export function UploadHistory({ history, onReopen, onClear }: UploadHistoryProps
 
   if (history.length === 0) return null;
 
-  const handleClear = () => {
-    if (confirm("Tem certeza que deseja limpar o histórico?")) {
+  const handleClear = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (confirm("Tem certeza que deseja limpar todo o histórico de uploads recentes?")) {
       onClear();
     }
   };
@@ -64,12 +66,17 @@ export function UploadHistory({ history, onReopen, onClear }: UploadHistoryProps
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setSortBy("date")} className="text-xs font-bold">Mais Recentes</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setSortBy("value")} className="text-xs font-bold">Maior Valor</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setSortBy("count")} className="text-xs font-bold">Mais Notas</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setSortBy("date")} className="text-xs font-bold font-body">Mais Recentes</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setSortBy("value")} className="text-xs font-bold font-body">Maior Valor</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setSortBy("count")} className="text-xs font-bold font-body">Mais Notas</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button variant="ghost" size="sm" onClick={handleClear} className="text-[9px] font-black text-rose-500 hover:text-rose-600 hover:bg-rose-50 rounded-full h-7">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={handleClear} 
+            className="text-[9px] font-black text-rose-500 hover:text-rose-600 hover:bg-rose-50 rounded-full h-7"
+          >
             LIMPAR
           </Button>
         </div>
@@ -94,7 +101,7 @@ export function UploadHistory({ history, onReopen, onClear }: UploadHistoryProps
                       <p className="text-xs md:text-sm font-black text-slate-700 uppercase leading-none">{item.periodo}</p>
                       {isDataLost && (
                         <Tooltip>
-                          <TooltipTrigger>
+                          <TooltipTrigger asChild>
                             <AlertCircle className="w-3 h-3 text-amber-500" />
                           </TooltipTrigger>
                           <TooltipContent>

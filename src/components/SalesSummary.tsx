@@ -31,7 +31,11 @@ import {
   Users,
   ShieldCheck,
   BrainCircuit,
-  MessageSquare
+  MessageSquare,
+  TrendingUp,
+  LineChart,
+  Boxes,
+  ActivitySquare
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -59,6 +63,10 @@ import { RiskRadar } from "./RiskRadar";
 import { ComplianceAudit } from "./ComplianceAudit";
 import { AISummary } from "./AISummary";
 import { AIChat } from "./AIChat";
+import { ElasticityAnalysis } from "./ElasticityAnalysis";
+import { AdvancedAnalytics } from "./AdvancedAnalytics";
+import { QualityAnalysis } from "./QualityAnalysis";
+import { BottleneckDiagnosis } from "./BottleneckDiagnosis";
 
 interface SalesSummaryProps {
   data: DetailedSaleRow[];
@@ -183,10 +191,14 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
 
   const navItems = [
     { id: "geral", label: "Visão Geral", icon: LayoutDashboard },
+    { id: "diagnostico_gargalo", label: "Diagnóstico Gargalo", icon: ActivitySquare, color: "text-rose-600 font-black" },
     { id: "ai_insights", label: "Insights IA", icon: BrainCircuit, color: "text-orange-500 font-black" },
     { id: "ai_chat", label: "Chat Estratégico", icon: MessageSquare, color: "text-sky-500 font-bold" },
     { id: "diario", label: "Performance Diária", icon: CalendarIcon },
     { id: "performance_vendedores", label: "Performance Vendedores", icon: Award },
+    { id: "elasticidade", label: "Elasticidade Desconto", icon: LineChart, color: "text-amber-600" },
+    { id: "deep_dive", label: "Fluxo & Pareto", icon: TrendingUp, color: "text-indigo-600" },
+    { id: "qualidade_avancada", label: "Qualidade & Cesta", icon: Boxes, color: "text-emerald-600" },
     { id: "composicao", label: "Composição", icon: Layers, color: "text-indigo-500" },
     { id: "produtividade", label: "Produtividade", icon: Activity, color: "text-cyan-500" },
     { id: "compliance", label: "Auditoria PA", icon: ShieldCheck, color: "text-red-600" },
@@ -253,7 +265,6 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
       case "performance_vendedores": return <VendorPerformance data={data} />;
       case "composicao": return <SalesComposition data={data} vinculos={vinculos} />;
       case "produtividade": return <OperationalProductivity data={data} />;
-      case "fraude":
       case "compliance": return <ComplianceAudit data={data} />;
       case "oportunidades": return <LostOpportunities data={data} vinculos={vinculos} />;
       case "radar": return <RiskRadar data={data} />;
@@ -262,6 +273,10 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
       case "trocas": return <ExchangeManagement data={data} vinculos={vinculos} />;
       case "transacoes": return <TransactionList data={data} />;
       case "whatsapp": return <WhatsappReports data={data} vinculos={vinculos} />;
+      case "elasticidade": return <ElasticityAnalysis data={data} />;
+      case "deep_dive": return <AdvancedAnalytics data={data} />;
+      case "qualidade_avancada": return <QualityAnalysis data={data} vinculos={vinculos} />;
+      case "diagnostico_gargalo": return <BottleneckDiagnosis data={data} />;
       default: return null;
     }
   };

@@ -121,12 +121,19 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
         const vDesc = dec(getElement(prod, "vDesc")?.textContent);
         const qCom = dec(getElement(prod, "qCom")?.textContent);
         
-        // Regra para detectar item de CAMPANHA (Compre e Ganhe)
-        // Item sai por R$ 0,01 após desconto, mas o preço original era normal (> 0.10)
         const unitPriceOriginal = vProd / qCom;
         const unitPriceFinal = (vProd - vDesc) / qCom;
+        const unitDiscount = vDesc / qCom;
         
-        const isCampanha = unitPriceFinal > 0 && unitPriceFinal <= 0.015 && unitPriceOriginal > 0.10;
+        // REGRA REFINADA DE CAMPANHA (Compre e Ganhe / Promoção Casada):
+        // Identifica se o item saiu a R$ 0,01 OU se teve um desconto simbólico de R$ 0,01.
+        // O sistema de PDV usa essas duas pontas para totalizar o valor da oferta.
+        // Só é considerado campanha se o preço original do produto for superior a R$ 0,10.
+        const isCampanha = (
+          (unitPriceFinal > 0 && unitPriceFinal <= 0.015) || 
+          (unitDiscount > 0 && unitDiscount <= 0.015)
+        ) && unitPriceOriginal > 0.10;
+
         if (isCampanha) hasCampaignItem = true;
 
         itemsList.push({

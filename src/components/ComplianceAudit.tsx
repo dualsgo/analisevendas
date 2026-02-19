@@ -50,6 +50,11 @@ export function ComplianceAudit({ data }: ComplianceAuditProps) {
     data.forEach(sale => {
       if (sale.is_cancelada) return;
       
+      // REGRA: Desconsiderar se houver Crédito de Loja (tPag = 05)
+      // Em trocas, itens de valor baixo podem ser ajustes legítimos de saldo
+      const hasStoreCredit = sale.pagamentos_detalhe?.some(p => p.tPag === "05") || sale.is_troca;
+      if (hasStoreCredit) return;
+
       const suspiciousItems = sale.itens.filter(item => {
         const unitPrice = item.vProd / item.qCom;
         return unitPrice <= threshold;
@@ -130,7 +135,11 @@ export function ComplianceAudit({ data }: ComplianceAuditProps) {
         </div>
         <p className="text-sm text-rose-600/80 font-medium max-w-3xl">
           Identificação de itens com valor unitário inferior a <strong>R$ 0,10</strong>. 
-          Esta prática é frequentemente usada para inflar o indicador de Peças por Atendimento (PA) e causa divergências críticas no estoque.
+          Esta prática é frequentemente usada para inflar o indicador de Peças por Atendimento (PA).
+          <br/>
+          <span className="text-[10px] font-black uppercase mt-2 block bg-white/50 w-fit px-2 py-0.5 rounded">
+            Nota: Vendas com Crédito de Loja (Trocas) são automaticamente desconsideradas desta análise.
+          </span>
         </p>
       </div>
 
@@ -153,7 +162,7 @@ export function ComplianceAudit({ data }: ComplianceAuditProps) {
               <TableHeader>
                 <TableRow className="bg-slate-50/30 border-slate-50">
                   <TableHead className="text-[9px] font-black uppercase">Vendedor</TableHead>
-                  <TableHead className="text-[9px] font-black uppercase text-right">Itens R$ 0,01</TableHead>
+                  <TableHead className="text-[9px] font-black uppercase text-right">Itens Suspeitos</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

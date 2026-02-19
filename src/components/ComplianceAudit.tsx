@@ -30,7 +30,8 @@ import {
   Filter,
   BarChart3,
   TrendingDown,
-  Info
+  Info,
+  Settings2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, parseISO } from "date-fns";
@@ -42,7 +43,7 @@ interface ComplianceAuditProps {
 
 export function ComplianceAudit({ data }: ComplianceAuditProps) {
   const [searchTerm, setSearchTerm] = useState("");
-  const [threshold] = useState(0.10); // Valor de corte: R$ 0,10
+  const [threshold, setThreshold] = useState(0.10); // Valor de corte editável
 
   const suspectedSales = useMemo(() => {
     const list: any[] = [];
@@ -57,7 +58,7 @@ export function ComplianceAudit({ data }: ComplianceAuditProps) {
 
       const suspiciousItems = sale.itens.filter(item => {
         const unitPrice = item.vProd / item.qCom;
-        return unitPrice <= threshold;
+        return unitPrice > 0 && unitPrice <= threshold;
       });
 
       if (suspiciousItems.length > 0) {
@@ -122,7 +123,7 @@ export function ComplianceAudit({ data }: ComplianceAuditProps) {
       });
     });
     
-    exportToCsv(`Auditoria_PA_Itens_Baixo_Valor.csv`, rows, headers);
+    exportToCsv(`Auditoria_PA_Corte_RS_${threshold.toFixed(2)}.csv`, rows, headers);
   };
 
   return (
@@ -134,7 +135,7 @@ export function ComplianceAudit({ data }: ComplianceAuditProps) {
           <h2 className="text-xl font-black uppercase">Monitoramento de Integridade de PA</h2>
         </div>
         <p className="text-sm text-rose-600/80 font-medium max-w-3xl">
-          Identificação de itens com valor unitário inferior a <strong>R$ 0,10</strong>. 
+          Identificação de itens com valor unitário inferior a <strong>R$ {threshold.toFixed(2)}</strong>. 
           Esta prática é frequentemente usada para inflar o indicador de Peças por Atendimento (PA).
           <br/>
           <span className="text-[10px] font-black uppercase mt-2 block bg-white/50 w-fit px-2 py-0.5 rounded">
@@ -148,7 +149,7 @@ export function ComplianceAudit({ data }: ComplianceAuditProps) {
         <ComplianceStat label="Cupons Suspeitos" value={stats.suspectedCount} icon={AlertTriangle} color="text-rose-500" />
         <ComplianceStat label="Índice de Alerta" value={`${stats.impactPerc.toFixed(1)}%`} icon={BarChart3} color="text-amber-500" subLabel="do total de vendas" />
         <ComplianceStat label="Vendedores Envolvidos" value={stats.totalVendors} icon={User} color="text-slate-500" />
-        <ComplianceStat label="Corte de Auditoria" value="< R$ 0,10" icon={Info} color="text-sky-500" />
+        <ComplianceStat label="Corte Atual" value={`R$ ${threshold.toFixed(2)}`} icon={Settings2} color="text-sky-500" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -187,18 +188,38 @@ export function ComplianceAudit({ data }: ComplianceAuditProps) {
         {/* Relatório Detalhado */}
         <div className="lg:col-span-2 space-y-4">
           <Card className="ri-card border-none shadow-sm overflow-hidden">
-            <div className="p-4 bg-white flex flex-col md:flex-row gap-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <Input 
-                  placeholder="Buscar NF, Vendedor ou Produto..." 
-                  className="pl-9 rounded-xl border-slate-100 bg-slate-50/50 h-11 text-xs font-bold"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
+            <div className="p-4 bg-white flex flex-col md:flex-row gap-4 items-end">
+              <div className="flex-1 space-y-1.5">
+                <label className="text-[9px] font-black text-slate-400 uppercase px-1">Busca Geral</label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <Input 
+                    placeholder="Buscar NF, Vendedor ou Produto..." 
+                    className="pl-9 rounded-xl border-slate-100 bg-slate-50/50 h-11 text-xs font-bold"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
               </div>
+              
+              <div className="w-full md:w-48 space-y-1.5">
+                <label className="text-[9px] font-black text-slate-400 uppercase px-1">Corte Auditoria (R$)</label>
+                <div className="relative">
+                  <Settings2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-orange-500" />
+                  <Input 
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    placeholder="0.10" 
+                    className="pl-9 rounded-xl border-orange-100 bg-orange-50/20 h-11 text-xs font-black text-orange-700"
+                    value={threshold}
+                    onChange={(e) => setThreshold(parseFloat(e.target.value) || 0)}
+                  />
+                </div>
+              </div>
+
               <Button onClick={handleExport} variant="outline" className="rounded-xl h-11 font-black text-[10px] gap-2 border-slate-200 text-slate-600">
-                <Download className="w-4 h-4" /> EXPORTAR EVIDÊNCIAS
+                <Download className="w-4 h-4" /> EXPORTAR
               </Button>
             </div>
           </Card>
@@ -237,7 +258,7 @@ export function ComplianceAudit({ data }: ComplianceAuditProps) {
                 {filteredSales.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={4} className="text-center py-12 text-slate-300 font-black uppercase text-xs">
-                      Limpo: Sem itens de manipulação identificados
+                      Limpo: Sem itens abaixo do corte identificados
                     </TableCell>
                   </TableRow>
                 )}

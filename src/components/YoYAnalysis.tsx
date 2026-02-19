@@ -19,7 +19,9 @@ import {
   BrainCircuit,
   Settings2,
   History,
-  ArrowRight
+  ArrowRight,
+  Zap,
+  ShoppingBag
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { aiYoYConsiderations } from "@/ai/flows/ai-yoy-considerations-flow";
@@ -33,38 +35,34 @@ interface PeriodInput {
   venda: string;
   cupons: string;
   pa: string;
-  pm: string;
+  tkm: string;
 }
 
 export function YoYAnalysis({ data }: YoYAnalysisProps) {
-  // Estado para Inputs do Ano Atual (TY - This Year)
   const [tyInput, setTyInput] = useState<PeriodInput>({
     year: new Date().getFullYear().toString(),
     venda: "",
     cupons: "",
     pa: "",
-    pm: ""
+    tkm: ""
   });
 
-  // Estado para Inputs do Ano Anterior (LY - Last Year)
   const [lyInput, setLyInput] = useState<PeriodInput>({
     year: (new Date().getFullYear() - 1).toString(),
     venda: "",
     cupons: "",
     pa: "",
-    pm: ""
+    tkm: ""
   });
 
   const [aiLoading, setAiLoading] = useState(false);
   const [aiResult, setAiResult] = useState<any>(null);
 
-  // Tentar pré-preencher TY e LY se houver dados no XML
   useEffect(() => {
     const activeSales = data.filter(s => !s.is_cancelada && s.tpNF === 1);
     const years = Array.from(new Set(activeSales.map(s => new Date(s.dhEmi).getFullYear()))).sort((a, b) => b - a);
     
     if (years.length > 0) {
-      // Preencher TY (Mais recente)
       const currentYear = years[0];
       const tyRows = activeSales.filter(s => new Date(s.dhEmi).getFullYear() === currentYear);
       const vTY = tyRows.reduce((acc, s) => acc + parseFloat(s.vNF), 0);
@@ -76,10 +74,9 @@ export function YoYAnalysis({ data }: YoYAnalysisProps) {
         venda: vTY.toFixed(2),
         cupons: cTY.toString(),
         pa: (cTY > 0 ? iTY / cTY : 0).toFixed(2),
-        pm: (iTY > 0 ? vTY / iTY : 0).toFixed(2)
+        tkm: (cTY > 0 ? vTY / cTY : 0).toFixed(2)
       });
 
-      // Preencher LY (Se existir no XML)
       if (years.length >= 2) {
         const prevYear = years[1];
         const lyRows = activeSales.filter(s => new Date(s.dhEmi).getFullYear() === prevYear);
@@ -92,7 +89,7 @@ export function YoYAnalysis({ data }: YoYAnalysisProps) {
           venda: vLY.toFixed(2),
           cupons: cLY.toString(),
           pa: (cLY > 0 ? iLY / cLY : 0).toFixed(2),
-          pm: (iLY > 0 ? vLY / iLY : 0).toFixed(2)
+          tkm: (cLY > 0 ? vLY / cLY : 0).toFixed(2)
         });
       } else {
         setLyInput(prev => ({ ...prev, year: (currentYear - 1).toString() }));
@@ -100,13 +97,12 @@ export function YoYAnalysis({ data }: YoYAnalysisProps) {
     }
   }, [data]);
 
-  // Cálculos Consolidados baseados nos Inputs
   const stats = useMemo(() => {
     const ty = {
       venda: parseFloat(tyInput.venda) || 0,
       cupons: parseInt(tyInput.cupons) || 0,
       pa: parseFloat(tyInput.pa) || 0,
-      pm: parseFloat(tyInput.pm) || 0,
+      tkm: parseFloat(tyInput.tkm) || 0,
       year: tyInput.year
     };
 
@@ -114,45 +110,44 @@ export function YoYAnalysis({ data }: YoYAnalysisProps) {
       venda: parseFloat(lyInput.venda) || 0,
       cupons: parseInt(lyInput.cupons) || 0,
       pa: parseFloat(lyInput.pa) || 0,
-      pm: parseFloat(lyInput.pm) || 0,
+      tkm: parseFloat(lyInput.tkm) || 0,
       year: lyInput.year
     };
 
     const isReady = ty.venda > 0 && ly.venda > 0;
     if (!isReady) return { isReady: false };
 
-    // --- DECOMPOSIÇÃO E IMPACTO (Engenharia de Resultado) ---
-    // Impacto do PA: Venda TY - (Fluxo TY * PA LY * PM TY)
-    const vendaSimuladaPA = ty.cupons * ly.pa * ty.pm;
-    const impactoPA = ty.venda - vendaSimuladaPA;
+    // --- DECOMPOSIÇÃO E IMPACTO ---
+    // Impacto do Ticket Médio: Venda TY - (Fluxo TY * TKM LY)
+    const vendaSimuladaTKM = ty.cupons * ly.tkm;
+    const impactoTKM = ty.venda - vendaSimuladaTKM;
 
-    // Impacto do Fluxo: Venda TY - (Fluxo LY * PA TY * PM TY)
-    const vendaSimuladaFluxo = ly.cupons * ty.pa * ty.pm;
+    // Impacto do Fluxo: Venda TY - (Fluxo LY * TKM TY)
+    const vendaSimuladaFluxo = ly.cupons * ty.tkm;
     const impactoFluxo = ty.venda - vendaSimuladaFluxo;
 
-    // Impacto do Preço Médio: Venda TY - (Fluxo TY * PA TY * PM LY)
-    const vendaSimuladaPM = ty.cupons * ty.pa * ly.pm;
-    const impactoPM = ty.venda - vendaSimuladaPM;
+    // Impacto granular do PA (Simulação: PA TY vs PA LY mantendo Preço Médio fixo)
+    const pmTY = ty.pa > 0 ? ty.tkm / ty.pa : 0;
+    const vendaSimuladaPA = ty.cupons * ly.pa * pmTY;
+    const impactoPA = (ty.cupons * ty.pa * pmTY) - vendaSimuladaPA;
 
-    const diffVenda = ty.venda - ly.venda;
-    const totalImpactoAbs = Math.abs(impactoFluxo) + Math.abs(impactoPA) + Math.abs(impactoPM) || 1;
+    const totalImpactoAbs = Math.abs(impactoFluxo) + Math.abs(impactoTKM) || 1;
 
     return {
       isReady: true,
       ty,
       ly,
       diff: {
-        venda: diffVenda,
+        venda: ty.venda - ly.venda,
         percVenda: (ty.venda / ly.venda - 1) * 100,
         percFluxo: (ty.cupons / ly.cupons - 1) * 100,
         percPA: (ty.pa / ly.pa - 1) * 100,
-        percPM: (ty.pm / ly.pm - 1) * 100,
+        percTKM: (ty.tkm / ly.tkm - 1) * 100,
       },
-      impacto: { pa: impactoPA, fluxo: impactoFluxo, pm: impactoPM },
+      impacto: { pa: impactoPA, fluxo: impactoFluxo, tkm: impactoTKM },
       contrib: {
         fluxo: (impactoFluxo / totalImpactoAbs) * 100,
-        pa: (impactoPA / totalImpactoAbs) * 100,
-        pm: (impactoPM / totalImpactoAbs) * 100
+        tkm: (impactoTKM / totalImpactoAbs) * 100
       }
     };
   }, [tyInput, lyInput]);
@@ -161,16 +156,16 @@ export function YoYAnalysis({ data }: YoYAnalysisProps) {
     if (!stats.isReady) return;
     setAiLoading(true);
     try {
-      const context = `Comparação entre ${stats.ly.year} e ${stats.ty.year}. A venda variou ${stats.diff.percVenda.toFixed(1)}%. Impactos calculados: PA: R$ ${stats.impacto.pa.toFixed(2)}, Fluxo: R$ ${stats.impacto.fluxo.toFixed(2)}, Preço Médio: R$ ${stats.impacto.pm.toFixed(2)}.`;
+      const context = `Comparação entre ${stats.ly.year} e ${stats.ty.year}. Variação Venda: ${stats.diff.percVenda.toFixed(1)}%. Impacto Fluxo: R$ ${stats.impacto.fluxo.toFixed(2)}, Impacto TKM: R$ ${stats.impacto.tkm.toFixed(2)}, Impacto Eficiência (PA): R$ ${stats.impacto.pa.toFixed(2)}.`;
       const result = await aiYoYConsiderations({
         metrics: {
           vendaVarPerc: stats.diff.percVenda,
           fluxoVarPerc: stats.diff.percFluxo,
           paVarPerc: stats.diff.percPA,
-          pmVarPerc: stats.diff.percPM,
+          tkmVarPerc: stats.diff.percTKM,
           impactoPA: stats.impacto.pa,
           impactoFluxo: stats.impacto.fluxo,
-          impactoPM: stats.impacto.pm,
+          impactoTKM: stats.impacto.tkm,
         },
         context
       });
@@ -187,23 +182,20 @@ export function YoYAnalysis({ data }: YoYAnalysisProps) {
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-20 max-w-6xl mx-auto">
       
-      {/* Glossário Didático */}
       <div className="bg-white rounded-[2rem] p-6 border-2 border-indigo-100 shadow-sm space-y-3">
         <div className="flex items-center gap-3 text-indigo-600">
           <History className="w-6 h-6" />
           <h1 className="text-xl md:text-2xl font-black uppercase tracking-tight">Análise de Resultado YoY</h1>
         </div>
         <p className="text-sm text-slate-500 font-medium leading-relaxed">
-          Esta ferramenta compara dois períodos para entender a **causa raiz** da variação do faturamento. 
-          A engenharia de resultado isola o quanto você ganhou ou perdeu por conta da eficiência da equipe (**PA**), do fluxo de clientes (**Fluxo**) ou do preço dos produtos (**PM**).
+          Compare o desempenho histórico da sua unidade. A **Engenharia de Resultado** isola o quanto você ganhou ou perdeu por conta da eficiência de venda (**TKM/PA**) ou do volume de clientes (**Fluxo**).
         </p>
       </div>
 
-      {/* Formulários de Abastecimento */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <PeriodFormCard 
           title="Dados do Ano Atual" 
-          subtitle="Extraídos do XML ou inseridos manualmente"
+          subtitle="Preenchimento via XML ou Manual"
           input={tyInput} 
           setInput={setTyInput} 
           color="border-orange-200 bg-orange-50/20"
@@ -211,7 +203,7 @@ export function YoYAnalysis({ data }: YoYAnalysisProps) {
         />
         <PeriodFormCard 
           title="Dados do Ano Anterior" 
-          subtitle="Indicadores históricos para comparação"
+          subtitle="Dados históricos para comparação"
           input={lyInput} 
           setInput={setLyInput} 
           color="border-indigo-200 bg-indigo-50/20"
@@ -221,15 +213,14 @@ export function YoYAnalysis({ data }: YoYAnalysisProps) {
 
       {stats.isReady ? (
         <>
-          {/* Dashboard Comparativo */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <YoYCard label="Faturamento" ty={stats.ty.venda} ly={stats.ly.venda} isCurrency icon={TrendingUp} color="text-emerald-600" />
             <YoYCard label="Fluxo (Cupons)" ty={stats.ty.cupons} ly={stats.ly.cupons} icon={Users} color="text-sky-600" />
             <YoYCard label="Qualidade (PA)" ty={stats.ty.pa} ly={stats.ly.pa} icon={Target} color="text-orange-600" precision={2} />
+            <YoYCard label="Ticket Médio" ty={stats.ty.tkm} ly={stats.ly.tkm} isCurrency icon={ShoppingBag} color="text-purple-600" />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            {/* Matriz de Impacto */}
             <Card className="ri-card border-none bg-white overflow-hidden shadow-xl lg:col-span-8">
               <CardHeader className="bg-slate-900 text-white p-6">
                 <CardTitle className="text-xs font-black uppercase tracking-widest flex items-center gap-3">
@@ -238,27 +229,25 @@ export function YoYAnalysis({ data }: YoYAnalysisProps) {
               </CardHeader>
               <CardContent className="p-8 space-y-8">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <ImpactBox label="Impacto do PA" value={stats.impacto.pa} desc="Venda gerada/perdida pela eficiência de itens." isPositive={stats.impacto.pa > 0} />
-                  <ImpactBox label="Impacto do Fluxo" value={stats.impacto.fluxo} desc="Contribuição do volume de clientes." isPositive={stats.impacto.fluxo > 0} />
-                  <ImpactBox label="Impacto do Preço" value={stats.impacto.pm} desc="Variação causada pelo valor médio dos itens." isPositive={stats.impacto.pm > 0} />
+                  <ImpactBox label="Impacto do Fluxo" value={stats.impacto.fluxo} desc="Contribuição do volume de tráfego." isPositive={stats.impacto.fluxo > 0} />
+                  <ImpactBox label="Impacto do Ticket (TKM)" value={stats.impacto.tkm} desc="Venda gerada/perdida pelo valor do ticket." isPositive={stats.impacto.tkm > 0} />
+                  <ImpactBox label="Peso do PA" value={stats.impacto.pa} desc="Parcela do impacto vinda da eficiência de itens." isPositive={stats.impacto.pa > 0} />
                 </div>
 
                 <div className="bg-slate-50 p-6 rounded-[2rem] border-2 border-dashed border-slate-200 space-y-6">
                    <ProgressBar label="Contribuição por Fluxo" perc={stats.contrib.fluxo} color="bg-sky-500" />
-                   <ProgressBar label="Contribuição por Atendimento (PA)" perc={stats.contrib.pa} color="bg-orange-500" />
-                   <ProgressBar label="Contribuição por Valor Item (PM)" perc={stats.contrib.pm} color="bg-emerald-500" />
+                   <ProgressBar label="Contribuição por Técnica (TKM)" perc={stats.contrib.tkm} color="bg-purple-500" />
                 </div>
               </CardContent>
             </Card>
 
-            {/* Diagnóstico e IA */}
             <div className="lg:col-span-4 space-y-4">
               <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-2">Análise Executiva</h3>
               
               <YoYAlert 
                 title="Status de Qualidade"
-                desc={stats.diff.percPA < 0 ? "A qualidade do atendimento caiu. O cliente está levando menos itens que o ano anterior." : "A equipe está sendo mais eficiente no argumento de venda adicional."}
-                type={stats.diff.percPA < 0 ? "danger" : "success"}
+                desc={stats.diff.percTKM < 0 ? "A saúde do ticket caiu. Clientes estão gastando menos por visita que o ano anterior." : "Excelente! A equipe está conseguindo extrair mais valor de cada atendimento."}
+                type={stats.diff.percTKM < 0 ? "danger" : "success"}
               />
 
               {!aiResult ? (
@@ -270,25 +259,25 @@ export function YoYAnalysis({ data }: YoYAnalysisProps) {
                   {aiLoading ? (
                     <>
                       <Loader2 className="w-6 h-6 animate-spin" />
-                      <span className="text-[10px] font-black uppercase">Solzinho está calculando...</span>
+                      <span className="text-[10px] font-black uppercase">Calculando Estratégia...</span>
                     </>
                   ) : (
                     <>
-                      <Sparkles className="w-6 h-6 animate-pulse" />
-                      <span className="text-xs font-black uppercase">Considerações da IA</span>
+                      <BrainCircuit className="w-6 h-6 animate-pulse" />
+                      <span className="text-xs font-black uppercase">Gerar Considerações IA</span>
                     </>
                   )}
                 </Button>
               ) : (
                 <Card className="ri-card border-none bg-indigo-50 p-6 space-y-4 animate-in slide-in-from-bottom-2">
                   <div className="flex items-center gap-2 text-indigo-600">
-                    <BrainCircuit className="w-5 h-5" />
-                    <h4 className="text-[10px] font-black uppercase">Diagnóstico do Solzinho</h4>
+                    <Sparkles className="w-5 h-5" />
+                    <h4 className="text-[10px] font-black uppercase">Visão do Solzinho</h4>
                   </div>
                   <div className="space-y-4">
                     <p className="text-xs font-medium text-slate-700 leading-relaxed">{aiResult.analysis}</p>
                     <div className="p-3 bg-white rounded-xl border border-indigo-100">
-                      <p className="text-[9px] font-black text-indigo-600 uppercase mb-1">Sugestão Prática</p>
+                      <p className="text-[9px] font-black text-indigo-600 uppercase mb-1">Ação Sugerida</p>
                       <p className="text-xs font-bold text-slate-800">{aiResult.suggestion}</p>
                     </div>
                   </div>
@@ -300,10 +289,7 @@ export function YoYAnalysis({ data }: YoYAnalysisProps) {
       ) : (
         <div className="h-[40vh] flex flex-col items-center justify-center space-y-4 border-2 border-dashed border-slate-200 rounded-[2rem] bg-white text-center px-6">
           <History className="w-12 h-12 text-slate-200" />
-          <div>
-            <p className="text-sm font-black text-slate-400 uppercase tracking-tighter">Aguardando abastecimento de dados</p>
-            <p className="text-[10px] font-bold text-slate-300 uppercase max-w-sm mt-1">Preencha os campos de faturamento e fluxo acima para habilitar a engenharia de resultado.</p>
-          </div>
+          <p className="text-sm font-black text-slate-400 uppercase tracking-tighter">Preencha os indicadores de ambos os anos acima</p>
         </div>
       )}
     </div>
@@ -331,54 +317,23 @@ function PeriodFormCard({ title, subtitle, input, setInput, color, accent }: any
       <CardContent className="p-5 grid grid-cols-2 md:grid-cols-3 gap-4">
         <div className="space-y-1.5">
           <Label className="text-[9px] font-black uppercase text-slate-400">Ano</Label>
-          <Input 
-            value={input.year} 
-            onChange={e => handleChange('year', e.target.value)}
-            className="h-9 rounded-xl border-slate-200 font-bold text-xs"
-            placeholder="Ex: 2025"
-          />
+          <Input value={input.year} onChange={e => handleChange('year', e.target.value)} className="h-9 rounded-xl border-slate-200 font-bold text-xs" />
         </div>
         <div className="space-y-1.5">
           <Label className="text-[9px] font-black uppercase text-slate-400">Venda Total (R$)</Label>
-          <Input 
-            type="number"
-            value={input.venda} 
-            onChange={e => handleChange('venda', e.target.value)}
-            className="h-9 rounded-xl border-slate-200 font-bold text-xs"
-            placeholder="0.00"
-          />
+          <Input type="number" value={input.venda} onChange={e => handleChange('venda', e.target.value)} className="h-9 rounded-xl border-slate-200 font-bold text-xs" />
         </div>
         <div className="space-y-1.5">
           <Label className="text-[9px] font-black uppercase text-slate-400">Fluxo (Cupons)</Label>
-          <Input 
-            type="number"
-            value={input.cupons} 
-            onChange={e => handleChange('cupons', e.target.value)}
-            className="h-9 rounded-xl border-slate-200 font-bold text-xs"
-            placeholder="0"
-          />
+          <Input type="number" value={input.cupons} onChange={e => handleChange('cupons', e.target.value)} className="h-9 rounded-xl border-slate-200 font-bold text-xs" />
         </div>
         <div className="space-y-1.5">
           <Label className="text-[9px] font-black uppercase text-slate-400">PA (Peças/Atend)</Label>
-          <Input 
-            type="number"
-            step="0.01"
-            value={input.pa} 
-            onChange={e => handleChange('pa', e.target.value)}
-            className="h-9 rounded-xl border-slate-200 font-bold text-xs"
-            placeholder="0.00"
-          />
+          <Input type="number" step="0.01" value={input.pa} onChange={e => handleChange('pa', e.target.value)} className="h-9 rounded-xl border-slate-200 font-bold text-xs" />
         </div>
         <div className="space-y-1.5">
-          <Label className="text-[9px] font-black uppercase text-slate-400">Preço Médio (R$)</Label>
-          <Input 
-            type="number"
-            step="0.01"
-            value={input.pm} 
-            onChange={e => handleChange('pm', e.target.value)}
-            className="h-9 rounded-xl border-slate-200 font-bold text-xs"
-            placeholder="0.00"
-          />
+          <Label className="text-[9px] font-black uppercase text-slate-400">Ticket Médio (R$)</Label>
+          <Input type="number" step="0.01" value={input.tkm} onChange={e => handleChange('tkm', e.target.value)} className="h-9 rounded-xl border-slate-200 font-bold text-xs" />
         </div>
       </CardContent>
     </Card>
@@ -391,18 +346,18 @@ function YoYCard({ label, ty, ly, isCurrency = false, icon: Icon, color, precisi
   const formatValue = (v: number) => isCurrency ? v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : v.toFixed(precision);
 
   return (
-    <Card className="ri-card border-none bg-white p-6 space-y-4 shadow-sm">
+    <Card className="ri-card border-none bg-white p-5 space-y-4 shadow-sm">
       <div className="flex items-center justify-between">
         <div className={cn("p-2 rounded-xl bg-slate-50", color)}><Icon className="w-5 h-5" /></div>
-        <Badge className={cn("font-black text-[10px] border-none px-3", isPositive ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700")}>
+        <Badge className={cn("font-black text-[10px] border-none px-2 h-5", isPositive ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700")}>
           {perc > 0 ? "+" : ""}{perc.toFixed(1)}%
         </Badge>
       </div>
       <div>
-        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{label}</p>
+        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 leading-none">{label}</p>
         <div className="flex items-baseline gap-2">
-          <p className="text-2xl font-black text-slate-800">{formatValue(ty)}</p>
-          <p className="text-[10px] font-bold text-slate-300 line-through">LY: {formatValue(ly)}</p>
+          <p className="text-xl font-black text-slate-800 tracking-tighter">{formatValue(ty)}</p>
+          <p className="text-[9px] font-bold text-slate-300 line-through">LY: {formatValue(ly)}</p>
         </div>
       </div>
     </Card>

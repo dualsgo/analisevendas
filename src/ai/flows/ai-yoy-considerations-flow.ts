@@ -11,10 +11,10 @@ const YoYConsiderationsInputSchema = z.object({
     vendaVarPerc: z.number(),
     fluxoVarPerc: z.number(),
     paVarPerc: z.number(),
-    pmVarPerc: z.number(),
+    tkmVarPerc: z.number(),
     impactoPA: z.number(),
     impactoFluxo: z.number(),
-    impactoPM: z.number(),
+    impactoTKM: z.number(),
   }),
   context: z.string().describe('Resumo textual do que aconteceu na comparação.'),
 });
@@ -38,22 +38,22 @@ const yoyConsiderationsPrompt = ai.definePrompt({
 
 INDICADORES DE VARIAÇÃO:
 - Variação Venda: {{metrics.vendaVarPerc}}%
-- Variação Fluxo: {{metrics.fluxoVarPerc}}%
-- Variação PA: {{metrics.paVarPerc}}%
-- Variação Preço Médio (PM): {{metrics.pmVarPerc}}%
+- Variação Fluxo (Cupons): {{metrics.fluxoVarPerc}}%
+- Variação PA (Peças por Atendimento): {{metrics.paVarPerc}}%
+- Variação Ticket Médio (TKM): {{metrics.tkmVarPerc}}%
 
 DECOMPOSIÇÃO DE IMPACTO (R$):
-- Ganho/Perda por PA: R$ {{metrics.impactoPA}}
-- Ganho/Perda por Fluxo: R$ {{metrics.impactoFluxo}}
-- Ganho/Perda por Preço: R$ {{metrics.impactoPM}}
+- Ganho/Perda por Eficiência (PA): R$ {{metrics.impactoPA}}
+- Ganho/Perda por Tráfego (Fluxo): R$ {{metrics.impactoFluxo}}
+- Ganho/Perda por Valor de Ticket (TKM): R$ {{metrics.impactoTKM}}
 
-RESUMO:
+RESUMO DO CONTEXTO:
 {{{context}}}
 
 Sua tarefa:
-1. Explique por que a venda variou. Se o PA caiu e o fluxo subiu, aponte que a equipe está perdendo eficiência.
-2. Identifique se o crescimento é "saudável" ou "perigoso" (dependente de fluxo externo).
-3. Dê uma diretriz clara para o gerente focar no treinamento ou em tráfego.
+1. Explique por que a venda variou. Se o TKM subiu e o fluxo caiu, destaque que a equipe está "salvando" o dia com vendas maiores para menos clientes.
+2. Identifique se o crescimento é "saudável" (baseado em técnica/TKM/PA) ou "perigoso" (dependente apenas de fluxo externo).
+3. Dê uma diretriz clara para o gerente focar no treinamento de venda adicional ou em ações de tráfego.
 
 Responda em formato JSON estruturado conforme o schema.`
 });

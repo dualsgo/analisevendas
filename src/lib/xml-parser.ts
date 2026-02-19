@@ -112,8 +112,8 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     const vNFValue = icmsTot ? dec(getElement(icmsTot, "vNF")?.textContent) : 0;
 
     const itemsList: Item[] = [];
-    let hasCampaignItem = false;
-
+    
+    // Passagem 1: Extrair itens básicos
     getElements(infNFe, "det").forEach(det => {
       const prod = getElement(det, "prod");
       if (prod) {
@@ -121,31 +121,48 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
         const vDesc = dec(getElement(prod, "vDesc")?.textContent);
         const qCom = dec(getElement(prod, "qCom")?.textContent);
         
-        const unitPriceOriginal = vProd / qCom;
-        const unitPriceFinal = (vProd - vDesc) / qCom;
-        const unitDiscount = vDesc / qCom;
-        
-        // REGRA REFINADA DE CAMPANHA (Compre e Ganhe / Promoção Casada):
-        // Identifica se o item saiu a R$ 0,01 OU se teve um desconto simbólico de R$ 0,01.
-        // O sistema de PDV usa essas duas pontas para totalizar o valor da oferta.
-        // Só é considerado campanha se o preço original do produto for superior a R$ 0,10.
-        const isCampanha = (
-          (unitPriceFinal > 0 && unitPriceFinal <= 0.015) || 
-          (unitDiscount > 0 && unitDiscount <= 0.015)
-        ) && unitPriceOriginal > 0.10;
-
-        if (isCampanha) hasCampaignItem = true;
-
         itemsList.push({
           cProd: getElement(prod, "cProd")?.textContent || "",
           xProd: getElement(prod, "xProd")?.textContent || "",
           qCom,
           vProd,
           vDesc,
-          is_campanha: isCampanha
+          is_campanha: false
         });
       }
     });
+
+    // Passagem 2: Aplicar Regra de Campanha (Complementaridade)
+    // Se houver um item com desconto de 99.9% (brinde) E um item com desconto simbólico de R$ 0,01 (sinalizador), é Campanha.
+    let hasExtremeDiscount = false; // Item que saiu a 0,01
+    let hasSymbolicDiscount = false; // Item com desconto de 0,01
+
+    itemsList.forEach(item => {
+      const unitPriceFinal = (item.vProd - item.vDesc) / item.qCom;
+      const unitDiscount = item.vDesc / item.qCom;
+      const percDesc = item.vProd > 0 ? (item.vDesc / item.vProd) : 0;
+
+      // 1. Detectar brinde (Preço final ~0,01 mas preço original relevante)
+      if (unitPriceFinal > 0 && unitPriceFinal <= 0.015 && item.vProd > 0.10) {
+        hasExtremeDiscount = true;
+        item.is_campanha = true;
+      }
+
+      // 2. Detectar sinalizador (Desconto ~0,01 mas preço original relevante)
+      if (unitDiscount > 0 && unitDiscount <= 0.015 && item.vProd > 0.10) {
+        hasSymbolicDiscount = true;
+        item.is_campanha = true;
+      }
+
+      // 3. Regra de Segurança por Porcentagem (Casos de valores altos)
+      if (percDesc > 0.999) {
+        hasExtremeDiscount = true;
+        item.is_campanha = true;
+      }
+    });
+
+    // A nota só é "CAMPANHA" se houver indício de mecânica promocional casada
+    const isCampanhaNota = hasExtremeDiscount || hasSymbolicDiscount;
 
     const pagamentosDet: Array<{ tPag: string, vPag: number, tpIntegra?: string }> = [];
     let vTrocoPag = 0;
@@ -182,7 +199,7 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     const infCpl = infAdic ? (getElement(infAdic, "infCpl")?.textContent || "") : "";
     const vendedor = extractVendedor(infCpl);
 
-    // MATRIZ DE SCORE (0 a 5) - ETAPA 1
+    // Score de Pickup (Etapa 1)
     let pickup_score = 0;
     if (tpIntegraValue === "2") pickup_score++;
     if (vTrocoPag === 0) pickup_score++;
@@ -207,7 +224,7 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
 
     // Determinar Tipo de Desconto Final
     let tipoDescontoFinal = "PADRÃO";
-    if (hasCampaignItem) tipoDescontoFinal = "CAMPANHA";
+    if (isCampanhaNota) tipoDescontoFinal = "CAMPANHA";
     else if (isAdicionalDoc) tipoDescontoFinal = "ADICIONAL";
     else if (isMostruario) tipoDescontoFinal = "MOSTRUÁRIO";
 
@@ -223,7 +240,7 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
       is_devolucao: isDevolucao, refNFe: refNFes, refNFe_normalizadas: refNFes.map(r => r.replace(/\D/g, "")),
       is_retirada_online: isRetiradaOnline, vTroco: vTrocoPag.toFixed(2), is_presencial_por_troco: !isRetiradaOnline, tpIntegra: tpIntegraValue,
       tem_desconto: descontoTotal > 0, tipo_desconto: tipoDescontoFinal,
-      status_auditoria: hasCampaignItem ? "CAMPANHA IDENTIFICADA" : (isAdicionalDoc ? "AGUARDANDO VÍNCULO" : (descontoTotal > 0 ? "DESCONTO APLICADO" : "SEM DESCONTO")),
+      status_auditoria: isCampanhaNota ? "CAMPANHA IDENTIFICADA" : (isAdicionalDoc ? "AGUARDANDO VÍNCULO" : (descontoTotal > 0 ? "DESCONTO APLICADO" : "SEM DESCONTO")),
       cep_dest, cep_loja, is_cep_diferente_da_loja: !!cep_dest && cep_dest !== cep_loja,
       is_endereco_real: !!cep_dest, cpf_cnpj_dest: cpf_cnpj, nome_dest, endereco_dest: "", tem_destinatario: !!cpf_cnpj,
       itens: itemsList,

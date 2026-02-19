@@ -34,7 +34,6 @@ function extractVendedor(infCpl: string): string {
 
   let result = candidate.substring(0, endIdx).trim();
 
-  // Heurística: remover ID numérico no final (ex: "JOAO SILVA 12345")
   const trailingIdMatch = result.match(/\s+\d+$/);
   if (trailingIdMatch && trailingIdMatch.index) {
     result = result.substring(0, trailingIdMatch.index);
@@ -48,7 +47,6 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     const parser = new DOMParser();
     const xmlDoc = parser.parseFromString(xmlString, "text/xml");
 
-    // Identificação de Evento de Cancelamento
     if (xmlDoc.getElementsByTagName("procEventoNFe").length > 0 || xmlDoc.getElementsByTagName("retCancNFe").length > 0) {
       return {
         is_cancelada: true,
@@ -162,17 +160,17 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     const infCpl = infAdic ? (getElement(infAdic, "infCpl")?.textContent || "") : "";
     const vendedor = extractVendedor(infCpl);
 
-    // NOVA MATRIZ DE SCORE (0 a 5)
+    // MATRIZ DE SCORE (0 a 5) - ETAPA 1
     let pickup_score = 0;
     // 1. Integração Digital (tpIntegra = 2)
     if (tpIntegraValue === "2") pickup_score++;
     // 2. Ausência de Troco
     if (vTrocoPag === 0) pickup_score++;
-    // 3. Restrição de Espécie (Sem código 01 - Dinheiro)
+    // 3. Restrição de Espécie (Nenhum 01 - Dinheiro)
     if (pagamentosDet.every(p => p.tPag !== "01")) pickup_score++;
-    // 4. Padrão do Nome do Cliente (Presença de Minúsculas = Digital)
+    // 4. Ortografia do Cliente (Forte indicador: Minúsculas = Site)
     if (/[a-z]/.test(nome_dest)) pickup_score++;
-    // 5. Emissor Sistêmico
+    // 5. Emissor Sistêmico (Vendedor não identificado ou sistêmico)
     if (vendedor === "VENDEDOR NÃO IDENTIFICADO" || /SITE|ECOMM|INT|POS/i.test(vendedor)) pickup_score++;
 
     const isRetiradaOnline = pickup_score >= 3;
@@ -193,7 +191,7 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     return {
       chave, nf, serie: getElement(ide, "serie")?.textContent || "", modelo: getElement(ide, "mod")?.textContent || "", dhEmi, vendedor,
       tpNF, finNFe, natOp,
-      canal: isTroca ? "TROCA" : (isRetiradaOnline ? "RETIRADA_ONLINE" : (isAdicionalDoc ? "RETIRADA_ADICIONAL" : "LOJA_FISICA")),
+      canal: isTroca ? "TROCA" : (isRetiradaOnline ? "RETIRADA_ONLINE" : "LOJA_FISICA"),
       subcanal: "", canal_consolidado: isTroca ? "TROCA" : (isRetiradaOnline ? "RETIRADA_ONLINE" : "VENDA_LOJA"),
       is_adicional: isAdicionalDoc, is_adicional_suspeito: false, motivo_adicional: isAdicionalDoc ? "DESCONTO PADRÃO ADICIONAL" : "",
       vNF: vNFValue.toFixed(2), itens_qtd: itemsList.reduce((acc, it) => acc + it.qCom, 0).toString(),
@@ -202,7 +200,7 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
       is_devolucao: isDevolucao, refNFe: refNFes, refNFe_normalizadas: refNFes.map(r => r.replace(/\D/g, "")),
       is_retirada_online: isRetiradaOnline, vTroco: vTrocoPag.toFixed(2), is_presencial_por_troco: !isRetiradaOnline, tpIntegra: tpIntegraValue,
       tem_desconto: descontoTotal > 0, tipo_desconto: isAdicionalDoc ? "ADICIONAL" : (isMostruario ? "MOSTRUÁRIO" : "PADRÃO"),
-      status_auditoria: isAdicionalDoc ? "PADRÃO ADICIONAL" : (descontoTotal > 0 ? "DESCONTO APLICADO" : "SEM DESCONTO"),
+      status_auditoria: isAdicionalDoc ? "AGUARDANDO VÍNCULO" : (descontoTotal > 0 ? "DESCONTO APLICADO" : "SEM DESCONTO"),
       cep_dest, cep_loja, is_cep_diferente_da_loja: !!cep_dest && cep_dest !== cep_loja,
       is_endereco_real: !!cep_dest, cpf_cnpj_dest: cpf_cnpj, nome_dest, endereco_dest: "", tem_destinatario: !!cpf_cnpj,
       itens: itemsList,

@@ -51,7 +51,6 @@ import {
 import { cn } from "@/lib/utils";
 import { format, parseISO } from "date-fns";
 
-// Helper component for sortable headers (Reused)
 function SortableHeader({ label, sortKey, currentSort, onSort, className }: any) {
   const isSorted = currentSort.key === sortKey;
   
@@ -85,7 +84,6 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
     return data.filter(r => r.canal === "RETIRADA_ONLINE" && !r.is_cancelada);
   }, [data]);
 
-  // Sorting Config
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" }>({ key: "nf", direction: "desc" });
 
   const handleSort = (key: string) => {
@@ -95,7 +93,6 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
     }));
   };
 
-  // Mapear adicionais vinculados para acesso rápido
   const vinculadosMap = useMemo(() => {
     const map: Record<string, DetailedSaleRow[]> = {};
     data.forEach(r => {
@@ -123,7 +120,6 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
       return matchesSearch && matchesAdicional;
     });
 
-    // Apply Sorting
     return result.sort((a, b) => {
       const { key, direction } = sortConfig;
       const modifier = direction === "asc" ? 1 : -1;
@@ -159,7 +155,6 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
 
   return (
     <div className="space-y-4 animate-in fade-in duration-500 pb-10">
-      {/* Resumo do Canal Pickup Compacto */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <KPIStat label="Pedidos Pickup" value={stats.total} icon={Smartphone} color="text-sky-500" />
         <KPIStat label="Taxa Conversão" value={`${stats.taxaConversao.toFixed(1)}%`} icon={Target} color="text-orange-500" />
@@ -169,7 +164,7 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
           value={stats.suspeitos} 
           icon={AlertCircle} 
           color="text-amber-500" 
-          subLabel="Confiança < 4"
+          subLabel="Score < 4"
         />
       </div>
 
@@ -249,7 +244,6 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
           </Table>
         </div>
 
-        {/* Mobile View */}
         <div className="lg:hidden space-y-3">
           {filteredOrders.map((order) => {
             return (
@@ -323,7 +317,6 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
                   </div>
                 </div>
 
-                {/* ADICIONAL VINCULADO */}
                 <div className="space-y-4 pt-4 border-t border-dashed">
                   <h4 className="text-[10px] font-black uppercase text-orange-500 tracking-widest flex items-center gap-2">
                     <Zap className="w-3.5 h-3.5" /> Venda Adicional Identificada

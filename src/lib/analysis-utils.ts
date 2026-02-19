@@ -6,9 +6,11 @@ import { DetailedSaleRow, VinculoTroca } from "./types";
  * Aplica-se APENAS após a Etapa 1 (Pickup já identificado no parser)
  */
 export function detectarAdicionaisSuspeitos(rows: DetailedSaleRow[]): DetailedSaleRow[] {
-  // 1. Separar Pickups das demais notas de saída
+  // 1. Isolar Pickups confirmadas na Etapa 1
   const retiradas = rows.filter(r => r.canal === "RETIRADA_ONLINE" && !r.is_cancelada);
-  const outrasSaidas = rows.filter(r => r.tpNF === 1 && r.canal !== "RETIRADA_ONLINE" && !r.is_cancelada && !r.is_troca);
+  
+  // 2. Isolar notas que NÃO são retiradas para verificar se são adicionais
+  const candidatos = rows.filter(r => r.tpNF === 1 && r.canal !== "RETIRADA_ONLINE" && !r.is_cancelada && !r.is_troca);
 
   // Mapear Pickups por CPF para busca rápida
   const pickupsPorCpf = new Map<string, DetailedSaleRow[]>();
@@ -19,44 +21,50 @@ export function detectarAdicionaisSuspeitos(rows: DetailedSaleRow[]): DetailedSa
     }
   });
 
-  // 2. Processar cada nota física para verificar vínculo
-  outrasSaidas.forEach(outra => {
-    const cpf = outra.cpf_cnpj_dest;
+  // 3. Processar cada nota física para verificar vínculo
+  candidatos.forEach(nota => {
+    const cpf = nota.cpf_cnpj_dest;
+    const temDescontoEstrategico = parseFloat(nota.percentual_desconto) >= 0.08 && parseFloat(nota.percentual_desconto) <= 0.12;
+
     if (!cpf) {
-      if (outra.is_adicional) {
-        outra.is_adicional = false;
-        outra.canal = "LOJA_FISICA";
-        outra.tipo_desconto = "PADRÃO";
-        outra.status_auditoria = "DESCONTO SEM VÍNCULO (CPF AUSENTE)";
+      // Se não tem CPF mas tem desconto de 10%, é um falso positivo de adicional
+      if (nota.is_adicional) {
+        nota.is_adicional = false;
+        nota.canal = "LOJA_FISICA";
+        nota.status_auditoria = "DESCONTO SEM VÍNCULO (CPF AUSENTE)";
       }
       return;
     }
 
     const pickupsDoCliente = pickupsPorCpf.get(cpf) || [];
-    const dataOutra = outra.dhEmi.substring(0, 10);
+    const dataNota = nota.dhEmi.substring(0, 10);
     
-    const pickupVinculada = pickupsDoCliente.find(p => p.dhEmi.substring(0, 10) === dataOutra);
+    // Vínculo: Mesmo CPF + Mesma Data
+    const pickupVinculada = pickupsDoCliente.find(p => p.dhEmi.substring(0, 10) === dataNota);
 
     if (pickupVinculada) {
-      outra.chave_retirada_associada = pickupVinculada.chave;
-      outra.data_retirada_associada = pickupVinculada.dhEmi;
+      nota.chave_retirada_associada = pickupVinculada.chave;
+      nota.data_retirada_associada = pickupVinculada.dhEmi;
+      nota.canal = "RETIRADA_ADICIONAL";
       
-      if (outra.is_adicional) {
-        outra.canal = "RETIRADA_ADICIONAL";
-        outra.tipo_desconto = "ADICIONAL";
-        outra.status_auditoria = "ADICIONAL CONFIRMADO";
+      if (temDescontoEstrategico) {
+        nota.is_adicional = true;
+        nota.is_adicional_suspeito = false;
+        nota.tipo_desconto = "ADICIONAL";
+        nota.status_auditoria = "ADICIONAL CONFIRMADO";
       } else {
-        outra.is_adicional_suspeito = true;
-        outra.canal = "RETIRADA_ADICIONAL";
-        outra.motivo_adicional = "Vínculo CPF/Data (Sem desconto)";
-        outra.status_auditoria = "ADICIONAL SUSPEITO";
+        nota.is_adicional = false;
+        nota.is_adicional_suspeito = true;
+        nota.motivo_adicional = "Vínculo CPF/Data (Sem desconto)";
+        nota.status_auditoria = "ADICIONAL SUSPEITO";
       }
     } else {
-      if (outra.is_adicional) {
-        outra.is_adicional = false;
-        outra.canal = "LOJA_FISICA";
-        outra.tipo_desconto = "PADRÃO";
-        outra.status_auditoria = "DESCONTO APLICADO (SEM PICKUP VINCULADO)";
+      // FILTRO DE FALSO POSITIVO: Se tinha desconto de 10% mas não tem pickup no dia, REBAIXA
+      if (nota.is_adicional || temDescontoEstrategico) {
+        nota.is_adicional = false;
+        nota.is_adicional_suspeito = false;
+        nota.canal = "LOJA_FISICA";
+        nota.status_auditoria = "DESCONTO AVULSO (SEM PICKUP NO DIA)";
       }
     }
   });
@@ -140,12 +148,10 @@ function criarVinculo(entrada: DetailedSaleRow, saida: DetailedSaleRow, metodo: 
   const vCredito = parseFloat(saida.vTroca);
   const vDiferenca = parseFloat(saida.dif_troca);
 
-  // Cálculo de Tempo e Produtividade
   const tEntrada = new Date(entrada.dhEmi).getTime();
   const tSaida = new Date(saida.dhEmi).getTime();
   const tempoMin = Math.abs(tSaida - tEntrada) / 60000;
 
-  // Vendas no intervalo (Exclui as próprias notas do vínculo)
   const intervaloVendedor = allRows.filter(r => 
     r.vendedor === saida.vendedor && 
     r.tpNF === 1 && 
@@ -161,21 +167,20 @@ function criarVinculo(entrada: DetailedSaleRow, saida: DetailedSaleRow, metodo: 
     new Date(r.dhEmi).getTime() <= Math.max(tEntrada, tSaida)
   ).length;
 
-  // Score de Qualidade (0-100)
   let score = 50;
   let diag = "Troca Operacional";
 
-  if (vDiferenca > 0.1) score += 20; // Upsell
-  if (vDiferenca > 100) score += 10; // Alto Upsell
-  if (vDiferenca < -0.1) score -= 20; // Perda de Receita (Crédito)
+  if (vDiferenca > 0.1) score += 20; 
+  if (vDiferenca > 100) score += 10;
+  if (vDiferenca < -0.1) score -= 20; 
   
   const diffItens = parseInt(saida.itens_qtd) - parseInt(entrada.itens_qtd);
-  if (diffItens > 0) score += 10; // Ganho de PA
-  if (diffItens < 0) score -= 15; // Perda de PA
+  if (diffItens > 0) score += 10; 
+  if (diffItens < 0) score -= 15; 
 
-  if (tempoMin < 10) score += 10; // Agilidade
+  if (tempoMin < 10) score += 10; 
   if (tempoMin > 30 && intervaloLoja > 5) {
-    score -= 15; // Ineficiência em pico
+    score -= 15; 
     diag = "Troca Ineficiente (Lenta em horário de pico)";
   }
 

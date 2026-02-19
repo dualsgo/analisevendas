@@ -1,11 +1,21 @@
-
 "use client";
 
 import React, { useState } from "react";
 import { DetailedSaleRow, VinculoTroca } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Loader2, BrainCircuit, Target, TrendingUp, AlertTriangle, Lightbulb, Copy, Check } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { 
+  Sparkles, 
+  Loader2, 
+  BrainCircuit, 
+  Target, 
+  TrendingUp, 
+  AlertTriangle, 
+  Lightbulb, 
+  Copy, 
+  Check 
+} from "lucide-react";
 import { aiSalesSummaryReport } from "@/ai/flows/ai-sales-summary-report-flow";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -19,10 +29,12 @@ export function AISummary({ data, vinculos }: AISummaryProps) {
   const [loading, setLoading] = useState(false);
   const [report, setReport] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
   const generateReport = async () => {
     setLoading(true);
+    setError(null);
     try {
       // 1. Agregado por Canal
       const channelMap: Record<string, any> = {};
@@ -93,6 +105,7 @@ export function AISummary({ data, vinculos }: AISummaryProps) {
       setReport(response.summary);
     } catch (error) {
       console.error(error);
+      setError("O motor de Inteligência Artificial encontrou uma instabilidade técnica. Você pode continuar usando todas as outras funcionalidades de análise matemática enquanto resolvemos isso.");
       toast({
         title: "Erro na IA",
         description: "Não foi possível gerar o relatório no momento.",
@@ -140,6 +153,16 @@ export function AISummary({ data, vinculos }: AISummaryProps) {
           )}
         </div>
       </section>
+
+      {error && (
+        <Alert variant="destructive" className="max-w-4xl mx-auto bg-amber-50 border-amber-200 text-amber-800 rounded-2xl">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle className="font-black uppercase text-xs">Atenção Operacional</AlertTitle>
+          <AlertDescription className="text-xs font-medium">
+            {error}
+          </AlertDescription>
+        </Alert>
+      )}
 
       {loading && (
         <div className="py-20 flex flex-col items-center gap-6 text-slate-400">

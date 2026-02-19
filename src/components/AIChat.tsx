@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { 
   Send, 
   Bot, 
@@ -15,7 +16,8 @@ import {
   MessageSquare, 
   Zap, 
   BrainCircuit,
-  Trash2
+  Trash2,
+  AlertTriangle
 } from "lucide-react";
 import { aiSalesChat } from "@/ai/flows/ai-sales-chat-flow";
 import { cn } from "@/lib/utils";
@@ -36,6 +38,7 @@ export function AIChat({ data, vinculos }: AIChatProps) {
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<boolean>(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll para o fim
@@ -52,6 +55,7 @@ export function AIChat({ data, vinculos }: AIChatProps) {
     setInput("");
     setMessages(prev => [...prev, { role: 'user', content: userMsg }]);
     setLoading(true);
+    setError(false);
 
     try {
       // Preparar contexto para a IA
@@ -99,7 +103,8 @@ export function AIChat({ data, vinculos }: AIChatProps) {
       setMessages(prev => [...prev, { role: 'model', content: response.text }]);
     } catch (error) {
       console.error(error);
-      setMessages(prev => [...prev, { role: 'model', content: "Ops, tive um probleminha para processar isso. Pode tentar perguntar de novo?" }]);
+      setError(true);
+      setMessages(prev => [...prev, { role: 'model', content: "Ops, tive um probleminha técnico para processar sua pergunta agora. O motor de IA pode estar instável. Tente novamente em alguns instantes." }]);
     } finally {
       setLoading(false);
     }
@@ -115,15 +120,16 @@ export function AIChat({ data, vinculos }: AIChatProps) {
           </div>
           <div>
             <h3 className="text-sm font-black text-slate-800 uppercase tracking-tight">Chat Estratégico</h3>
-            <p className="text-[10px] font-bold text-emerald-500 uppercase flex items-center gap-1">
-              <Zap className="w-3 h-3 fill-current" /> Motor Genkit Online
+            <p className={cn("text-[10px] font-bold uppercase flex items-center gap-1", error ? "text-rose-500" : "text-emerald-500")}>
+              {error ? <AlertTriangle className="w-3 h-3" /> : <Zap className="w-3 h-3 fill-current" />}
+              {error ? "IA com Instabilidade" : "Motor Genkit Online"}
             </p>
           </div>
         </div>
         <Button 
           variant="ghost" 
           size="icon" 
-          onClick={() => setMessages([messages[0]])}
+          onClick={() => { setMessages([messages[0]]); setError(false); }}
           className="text-slate-300 hover:text-rose-500 rounded-full"
         >
           <Trash2 className="w-4 h-4" />
@@ -173,6 +179,14 @@ export function AIChat({ data, vinculos }: AIChatProps) {
             <div ref={scrollRef} />
           </div>
         </ScrollArea>
+
+        {error && (
+          <div className="px-4 pb-2">
+            <Alert className="bg-rose-50 border-rose-100 text-rose-700 py-2 rounded-xl">
+              <AlertDescription className="text-[10px] font-bold uppercase">Falha na conexão com a IA. Tente reformular a pergunta ou limpar o chat.</AlertDescription>
+            </Alert>
+          </div>
+        )}
 
         {/* Input */}
         <div className="p-4 bg-white border-t border-slate-100">

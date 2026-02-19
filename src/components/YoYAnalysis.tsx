@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { 
   ArrowUpRight, 
   TrendingUp, 
@@ -21,7 +22,8 @@ import {
   History,
   ArrowRight,
   Zap,
-  ShoppingBag
+  ShoppingBag,
+  AlertTriangle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { aiYoYConsiderations } from "@/ai/flows/ai-yoy-considerations-flow";
@@ -57,10 +59,14 @@ export function YoYAnalysis({ data }: YoYAnalysisProps) {
 
   const [aiLoading, setAiLoading] = useState(false);
   const [aiResult, setAiResult] = useState<any>(null);
+  const [aiError, setAiError] = useState<string | null>(null);
 
   useEffect(() => {
     const activeSales = data.filter(s => !s.is_cancelada && s.tpNF === 1);
-    const years = Array.from(new Set(activeSales.map(s => new Date(s.dhEmi).getFullYear()))).sort((a, b) => b - a);
+    const years = Array.from(new Set(activeSales.map(s => {
+      const d = new Date(s.dhEmi);
+      return isNaN(d.getTime()) ? null : d.getFullYear();
+    }))).filter(Boolean).sort((a, b) => b! - a!) as number[];
     
     if (years.length > 0) {
       const currentYear = years[0];
@@ -118,15 +124,12 @@ export function YoYAnalysis({ data }: YoYAnalysisProps) {
     if (!isReady) return { isReady: false };
 
     // --- DECOMPOSIÇÃO E IMPACTO ---
-    // Impacto do Ticket Médio: Venda TY - (Fluxo TY * TKM LY)
     const vendaSimuladaTKM = ty.cupons * ly.tkm;
     const impactoTKM = ty.venda - vendaSimuladaTKM;
 
-    // Impacto do Fluxo: Venda TY - (Fluxo LY * TKM TY)
     const vendaSimuladaFluxo = ly.cupons * ty.tkm;
     const impactoFluxo = ty.venda - vendaSimuladaFluxo;
 
-    // Impacto granular do PA (Simulação: PA TY vs PA LY mantendo Preço Médio fixo)
     const pmTY = ty.pa > 0 ? ty.tkm / ty.pa : 0;
     const vendaSimuladaPA = ty.cupons * ly.pa * pmTY;
     const impactoPA = (ty.cupons * ty.pa * pmTY) - vendaSimuladaPA;
@@ -155,6 +158,7 @@ export function YoYAnalysis({ data }: YoYAnalysisProps) {
   const handleGenerateAI = async () => {
     if (!stats.isReady) return;
     setAiLoading(true);
+    setAiError(null);
     try {
       const context = `Comparação entre ${stats.ly.year} e ${stats.ty.year}. Variação Venda: ${stats.diff.percVenda.toFixed(1)}%. Impacto Fluxo: R$ ${stats.impacto.fluxo.toFixed(2)}, Impacto TKM: R$ ${stats.impacto.tkm.toFixed(2)}, Impacto Eficiência (PA): R$ ${stats.impacto.pa.toFixed(2)}.`;
       const result = await aiYoYConsiderations({
@@ -172,6 +176,7 @@ export function YoYAnalysis({ data }: YoYAnalysisProps) {
       setAiResult(result);
     } catch (e) {
       console.error(e);
+      setAiError("Não foi possível gerar considerações automáticas agora. Os cálculos matemáticos acima continuam válidos.");
     } finally {
       setAiLoading(false);
     }
@@ -249,6 +254,16 @@ export function YoYAnalysis({ data }: YoYAnalysisProps) {
                 desc={stats.diff.percTKM < 0 ? "A saúde do ticket caiu. Clientes estão gastando menos por visita que o ano anterior." : "Excelente! A equipe está conseguindo extrair mais valor de cada atendimento."}
                 type={stats.diff.percTKM < 0 ? "danger" : "success"}
               />
+
+              {aiError && (
+                <Alert variant="destructive" className="bg-amber-50 border-amber-200 text-amber-800 rounded-2xl">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertTitle className="font-black uppercase text-[10px]">IA Indisponível</AlertTitle>
+                  <AlertDescription className="text-[10px] font-medium leading-tight">
+                    {aiError}
+                  </AlertDescription>
+                </Alert>
+              )}
 
               {!aiResult ? (
                 <Button 

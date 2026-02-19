@@ -5,6 +5,7 @@ import { DetailedSaleRow } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { 
   BrainCircuit, 
   Loader2, 
@@ -12,7 +13,8 @@ import {
   CircleAlert,
   ShieldCheck,
   TrendingDown,
-  ActivitySquare
+  ActivitySquare,
+  AlertTriangle
 } from "lucide-react";
 import { aiBottleneckDiagnosis } from "@/ai/flows/ai-bottleneck-diagnosis-flow";
 import { cn } from "@/lib/utils";
@@ -24,9 +26,11 @@ interface BottleneckDiagnosisProps {
 export function BottleneckDiagnosis({ data }: BottleneckDiagnosisProps) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const performDiagnosis = async () => {
     setLoading(true);
+    setError(null);
     try {
       const activeSales = data.filter(s => !s.is_cancelada && s.tpNF === 1);
       const totalRev = activeSales.reduce((acc, s) => acc + parseFloat(s.vNF), 0);
@@ -55,6 +59,7 @@ export function BottleneckDiagnosis({ data }: BottleneckDiagnosisProps) {
       setResult(diagnosis);
     } catch (e) {
       console.error(e);
+      setError("O motor de IA está temporariamente indisponível. Você ainda pode analisar os indicadores matemáticos nas outras abas.");
     } finally {
       setLoading(false);
     }
@@ -87,6 +92,16 @@ export function BottleneckDiagnosis({ data }: BottleneckDiagnosisProps) {
           )}
         </div>
       </section>
+
+      {error && (
+        <Alert variant="destructive" className="bg-rose-50 border-rose-200 text-rose-800 rounded-2xl">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle className="font-black uppercase text-xs">Motor IA Indisponível</AlertTitle>
+          <AlertDescription className="text-xs font-medium">
+            {error}
+          </AlertDescription>
+        </Alert>
+      )}
 
       {loading && (
         <div className="py-20 flex flex-col items-center gap-6 text-slate-400">

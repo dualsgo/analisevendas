@@ -51,12 +51,14 @@ export function ComplianceAudit({ data }: ComplianceAuditProps) {
     data.forEach(sale => {
       if (sale.is_cancelada) return;
       
-      // REGRA: Desconsiderar se houver Crédito de Loja (tPag = 05)
-      // Em trocas, itens de valor baixo podem ser ajustes legítimos de saldo
+      // REGRA: Desconsiderar se houver Crédito de Loja (tPag = 05) ou se for uma troca legítima
       const hasStoreCredit = sale.pagamentos_detalhe?.some(p => p.tPag === "05") || sale.is_troca;
       if (hasStoreCredit) return;
 
       const suspiciousItems = sale.itens.filter(item => {
+        // Ignora itens de CAMPANHA (Compre e Ganhe legítimos)
+        if (item.is_campanha) return false;
+
         const unitPrice = item.vProd / item.qCom;
         return unitPrice > 0 && unitPrice <= threshold;
       });
@@ -135,11 +137,11 @@ export function ComplianceAudit({ data }: ComplianceAuditProps) {
           <h2 className="text-xl font-black uppercase">Monitoramento de Integridade de PA</h2>
         </div>
         <p className="text-sm text-rose-600/80 font-medium max-w-3xl">
-          Identificação de itens com valor unitário inferior a <strong>R$ {threshold.toFixed(2)}</strong>. 
+          Identificação de itens com valor unitário original inferior a <strong>R$ {threshold.toFixed(2)}</strong>. 
           Esta prática é frequentemente usada para inflar o indicador de Peças por Atendimento (PA).
           <br/>
           <span className="text-[10px] font-black uppercase mt-2 block bg-white/50 w-fit px-2 py-0.5 rounded">
-            Nota: Vendas com Crédito de Loja (Trocas) são automaticamente desconsideradas desta análise.
+            Nota: Brindes de Campanha (Compre e Ganhe) e Trocas são automaticamente desconsiderados desta análise.
           </span>
         </p>
       </div>
@@ -231,7 +233,7 @@ export function ComplianceAudit({ data }: ComplianceAuditProps) {
                   <TableHead className="text-[9px] font-black uppercase">NF / Data</TableHead>
                   <TableHead className="text-[9px] font-black uppercase">Vendedor</TableHead>
                   <TableHead className="text-[9px] font-black uppercase">Item Suspeito</TableHead>
-                  <TableHead className="text-[9px] font-black uppercase text-right">Valor Unit.</TableHead>
+                  <TableHead className="text-[9px] font-black uppercase text-right">Valor Original</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -258,7 +260,7 @@ export function ComplianceAudit({ data }: ComplianceAuditProps) {
                 {filteredSales.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={4} className="text-center py-12 text-slate-300 font-black uppercase text-xs">
-                      Limpo: Sem itens abaixo do corte identificados
+                      Limpo: Sem itens suspeitos identificados
                     </TableCell>
                   </TableRow>
                 )}

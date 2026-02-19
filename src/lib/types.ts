@@ -5,6 +5,7 @@ export interface Item {
   qCom: number;
   vProd: number;
   vDesc: number;
+  is_campanha?: boolean;
 }
 
 export interface DetailedSaleRow {

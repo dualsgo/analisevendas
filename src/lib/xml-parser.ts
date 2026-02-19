@@ -112,15 +112,30 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     const vNFValue = icmsTot ? dec(getElement(icmsTot, "vNF")?.textContent) : 0;
 
     const itemsList: Item[] = [];
+    let hasCampaignItem = false;
+
     getElements(infNFe, "det").forEach(det => {
       const prod = getElement(det, "prod");
       if (prod) {
+        const vProd = dec(getElement(prod, "vProd")?.textContent);
+        const vDesc = dec(getElement(prod, "vDesc")?.textContent);
+        const qCom = dec(getElement(prod, "qCom")?.textContent);
+        
+        // Regra para detectar item de CAMPANHA (Compre e Ganhe)
+        // Item sai por R$ 0,01 após desconto, mas o preço original era normal (> 0.10)
+        const unitPriceOriginal = vProd / qCom;
+        const unitPriceFinal = (vProd - vDesc) / qCom;
+        
+        const isCampanha = unitPriceFinal > 0 && unitPriceFinal <= 0.015 && unitPriceOriginal > 0.10;
+        if (isCampanha) hasCampaignItem = true;
+
         itemsList.push({
           cProd: getElement(prod, "cProd")?.textContent || "",
           xProd: getElement(prod, "xProd")?.textContent || "",
-          qCom: dec(getElement(prod, "qCom")?.textContent),
-          vProd: dec(getElement(prod, "vProd")?.textContent),
-          vDesc: dec(getElement(prod, "vDesc")?.textContent),
+          qCom,
+          vProd,
+          vDesc,
+          is_campanha: isCampanha
         });
       }
     });
@@ -162,15 +177,10 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
 
     // MATRIZ DE SCORE (0 a 5) - ETAPA 1
     let pickup_score = 0;
-    // 1. Integração Digital (tpIntegra = 2)
     if (tpIntegraValue === "2") pickup_score++;
-    // 2. Ausência de Troco
     if (vTrocoPag === 0) pickup_score++;
-    // 3. Restrição de Espécie (Nenhum 01 - Dinheiro)
     if (pagamentosDet.every(p => p.tPag !== "01")) pickup_score++;
-    // 4. Ortografia do Cliente (Forte indicador: Minúsculas = Site)
     if (/[a-z]/.test(nome_dest)) pickup_score++;
-    // 5. Emissor Sistêmico (Vendedor não identificado ou sistêmico)
     if (vendedor === "VENDEDOR NÃO IDENTIFICADO" || /SITE|ECOMM|INT|POS/i.test(vendedor)) pickup_score++;
 
     const isRetiradaOnline = pickup_score >= 3;
@@ -188,6 +198,12 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
 
     const isDevolucao = tpNF === 0 && (finNFe === 4 || natOp.toLowerCase().includes("devolucao"));
 
+    // Determinar Tipo de Desconto Final
+    let tipoDescontoFinal = "PADRÃO";
+    if (hasCampaignItem) tipoDescontoFinal = "CAMPANHA";
+    else if (isAdicionalDoc) tipoDescontoFinal = "ADICIONAL";
+    else if (isMostruario) tipoDescontoFinal = "MOSTRUÁRIO";
+
     return {
       chave, nf, serie: getElement(ide, "serie")?.textContent || "", modelo: getElement(ide, "mod")?.textContent || "", dhEmi, vendedor,
       tpNF, finNFe, natOp,
@@ -199,8 +215,8 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
       is_troca: isTroca, vTroca: vTrocaCredito.toFixed(2), dif_troca: difTroca.toFixed(2),
       is_devolucao: isDevolucao, refNFe: refNFes, refNFe_normalizadas: refNFes.map(r => r.replace(/\D/g, "")),
       is_retirada_online: isRetiradaOnline, vTroco: vTrocoPag.toFixed(2), is_presencial_por_troco: !isRetiradaOnline, tpIntegra: tpIntegraValue,
-      tem_desconto: descontoTotal > 0, tipo_desconto: isAdicionalDoc ? "ADICIONAL" : (isMostruario ? "MOSTRUÁRIO" : "PADRÃO"),
-      status_auditoria: isAdicionalDoc ? "AGUARDANDO VÍNCULO" : (descontoTotal > 0 ? "DESCONTO APLICADO" : "SEM DESCONTO"),
+      tem_desconto: descontoTotal > 0, tipo_desconto: tipoDescontoFinal,
+      status_auditoria: hasCampaignItem ? "CAMPANHA IDENTIFICADA" : (isAdicionalDoc ? "AGUARDANDO VÍNCULO" : (descontoTotal > 0 ? "DESCONTO APLICADO" : "SEM DESCONTO")),
       cep_dest, cep_loja, is_cep_diferente_da_loja: !!cep_dest && cep_dest !== cep_loja,
       is_endereco_real: !!cep_dest, cpf_cnpj_dest: cpf_cnpj, nome_dest, endereco_dest: "", tem_destinatario: !!cpf_cnpj,
       itens: itemsList,

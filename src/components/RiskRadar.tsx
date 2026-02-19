@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useMemo, useState } from "react";
@@ -60,15 +61,24 @@ export function RiskRadar({ data }: RiskRadarProps) {
     const saidas = data.filter(s => s.tpNF === 1 && !s.is_cancelada);
     if (saidas.length === 0) return [];
 
-    const avgStoreDiscount = (saidas.filter(s => parseFloat(s.desconto_total) > 0).reduce((acc, s) => acc + parseFloat(s.percentual_desconto), 0) / saidas.filter(s => parseFloat(s.desconto_total) > 0).length || 0) * 100;
+    // Excluir notas de CAMPANHA da auditoria de risco de desconto para evitar distorção (desconto de 99% em brinde)
+    const validForDiscountAudit = saidas.filter(s => s.tipo_desconto !== "CAMPANHA");
+
+    const avgStoreDiscount = (validForDiscountAudit.filter(s => parseFloat(s.desconto_total) > 0).reduce((acc, s) => acc + parseFloat(s.percentual_desconto), 0) / validForDiscountAudit.filter(s => parseFloat(s.desconto_total) > 0).length || 0) * 100;
     const avgStoreRegistration = (saidas.filter(s => s.cpf_cnpj_dest).length / saidas.length) * 100;
 
     const vendors: Record<string, any> = {};
     saidas.forEach(s => {
       const v = s.vendedor || "VENDEDOR";
-      if (!vendors[v]) vendors[v] = { name: v, sales: [], discounts: [], regCount: 0 };
+      if (!vendors[v]) vendors[v] = { name: v, sales: [], discounts: [], regCount: 0, campaignCount: 0 };
       vendors[v].sales.push(s);
-      if (parseFloat(s.desconto_total) > 0) vendors[v].discounts.push(parseFloat(s.percentual_desconto) * 100);
+      
+      // Apenas considera descontos que não são de campanha para o alerta de margem
+      if (s.tipo_desconto !== "CAMPANHA" && parseFloat(s.desconto_total) > 0) {
+        vendors[v].discounts.push(parseFloat(s.percentual_desconto) * 100);
+      }
+      
+      if (s.tipo_desconto === "CAMPANHA") vendors[v].campaignCount++;
       if (s.cpf_cnpj_dest) vendors[v].regCount++;
     });
 
@@ -76,8 +86,8 @@ export function RiskRadar({ data }: RiskRadarProps) {
       const avgVDesc = v.discounts.length > 0 ? v.discounts.reduce((a: any, b: any) => a + b, 0) / v.discounts.length : 0;
       const vRegRate = (v.regCount / v.sales.length) * 100;
 
-      // Alerta de Desconto
-      if (avgVDesc > avgStoreDiscount * 1.4) {
+      // Alerta de Desconto (Comparando maçãs com maçãs, excluindo campanhas)
+      if (avgVDesc > avgStoreDiscount * 1.4 && v.discounts.length > 3) {
         list.push({
           id: `desc-${v.name}`,
           type: 'Desconto Elevado',
@@ -88,7 +98,7 @@ export function RiskRadar({ data }: RiskRadarProps) {
           variation: `+${(avgVDesc - avgStoreDiscount).toFixed(1)}%`,
           level: avgVDesc > avgStoreDiscount * 1.8 ? 'high' : 'medium',
           icon: Percent,
-          description: `O colaborador está praticando uma média de descontos significativamente superior à média da unidade.`,
+          description: `O colaborador está praticando uma média de descontos significativamente superior à média da unidade (excluindo brindes de campanha).`,
           impact: `Isso compromete diretamente a margem de lucro da loja e indica que o desconto está sendo usado como principal argumento de venda (vício), em vez de técnica de abordagem.`,
           recommendation: `Acompanhar o atendimento deste colaborador para identificar se ele oferece o desconto antes mesmo do cliente solicitar ou se falta técnica para agregar valor ao produto.`
         });

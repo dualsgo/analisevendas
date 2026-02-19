@@ -410,7 +410,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
             <div className="flex-1 space-y-1 text-center md:text-left">
               <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 mb-1">
                 <h2 className="text-lg md:text-xl font-black uppercase tracking-tight leading-none italic">{currentInsight.title}</h2>
-                <TeamProductivityAI data={data} />
+                <TeamProductivityAI data={data} vinculos={vinculos} activeTab={activeTab} />
               </div>
               <p className="text-orange-50 font-medium text-xs md:text-sm opacity-90 leading-relaxed max-w-2xl">
                 {currentInsight.desc}

@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useMemo, useState } from "react";
@@ -35,7 +36,8 @@ import {
   TrendingUp,
   LineChart,
   Boxes,
-  ActivitySquare
+  ActivitySquare,
+  History
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -67,6 +69,7 @@ import { ElasticityAnalysis } from "./ElasticityAnalysis";
 import { AdvancedAnalytics } from "./AdvancedAnalytics";
 import { QualityAnalysis } from "./QualityAnalysis";
 import { BottleneckDiagnosis } from "./BottleneckDiagnosis";
+import { YoYAnalysis } from "./YoYAnalysis";
 
 interface SalesSummaryProps {
   data: DetailedSaleRow[];
@@ -193,6 +196,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
     { id: "geral", label: "Visão Geral", icon: LayoutDashboard },
     { id: "diagnostico_gargalo", label: "Diagnóstico Gargalo", icon: ActivitySquare, color: "text-rose-600 font-black" },
     { id: "ai_insights", label: "Insights IA", icon: BrainCircuit, color: "text-orange-500 font-black" },
+    { id: "yoy_analise", label: "Resultado YoY", icon: History, color: "text-indigo-600 font-bold" },
     { id: "ai_chat", label: "Chat Estratégico", icon: MessageSquare, color: "text-sky-500 font-bold" },
     { id: "diario", label: "Performance Diária", icon: CalendarIcon },
     { id: "performance_vendedores", label: "Performance Vendedores", icon: Award },
@@ -277,6 +281,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
       case "deep_dive": return <AdvancedAnalytics data={data} />;
       case "qualidade_avancada": return <QualityAnalysis data={data} vinculos={vinculos} />;
       case "diagnostico_gargalo": return <BottleneckDiagnosis data={data} />;
+      case "yoy_analise": return <YoYAnalysis data={data} />;
       default: return null;
     }
   };

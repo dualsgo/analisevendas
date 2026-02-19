@@ -4,6 +4,7 @@ import React, { useState, useMemo } from "react";
 import { DetailedSaleRow } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { 
   BrainCircuit, 
   Sparkles, 

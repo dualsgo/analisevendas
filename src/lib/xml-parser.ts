@@ -7,6 +7,11 @@ const ADICIONAL_PERCENT_MAX = 0.12;
 const MOSTRUARIO_PERCENT_MIN = 0.045;
 const MOSTRUARIO_PERCENT_MAX = 0.055;
 
+// Parâmetros para detecção robusta de campanhas (Leve X Pague Y)
+const NEAR_FREE_MAX = 0.10;    // Itens que saem por até 10 centavos
+const RESIDUAL_MAX = 0.10;     // Ajustes de arredondamento de até 10 centavos
+const UNIT_BRUTO_MIN = 1.00;   // Preço mínimo para considerar o item na análise de campanha
+
 function dec(s: string | null | undefined): number {
   if (!s) return 0;
   const cleanS = s.includes(',') ? s.replace(/\./g, '').replace(',', '.') : s;
@@ -113,18 +118,20 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
 
     const itemsList: Item[] = [];
     
-    // REGRAS ROBUSTAS DE CAMPANHA (LEVE X PAGUE Y)
-    const LIMITE_QUASE_GRATIS = 0.10; // Itens saindo por até 10 centavos
-    const LIMITE_RESIDUO = 0.10;      // Descontos de até 10 centavos (arredondamento)
-    const UNIT_BRUTO_MIN = 1.00;      // Ignora produtos que já custam menos de 1 real originalmente
-    
-    let nearFreeCount = 0;
-    let residualCount = 0;
-    const itemsForValidation: Array<{ unitBruto: number, vDesc: number, qCom: number }> = [];
+    // ESTRUTURA PARA VALIDAÇÃO ROBUSTA DE CAMPANHA
+    type ProdAgg = { 
+      sumDesc: number; 
+      unitPrices: number[]; 
+      nearFree: number; 
+      residual: number; 
+      sumProd: number; 
+    };
+    const aggByProd = new Map<string, ProdAgg>();
 
     getElements(infNFe, "det").forEach(det => {
       const prod = getElement(det, "prod");
       if (prod) {
+        const cProd = getElement(prod, "cProd")?.textContent || "";
         const vProd = dec(getElement(prod, "vProd")?.textContent);
         const vDesc = dec(getElement(prod, "vDesc")?.textContent);
         const qCom = dec(getElement(prod, "qCom")?.textContent);
@@ -133,22 +140,28 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
         const unitPriceFinal = (vProd - vDesc) / qCom;
         const unitDiscount = vDesc / qCom;
 
-        if (unitBruto > UNIT_BRUTO_MIN) {
-          // Sinal A: Item quase grátis (ex: saiu por 0,01 ou 0,02 ou 0,05)
-          const isNearFree = unitPriceFinal <= LIMITE_QUASE_GRATIS;
-          
-          // Sinal C: Item com resíduo de ajuste (ex: desconto de 0,01 ou preço final de 0,03)
-          const isResidual = (unitDiscount > 0 && unitDiscount <= LIMITE_RESIDUO) || 
-                            (unitPriceFinal > 0 && unitPriceFinal <= LIMITE_RESIDUO);
-          
-          if (isNearFree) nearFreeCount++;
-          if (isResidual) residualCount++;
+        let agg = aggByProd.get(cProd);
+        if (!agg) {
+          agg = { sumDesc: 0, unitPrices: [], nearFree: 0, residual: 0, sumProd: 0 };
+          aggByProd.set(cProd, agg);
         }
 
-        itemsForValidation.push({ unitBruto, vDesc, qCom });
+        agg.sumDesc += vDesc;
+        agg.sumProd += vProd;
+        agg.unitPrices.push(unitBruto);
+
+        if (unitBruto >= UNIT_BRUTO_MIN) {
+          // Sinal A: Item quase grátis (ex: preço final <= 0.10)
+          if (unitPriceFinal > 0 && unitPriceFinal <= NEAR_FREE_MAX) agg.nearFree++;
+          
+          // Sinal C: Item com resíduo/ajuste (ex: desconto simbólico <= 0.10)
+          if (unitDiscount > 0 && unitDiscount <= RESIDUAL_MAX) agg.residual++;
+          // Algumas vezes o resíduo aparece como preço final pequeno em vez de desconto pequeno
+          else if (unitPriceFinal > 0 && unitPriceFinal <= RESIDUAL_MAX) agg.residual++;
+        }
 
         itemsList.push({
-          cProd: getElement(prod, "cProd")?.textContent || "",
+          cProd,
           xProd: getElement(prod, "xProd")?.textContent || "",
           qCom,
           vProd,
@@ -158,45 +171,34 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
       }
     });
 
-    // VALIDAÇÃO AGREGADA DE CAMPANHA
+    // VALIDAÇÃO AGREGADA DE CAMPANHA (LEVE X PAGUE Y)
+    function getMedian(nums: number[]) {
+      if (nums.length === 0) return 0;
+      const sorted = [...nums].sort((a, b) => a - b);
+      const mid = Math.floor(sorted.length / 2);
+      return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+    }
+
     let isCampanhaNota = false;
-    
-    // Regra de decisão inicial baseada em sinais combinados
-    // Campanha típica: pelo menos 1 item grátis E (algum ajuste residual OU mais de 1 item grátis)
-    const isCandidate = nearFreeCount >= 1 && (residualCount >= 1 || nearFreeCount >= 2);
+    // Tenta validar por produto (cProd)
+    for (const agg of aggByProd.values()) {
+      const validPrices = agg.unitPrices.filter(p => p >= UNIT_BRUTO_MIN);
+      const P = getMedian(validPrices);
+      const D = agg.sumDesc;
 
-    if (isCandidate) {
-      // Clusterização: Agrupar itens por faixa de preço bruto aproximado (tolerância de R$ 0.50)
-      const sortedByPrice = [...itemsForValidation].sort((a, b) => a.unitBruto - b.unitBruto);
-      const groups: Array<typeof itemsForValidation> = [];
-      
-      if (sortedByPrice.length > 0) {
-        let currentGroup = [sortedByPrice[0]];
-        for (let i = 1; i < sortedByPrice.length; i++) {
-          if (Math.abs(sortedByPrice[i].unitBruto - sortedByPrice[i-1].unitBruto) <= 0.50) {
-            currentGroup.push(sortedByPrice[i]);
-          } else {
-            groups.push(currentGroup);
-            currentGroup = [sortedByPrice[i]];
-          }
-        }
-        groups.push(currentGroup);
-      }
-
-      // Validação do Múltiplo Inteiro: Verifica se o desconto total do grupo equivale a "k" itens grátis
-      for (const group of groups) {
-        const groupTotalDesc = group.reduce((acc, it) => acc + it.vDesc, 0);
-        // Preço típico do grupo (média)
-        const groupAvgPrice = group.reduce((acc, it) => acc + it.unitBruto, 0) / group.length;
+      if (P > 0 && D > 0.01) {
+        const k = Math.round(D / P);
+        const tol = Math.max(0.05, 0.10 * k); // Tolerância cresce com o número de itens bonificados
         
-        if (groupAvgPrice > UNIT_BRUTO_MIN) {
-          const k = Math.round(groupTotalDesc / groupAvgPrice);
-          const tol = Math.max(0.10, k * 0.25); // Tolerância para diluição entre itens no ERP
-          
-          if (k >= 1 && Math.abs(groupTotalDesc - k * groupAvgPrice) <= tol) {
-            isCampanhaNota = true;
-            break;
-          }
+        // Critério 1: Coerência matemática (Desconto Total ≈ k * Preço Base)
+        const coerente = (k >= 1) && (Math.abs(D - k * P) <= tol);
+        
+        // Critério 2: Presença de sinais (quase grátis + resíduo ou múltiplos quase grátis)
+        const sinais = (agg.nearFree >= 1) && (agg.residual >= 1 || agg.nearFree >= 2);
+
+        if (coerente && sinais) {
+          isCampanhaNota = true;
+          break;
         }
       }
     }

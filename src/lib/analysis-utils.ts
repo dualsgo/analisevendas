@@ -2,16 +2,18 @@
 import { DetailedSaleRow, VinculoTroca } from "./types";
 
 /**
- * PIPELINE CAMADA B & C: Vincular e Confirmar Adicionais
- * Regra: Mesmo CPF + Janela de 15 Minutos + Assinatura de 10%
- * Bloqueio: Notas com Suspeita de Ajuste Manual (Risco Operacional) nunca são Adicionais Seguros.
+ * PIPELINE DE AUDITORIA: Detecção de Adicionais (Upsell)
+ * 
+ * CAMADA 1: Identificação de Retiradas (Já feita no Parser)
+ * CAMADA 2: Vínculo Mandatório por CPF (Se houve retirada, a outra nota é Adicional)
+ * CAMADA 3: Confirmação por Assinatura de Desconto (10%)
  */
 export function detectarAdicionaisSuspeitos(rows: DetailedSaleRow[]): DetailedSaleRow[] {
-  // 1. Isolar Retiradas confirmadas (Camada A)
+  // 1. Isolar Retiradas confirmadas (Âncora do atendimento)
   const retiradas = rows.filter(r => r.canal === "RETIRADA_ONLINE" && !r.is_cancelada);
   
   // 2. Isolar notas candidatas (Vendas Físicas Ativas)
-  // Bloqueio Preventivo: Se for ajuste de preço, não pode ser adicional seguro
+  // Notas de Troca e Ajuste Manual são excluídas do fluxo de Adicional Seguro por compliance
   const candidatos = rows.filter(r => 
     r.tpNF === 1 && 
     r.canal !== "RETIRADA_ONLINE" && 
@@ -20,7 +22,7 @@ export function detectarAdicionaisSuspeitos(rows: DetailedSaleRow[]): DetailedSa
     !r.tem_suspeita_preco_errado
   );
 
-  // Mapear Pickups por CPF para busca rápida
+  // Mapear Pickups por CPF para busca rápida (Janela de 30 minutos para cobrir o atendimento completo)
   const pickupsPorCpf = new Map<string, DetailedSaleRow[]>();
   retiradas.forEach(r => {
     if (r.cpf_cnpj_dest) {
@@ -29,7 +31,7 @@ export function detectarAdicionaisSuspeitos(rows: DetailedSaleRow[]): DetailedSa
     }
   });
 
-  // 3. Processar cada nota física para verificar vínculo contextual (Camada B)
+  // 3. Processar cada nota física para verificar vínculo mandatório
   candidatos.forEach(nota => {
     const cpf = nota.cpf_cnpj_dest;
     if (!cpf) return;
@@ -37,42 +39,52 @@ export function detectarAdicionaisSuspeitos(rows: DetailedSaleRow[]): DetailedSa
     const pickupsDoCliente = pickupsPorCpf.get(cpf) || [];
     const timeNota = new Date(nota.dhEmi).getTime();
     
-    // REGRA DE VÍNCULO (CAMADA B: DH_EMI ± 15 MINUTOS)
+    // REGRA DE VÍNCULO OBRIGATÓRIO (CAMADA 2: MESMO CPF + JANELA 30 MIN)
     const pickupVinculada = pickupsDoCliente.find(p => {
       const timePickup = new Date(p.dhEmi).getTime();
       const diffMinutes = Math.abs(timeNota - timePickup) / (1000 * 60);
-      return diffMinutes <= 15;
+      return diffMinutes <= 30; // Janela operacional segura
     });
 
     if (pickupVinculada) {
       nota.chave_retirada_associada = pickupVinculada.chave;
       nota.data_retirada_associada = pickupVinculada.dhEmi;
       
-      // CAMADA C: CONFIRMAÇÃO POR ASSINATURA DE DESCONTO (≈10%)
+      // Classificação Mandatória: Se houve retirada, esta nota É um esforço adicional
+      nota.canal = "RETIRADA_ADICIONAL";
+      nota.canal_consolidado = "RETIRADA_ADICIONAL";
+
+      // CAMADA 3: CONFIRMAÇÃO POR ASSINATURA DE DESCONTO (≈10%)
       const perc = parseFloat(nota.percentual_desconto);
       const temDescontoEstrategico = perc >= 0.08 && perc <= 0.12;
 
       if (temDescontoEstrategico) {
-        nota.canal = "RETIRADA_ADICIONAL";
-        nota.canal_consolidado = "RETIRADA_ADICIONAL";
         nota.is_adicional = true;
+        nota.is_adicional_suspeito = false;
         nota.tipo_desconto = "ADICIONAL";
-        nota.status_auditoria = "ADICIONAL CONFIRMADO";
-        nota.motivo_adicional = "VÍNCULO CPF + 15MIN + 10%";
+        nota.status_auditoria = "ADICIONAL CONFIRMADO (10%)";
+        nota.motivo_adicional = "CPF + PICKUP + DESCONTO";
       } else {
+        // Vínculo obrigatório mesmo sem o desconto de 10%
+        nota.is_adicional = false;
         nota.is_adicional_suspeito = true;
-        nota.status_auditoria = "VÍNCULO IDENTIFICADO (SEM DESCONTO 10%)";
-        nota.motivo_adicional = "VÍNCULO CPF + 15MIN";
+        nota.status_auditoria = "ADICIONAL (SEM DESCONTO PADRÃO)";
+        nota.motivo_adicional = "VÍNCULO OBRIGATÓRIO POR CPF";
       }
     }
   });
 
-  // Limpeza: Se for ajuste de preço e caiu aqui por engano, garante classificação de risco
+  // Limpeza de Segurança: Notas com risco operacional (Ajuste Manual) nunca são "limpas" como Adicionais
   rows.forEach(r => {
     if (r.tem_suspeita_preco_errado) {
       r.is_adicional = false;
       r.is_adicional_suspeito = false;
-      r.status_auditoria = "RISCO: AJUSTE MANUAL DETECTADO";
+      r.status_auditoria = "RISCO: SUSPEITA DE AJUSTE MANUAL";
+      // Se era Adicional, volta para Venda Loja para auditoria de margem
+      if (r.canal === "RETIRADA_ADICIONAL") {
+        r.canal = "LOJA_FISICA";
+        r.canal_consolidado = "VENDA_LOJA";
+      }
     }
   });
 
@@ -81,6 +93,7 @@ export function detectarAdicionaisSuspeitos(rows: DetailedSaleRow[]): DetailedSa
 
 /**
  * Vincula notas de devolução (entrada) com as respectivas notas de troca (saída)
+ * Utiliza Referência Fiscal, CPF e Valor para garantir rastreabilidade.
  */
 export function vincularTrocas(rows: DetailedSaleRow[]): VinculoTroca[] {
   const entradas = rows.filter(r => r.tpNF === 0 || r.is_devolucao);
@@ -92,6 +105,7 @@ export function vincularTrocas(rows: DetailedSaleRow[]): VinculoTroca[] {
 
   const saidasPorChaveNorm = new Map(saidasDeTroca.map(s => [s.chave.replace(/\D/g, ""), s]));
 
+  // 1. Vínculo por Referência Fiscal (NFref) - Confiança 100%
   entradas.forEach(entrada => {
     const refs = (entrada.refNFe_normalizadas || []);
     for (const ref of refs) {
@@ -105,6 +119,7 @@ export function vincularTrocas(rows: DetailedSaleRow[]): VinculoTroca[] {
     }
   });
 
+  // 2. Vínculo por CPF + Valor de Crédito - Confiança 90%
   entradas.forEach(entrada => {
     if (entradasVinculadas.has(entrada.chave)) return;
     const valorEntrada = parseFloat(entrada.vNF).toFixed(2);
@@ -119,6 +134,7 @@ export function vincularTrocas(rows: DetailedSaleRow[]): VinculoTroca[] {
     }
   });
 
+  // 3. Vínculo por Valor de Crédito (Último recurso) - Confiança 70%
   entradas.forEach(entrada => {
     if (entradasVinculadas.has(entrada.chave)) return;
     const valorEntrada = parseFloat(entrada.vNF).toFixed(2);
@@ -139,13 +155,14 @@ function criarVinculo(entrada: DetailedSaleRow, saida: DetailedSaleRow, metodo: 
   const vDiferenca = parseFloat(saida.dif_troca);
   const diffItens = parseInt(saida.itens_qtd) - parseInt(entrada.itens_qtd);
 
+  // Score de Qualidade da Troca (Ri Happy Standard)
   let score = 50;
-  if (vDiferenca > 0.1) score += 20; 
-  if (vDiferenca > 100) score += 15;
-  if (vDiferenca < -0.1) score -= 30; 
-  if (diffItens > 0) score += 20; 
-  if (diffItens < 0) score -= 20; 
-  if (saida.cpf_cnpj_dest) score += 10;
+  if (vDiferenca > 0.1) score += 20; // Upsell financeiro
+  if (vDiferenca > 100) score += 15; // Upsell alto valor
+  if (vDiferenca < -0.1) score -= 30; // Perda de faturamento (Crédito Gerado)
+  if (diffItens > 0) score += 20; // Ganho de PA
+  if (diffItens < 0) score -= 20; // Perda de PA
+  if (saida.cpf_cnpj_dest) score += 10; // Identificação garantida
 
   let diag = "Troca Operacional";
   if (score >= 80) diag = "Troca de Ouro (Excelente Upsell/PA)";

@@ -82,39 +82,39 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
     });
 
     // Métricas por Colaborador (Apenas esforço de loja)
-    const vendors: Record<string, any> = {};
-    const vendorCustomers = new Map<string, Set<string>>();
+    const collaborators: Record<string, any> = {};
+    const collabCustomers = new Map<string, Set<string>>();
     
     fisicaEAdicional.forEach(r => {
-      const name = r.vendedor || "VENDEDOR";
-      if (!vendors[name]) vendors[name] = { venda: 0, cupons: 0, itens: 0, ident: 0, adicionais: 0, pickups: 0 };
-      vendors[name].venda += parseFloat(r.vNF);
-      vendors[name].cupons += 1;
-      vendors[name].itens += parseFloat(r.itens_qtd);
+      const name = r.vendedor || "COLABORADOR";
+      if (!collaborators[name]) collaborators[name] = { venda: 0, cupons: 0, itens: 0, ident: 0, adicionais: 0, pickups: 0 };
+      collaborators[name].venda += parseFloat(r.vNF);
+      collaborators[name].cupons += 1;
+      collaborators[name].itens += parseFloat(r.itens_qtd);
       
       if (r.cpf_cnpj_dest) {
-        vendors[name].ident += 1;
-        if (!vendorCustomers.has(name)) vendorCustomers.set(name, new Set());
-        vendorCustomers.get(name)!.add(r.cpf_cnpj_dest);
+        collaborators[name].ident += 1;
+        if (!collabCustomers.has(name)) collabCustomers.set(name, new Set());
+        collabCustomers.get(name)!.add(r.cpf_cnpj_dest);
       }
       
       if (r.is_adicional || r.is_adicional_suspeito || r.canal === "RETIRADA_ADICIONAL") {
-        vendors[name].adicionais += 1;
+        collaborators[name].adicionais += 1;
       }
     });
 
     // Atribuir Pickups aos Colaboradores via CPF (atendimentos realizados no dia)
-    vendorCustomers.forEach((customers, vendorName) => {
+    collabCustomers.forEach((customers, name) => {
       let totalPotentialPickups = 0;
       customers.forEach(cpf => {
         totalPotentialPickups += onlinePerCustomer.get(cpf) || 0;
       });
-      if (vendors[vendorName]) {
-        vendors[vendorName].pickups = totalPotentialPickups;
+      if (collaborators[name]) {
+        collaborators[name].pickups = totalPotentialPickups;
       }
     });
 
-    const vendorPerformanceList = Object.entries(vendors)
+    const vendorPerformanceList = Object.entries(collaborators)
       .map(([name, v]) => ({
         name,
         venda: v.venda,
@@ -160,7 +160,7 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
         return `${e("📊")}*Resultado Unidade – ${dateStr}*\n\n` +
           `${e("💰")}*Venda:* ${formatBRL(metrics.venda)}\n` +
           `${e("🎯")}*PA:* ${metrics.pa.toFixed(2)} | ${e("💳")}*TKM:* ${formatBRL(metrics.tkm)}\n` +
-          `${e("🆔")}*Ident:* ${metrics.cadastros.toFixed(1)}% | ${e("🚚")}*Pickup:* ${metrics.retiradas}\n` +
+          `${e("🆔")}*Ident:* ${metrics.cadastros.toFixed(1)}% | ${e("🚚")}*Pks:* ${metrics.retiradas}\n` +
           `${e("🎯")}*Conv:* ${metrics.convPickup.toFixed(1)}% | ${e("🔄")}*Trocas:* ${metrics.trocas}\n\n` +
           `_(Apenas faturamento físico + adicional)_`;
 
@@ -189,7 +189,7 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
         const winners = {
           PA: [...metrics.vendorPerformanceList].sort((a, b) => b.pa - a.pa)[0],
           TKM: [...metrics.vendorPerformanceList].sort((a, b) => b.tkm - a.tkm)[0],
-          Cadastros: [...metrics.vendorPerformanceList].sort((a, b) => b.ident - a.ident)[0],
+          Ident: [...metrics.vendorPerformanceList].sort((a, b) => b.ident - a.ident)[0],
           Adicionais: [...metrics.vendorPerformanceList].sort((a, b) => b.adicionais - a.adicionais)[0]
         };
 

@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useMemo, useState } from "react";
@@ -78,23 +79,23 @@ export function VendorPerformance({ data }: VendorPerformanceProps) {
   }, [data]);
 
   const metricsByVendor = useMemo(() => {
-    const vendors: Record<string, DetailedSaleRow[]> = {};
+    const collaborators: Record<string, DetailedSaleRow[]> = {};
     const onlinePickups = baseData.filter(r => r.canal === "RETIRADA_ONLINE");
     const physicalSales = baseData.filter(r => r.tpNF === 1 && (r.canal === "LOJA_FISICA" || r.canal === "RETIRADA_ADICIONAL" || r.is_adicional || r.is_adicional_suspeito));
 
     physicalSales.forEach(r => {
-      const name = r.vendedor || "VENDEDOR NÃO IDENTIFICADO";
-      if (!vendors[name]) vendors[name] = [];
-      vendors[name].push(r);
+      const name = r.vendedor || "COLABORADOR NÃO IDENTIFICADO";
+      if (!collaborators[name]) collaborators[name] = [];
+      collaborators[name].push(r);
     });
 
-    return Object.entries(vendors).map(([name, rows]) => {
+    return Object.entries(collaborators).map(([name, rows]) => {
       const venda = rows.reduce((acc, r) => acc + parseFloat(r.vNF), 0);
       const cupons = rows.length;
       const itens = rows.reduce((acc, r) => acc + parseFloat(r.itens_qtd), 0);
       const cadastros = rows.filter(r => r.cpf_cnpj_dest && r.cpf_cnpj_dest.trim() !== "").length;
-      const cpfsDoVendedor = new Set(rows.map(r => r.cpf_cnpj_dest).filter(Boolean));
-      const atendimentosOnline = onlinePickups.filter(p => cpfsDoVendedor.has(p.cpf_cnpj_dest)).length;
+      const cpfsDoColaborador = new Set(rows.map(r => r.cpf_cnpj_dest).filter(Boolean));
+      const atendimentosOnline = onlinePickups.filter(p => cpfsDoColaborador.has(p.cpf_cnpj_dest)).length;
       const retiradasComAdicional = rows.filter(r => (r.is_adicional || r.is_adicional_suspeito) && r.chave_retirada_associada).length;
 
       return {
@@ -113,7 +114,6 @@ export function VendorPerformance({ data }: VendorPerformanceProps) {
     });
   }, [baseData]);
 
-  // Cálculo da Média Global da Loja (Ponderada)
   const storeAverage = useMemo(() => {
     if (metricsByVendor.length === 0) return null;
     
@@ -125,7 +125,7 @@ export function VendorPerformance({ data }: VendorPerformanceProps) {
     const totalRetiradasComAdicional = metricsByVendor.reduce((acc, v) => acc + v.retiradasComAdicional, 0);
 
     return {
-      venda: totalVenda / metricsByVendor.length, // Média de faturamento por colaborador
+      venda: totalVenda / metricsByVendor.length,
       tkm: totalCupons > 0 ? totalVenda / totalCupons : 0,
       pa: totalCupons > 0 ? totalItens / totalCupons : 0,
       taxaIdentificacao: totalCupons > 0 ? (totalCadastros / totalCupons) * 100 : 0,
@@ -168,7 +168,6 @@ export function VendorPerformance({ data }: VendorPerformanceProps) {
 
   return (
     <div className="space-y-6 md:space-y-8 animate-in fade-in duration-500">
-      {/* Resumo da Loja Grid Responsivo */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4">
         <SummaryCard label="Venda Loja" value={formatBRL(metricsByVendor.reduce((acc, v) => acc + v.venda, 0), true)} icon={TrendingUp} color="text-orange-500" />
         <SummaryCard label="TKM Médio" value={storeAverage ? formatBRL(storeAverage.tkm, true) : "R$ 0"} icon={Target} color="text-purple-500" />
@@ -181,7 +180,7 @@ export function VendorPerformance({ data }: VendorPerformanceProps) {
         <CardHeader className="bg-white border-b border-slate-100 flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-6 md:p-8">
           <div className="space-y-1">
             <CardTitle className="text-sm md:text-base font-black uppercase tracking-tight text-slate-600 flex items-center gap-3">
-              Performance de Vendedores <Badge variant="outline" className="bg-orange-50 text-orange-600 border-orange-100 px-3 py-0.5 text-[10px] font-black">{sortedAndFilteredVendors.length}</Badge>
+              Performance de Colaboradores <Badge variant="outline" className="bg-orange-50 text-orange-600 border-orange-100 px-3 py-0.5 text-[10px] font-black">{sortedAndFilteredVendors.length}</Badge>
             </CardTitle>
             <CardDescription className="text-[10px] md:text-xs font-medium text-slate-400">Análise de produtividade e qualidade do atendimento individual.</CardDescription>
           </div>
@@ -260,7 +259,7 @@ export function VendorPerformance({ data }: VendorPerformanceProps) {
                 </div>
 
                 <div className="grid grid-cols-2 gap-y-4 gap-x-6 pt-3 border-t border-slate-50">
-                  <MobileMetric label="Tickets / Peças" value={`${v.cupons} | ${v.itens}`} />
+                  <MobileMetric label="Tickets | Peças" value={`${v.cupons} | ${v.itens}`} />
                   <MobileMetric label="TKM" value={formatBRL(v.tkm, true)} isAbove={storeAverage ? v.tkm > storeAverage.tkm : false} />
                   <MobileMetric label="P.A." value={v.pa.toFixed(2)} isAbove={storeAverage ? v.pa > storeAverage.pa : false} />
                   <MobileMetric label="Identificação" value={`${v.taxaIdentificacao.toFixed(1)}%`} isAbove={storeAverage ? v.taxaIdentificacao > storeAverage.taxaIdentificacao : false} />
@@ -313,7 +312,7 @@ export function VendorPerformance({ data }: VendorPerformanceProps) {
   );
 }
 
-function SummaryCard({ label, value, avg, icon: Icon, color }: { label: string, value: string, avg?: string, icon: any, color: string }) {
+function SummaryCard({ label, value, icon: Icon, color }: { label: string, value: string, icon: any, color: string }) {
   return (
     <Card className="ri-card border-none bg-white p-4 md:p-5 space-y-3 shadow-sm hover:shadow-md transition-shadow">
       <div className="flex items-center justify-between">

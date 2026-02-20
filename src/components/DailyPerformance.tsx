@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useMemo, useState } from "react";
@@ -78,7 +79,7 @@ export function DailyPerformance({ data }: DailyPerformanceProps) {
   }, [data]);
 
   const allVendors = useMemo(() => {
-    const vendors = new Set(baseData.map(r => r.vendedor).filter(v => v && v !== "VENDEDOR NÃO IDENTIFICADO"));
+    const vendors = new Set(baseData.map(r => r.vendedor).filter(v => v && v !== "COLABORADOR NÃO IDENTIFICADO"));
     return Array.from(vendors).sort();
   }, [baseData]);
 
@@ -133,8 +134,9 @@ export function DailyPerformance({ data }: DailyPerformanceProps) {
         ...calculateMetrics(rows),
         vendors: Object.entries(
           rows.reduce((acc, r) => {
-            if (!acc[r.vendedor]) acc[r.vendedor] = [];
-            acc[r.vendedor].push(r);
+            const v = r.vendedor || "COLABORADOR";
+            if (!acc[v]) acc[v] = [];
+            acc[v].push(r);
             return acc;
           }, {} as Record<string, DetailedSaleRow[]>)
         ).map(([name, vRows]) => ({ name, ...calculateMetrics(vRows) }))
@@ -164,8 +166,9 @@ export function DailyPerformance({ data }: DailyPerformanceProps) {
         ...calculateMetrics(w.rows),
         vendors: Object.entries(
           w.rows.reduce((acc, r) => {
-            if (!acc[r.vendedor]) acc[r.vendedor] = [];
-            acc[r.vendedor].push(r);
+            const v = r.vendedor || "COLABORADOR";
+            if (!acc[v]) acc[v] = [];
+            acc[v].push(r);
             return acc;
           }, {} as Record<string, DetailedSaleRow[]>)
         ).map(([name, vRows]) => ({ name, ...calculateMetrics(vRows) }))
@@ -228,7 +231,7 @@ export function DailyPerformance({ data }: DailyPerformanceProps) {
           </Select>
         </div>
         <div className="space-y-1.5">
-          <label className="text-[9px] font-black uppercase text-slate-400 px-1">Vendedor</label>
+          <label className="text-[9px] font-black uppercase text-slate-400 px-1">Colaborador</label>
           <Select value={selectedVendors[0] || "all"} onValueChange={(v) => setSelectedVendors(v === "all" ? [] : [v])}>
             <SelectTrigger className="h-8 text-[10px] font-bold border-slate-100"><SelectValue /></SelectTrigger>
             <SelectContent>

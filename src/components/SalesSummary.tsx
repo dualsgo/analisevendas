@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useMemo, useState } from "react";
@@ -111,8 +112,8 @@ const TAB_INSIGHTS: Record<string, { title: string; desc: string }> = {
     desc: "Identifique picos de ociosidade e garanta cobertura total de escala nos horários de maior faturamento."
   },
   performance_vendedores: {
-    title: "Gestão de Talentos",
-    desc: "Use o ranking qualitativo para direcionar treinamentos específicos para cada perfil de colaborador."
+    title: "Gestão de Colaboradores",
+    desc: "Use o ranking qualitativo para direcionar treinamentos específicos para cada perfil de profissional."
   },
   elasticidade: {
     title: "Qualidade do Desconto",
@@ -285,7 +286,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
     { id: "yoy_analise", label: "Resultado YoY", icon: History, color: "text-indigo-600 font-bold" },
     { id: "ai_chat", label: "Chat Estratégico", icon: MessageSquare, color: "text-sky-500 font-bold" },
     { id: "diario", label: "Performance Diária", icon: CalendarIcon },
-    { id: "performance_vendedores", label: "Performance Vendedores", icon: Award },
+    { id: "performance_vendedores", label: "Performance Colaboradores", icon: Award },
     { id: "elasticidade", label: "Elasticidade Desconto", icon: LineChart, color: "text-amber-600" },
     { id: "deep_dive", label: "Fluxo & Pareto", icon: TrendingUp, color: "text-indigo-600" },
     { id: "qualidade_avancada", label: "Qualidade & Cesta", icon: Boxes, color: "text-emerald-600" },
@@ -412,7 +413,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
                 <h2 className="text-lg md:text-xl font-black uppercase tracking-tight leading-none italic">{currentInsight.title}</h2>
                 <TeamProductivityAI data={data} vinculos={vinculos} activeTab={activeTab} />
               </div>
-              <p className="text-orange-50 font-medium text-xs md:text-sm opacity-90 leading-relaxed max-w-2xl">
+              <p className="text-orange-50 font-medium text-xs md:sm opacity-90 leading-relaxed max-w-2xl">
                 {currentInsight.desc}
               </p>
             </div>

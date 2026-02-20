@@ -112,8 +112,15 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     const vNFValue = icmsTot ? dec(getElement(icmsTot, "vNF")?.textContent) : 0;
 
     const itemsList: Item[] = [];
-    let hasExtremeDiscountItem = false; 
-    let hasSymbolicDiscountItem = false;
+    
+    // REGRAS ROBUSTAS DE CAMPANHA (LEVE X PAGUE Y)
+    const LIMITE_QUASE_GRATIS = 0.10; // Itens saindo por até 10 centavos
+    const LIMITE_RESIDUO = 0.10;      // Descontos de até 10 centavos (arredondamento)
+    const UNIT_BRUTO_MIN = 1.00;      // Ignora produtos que já custam menos de 1 real originalmente
+    
+    let nearFreeCount = 0;
+    let residualCount = 0;
+    const itemsForValidation: Array<{ unitBruto: number, vDesc: number, qCom: number }> = [];
 
     getElements(infNFe, "det").forEach(det => {
       const prod = getElement(det, "prod");
@@ -122,12 +129,23 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
         const vDesc = dec(getElement(prod, "vDesc")?.textContent);
         const qCom = dec(getElement(prod, "qCom")?.textContent);
         
+        const unitBruto = vProd / qCom;
         const unitPriceFinal = (vProd - vDesc) / qCom;
         const unitDiscount = vDesc / qCom;
 
-        // Assinatura de Campanha (Leve 3 Pague 2 / Compre e Ganhe)
-        if (Math.abs(unitPriceFinal - 0.01) < 0.005 && vProd > 0.10) hasExtremeDiscountItem = true;
-        if (Math.abs(unitDiscount - 0.01) < 0.005 && vProd > 0.10) hasSymbolicDiscountItem = true;
+        if (unitBruto > UNIT_BRUTO_MIN) {
+          // Sinal A: Item quase grátis (ex: saiu por 0,01 ou 0,02 ou 0,05)
+          const isNearFree = unitPriceFinal <= LIMITE_QUASE_GRATIS;
+          
+          // Sinal C: Item com resíduo de ajuste (ex: desconto de 0,01 ou preço final de 0,03)
+          const isResidual = (unitDiscount > 0 && unitDiscount <= LIMITE_RESIDUO) || 
+                            (unitPriceFinal > 0 && unitPriceFinal <= LIMITE_RESIDUO);
+          
+          if (isNearFree) nearFreeCount++;
+          if (isResidual) residualCount++;
+        }
+
+        itemsForValidation.push({ unitBruto, vDesc, qCom });
 
         itemsList.push({
           cProd: getElement(prod, "cProd")?.textContent || "",
@@ -140,7 +158,49 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
       }
     });
 
-    const isCampanhaNota = hasExtremeDiscountItem && hasSymbolicDiscountItem;
+    // VALIDAÇÃO AGREGADA DE CAMPANHA
+    let isCampanhaNota = false;
+    
+    // Regra de decisão inicial baseada em sinais combinados
+    // Campanha típica: pelo menos 1 item grátis E (algum ajuste residual OU mais de 1 item grátis)
+    const isCandidate = nearFreeCount >= 1 && (residualCount >= 1 || nearFreeCount >= 2);
+
+    if (isCandidate) {
+      // Clusterização: Agrupar itens por faixa de preço bruto aproximado (tolerância de R$ 0.50)
+      const sortedByPrice = [...itemsForValidation].sort((a, b) => a.unitBruto - b.unitBruto);
+      const groups: Array<typeof itemsForValidation> = [];
+      
+      if (sortedByPrice.length > 0) {
+        let currentGroup = [sortedByPrice[0]];
+        for (let i = 1; i < sortedByPrice.length; i++) {
+          if (Math.abs(sortedByPrice[i].unitBruto - sortedByPrice[i-1].unitBruto) <= 0.50) {
+            currentGroup.push(sortedByPrice[i]);
+          } else {
+            groups.push(currentGroup);
+            currentGroup = [sortedByPrice[i]];
+          }
+        }
+        groups.push(currentGroup);
+      }
+
+      // Validação do Múltiplo Inteiro: Verifica se o desconto total do grupo equivale a "k" itens grátis
+      for (const group of groups) {
+        const groupTotalDesc = group.reduce((acc, it) => acc + it.vDesc, 0);
+        // Preço típico do grupo (média)
+        const groupAvgPrice = group.reduce((acc, it) => acc + it.unitBruto, 0) / group.length;
+        
+        if (groupAvgPrice > UNIT_BRUTO_MIN) {
+          const k = Math.round(groupTotalDesc / groupAvgPrice);
+          const tol = Math.max(0.10, k * 0.25); // Tolerância para diluição entre itens no ERP
+          
+          if (k >= 1 && Math.abs(groupTotalDesc - k * groupAvgPrice) <= tol) {
+            isCampanhaNota = true;
+            break;
+          }
+        }
+      }
+    }
+
     if (isCampanhaNota) {
       itemsList.forEach(item => { item.is_campanha = true; });
     }

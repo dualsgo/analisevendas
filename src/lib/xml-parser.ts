@@ -127,7 +127,6 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     const icmsTot = total ? getElement(total, "ICMSTot") : null;
     const vNFValue = icmsTot ? dec(getElement(icmsTot, "vNF")?.textContent) : 0;
 
-    // --- DETECÇÃO DE CAMPANHA ROBUSTA ---
     const itemsList: Item[] = [];
     let nearFreeCount = 0;
     let residualCount = 0;
@@ -181,7 +180,6 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
       itemsList.forEach(item => { item.is_campanha = true; });
     }
 
-    // --- HEURÍSTICA DE PREÇO ERRADO (PSICOLÓGICO) ---
     let temSuspeitaPrecoErrado = false;
     if (!isCampanhaNota) {
       itemsList.forEach(item => {
@@ -200,8 +198,6 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
         
         const percDesc = item.vProd > 0 ? item.vDesc / item.vProd : 0;
         const isStandardPercent = STANDARD_PERCENTS.some(p => Math.abs(percDesc - p) <= 0.01);
-        
-        // Regras Ri Happy: Não é adicional (10%) nem Mostruário (5%)
         const isRiHappyStandard = (percDesc >= 0.08 && percDesc <= 0.12) || (percDesc >= 0.045 && percDesc <= 0.055);
 
         if (isPsychEnding && hasMaterialDiscount && !isStandardPercent && !isRiHappyStandard) {
@@ -247,14 +243,33 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     const infCpl = infAdic ? (getElement(infAdic, "infCpl")?.textContent || "") : "";
     const vendedor = extractVendedor(infCpl);
 
+    // --- MOTOR DE SCORE DE PICKUP (ROBUSTEZ) ---
     let pickup_score = 0;
+    
+    // 1. Pagamento Eletrônico Integrado (Site)
     if (tpIntegraValue === "2") pickup_score++;
+    
+    // 2. Troco Zero (Inexistente em vendas online)
     if (vTrocoPag === 0) pickup_score++;
+    
+    // 3. Sem Pagamento em Dinheiro
     if (pagamentosDet.every(p => p.tPag !== "01")) pickup_score++;
+    
+    // 4. Nome do Destinatário com Minúsculas (Comum em cadastros de site)
     if (/[a-z]/.test(nome_dest)) pickup_score++;
-    if (vendedor === "VENDEDOR NÃO IDENTIFICADO" || /SITE|ECOMM|INT|POS/i.test(vendedor)) pickup_score++;
+    
+    // 5. Vendedor Genérico ou Palavras-chave de E-commerce
+    if (vendedor === "VENDEDOR NÃO IDENTIFICADO" || /SITE|ECOMM|INTRA|MAGENTO|VTEX|POS/i.test(vendedor)) pickup_score++;
+    
+    // 6. CEP Destinatário igual ao CEP da Loja (Retirada Local)
+    if (cep_dest && cep_dest === cep_loja) pickup_score++;
 
-    const isRetiradaOnline = pickup_score >= 3;
+    // 7. Natureza da Operação ou Info Complementar com "RETIRADA"
+    if (/RETIRADA|PICKUP|ENTREGA/i.test(natOp) || /RETIRADA/i.test(infCpl)) pickup_score++;
+
+    // Consideramos Retirada Online se atingir 4 ou mais pontos de evidência
+    const isRetiradaOnline = pickup_score >= 4;
+
     const vTrocaCredito = pagamentosDet.filter(p => p.tPag === "05").reduce((acc, p) => acc + p.vPag, 0);
     const isTroca = vTrocaCredito > 0;
     const difTroca = vNFValue - vTrocaCredito;

@@ -47,6 +47,13 @@ function extractVendedor(infCpl: string): string {
   return result || "VENDEDOR NÃO IDENTIFICADO";
 }
 
+function getMedian(nums: number[]): number {
+  if (nums.length === 0) return 0;
+  const sorted = [...nums].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
 export function parseXml(xmlString: string): DetailedSaleRow | null {
   try {
     const parser = new DOMParser();
@@ -116,17 +123,12 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     const icmsTot = total ? getElement(total, "ICMSTot") : null;
     const vNFValue = icmsTot ? dec(getElement(icmsTot, "vNF")?.textContent) : 0;
 
+    // DETECÇÃO DE CAMPANHA ROBUSTA
     const itemsList: Item[] = [];
-    
-    // ESTRUTURA PARA VALIDAÇÃO ROBUSTA DE CAMPANHA
-    type ProdAgg = { 
-      sumDesc: number; 
-      unitPrices: number[]; 
-      nearFree: number; 
-      residual: number; 
-      sumProd: number; 
-    };
-    const aggByProd = new Map<string, ProdAgg>();
+    let nearFreeCount = 0;
+    let residualCount = 0;
+    const unitPricesBruto: number[] = [];
+    let totalDescontoNota = 0;
 
     getElements(infNFe, "det").forEach(det => {
       const prod = getElement(det, "prod");
@@ -137,27 +139,16 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
         const qCom = dec(getElement(prod, "qCom")?.textContent);
         
         const unitBruto = vProd / qCom;
-        const unitPriceFinal = (vProd - vDesc) / qCom;
-        const unitDiscount = vDesc / qCom;
-
-        let agg = aggByProd.get(cProd);
-        if (!agg) {
-          agg = { sumDesc: 0, unitPrices: [], nearFree: 0, residual: 0, sumProd: 0 };
-          aggByProd.set(cProd, agg);
-        }
-
-        agg.sumDesc += vDesc;
-        agg.sumProd += vProd;
-        agg.unitPrices.push(unitBruto);
+        const unitFinal = (vProd - vDesc) / qCom;
+        const unitDesc = vDesc / qCom;
 
         if (unitBruto >= UNIT_BRUTO_MIN) {
-          // Sinal A: Item quase grátis (ex: preço final <= 0.10)
-          if (unitPriceFinal > 0 && unitPriceFinal <= NEAR_FREE_MAX) agg.nearFree++;
-          
-          // Sinal C: Item com resíduo/ajuste (ex: desconto simbólico <= 0.10)
-          if (unitDiscount > 0 && unitDiscount <= RESIDUAL_MAX) agg.residual++;
-          // Algumas vezes o resíduo aparece como preço final pequeno em vez de desconto pequeno
-          else if (unitPriceFinal > 0 && unitPriceFinal <= RESIDUAL_MAX) agg.residual++;
+          unitPricesBruto.push(unitBruto);
+          totalDescontoNota += vDesc;
+
+          if (unitFinal > 0 && unitFinal <= NEAR_FREE_MAX) nearFreeCount++;
+          if (unitDesc > 0 && unitDesc <= RESIDUAL_MAX) residualCount++;
+          else if (unitFinal > 0 && unitFinal <= RESIDUAL_MAX && unitDesc > 0) residualCount++;
         }
 
         itemsList.push({
@@ -171,36 +162,19 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
       }
     });
 
-    // VALIDAÇÃO AGREGADA DE CAMPANHA (LEVE X PAGUE Y)
-    function getMedian(nums: number[]) {
-      if (nums.length === 0) return 0;
-      const sorted = [...nums].sort((a, b) => a - b);
-      const mid = Math.floor(sorted.length / 2);
-      return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
-    }
-
+    const precoBase = getMedian(unitPricesBruto);
     let isCampanhaNota = false;
-    // Tenta validar por produto (cProd)
-    for (const agg of aggByProd.values()) {
-      const validPrices = agg.unitPrices.filter(p => p >= UNIT_BRUTO_MIN);
-      const P = getMedian(validPrices);
-      const D = agg.sumDesc;
 
-      if (P > 0 && D > 0.01) {
-        const k = Math.round(D / P);
-        const tol = Math.max(0.05, 0.10 * k); // Tolerância cresce com o número de itens bonificados
-        
-        // Critério 1: Coerência matemática (Desconto Total ≈ k * Preço Base)
-        const coerente = (k >= 1) && (Math.abs(D - k * P) <= tol);
-        
-        // Critério 2: Presença de sinais (quase grátis + resíduo ou múltiplos quase grátis)
-        const sinais = (agg.nearFree >= 1) && (agg.residual >= 1 || agg.nearFree >= 2);
+    if (precoBase > 0) {
+      // Regra de Candidatura: Item grátis + sinal de resíduo ou múltiplos itens grátis
+      const isCampanhaCandidato = (nearFreeCount >= 1) && (residualCount >= 1 || nearFreeCount >= 2);
+      
+      // Prova Real: O desconto total equivale a k produtos grátis?
+      const k = Math.round(totalDescontoNota / precoBase);
+      const tol = Math.max(0.05, 0.10 * k);
+      const coerente = k >= 1 && Math.abs(totalDescontoNota - k * precoBase) <= tol;
 
-        if (coerente && sinais) {
-          isCampanhaNota = true;
-          break;
-        }
-      }
+      isCampanhaNota = isCampanhaCandidato && coerente;
     }
 
     if (isCampanhaNota) {

@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useMemo } from "react";
@@ -25,8 +26,8 @@ export function QualityAnalysis({ data, vinculos }: QualityAnalysisProps) {
       if (s.is_adicional || s.is_adicional_suspeito) vendors[v].additions++;
       vendors[v].items += parseInt(s.itens_qtd);
       
-      // Detecção de item 0,01 (proxy de manipulação)
-      if (s.itens.some(it => (it.vProd / it.qCom) <= 0.1)) vendors[v].v001++;
+      // Detecção de item 0,01 (proxy de manipulação) - IGNORA ITENS DE CAMPANHA
+      if (s.itens.some(it => !it.is_campanha && (it.vProd / it.qCom) <= 0.1)) vendors[v].v001++;
     });
 
     return Object.values(vendors).map(v => {

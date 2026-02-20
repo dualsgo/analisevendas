@@ -2,14 +2,14 @@
 import { DetailedSaleRow, VinculoTroca } from "./types";
 
 /**
- * ETAPA 2: Classificar Adicional
- * Aplica-se APENAS após a Etapa 1 (Pickup já identificado no parser)
+ * ETAPA 2: Classificar Adicional (REGRA ANTI-BRECHA)
+ * Só permite ADICIONAL se houver vínculo CPF+Data com uma Retirada Online.
  */
 export function detectarAdicionaisSuspeitos(rows: DetailedSaleRow[]): DetailedSaleRow[] {
-  // 1. Isolar Pickups confirmadas na Etapa 1
+  // 1. Isolar Pickups confirmadas na Etapa 1 (Parser)
   const retiradas = rows.filter(r => r.canal === "RETIRADA_ONLINE" && !r.is_cancelada);
   
-  // 2. Isolar notas que NÃO são retiradas para verificar se são adicionais
+  // 2. Isolar notas candidatas (Loja Física que não são troca nem cancelamento)
   const candidatos = rows.filter(r => r.tpNF === 1 && r.canal !== "RETIRADA_ONLINE" && !r.is_cancelada && !r.is_troca);
 
   // Mapear Pickups por CPF para busca rápida
@@ -21,51 +21,59 @@ export function detectarAdicionaisSuspeitos(rows: DetailedSaleRow[]): DetailedSa
     }
   });
 
-  // 3. Processar cada nota física para verificar vínculo
+  // 3. Processar cada nota física para verificar vínculo obrigatório
   candidatos.forEach(nota => {
-    // Se a nota já foi blindada como CAMPANHA, não reclassificamos.
-    // Se a nota é AJUSTE DE PREÇO (erro de loja), ela NÃO deve ser validada como "Segura" mesmo que tenha pickup.
-    if (nota.tipo_desconto === "CAMPANHA" || nota.tipo_desconto === "AJUSTE DE PREÇO") return;
+    // BLINDAGEM: Se a nota é CAMPANHA ou AJUSTE DE PREÇO, ela não entra no fluxo de adicional seguro.
+    if (nota.tipo_desconto === "CAMPANHA" || nota.tipo_desconto === "AJUSTE DE PREÇO") {
+      nota.is_adicional = false;
+      return;
+    }
 
     const cpf = nota.cpf_cnpj_dest;
-    const temDescontoEstrategico = parseFloat(nota.percentual_desconto) >= 0.08 && parseFloat(nota.percentual_desconto) <= 0.12;
+    const perc = parseFloat(nota.percentual_desconto);
+    const temDescontoEstrategico = perc >= 0.08 && perc <= 0.12; // Faixa de 10%
 
+    // Se não tem CPF, é impossível garantir que é adicional de uma retirada específica
     if (!cpf) {
-      if (nota.is_adicional) {
-        nota.is_adicional = false;
+      if (temDescontoEstrategico) {
         nota.canal = "LOJA_FISICA";
         nota.status_auditoria = "DESCONTO SEM VÍNCULO (CPF AUSENTE)";
       }
+      nota.is_adicional = false;
       return;
     }
 
     const pickupsDoCliente = pickupsPorCpf.get(cpf) || [];
     const dataNota = nota.dhEmi.substring(0, 10);
     
-    // Vínculo: Mesmo CPF + Mesma Data
+    // Vínculo Anti-Brecha: Mesmo CPF + Mesma Data (Dia do Atendimento)
     const pickupVinculada = pickupsDoCliente.find(p => p.dhEmi.substring(0, 10) === dataNota);
 
     if (pickupVinculada) {
       nota.chave_retirada_associada = pickupVinculada.chave;
       nota.data_retirada_associada = pickupVinculada.dhEmi;
-      nota.canal = "RETIRADA_ADICIONAL";
       
       if (temDescontoEstrategico) {
+        // CASO IDEAL: Link confirmado + Desconto de 10%
+        nota.canal = "RETIRADA_ADICIONAL";
         nota.is_adicional = true;
         nota.is_adicional_suspeito = false;
         nota.tipo_desconto = "ADICIONAL";
         nota.status_auditoria = "ADICIONAL CONFIRMADO";
       } else {
+        // CASO SUSPEITO: Link de CPF existe, mas o desconto não foi o padrão ou não existiu
+        nota.canal = "RETIRADA_ADICIONAL";
         nota.is_adicional = false;
         nota.is_adicional_suspeito = true;
-        nota.motivo_adicional = "Vínculo CPF/Data (Sem desconto)";
-        nota.status_auditoria = "ADICIONAL SUSPEITO";
+        nota.motivo_adicional = "Vínculo CPF/Data Identificado";
+        nota.status_auditoria = "ADICIONAL SEM DESCONTO PADRÃO";
       }
     } else {
-      if (nota.is_adicional || temDescontoEstrategico) {
+      // FALHA DE VÍNCULO: Se o vendedor deu 10% mas não tinha pickup no dia
+      if (temDescontoEstrategico) {
+        nota.canal = "LOJA_FISICA";
         nota.is_adicional = false;
         nota.is_adicional_suspeito = false;
-        nota.canal = "LOJA_FISICA";
         nota.status_auditoria = "DESCONTO AVULSO (SEM PICKUP NO DIA)";
       }
     }

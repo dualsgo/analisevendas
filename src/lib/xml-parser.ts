@@ -1,4 +1,3 @@
-
 import { DetailedSaleRow, Item } from "./types";
 
 // Parâmetros para detecção robusta de campanhas (Leve X Pague Y)
@@ -107,6 +106,9 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     const nome_dest = dest ? (getElement(dest, "xNome")?.textContent || "") : "";
     const enderDest = dest ? getElement(dest, "enderDest") : null;
     const cep_dest = enderDest ? (getElement(enderDest, "CEP")?.textContent || "").replace(/\D/g, "") : "";
+    const xLgr_dest = enderDest ? (getElement(enderDest, "xLgr")?.textContent || "") : "";
+    const nro_dest = enderDest ? (getElement(enderDest, "nro")?.textContent || "") : "";
+    const uf_dest = enderDest ? (getElement(enderDest, "UF")?.textContent || "") : "";
 
     const emit = getElement(infNFe, "emit");
     const enderEmit = emit ? getElement(emit, "enderEmit") : null;
@@ -234,11 +236,38 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     const infCpl = infAdic ? (getElement(infAdic, "infCpl")?.textContent || "") : "";
     const vendedor = extractVendedor(infCpl);
 
-    // --- IDENTIFICAÇÃO DETERMINÍSTICA DE RETIRADA ONLINE ---
+    // --- IDENTIFICAÇÃO DE RETIRADA ONLINE VIA SCORE DE EVIDÊNCIAS ---
+    let pickup_score = 0;
+    
+    // 1. tpIntegra 2 (Pagamento integrado e-commerce)
+    if (tpIntegraValue === "2") pickup_score += 1;
+    
+    // 2. Nome com minúsculas (Assinatura de cadastro via site)
+    const hasLowercaseInName = /[a-z]/.test(nome_dest);
+    if (hasLowercaseInName) pickup_score += 1;
+    
+    // 3. Marcadores textuais nas info complementares
     const infCplUpper = infCpl.toUpperCase();
     const hasPickupKeywords = infCplUpper.includes("RETIRADA") || infCplUpper.includes("PICKUP") || infCplUpper.includes("PEDIDO SITE");
-    const hasLowercaseInName = /[a-z]/.test(nome_dest);
-    const isRetiradaOnline = hasPickupKeywords || (tpIntegraValue === "2" && hasLowercaseInName);
+    if (hasPickupKeywords) pickup_score += 2;
+    
+    // 4. Endereço do destinatário é o da loja (Selo Forte / Assinatura de Unidade)
+    const isEnderecoRetirada = 
+      cep_dest === "21211007" && 
+      nro_dest === "909" && 
+      uf_dest === "RJ" && 
+      /VICENTE\s+DE\s+CARVALHO/i.test(xLgr_dest);
+    
+    if (isEnderecoRetirada) pickup_score += 4;
+
+    // BLOQUEIO: Dinheiro ou Troco (Operações tipicamente físicas)
+    // Exceção: Não bloqueia se tiver a assinatura forte de endereço da loja
+    const temDinheiro = pagamentosDet.some(p => p.tPag === "01");
+    if (!isEnderecoRetirada && (temDinheiro || vTrocoPag > 0)) {
+      pickup_score = 0;
+    }
+
+    const isRetiradaOnline = pickup_score >= 4;
 
     const vTrocaCredito = pagamentosDet.filter(p => p.tPag === "05").reduce((acc, p) => acc + p.vPag, 0);
     const isTroca = vTrocaCredito > 0;
@@ -280,7 +309,7 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
       protocolo: protocoloData,
       pagamentos_detalhe: pagamentosDet,
       infCpl,
-      pickup_match_fields: isRetiradaOnline ? 5 : 0,
+      pickup_match_fields: pickup_score,
       tem_suspeita_preco_errado: temSuspeitaPrecoErrado
     };
   } catch (e) {

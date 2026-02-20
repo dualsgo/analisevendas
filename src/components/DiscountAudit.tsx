@@ -57,7 +57,8 @@ import {
   ShieldCheck,
   ShieldAlert,
   Zap,
-  Star
+  Star,
+  Tags
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, parseISO } from "date-fns";
@@ -119,14 +120,15 @@ export function DiscountAudit({ data }: DiscountAuditProps) {
       totalVenda,
       totalDesconto,
       avgPercent,
-      tkm: filteredData.length > 0 ? totalVenda / filteredData.length : 0
+      tkm: filteredData.length > 0 ? totalVenda / filteredData.length : 0,
+      precoErradoCount: filteredData.filter(s => s.tem_suspeita_preco_errado).length
     };
   }, [filteredData]);
 
   const formatBRL = (val: number) => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
   const handleExport = () => {
-    const headers = ["NF", "Data", "Vendedor", "Cliente", "Tipo", "Valor Original", "Desconto R$", "% Desconto", "Valor Final"];
+    const headers = ["NF", "Data", "Vendedor", "Cliente", "Tipo", "Valor Original", "Desconto R$", "% Desconto", "Valor Final", "Suspeita Ajuste"];
     const rows = filteredData.map(sale => {
       const vFinal = parseFloat(sale.vNF);
       const vDesc = parseFloat(sale.desconto_total);
@@ -139,7 +141,8 @@ export function DiscountAudit({ data }: DiscountAuditProps) {
         "Valor Original": (vFinal + vDesc).toFixed(2),
         "Desconto R$": vDesc.toFixed(2),
         "% Desconto": (parseFloat(sale.percentual_desconto) * 100).toFixed(2),
-        "Valor Final": vFinal.toFixed(2)
+        "Valor Final": vFinal.toFixed(2),
+        "Suspeita Ajuste": sale.tem_suspeita_preco_errado ? "SIM" : "NÃO"
       };
     });
     exportToCsv(`Auditoria_Descontos_${activeView}.csv`, rows, headers);
@@ -163,20 +166,22 @@ export function DiscountAudit({ data }: DiscountAuditProps) {
           </h2>
           <p className="text-sm font-medium text-slate-500 leading-relaxed">
             {activeView === 'audit' 
-              ? "Exibindo descontos avulsos ou arredondamentos manuais. Estes casos não possuem assinatura estratégica." 
-              : "Exibindo Campanhas oficiais (Brindes) e Vendas Adicionais (10%) validadas pelo motor de inteligência."}
+              ? "Identificando descontos manuais, avulsos ou suspeitos de correção de preço errado (ajustes para final psicológico 1, 5 ou 9)." 
+              : "Exibindo Campanhas oficiais validas pelo motor matemático e Vendas Adicionais confirmadas."}
           </p>
         </div>
         <div className="hidden lg:block w-px h-12 bg-slate-200" />
         <div className="grid grid-cols-2 gap-8 text-center md:text-left">
            <div>
-             <p className="text-[9px] font-black text-slate-400 uppercase">Volume Ativo</p>
+             <p className="text-[9px] font-black text-slate-400 uppercase">Alertas Ativos</p>
              <p className="text-xl font-black text-slate-700">{stats.count} Notas</p>
            </div>
-           <div>
-             <p className="text-[9px] font-black text-slate-400 uppercase">Investimento</p>
-             <p className={cn("text-xl font-black", activeView === 'audit' ? "text-rose-600" : "text-sky-600")}>{formatBRL(stats.totalDesconto)}</p>
-           </div>
+           {activeView === 'audit' && (
+             <div>
+               <p className="text-[9px] font-black text-slate-400 uppercase">Suspeita Ajuste</p>
+               <p className="text-xl font-black text-orange-600">{stats.precoErradoCount}</p>
+             </div>
+           )}
         </div>
       </div>
 
@@ -242,7 +247,7 @@ export function DiscountAudit({ data }: DiscountAuditProps) {
 
                 <div className="flex items-end">
                    <Badge variant="outline" className="h-10 w-full justify-center bg-slate-50 border-slate-100 text-slate-400 font-black text-[9px] uppercase">
-                     Total exibido: {filteredData.length} vendas
+                     Mostrando {filteredData.length} vendas
                    </Badge>
                 </div>
               </div>
@@ -284,9 +289,10 @@ export function DiscountAudit({ data }: DiscountAuditProps) {
                             "text-[8px] font-black uppercase px-2 h-5 border-none",
                             sale.tipo_desconto === 'CAMPANHA' ? "bg-sky-100 text-sky-700" :
                             sale.tipo_desconto === 'ADICIONAL' ? "bg-emerald-100 text-emerald-700" :
-                            "bg-orange-100 text-orange-700"
+                            sale.tipo_desconto === 'AJUSTE DE PREÇO' ? "bg-orange-100 text-orange-700 animate-pulse" :
+                            "bg-slate-100 text-slate-700"
                           )}>
-                            {sale.tipo_desconto === 'CAMPANHA' ? <Star className="w-2.5 h-2.5 mr-1 fill-current" /> : <Zap className="w-2.5 h-2.5 mr-1 fill-current" />}
+                            {sale.tipo_desconto === 'CAMPANHA' ? <Star className="w-2.5 h-2.5 mr-1 fill-current" /> : (sale.tipo_desconto === 'AJUSTE DE PREÇO' ? <Tags className="w-2.5 h-2.5 mr-1" /> : <Zap className="w-2.5 h-2.5 mr-1 fill-current" />)}
                             {sale.tipo_desconto}
                           </Badge>
                         </TableCell>
@@ -302,7 +308,7 @@ export function DiscountAudit({ data }: DiscountAuditProps) {
                         <TableCell className="text-center">
                           <Badge className={cn(
                             "text-[10px] font-black border-none px-3 h-6",
-                            isHigh ? "bg-rose-600 text-white animate-pulse" : 
+                            isHigh ? "bg-rose-600 text-white" : 
                             activeView === 'audit' ? "bg-orange-100 text-orange-700" : "bg-sky-100 text-sky-700"
                           )}>
                             {perc.toFixed(1)}%
@@ -315,7 +321,7 @@ export function DiscountAudit({ data }: DiscountAuditProps) {
                   {filteredData.length === 0 && (
                     <TableRow>
                       <TableCell colSpan={7} className="text-center py-20 text-slate-300 font-black uppercase text-xs">
-                        Nenhum registro estratégico encontrado
+                        Nenhum registro encontrado para estes filtros
                       </TableCell>
                     </TableRow>
                   )}
@@ -374,7 +380,8 @@ export function DiscountAudit({ data }: DiscountAuditProps) {
               <div className={cn(
                 "p-8 md:p-10 space-y-4 text-white",
                 selectedSale.tipo_desconto === 'CAMPANHA' ? "bg-sky-500" :
-                selectedSale.tipo_desconto === 'ADICIONAL' ? "bg-emerald-500" : "bg-orange-500"
+                selectedSale.tipo_desconto === 'ADICIONAL' ? "bg-emerald-500" : 
+                selectedSale.tipo_desconto === 'AJUSTE DE PREÇO' ? "bg-orange-500" : "bg-slate-800"
               )}>
                 <div className="flex items-center gap-4">
                   <div className="bg-white/20 p-3 rounded-2xl backdrop-blur-md">
@@ -383,14 +390,14 @@ export function DiscountAudit({ data }: DiscountAuditProps) {
                   <div>
                     <SheetTitle className="text-2xl font-black uppercase text-white leading-none">Auditoria NF #{selectedSale.nf}</SheetTitle>
                     <Badge className="bg-white/20 text-white border-none mt-2 text-[10px] font-black uppercase">
-                      {selectedSale.tipo_desconto === 'CAMPANHA' || selectedSale.tipo_desconto === 'ADICIONAL' ? 'Investimento Estratégico' : 'Alerta de Margem'}
+                      {selectedSale.status_auditoria}
                     </Badge>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-6 pt-4 border-t border-white/10">
                   <div>
-                    <p className="text-[10px] font-bold uppercase opacity-80">Data e Hora</p>
-                    <p className="text-sm font-black">{format(parseISO(selectedSale.dhEmi), "dd/MM/yyyy HH:mm")}</p>
+                    <p className="text-[10px] font-bold uppercase opacity-80">Vendedor</p>
+                    <p className="text-sm font-black uppercase">{selectedSale.vendedor}</p>
                   </div>
                   <div className="text-right">
                     <p className="text-[10px] font-bold uppercase opacity-80">Desconto Total (%)</p>
@@ -400,49 +407,63 @@ export function DiscountAudit({ data }: DiscountAuditProps) {
               </div>
 
               <div className="p-8 md:p-10 space-y-10 flex-1">
+                {selectedSale.tem_suspeita_preco_errado && (
+                  <section className="bg-orange-50 border-2 border-orange-100 p-6 rounded-[2rem] space-y-3">
+                    <div className="flex items-center gap-2 text-orange-700">
+                      <AlertTriangle className="w-5 h-5" />
+                      <h4 className="text-xs font-black uppercase tracking-widest">Suspeita de Correção Manual</h4>
+                    </div>
+                    <p className="text-sm font-medium text-orange-800 leading-relaxed italic">
+                      "Identificamos que um ou mais itens deste cupom foram ajustados para terminar em final psicológico (1, 5 ou 9). Isso geralmente indica correção de preço de prateleira via desconto direto no PDV."
+                    </p>
+                  </section>
+                )}
+
                 <div className="grid grid-cols-3 gap-4">
                   <ValueDetail label="Valor Bruto" value={formatBRL(parseFloat(selectedSale.vNF) + parseFloat(selectedSale.desconto_total))} color="text-slate-400" strike />
-                  <ValueDetail label="Investimento" value={formatBRL(parseFloat(selectedSale.desconto_total))} color={selectedSale.tipo_desconto === 'PADRÃO' ? "text-rose-500" : "text-sky-500"} />
+                  <ValueDetail label="Desconto" value={formatBRL(parseFloat(selectedSale.desconto_total))} color="text-rose-500" />
                   <ValueDetail label="Valor Final" value={formatBRL(parseFloat(selectedSale.vNF))} color="text-slate-800" />
                 </div>
 
                 <section className="space-y-4">
-                   <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Dados da Operação</h4>
-                   <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100 space-y-4">
-                      <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-2 text-slate-400"><User className="w-4 h-4" /><span className="text-[10px] font-black uppercase">Colaborador:</span></div>
-                        <span className="text-xs font-black text-slate-700 uppercase">{selectedSale.vendedor}</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-2 text-slate-400"><ShoppingBag className="w-4 h-4" /><span className="text-[10px] font-black uppercase">Cliente:</span></div>
-                        <span className="text-xs font-black text-slate-700 uppercase truncate max-w-[180px]">{selectedSale.nome_dest || "Consumidor"}</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-2 text-slate-400"><ShieldCheck className="w-4 h-4" /><span className="text-[10px] font-black uppercase">Tipo Desconto:</span></div>
-                        <Badge variant="outline" className="bg-white text-sky-600 border-sky-100 font-black text-[9px] uppercase">{selectedSale.tipo_desconto}</Badge>
-                      </div>
-                   </div>
-                </section>
-
-                <section className="space-y-4">
                   <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Detalhamento por Item</h4>
                   <div className="space-y-3">
-                    {selectedSale.itens.map((item, idx) => (
-                      <div key={idx} className="flex justify-between items-center p-4 bg-white rounded-2xl border border-slate-100 shadow-sm">
-                        <div className="flex-1 min-w-0 pr-4">
-                          <p className="text-xs font-black text-slate-700 truncate uppercase">{item.xProd}</p>
-                          <p className="text-[9px] text-slate-400 font-bold uppercase">Cod: {item.cProd} • Qtd: {item.qCom}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-xs font-black text-slate-600">{formatBRL(item.vProd)}</p>
-                          {item.vDesc > 0 && (
-                            <Badge className={cn("border-none font-black text-[8px] h-4 mt-1", item.is_campanha ? "bg-sky-50 text-sky-600" : "bg-rose-50 text-rose-600")}>
-                              -{formatBRL(item.vDesc)}
-                            </Badge>
+                    {selectedSale.itens.map((item, idx) => {
+                      const unitBruto = item.vProd / item.qCom;
+                      const unitDesc = item.vDesc / item.qCom;
+                      const unitLiq = unitBruto - unitDesc;
+                      const perc = unitBruto > 0 ? (unitDesc / unitBruto) * 100 : 0;
+
+                      return (
+                        <div key={idx} className={cn(
+                          "p-4 rounded-2xl border transition-all",
+                          item.is_preco_errado ? "bg-orange-50 border-orange-200 shadow-sm" : "bg-white border-slate-100"
+                        )}>
+                          <div className="flex justify-between items-start mb-3">
+                            <div className="flex-1 min-w-0 pr-4">
+                              <p className="text-xs font-black text-slate-700 truncate uppercase">{item.xProd}</p>
+                              <p className="text-[9px] text-slate-400 font-bold uppercase">Cod: {item.cProd} • Qtd: {item.qCom}</p>
+                            </div>
+                            {item.is_preco_errado && (
+                              <Badge className="bg-orange-500 text-white text-[8px] font-black uppercase">AJUSTE</Badge>
+                            )}
+                          </div>
+                          
+                          <div className="grid grid-cols-3 gap-2 py-2 border-t border-slate-50 mt-2">
+                             <ItemMetric label="Preço Bruto" val={formatBRL(unitBruto)} />
+                             <ItemMetric label="Desconto" val={`-${formatBRL(unitDesc)}`} color="text-rose-600" />
+                             <ItemMetric label="Preço Final" val={formatBRL(unitLiq)} color="text-slate-800" />
+                          </div>
+
+                          {item.evidencia_preco_errado && (
+                            <div className="mt-3 flex items-center gap-2 text-[9px] font-bold text-orange-600 uppercase bg-white/50 p-2 rounded-lg">
+                               <Info className="w-3 h-3" />
+                               {item.evidencia_preco_errado} ({perc.toFixed(1)}%)
+                            </div>
                           )}
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </section>
               </div>
@@ -463,6 +484,15 @@ function ValueDetail({ label, value, color, strike = false }: any) {
     <div className="text-center p-4 bg-slate-50 rounded-2xl border border-slate-100 shadow-inner">
       <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">{label}</p>
       <p className={cn("text-xs md:text-sm font-black tracking-tight", color, strike && "line-through opacity-50")}>{value}</p>
+    </div>
+  );
+}
+
+function ItemMetric({ label, val, color = "text-slate-500" }: any) {
+  return (
+    <div>
+      <p className="text-[7px] font-black text-slate-400 uppercase leading-none mb-1">{label}</p>
+      <p className={cn("text-[10px] font-bold", color)}>{val}</p>
     </div>
   );
 }

@@ -6,6 +6,8 @@ export interface Item {
   vProd: number;
   vDesc: number;
   is_campanha?: boolean;
+  is_preco_errado?: boolean;
+  evidencia_preco_errado?: string;
 }
 
 export interface DetailedSaleRow {
@@ -62,6 +64,7 @@ export interface DetailedSaleRow {
   tem_desconto: boolean;
   tipo_desconto: string;
   status_auditoria: string;
+  tem_suspeita_preco_errado?: boolean;
   
   // CEP e Endereço
   cep_dest: string;

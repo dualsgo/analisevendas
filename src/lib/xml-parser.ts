@@ -133,28 +133,34 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     });
 
     // REGRA DE CAMPANHA (COMPLEMENTARIDADE): 99% + 0,01%
-    let hasExtremeDiscountItem = false; // Item que saiu a R$ 0,01 via desconto
-    let hasSymbolicDiscountItem = false; // Item que teve R$ 0,01 de desconto total
+    // Detecta a assinatura do "Leve 3 Pague 2" ou "Compre e Ganhe"
+    let hasExtremeDiscountItem = false; // Item que saiu por R$ 0,01 via desconto
+    let hasSymbolicDiscountItem = false; // Item que teve exatamente R$ 0,01 de desconto
 
     itemsList.forEach(item => {
       const unitPriceFinal = (item.vProd - item.vDesc) / item.qCom;
       const unitDiscount = item.vDesc / item.qCom;
 
-      // 1. Detectar brinde (Preço final ~0,01 via desconto significativo)
-      if (unitPriceFinal > 0 && unitPriceFinal <= 0.015 && item.vProd > 0.10) {
+      // 1. Detectar brinde (Preço final de exatamente 0,01)
+      if (Math.abs(unitPriceFinal - 0.01) < 0.005 && item.vProd > 0.10) {
         hasExtremeDiscountItem = true;
-        item.is_campanha = true;
       }
 
-      // 2. Detectar sinalizador (Desconto de exatamente 0,01 em preço normal)
-      if (unitDiscount > 0 && unitDiscount <= 0.015 && item.vProd > 0.10) {
+      // 2. Detectar sinalizador (Desconto de exatamente 0,01)
+      if (Math.abs(unitDiscount - 0.01) < 0.005 && item.vProd > 0.10) {
         hasSymbolicDiscountItem = true;
-        item.is_campanha = true;
       }
     });
 
-    // A nota só é classificada como CAMPANHA se houver o par complementar (99% e 0,01%)
+    // A nota só é classificada como CAMPANHA se houver o par complementar
     const isCampanhaNota = hasExtremeDiscountItem && hasSymbolicDiscountItem;
+
+    // Se for campanha, todos os itens da nota são blindados
+    if (isCampanhaNota) {
+      itemsList.forEach(item => {
+        item.is_campanha = true;
+      });
+    }
 
     const pagamentosDet: Array<{ tPag: string, vPag: number, tpIntegra?: string }> = [];
     let vTrocoPag = 0;

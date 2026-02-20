@@ -2,14 +2,14 @@
 import { DetailedSaleRow, VinculoTroca } from "./types";
 
 /**
- * ETAPA 2: Classificar Adicional (ALGORITMO DE VÍNCULO CRONOLÓGICO)
- * Só permite ADICIONAL se houver vínculo CPF + Janela de 15 minutos com uma Retirada Online.
+ * ETAPA 2: Classificar Adicional (VÍNCULO DETERMINÍSTICO POR JANELA DE ATENDIMENTO)
+ * Regra: CPF + Janela de Tempo (10min se vendedor bater, 3min se faltar)
  */
 export function detectarAdicionaisSuspeitos(rows: DetailedSaleRow[]): DetailedSaleRow[] {
-  // 1. Isolar Pickups confirmadas na Etapa 1 (Signature: tpIntegra 2 + lowercase)
+  // 1. Isolar Retiradas confirmadas
   const retiradas = rows.filter(r => r.canal === "RETIRADA_ONLINE" && !r.is_cancelada);
   
-  // 2. Isolar notas candidatas (Loja Física Signature: tpIntegra 1 + ALL CAPS)
+  // 2. Isolar notas candidatas (Vendas Físicas Ativas)
   const candidatos = rows.filter(r => r.tpNF === 1 && r.canal !== "RETIRADA_ONLINE" && !r.is_cancelada && !r.is_troca);
 
   // Mapear Pickups por CPF para busca rápida
@@ -21,9 +21,9 @@ export function detectarAdicionaisSuspeitos(rows: DetailedSaleRow[]): DetailedSa
     }
   });
 
-  // 3. Processar cada nota física para verificar vínculo obrigatório de 15 minutos
+  // 3. Processar cada nota física para verificar vínculo determinístico
   candidatos.forEach(nota => {
-    // BLINDAGEM: Se a nota é CAMPANHA ou AJUSTE DE PREÇO, ela não entra no fluxo de adicional seguro.
+    // BLINDAGEM: Campanhas ou Ajustes não entram no fluxo de adicional seguro
     if (nota.tipo_desconto === "CAMPANHA" || nota.tipo_desconto === "AJUSTE DE PREÇO") {
       nota.is_adicional = false;
       return;
@@ -31,26 +31,30 @@ export function detectarAdicionaisSuspeitos(rows: DetailedSaleRow[]): DetailedSa
 
     const cpf = nota.cpf_cnpj_dest;
     const perc = parseFloat(nota.percentual_desconto);
-    const temDescontoEstrategico = perc >= 0.08 && perc <= 0.12; // Faixa de 10%
+    const temDescontoEstrategico = perc >= 0.08 && perc <= 0.12;
 
-    // Se não tem CPF, é impossível garantir o vínculo
     if (!cpf) {
       if (temDescontoEstrategico) {
-        nota.canal = "LOJA_FISICA";
         nota.status_auditoria = "DESCONTO SEM VÍNCULO (CPF AUSENTE)";
       }
-      nota.is_adicional = false;
       return;
     }
 
     const pickupsDoCliente = pickupsPorCpf.get(cpf) || [];
     const timeNota = new Date(nota.dhEmi).getTime();
     
-    // Vínculo Anti-Brecha: Mesmo CPF + Janela de 15 Minutos (Tolerância Absoluta)
+    // REGRA DE VÍNCULO POR ATENDIMENTO
     const pickupVinculada = pickupsDoCliente.find(p => {
       const timePickup = new Date(p.dhEmi).getTime();
       const diffMinutes = Math.abs(timeNota - timePickup) / (1000 * 60);
-      return diffMinutes <= 15;
+      
+      const v1 = (nota.vendedor || "").toUpperCase();
+      const v2 = (p.vendedor || "").toUpperCase();
+      const isSameVendor = v1 !== "COLABORADOR NÃO IDENTIFICADO" && v2 !== "COLABORADOR NÃO IDENTIFICADO" && v1 === v2;
+
+      // Se vendedor bater: janela de 10 min. Se faltar: janela de 3 min.
+      const windowLimit = isSameVendor ? 10 : 3;
+      return diffMinutes <= windowLimit;
     });
 
     if (pickupVinculada) {
@@ -58,28 +62,17 @@ export function detectarAdicionaisSuspeitos(rows: DetailedSaleRow[]): DetailedSa
       nota.data_retirada_associada = pickupVinculada.dhEmi;
       
       if (temDescontoEstrategico) {
-        // CASO IDEAL: Link confirmado + Desconto de 10%
         nota.canal = "RETIRADA_ADICIONAL";
         nota.canal_consolidado = "RETIRADA_ADICIONAL";
         nota.is_adicional = true;
-        nota.is_adicional_suspeito = false;
         nota.tipo_desconto = "ADICIONAL";
         nota.status_auditoria = "ADICIONAL CONFIRMADO";
       } else {
-        // CASO SUSPEITO: Link existe (mesmo CPF e tempo), mas sem a política de 10%
-        nota.canal = "RETIRADA_ADICIONAL";
-        nota.is_adicional = false;
         nota.is_adicional_suspeito = true;
         nota.status_auditoria = "VÍNCULO IDENTIFICADO (SEM DESCONTO 10%)";
       }
-    } else {
-      // FALHA DE VÍNCULO: Se o vendedor deu 10% mas não tinha pickup na janela de 15 min
-      if (temDescontoEstrategico) {
-        nota.canal = "LOJA_FISICA";
-        nota.is_adicional = false;
-        nota.is_adicional_suspeito = false;
-        nota.status_auditoria = "DESCONTO AVULSO (FORA DA JANELA 15 MIN)";
-      }
+    } else if (temDescontoEstrategico) {
+      nota.status_auditoria = "DESCONTO AVULSO (FORA DA JANELA DE ATENDIMENTO)";
     }
   });
 
@@ -99,7 +92,6 @@ export function vincularTrocas(rows: DetailedSaleRow[]): VinculoTroca[] {
 
   const saidasPorChaveNorm = new Map(saidasDeTroca.map(s => [s.chave.replace(/\D/g, ""), s]));
 
-  // CRITÉRIO A: Vínculo por Referência Fiscal (NFref)
   entradas.forEach(entrada => {
     const refs = (entrada.refNFe_normalizadas || []);
     for (const ref of refs) {
@@ -113,20 +105,12 @@ export function vincularTrocas(rows: DetailedSaleRow[]): VinculoTroca[] {
     }
   });
 
-  // CRITÉRIO B: Vínculo por CPF + Valor de Crédito exato
   entradas.forEach(entrada => {
     if (entradasVinculadas.has(entrada.chave)) return;
-    
     const valorEntrada = parseFloat(entrada.vNF).toFixed(2);
     const cpfEntrada = entrada.cpf_cnpj_dest;
-
     if (cpfEntrada) {
-      const match = saidasDeTroca.find(s => 
-        !saidasVinculadas.has(s.chave) && 
-        s.cpf_cnpj_dest === cpfEntrada &&
-        parseFloat(s.vTroca).toFixed(2) === valorEntrada
-      );
-
+      const match = saidasDeTroca.find(s => !saidasVinculadas.has(s.chave) && s.cpf_cnpj_dest === cpfEntrada && parseFloat(s.vTroca).toFixed(2) === valorEntrada);
       if (match) {
         vinculos.push(criarVinculo(entrada, match, "CPF + Valor de Crédito"));
         saidasVinculadas.add(match.chave);
@@ -135,17 +119,10 @@ export function vincularTrocas(rows: DetailedSaleRow[]): VinculoTroca[] {
     }
   });
 
-  // CRITÉRIO C: Vínculo por Coincidência de Valor (Sem Identificação)
   entradas.forEach(entrada => {
     if (entradasVinculadas.has(entrada.chave)) return;
-    
     const valorEntrada = parseFloat(entrada.vNF).toFixed(2);
-
-    const match = saidasDeTroca.find(s => 
-      !saidasVinculadas.has(s.chave) && 
-      parseFloat(s.vTroca).toFixed(2) === valorEntrada
-    );
-
+    const match = saidasDeTroca.find(s => !saidasVinculadas.has(s.chave) && parseFloat(s.vTroca).toFixed(2) === valorEntrada);
     if (match) {
       vinculos.push(criarVinculo(entrada, match, "Valor de Crédito (Sem Identif.)"));
       saidasVinculadas.add(match.chave);
@@ -159,25 +136,18 @@ export function vincularTrocas(rows: DetailedSaleRow[]): VinculoTroca[] {
 function criarVinculo(entrada: DetailedSaleRow, saida: DetailedSaleRow, metodo: string): VinculoTroca {
   const vEntrada = parseFloat(entrada.vNF);
   const vSaida = parseFloat(saida.vNF);
-  const vCredito = parseFloat(saida.vTroca);
   const vDiferenca = parseFloat(saida.dif_troca);
+  const diffItens = parseInt(saida.itens_qtd) - parseInt(entrada.itens_qtd);
 
   let score = 50;
-  let diag = "Troca Operacional";
-
-  // Métrica 1: Valor Financeiro (Upsell) - Peso 40
   if (vDiferenca > 0.1) score += 20; 
   if (vDiferenca > 100) score += 15;
   if (vDiferenca < -0.1) score -= 30; 
-  
-  // Métrica 2: Peças por Atendimento (PA) - Peso 30
-  const diffItens = parseInt(saida.itens_qtd) - parseInt(entrada.itens_qtd);
   if (diffItens > 0) score += 20; 
   if (diffItens < 0) score -= 20; 
-
-  // Métrica 3: Identificação de Cliente - Peso 10
   if (saida.cpf_cnpj_dest) score += 10;
 
+  let diag = "Troca Operacional";
   if (score >= 80) diag = "Troca de Ouro (Excelente Upsell/PA)";
   else if (score >= 60) diag = "Troca Qualitativa (Resultado Positivo)";
   else if (score < 40) diag = "Troca de Baixa Eficiência";
@@ -195,7 +165,7 @@ function criarVinculo(entrada: DetailedSaleRow, saida: DetailedSaleRow, metodo: 
     diferenca_itens: diffItens,
     valor_devolvido: vEntrada,
     valor_trocado: vSaida,
-    valor_credito: vCredito,
+    valor_credito: parseFloat(saida.vTroca),
     valor_diferenca: vDiferenca,
     metodo_vinculo: metodo,
     confianca: metodo.includes("Fiscal") ? 1.0 : (metodo.includes("CPF") ? 0.9 : 0.7),

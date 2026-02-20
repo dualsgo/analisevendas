@@ -1,19 +1,13 @@
 
 import { DetailedSaleRow, Item } from "./types";
 
-// Faixas de desconto padrão Ri Happy para identificação de estratégia
-const ADICIONAL_PERCENT_MIN = 0.08;
-const ADICIONAL_PERCENT_MAX = 0.12;
-const MOSTRUARIO_PERCENT_MIN = 0.045;
-const MOSTRUARIO_PERCENT_MAX = 0.055;
-
 // Parâmetros para detecção robusta de campanhas (Leve X Pague Y)
-const NEAR_FREE_MAX = 0.10;    // Itens que saem por até 10 centavos
-const RESIDUAL_MAX = 0.10;     // Ajustes de arredondamento de até 10 centavos
-const UNIT_BRUTO_MIN = 1.00;   // Preço mínimo para considerar o item na análise de campanha
+const NEAR_FREE_MAX = 0.10;
+const RESIDUAL_MAX = 0.10;
+const UNIT_BRUTO_MIN = 1.00;
 
 // Parâmetros para detecção de Correção de Preço Errado (Psicológico)
-const MIN_DESC_CENTS_MATERIAL = 100; // Descontos acima de R$ 1,00 para ser material
+const MIN_DESC_CENTS_MATERIAL = 100;
 const STANDARD_PERCENTS = [0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.40, 0.50];
 
 function dec(s: string | null | undefined): number {
@@ -26,10 +20,10 @@ function dec(s: string | null | undefined): number {
 const delimiters = ["Email:", "E-mail:", "Telefone:", "ID PIX", ".::", ";", "ID:", "CPF:", "CNPJ:", "Endereço:", "Data:", "Op:", "Mat:"];
 
 function extractVendedor(infCpl: string): string {
-  if (!infCpl) return "VENDEDOR NÃO IDENTIFICADO";
+  if (!infCpl) return "COLABORADOR NÃO IDENTIFICADO";
   const vLabel = /Vendedor:|Vend:|Atendente:|Op:|Operador:/i;
   const match = infCpl.match(vLabel);
-  if (!match || match.index === undefined) return "VENDEDOR NÃO IDENTIFICADO";
+  if (!match || match.index === undefined) return "COLABORADOR NÃO IDENTIFICADO";
   const startIdx = match.index + match[0].length;
   let candidate = infCpl.substring(startIdx).trim();
 
@@ -48,7 +42,7 @@ function extractVendedor(infCpl: string): string {
     result = result.substring(0, trailingIdMatch.index);
   }
 
-  return result || "VENDEDOR NÃO IDENTIFICADO";
+  return result || "COLABORADOR NÃO IDENTIFICADO";
 }
 
 function getMedian(nums: number[]): number {
@@ -188,14 +182,11 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
         const unitBruto = item.vProd / item.qCom;
         const unitLiq = (item.vProd - item.vDesc) / item.qCom;
         const unitDesc = item.vDesc / item.qCom;
-        
         const unitLiqCents = Math.round(unitLiq * 100);
         const lastDigit = unitLiqCents % 10;
         const isPsychEnding = [1, 5, 9].includes(lastDigit);
-        
         const unitDescCents = Math.round(unitDesc * 100);
         const hasMaterialDiscount = unitDescCents >= MIN_DESC_CENTS_MATERIAL;
-        
         const percDesc = item.vProd > 0 ? item.vDesc / item.vProd : 0;
         const isStandardPercent = STANDARD_PERCENTS.some(p => Math.abs(percDesc - p) <= 0.01);
         const isRiHappyStandard = (percDesc >= 0.08 && percDesc <= 0.12) || (percDesc >= 0.045 && percDesc <= 0.055);
@@ -243,10 +234,11 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     const infCpl = infAdic ? (getElement(infAdic, "infCpl")?.textContent || "") : "";
     const vendedor = extractVendedor(infCpl);
 
-    // --- ASSINATURA SISTÊMICA DE RETIRADA ONLINE (VERSÃO ROBUSTA) ---
-    // Regra: tpIntegra 2 + Nome com minúsculo (comum em cadastros web)
+    // --- IDENTIFICAÇÃO DETERMINÍSTICA DE RETIRADA ONLINE ---
+    const infCplUpper = infCpl.toUpperCase();
+    const hasPickupKeywords = infCplUpper.includes("RETIRADA") || infCplUpper.includes("PICKUP") || infCplUpper.includes("PEDIDO SITE");
     const hasLowercaseInName = /[a-z]/.test(nome_dest);
-    const isRetiradaOnline = (tpIntegraValue === "2" && hasLowercaseInName);
+    const isRetiradaOnline = hasPickupKeywords || (tpIntegraValue === "2" && hasLowercaseInName);
 
     const vTrocaCredito = pagamentosDet.filter(p => p.tPag === "05").reduce((acc, p) => acc + p.vPag, 0);
     const isTroca = vTrocaCredito > 0;
@@ -256,8 +248,8 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     const descontoTotal = itemsList.reduce((acc, it) => acc + it.vDesc, 0);
     const percentualDesconto = valorTotalProds > 0 ? (descontoTotal / valorTotalProds) : 0;
 
-    const isAdicionalDoc = percentualDesconto >= ADICIONAL_PERCENT_MIN && percentualDesconto <= ADICIONAL_PERCENT_MAX;
-    const isMostruario = percentualDesconto >= MOSTRUARIO_PERCENT_MIN && percentualDesconto <= MOSTRUARIO_PERCENT_MAX;
+    const isAdicionalDoc = percentualDesconto >= 0.08 && percentualDesconto <= 0.12;
+    const isMostruario = percentualDesconto >= 0.045 && percentualDesconto <= 0.055;
 
     const isDevolucao = tpNF === 0 && (finNFe === 4 || natOp.toLowerCase().includes("devolucao"));
 
@@ -272,9 +264,7 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
       tpNF, finNFe, natOp,
       canal: isTroca ? "TROCA" : (isRetiradaOnline ? "RETIRADA_ONLINE" : "LOJA_FISICA"),
       subcanal: "", canal_consolidado: isTroca ? "TROCA" : (isRetiradaOnline ? "RETIRADA_ONLINE" : "VENDA_LOJA"),
-      is_adicional: false, 
-      is_adicional_suspeito: false, 
-      motivo_adicional: "",
+      is_adicional: false, is_adicional_suspeito: false, motivo_adicional: "",
       vNF: vNFValue.toFixed(2), itens_qtd: itemsList.reduce((acc, it) => acc + it.qCom, 0).toString(),
       desconto_total: descontoTotal.toFixed(2), percentual_desconto: percentualDesconto.toFixed(4),
       is_troca: isTroca, vTroca: vTrocaCredito.toFixed(2), dif_troca: difTroca.toFixed(2),

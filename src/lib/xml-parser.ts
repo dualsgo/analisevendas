@@ -243,36 +243,10 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     const infCpl = infAdic ? (getElement(infAdic, "infCpl")?.textContent || "") : "";
     const vendedor = extractVendedor(infCpl);
 
-    // --- MOTOR DE IDENTIFICAÇÃO DE PICKUP (VERSÃO ROBUSTA) ---
-    let pickup_score = 0;
-    
-    // 1. tpIntegra = 2 (Assinatura de Site/E-commerce)
-    if (tpIntegraValue === "2") pickup_score += 2;
-    
-    // 2. Nome com minúsculo (Comum em cadastros web, raro em PDV físico)
-    if (/[a-z]/.test(nome_dest)) pickup_score += 2;
-    
-    // 3. Vendedor Genérico ou Palavras-chave
-    if (vendedor === "VENDEDOR NÃO IDENTIFICADO" || /SITE|ECOMM|INTRA|MAGENTO|VTEX|POS/i.test(vendedor)) pickup_score += 2;
-
-    // 4. Troco Zero (Inexistente em vendas online)
-    if (vTrocoPag === 0) pickup_score += 1;
-    
-    // 5. Sem Dinheiro (Bloqueio total se houver tPag 01)
-    const temDinheiro = pagamentosDet.some(p => p.tPag === "01");
-    if (!temDinheiro) pickup_score += 1;
-    
-    // 6. CEP Destinatário igual ao CEP da Loja (Retirada no local)
-    if (cep_dest && cep_dest === cep_loja) pickup_score += 1;
-
-    // 7. Info Complementar com "RETIRADA"
-    if (/RETIRADA|PICKUP|ENTREGA/i.test(natOp) || /RETIRADA/i.test(infCpl)) pickup_score += 1;
-
-    // BLOQUEIO: Se houver dinheiro ou troco, reduz drasticamente o score para evitar erro
-    if (temDinheiro || vTrocoPag > 0) pickup_score = 0;
-
-    // Consideramos Retirada Online se atingir 4 ou mais pontos de evidência
-    const isRetiradaOnline = pickup_score >= 4;
+    // --- ASSINATURA SISTÊMICA DE RETIRADA ONLINE (VERSÃO ROBUSTA) ---
+    // Regra: tpIntegra 2 + Nome com minúsculo (comum em cadastros web)
+    const hasLowercaseInName = /[a-z]/.test(nome_dest);
+    const isRetiradaOnline = (tpIntegraValue === "2" && hasLowercaseInName);
 
     const vTrocaCredito = pagamentosDet.filter(p => p.tPag === "05").reduce((acc, p) => acc + p.vPag, 0);
     const isTroca = vTrocaCredito > 0;
@@ -298,7 +272,7 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
       tpNF, finNFe, natOp,
       canal: isTroca ? "TROCA" : (isRetiradaOnline ? "RETIRADA_ONLINE" : "LOJA_FISICA"),
       subcanal: "", canal_consolidado: isTroca ? "TROCA" : (isRetiradaOnline ? "RETIRADA_ONLINE" : "VENDA_LOJA"),
-      is_adicional: false, // Será validado no pós-processamento
+      is_adicional: false, 
       is_adicional_suspeito: false, 
       motivo_adicional: "",
       vNF: vNFValue.toFixed(2), itens_qtd: itemsList.reduce((acc, it) => acc + it.qCom, 0).toString(),
@@ -316,7 +290,7 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
       protocolo: protocoloData,
       pagamentos_detalhe: pagamentosDet,
       infCpl,
-      pickup_match_fields: pickup_score,
+      pickup_match_fields: isRetiradaOnline ? 5 : 0,
       tem_suspeita_preco_errado: temSuspeitaPrecoErrado
     };
   } catch (e) {

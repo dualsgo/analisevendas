@@ -2,14 +2,14 @@
 import { DetailedSaleRow, VinculoTroca } from "./types";
 
 /**
- * ETAPA 2: Classificar Adicional (REGRA ANTI-BRECHA)
- * Só permite ADICIONAL se houver vínculo CPF+Data com uma Retirada Online.
+ * ETAPA 2: Classificar Adicional (ALGORITMO DE VÍNCULO CRONOLÓGICO)
+ * Só permite ADICIONAL se houver vínculo CPF + Janela de 15 minutos com uma Retirada Online.
  */
 export function detectarAdicionaisSuspeitos(rows: DetailedSaleRow[]): DetailedSaleRow[] {
-  // 1. Isolar Pickups confirmadas na Etapa 1 (Parser)
+  // 1. Isolar Pickups confirmadas na Etapa 1 (Signature: tpIntegra 2 + lowercase)
   const retiradas = rows.filter(r => r.canal === "RETIRADA_ONLINE" && !r.is_cancelada);
   
-  // 2. Isolar notas candidatas (Loja Física que não são troca nem cancelamento)
+  // 2. Isolar notas candidatas (Loja Física Signature: tpIntegra 1 + ALL CAPS)
   const candidatos = rows.filter(r => r.tpNF === 1 && r.canal !== "RETIRADA_ONLINE" && !r.is_cancelada && !r.is_troca);
 
   // Mapear Pickups por CPF para busca rápida
@@ -21,7 +21,7 @@ export function detectarAdicionaisSuspeitos(rows: DetailedSaleRow[]): DetailedSa
     }
   });
 
-  // 3. Processar cada nota física para verificar vínculo obrigatório
+  // 3. Processar cada nota física para verificar vínculo obrigatório de 15 minutos
   candidatos.forEach(nota => {
     // BLINDAGEM: Se a nota é CAMPANHA ou AJUSTE DE PREÇO, ela não entra no fluxo de adicional seguro.
     if (nota.tipo_desconto === "CAMPANHA" || nota.tipo_desconto === "AJUSTE DE PREÇO") {
@@ -33,7 +33,7 @@ export function detectarAdicionaisSuspeitos(rows: DetailedSaleRow[]): DetailedSa
     const perc = parseFloat(nota.percentual_desconto);
     const temDescontoEstrategico = perc >= 0.08 && perc <= 0.12; // Faixa de 10%
 
-    // Se não tem CPF, é impossível garantir que é adicional de uma retirada específica
+    // Se não tem CPF, é impossível garantir o vínculo
     if (!cpf) {
       if (temDescontoEstrategico) {
         nota.canal = "LOJA_FISICA";
@@ -44,10 +44,14 @@ export function detectarAdicionaisSuspeitos(rows: DetailedSaleRow[]): DetailedSa
     }
 
     const pickupsDoCliente = pickupsPorCpf.get(cpf) || [];
-    const dataNota = nota.dhEmi.substring(0, 10);
+    const timeNota = new Date(nota.dhEmi).getTime();
     
-    // Vínculo Anti-Brecha: Mesmo CPF + Mesma Data (Dia do Atendimento)
-    const pickupVinculada = pickupsDoCliente.find(p => p.dhEmi.substring(0, 10) === dataNota);
+    // Vínculo Anti-Brecha: Mesmo CPF + Janela de 15 Minutos (Tolerância Absoluta)
+    const pickupVinculada = pickupsDoCliente.find(p => {
+      const timePickup = new Date(p.dhEmi).getTime();
+      const diffMinutes = Math.abs(timeNota - timePickup) / (1000 * 60);
+      return diffMinutes <= 15;
+    });
 
     if (pickupVinculada) {
       nota.chave_retirada_associada = pickupVinculada.chave;
@@ -56,25 +60,25 @@ export function detectarAdicionaisSuspeitos(rows: DetailedSaleRow[]): DetailedSa
       if (temDescontoEstrategico) {
         // CASO IDEAL: Link confirmado + Desconto de 10%
         nota.canal = "RETIRADA_ADICIONAL";
+        nota.canal_consolidado = "RETIRADA_ADICIONAL";
         nota.is_adicional = true;
         nota.is_adicional_suspeito = false;
         nota.tipo_desconto = "ADICIONAL";
         nota.status_auditoria = "ADICIONAL CONFIRMADO";
       } else {
-        // CASO SUSPEITO: Link de CPF existe, mas o desconto não foi o padrão ou não existiu
+        // CASO SUSPEITO: Link existe (mesmo CPF e tempo), mas sem a política de 10%
         nota.canal = "RETIRADA_ADICIONAL";
         nota.is_adicional = false;
         nota.is_adicional_suspeito = true;
-        nota.motivo_adicional = "Vínculo CPF/Data Identificado";
-        nota.status_auditoria = "ADICIONAL SEM DESCONTO PADRÃO";
+        nota.status_auditoria = "VÍNCULO IDENTIFICADO (SEM DESCONTO 10%)";
       }
     } else {
-      // FALHA DE VÍNCULO: Se o vendedor deu 10% mas não tinha pickup no dia
+      // FALHA DE VÍNCULO: Se o vendedor deu 10% mas não tinha pickup na janela de 15 min
       if (temDescontoEstrategico) {
         nota.canal = "LOJA_FISICA";
         nota.is_adicional = false;
         nota.is_adicional_suspeito = false;
-        nota.status_auditoria = "DESCONTO AVULSO (SEM PICKUP NO DIA)";
+        nota.status_auditoria = "DESCONTO AVULSO (FORA DA JANELA 15 MIN)";
       }
     }
   });

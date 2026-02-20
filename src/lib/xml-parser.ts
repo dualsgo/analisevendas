@@ -236,19 +236,24 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     const infCpl = infAdic ? (getElement(infAdic, "infCpl")?.textContent || "") : "";
     const vendedor = extractVendedor(infCpl);
 
-    // --- CAMADA A: DETECÇÃO DE RETIRADA (PICKUP) VIA GATE RÍGIDO ---
-    // Condição 1: Assinatura do destinatário = endereço da loja
+    // --- CAMADA A: DETECÇÃO DE RETIRADA (PICKUP) ---
     const isEnderecoLoja = 
       cep_dest === "21211007" && 
       nro_dest === "909" && 
       uf_dest === "RJ" && 
       /VICENTE\s+DE\s+CARVALHO/i.test(xLgr_dest);
 
-    // Condição 2: Restrição de Pagamento (Sem dinheiro e troco zero)
-    const temDinheiro = pagamentosDet.some(p => p.tPag === "01");
-    const trocoVal = vTrocoPag || 0;
+    // Identificação de Bloqueios de Balcão (Prompt: Item <= 0.10, Vendedor Identificado, tpIntegra != 2)
+    const hasSymbolicItem = itemsList.some(it => !it.is_campanha && (it.vProd / it.qCom) <= 0.10);
+    const hasIdentifiedVendedor = vendedor !== "COLABORADOR NÃO IDENTIFICADO";
+    const isTpIntegraNot2 = tpIntegraValue !== "2";
+    const hasTextualPickupEvidence = /RETIRADA|PICKUP|PEDIDO|SITE|ECOMM|MAGENTO/i.test(infCpl);
 
-    const isRetiradaOnline = isEnderecoLoja && !temDinheiro && trocoVal === 0;
+    // Regra: Classificar como Retirada quando tem endereço mas NÃO tem bloqueios de balcão
+    const isRetiradaOnline = isEnderecoLoja && 
+                             !hasSymbolicItem && 
+                             !(hasSymbolicItem && hasIdentifiedVendedor) &&
+                             !(isTpIntegraNot2 && !hasTextualPickupEvidence);
 
     const vTrocaCredito = pagamentosDet.filter(p => p.tPag === "05").reduce((acc, p) => acc + p.vPag, 0);
     const isTroca = vTrocaCredito > 0;

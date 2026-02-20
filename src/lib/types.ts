@@ -23,6 +23,7 @@ export interface DetailedSaleRow {
   tpNF: number; // 0=entrada, 1=saída
   finNFe: number;
   natOp: string;
+  indPres: number;
   
   // Classificação
   canal: string;
@@ -58,7 +59,9 @@ export interface DetailedSaleRow {
   vTroco: string;
   is_presencial_por_troco: boolean;
   tpIntegra: string;
-  pickup_match_fields: number; // 0 a 5 - Nível de certeza do pickup
+  pickup_match_fields: number;
+  is_nome_minusculo?: boolean;
+  has_symbolic_item?: boolean;
   
   // Auditoria
   tem_desconto: boolean;
@@ -132,7 +135,6 @@ export interface VinculoTroca {
   valor_diferenca: number;
   metodo_vinculo: string;
   confianca: number;
-  // Métricas de Eficiência (Atualizadas sem tempo)
   score_qualidade: number;
   diagnostico: string;
 }

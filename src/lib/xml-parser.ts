@@ -1,3 +1,4 @@
+
 import { DetailedSaleRow, Item } from "./types";
 
 // Parâmetros para detecção robusta de campanhas (Leve X Pague Y)
@@ -35,7 +36,6 @@ function extractVendedor(infCpl: string): string {
   if (multiSpace && multiSpace.index !== undefined && multiSpace.index < endIdx) endIdx = multiSpace.index;
 
   let result = candidate.substring(0, endIdx).trim();
-
   const trailingIdMatch = result.match(/\s+\d+$/);
   if (trailingIdMatch && trailingIdMatch.index) {
     result = result.substring(0, trailingIdMatch.index);
@@ -61,7 +61,7 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
         is_cancelada: true,
         chave: (xmlDoc.getElementsByTagName("chNFe")[0]?.textContent || "DESC"),
         nf: "CANCELADA",
-        dhEmi: "", vendedor: "", tpNF: 1, finNFe: 1, natOp: "CANCELAMENTO",
+        dhEmi: "", vendedor: "", tpNF: 1, finNFe: 1, natOp: "CANCELAMENTO", indPres: 0,
         canal: "CANCELADA", subcanal: "", canal_consolidado: "CANCELADA",
         is_adicional: false, is_adicional_suspeito: false, motivo_adicional: "",
         vNF: "0.00", itens_qtd: "0", desconto_total: "0.00", percentual_desconto: "0.00",
@@ -100,6 +100,7 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     const finNFe = parseInt(getElement(ide, "finNFe")?.textContent || "1");
     const natOp = getElement(ide, "natOp")?.textContent || "";
     const dhEmi = getElement(ide, "dhEmi")?.textContent || "";
+    const indPres = parseInt(getElement(ide, "indPres")?.textContent || "0");
 
     const dest = getElement(infNFe, "dest");
     const cpf_cnpj = dest ? (getElement(dest, "CPF")?.textContent || getElement(dest, "CNPJ")?.textContent || "") : "";
@@ -109,6 +110,8 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     const xLgr_dest = enderDest ? (getElement(enderDest, "xLgr")?.textContent || "") : "";
     const nro_dest = enderDest ? (getElement(enderDest, "nro")?.textContent || "") : "";
     const uf_dest = enderDest ? (getElement(enderDest, "UF")?.textContent || "") : "";
+
+    const isNomeMinusculo = /[a-z]/.test(nome_dest);
 
     const emit = getElement(infNFe, "emit");
     const enderEmit = emit ? getElement(emit, "enderEmit") : null;
@@ -128,6 +131,7 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     let residualCount = 0;
     const unitPricesBruto: number[] = [];
     let totalDescontoNota = 0;
+    let hasSymbolicItem = false;
 
     getElements(infNFe, "det").forEach(det => {
       const prod = getElement(det, "prod");
@@ -140,6 +144,8 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
         const unitBruto = vProd / qCom;
         const unitFinal = (vProd - vDesc) / qCom;
         const unitDesc = vDesc / qCom;
+
+        if (unitBruto <= 0.10 && vDesc === 0) hasSymbolicItem = true;
 
         if (unitBruto >= UNIT_BRUTO_MIN) {
           unitPricesBruto.push(unitBruto);
@@ -236,57 +242,54 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     const infCpl = infAdic ? (getElement(infAdic, "infCpl")?.textContent || "") : "";
     const vendedor = extractVendedor(infCpl);
 
-    // --- CAMADA A: DETECÇÃO DE RETIRADA (PICKUP) ---
+    // --- LOGICA DE CLASSIFICAÇÃO UNIFICADA (Python + NextJS) ---
     const isEnderecoLoja = 
       cep_dest === "21211007" && 
       nro_dest === "909" && 
       uf_dest === "RJ" && 
       /VICENTE\s+DE\s+CARVALHO/i.test(xLgr_dest);
 
-    // Identificação de Bloqueios de Balcão (Prompt: Item <= 0.10, Vendedor Identificado, tpIntegra != 2)
-    const hasSymbolicItem = itemsList.some(it => !it.is_campanha && (it.vProd / it.qCom) <= 0.10);
-    const hasIdentifiedVendedor = vendedor !== "COLABORADOR NÃO IDENTIFICADO";
-    const isTpIntegraNot2 = tpIntegraValue !== "2";
+    const isVendedorIdentificado = vendedor !== "COLABORADOR NÃO IDENTIFICADO" && vendedor !== "SEM_VENDEDOR";
+    const temDinheiro = pagamentosDet.some(p => p.tPag === "01");
     const hasTextualPickupEvidence = /RETIRADA|PICKUP|PEDIDO|SITE|ECOMM|MAGENTO/i.test(infCpl);
 
-    // Regra: Classificar como Retirada quando tem endereço mas NÃO tem bloqueios de balcão
-    const isRetiradaOnline = isEnderecoLoja && 
-                             !hasSymbolicItem && 
-                             !(hasSymbolicItem && hasIdentifiedVendedor) &&
-                             !(isTpIntegraNot2 && !hasTextualPickupEvidence);
+    // BLOQUEIOS DE BALCÃO
+    const isBalcaoBlocked = 
+      hasSymbolicItem || 
+      temDinheiro || 
+      vTrocoPag > 0 || 
+      (tpIntegraValue !== "2" && !hasTextualPickupEvidence);
+
+    const isRetiradaOnline = isEnderecoLoja && !isBalcaoBlocked;
 
     const vTrocaCredito = pagamentosDet.filter(p => p.tPag === "05").reduce((acc, p) => acc + p.vPag, 0);
     const isTroca = vTrocaCredito > 0;
-    const difTroca = vNFValue - vTrocaCredito;
+    const dif_troca = vNFValue - vTrocaCredito;
 
     const valorTotalProds = itemsList.reduce((acc, it) => acc + it.vProd, 0);
     const descontoTotal = itemsList.reduce((acc, it) => acc + it.vDesc, 0);
     const percentualDesconto = valorTotalProds > 0 ? (descontoTotal / valorTotalProds) : 0;
 
-    const isAdicionalDoc = percentualDesconto >= 0.08 && percentualDesconto <= 0.12;
-    const isMostruario = percentualDesconto >= 0.045 && percentualDesconto <= 0.055;
-
-    const isDevolucao = tpNF === 0 && (finNFe === 4 || natOp.toLowerCase().includes("devolucao"));
-
     let tipoDescontoFinal = "PADRÃO";
     if (isCampanhaNota) tipoDescontoFinal = "CAMPANHA";
     else if (temSuspeitaPrecoErrado) tipoDescontoFinal = "AJUSTE DE PREÇO";
-    else if (isAdicionalDoc) tipoDescontoFinal = "ADICIONAL";
-    else if (isMostruario) tipoDescontoFinal = "MOSTRUÁRIO";
+    else if (percentualDesconto >= 0.08 && percentualDesconto <= 0.12) tipoDescontoFinal = "ADICIONAL";
+    else if (percentualDesconto >= 0.045 && percentualDesconto <= 0.055) tipoDescontoFinal = "MOSTRUÁRIO";
 
     return {
       chave, nf, serie: getElement(ide, "serie")?.textContent || "", modelo: getElement(ide, "mod")?.textContent || "", dhEmi, vendedor,
-      tpNF, finNFe, natOp,
+      tpNF, finNFe, natOp, indPres,
       canal: isTroca ? "TROCA" : (isRetiradaOnline ? "RETIRADA_ONLINE" : "LOJA_FISICA"),
       subcanal: "", canal_consolidado: isTroca ? "TROCA" : (isRetiradaOnline ? "RETIRADA_ONLINE" : "VENDA_LOJA"),
-      is_adicional: false, is_adicional_suspeito: false, motivo_adicional: "",
+      is_adicional: false, is_adicional_suspeito: false, motivo_adicional: "NAO_ADICIONAL",
       vNF: vNFValue.toFixed(2), itens_qtd: itemsList.reduce((acc, it) => acc + it.qCom, 0).toString(),
       desconto_total: descontoTotal.toFixed(2), percentual_desconto: percentualDesconto.toFixed(4),
-      is_troca: isTroca, vTroca: vTrocaCredito.toFixed(2), dif_troca: difTroca.toFixed(2),
-      is_devolucao: isDevolucao, refNFe: refNFes, refNFe_normalizadas: refNFes.map(r => r.replace(/\D/g, "")),
+      is_troca: isTroca, vTroca: vTrocaCredito.toFixed(2), dif_troca: dif_troca.toFixed(2),
+      is_devolucao: tpNF === 0 && (finNFe === 4 || natOp.toLowerCase().includes("devolucao")),
+      refNFe: refNFes, refNFe_normalizadas: refNFes.map(r => r.replace(/\D/g, "")),
       is_retirada_online: isRetiradaOnline, vTroco: vTrocoPag.toFixed(2), is_presencial_por_troco: !isRetiradaOnline, tpIntegra: tpIntegraValue,
       tem_desconto: descontoTotal > 0, tipo_desconto: tipoDescontoFinal,
-      status_auditoria: isCampanhaNota ? "CAMPANHA IDENTIFICADA" : (temSuspeitaPrecoErrado ? "SUSPEITA DE AJUSTE MANUAL" : (isAdicionalDoc ? "AGUARDANDO VÍNCULO" : (descontoTotal > 0 ? "DESCONTO APLICADO" : "SEM DESCONTO"))),
+      status_auditoria: isCampanhaNota ? "CAMPANHA IDENTIFICADA" : (temSuspeitaPrecoErrado ? "SUSPEITA DE AJUSTE MANUAL" : (descontoTotal > 0 ? "DESCONTO APLICADO" : "SEM DESCONTO")),
       cep_dest, cep_loja, is_cep_diferente_da_loja: !!cep_dest && cep_dest !== cep_loja,
       is_endereco_real: !!cep_dest, cpf_cnpj_dest: cpf_cnpj, nome_dest, endereco_dest: "", tem_destinatario: !!cpf_cnpj,
       itens: itemsList,
@@ -296,6 +299,8 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
       pagamentos_detalhe: pagamentosDet,
       infCpl,
       pickup_match_fields: isEnderecoLoja ? 5 : 0,
+      is_nome_minusculo: isNomeMinusculo,
+      has_symbolic_item: hasSymbolicItem,
       tem_suspeita_preco_errado: temSuspeitaPrecoErrado
     };
   } catch (e) {

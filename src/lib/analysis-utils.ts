@@ -1,15 +1,24 @@
+
 import { DetailedSaleRow, VinculoTroca } from "./types";
 
 /**
  * PIPELINE CAMADA B & C: Vincular e Confirmar Adicionais
- * Regra: CPF + Janela de Tempo (10min) + Assinatura de Desconto (8-12%)
+ * Regra: Mesmo CPF + Janela de 15 Minutos + Assinatura de 10%
+ * Bloqueio: Notas com Suspeita de Ajuste Manual (Risco Operacional) nunca são Adicionais Seguros.
  */
 export function detectarAdicionaisSuspeitos(rows: DetailedSaleRow[]): DetailedSaleRow[] {
-  // 1. Isolar Retiradas confirmadas (Camada A já processada no parser)
+  // 1. Isolar Retiradas confirmadas (Camada A)
   const retiradas = rows.filter(r => r.canal === "RETIRADA_ONLINE" && !r.is_cancelada);
   
   // 2. Isolar notas candidatas (Vendas Físicas Ativas)
-  const candidatos = rows.filter(r => r.tpNF === 1 && r.canal !== "RETIRADA_ONLINE" && !r.is_cancelada && !r.is_troca);
+  // Bloqueio Preventivo: Se for ajuste de preço, não pode ser adicional seguro
+  const candidatos = rows.filter(r => 
+    r.tpNF === 1 && 
+    r.canal !== "RETIRADA_ONLINE" && 
+    !r.is_cancelada && 
+    !r.is_troca &&
+    !r.tem_suspeita_preco_errado
+  );
 
   // Mapear Pickups por CPF para busca rápida
   const pickupsPorCpf = new Map<string, DetailedSaleRow[]>();
@@ -22,30 +31,17 @@ export function detectarAdicionaisSuspeitos(rows: DetailedSaleRow[]): DetailedSa
 
   // 3. Processar cada nota física para verificar vínculo contextual (Camada B)
   candidatos.forEach(nota => {
-    // BLINDAGEM: Ajustes operacionais nunca são limpos como adicionais seguros
-    if (nota.tipo_desconto === "AJUSTE DE PREÇO") {
-      nota.is_adicional = false;
-      return;
-    }
-
     const cpf = nota.cpf_cnpj_dest;
     if (!cpf) return;
 
     const pickupsDoCliente = pickupsPorCpf.get(cpf) || [];
     const timeNota = new Date(nota.dhEmi).getTime();
     
-    // REGRA DE VÍNCULO POR ATENDIMENTO (CAMADA B: DH_EMI ± 10 MINUTOS)
+    // REGRA DE VÍNCULO (CAMADA B: DH_EMI ± 15 MINUTOS)
     const pickupVinculada = pickupsDoCliente.find(p => {
       const timePickup = new Date(p.dhEmi).getTime();
       const diffMinutes = Math.abs(timeNota - timePickup) / (1000 * 60);
-      
-      // Refinador opcional: Mesma vendedora
-      const v1 = (nota.vendedor || "").toUpperCase();
-      const v2 = (p.vendedor || "").toUpperCase();
-      const isSameVendor = v1 !== "COLABORADOR NÃO IDENTIFICADO" && v2 !== "COLABORADOR NÃO IDENTIFICADO" && v1 === v2;
-
-      // Se houver vendedor, usamos 10 min. Se um faltar, mantemos 10 min mas com menor peso qualitativo.
-      return diffMinutes <= 10;
+      return diffMinutes <= 15;
     });
 
     if (pickupVinculada) {
@@ -62,11 +58,21 @@ export function detectarAdicionaisSuspeitos(rows: DetailedSaleRow[]): DetailedSa
         nota.is_adicional = true;
         nota.tipo_desconto = "ADICIONAL";
         nota.status_auditoria = "ADICIONAL CONFIRMADO";
+        nota.motivo_adicional = "VÍNCULO CPF + 15MIN + 10%";
       } else {
-        // Vínculo detectado mas sem o desconto padrão -> Vínculo qualitativo para auditoria
         nota.is_adicional_suspeito = true;
         nota.status_auditoria = "VÍNCULO IDENTIFICADO (SEM DESCONTO 10%)";
+        nota.motivo_adicional = "VÍNCULO CPF + 15MIN";
       }
+    }
+  });
+
+  // Limpeza: Se for ajuste de preço e caiu aqui por engano, garante classificação de risco
+  rows.forEach(r => {
+    if (r.tem_suspeita_preco_errado) {
+      r.is_adicional = false;
+      r.is_adicional_suspeito = false;
+      r.status_auditoria = "RISCO: AJUSTE MANUAL DETECTADO";
     }
   });
 

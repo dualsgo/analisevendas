@@ -162,19 +162,16 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
           `${e("🎯")}*PA:* ${metrics.pa.toFixed(2)} | ${e("💳")}*TKM:* ${formatBRL(metrics.tkm)}\n` +
           `${e("🆔")}*Ident:* ${metrics.cadastros.toFixed(1)}% | ${e("🚚")}*Pks:* ${metrics.retiradas}\n` +
           `${e("🎯")}*Conv:* ${metrics.convPickup.toFixed(1)}% | ${e("🔄")}*Trocas:* ${metrics.trocas}\n\n` +
-          `_(Apenas faturamento físico + adicional)_`;
+          `_(Faturamento presencial + adicional)_`;
 
       case 'VENDOR_PERFORMANCE':
         let perfText = `${e("👤")}*Performance Colaboradores – ${dateStr}*\n\n`;
         metrics.vendorPerformanceList.forEach((v) => {
           perfText += `*${v.name}*\n` +
             `${e("💰")}${formatBRL(v.venda)} | ${e("🎯")}PA ${v.pa.toFixed(2)}\n` +
-            `${e("💳")}TKM ${formatBRL(v.tkm)} | ${e("🆔")}${v.ident.toFixed(0)}%\n`;
-          
-          if (v.pickups > 0 || v.adicionais > 0) {
-            perfText += `${e("🚚")}${v.pickups} Pks | ${e("➕")}${v.adicionais} Adic (${v.conv.toFixed(0)}%)\n`;
-          }
-          perfText += "------------------------\n";
+            `${e("💳")}TKM ${formatBRL(v.tkm)} | ${e("🆔")}${v.ident.toFixed(0)}%\n` +
+            `${e("🚚")}${v.pickups} Pks | ${e("➕")}${v.adicionais} Adic (${v.conv.toFixed(0)}%)\n` +
+            "------------------------\n";
         });
         return perfText;
 

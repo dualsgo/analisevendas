@@ -47,34 +47,28 @@ type ReportType = 'STORE_SUMMARY' | 'VENDOR_PERFORMANCE' | 'PICKUP_CONVERSION' |
 export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
   const [reportType, setReportType] = useState<ReportType>('STORE_SUMMARY');
   const [useEmojis, setUseEmojis] = useState(true);
-  const [formatType, setFormatType] = useState<'compact' | 'detailed'>('detailed');
   const [copied, setCopied] = useState(false);
   const { toast } = useToast();
 
   const formatBRL = (val: number) => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-  // Cálculos de métricas
+  // Cálculos de métricas focados em Loja Física (Fisica + Adicional)
   const metrics = useMemo(() => {
     const saidas = data.filter(r => r.tpNF === 1 && !r.is_devolucao && !r.is_cancelada);
-    const fisica = saidas.filter(r => r.canal === "LOJA_FISICA");
-    const online = saidas.filter(r => r.canal === "RETIRADA_ONLINE");
-    const adicional = saidas.filter(r => r.canal === "RETIRADA_ADICIONAL" || r.is_adicional || r.is_adicional_suspeito);
     
-    // Cálculo Loja Física
-    const vFisica = fisica.reduce((acc, r) => acc + parseFloat(r.vNF), 0);
-    const cFisica = fisica.length;
-    const iFisica = fisica.reduce((acc, r) => acc + parseFloat(r.itens_qtd), 0);
-    const idenFisica = fisica.filter(r => r.cpf_cnpj_dest && r.cpf_cnpj_dest.trim() !== "").length;
+    // Filtros Disjuntos
+    const online = saidas.filter(r => r.canal === "RETIRADA_ONLINE");
+    const fisicaEAdicional = saidas.filter(r => r.canal !== "RETIRADA_ONLINE"); // O que não é site é esforço de loja
+    
+    // Cálculo Base Unidade (Apenas Loja Física para auditoria de esforço)
+    const vLoja = fisicaEAdicional.reduce((acc, r) => acc + parseFloat(r.vNF), 0);
+    const cLoja = fisicaEAdicional.length;
+    const iLoja = fisicaEAdicional.reduce((acc, r) => acc + parseFloat(r.itens_qtd), 0);
+    const idenLoja = fisicaEAdicional.filter(r => r.cpf_cnpj_dest && r.cpf_cnpj_dest.trim() !== "").length;
 
-    // Cálculo Adicional
-    const vAdicional = adicional.reduce((acc, r) => acc + parseFloat(r.vNF), 0);
-    const cAdicional = adicional.length;
-    const iAdicional = adicional.reduce((acc, r) => acc + parseFloat(r.itens_qtd), 0);
-
-    // Cálculo Total Consolidado (Físico + Adicional + Online)
-    const vTotal = vFisica + vAdicional + online.reduce((acc, r) => acc + parseFloat(r.vNF), 0);
-    const cTotal = cFisica + cAdicional + online.length;
-    const iTotal = iFisica + iAdicional + online.reduce((acc, r) => acc + parseFloat(r.itens_qtd), 0);
+    // Métricas de Adicional para Conversão
+    const adicionais = fisicaEAdicional.filter(r => r.canal === "RETIRADA_ADICIONAL" || r.is_adicional || r.is_adicional_suspeito);
+    const cAdicional = adicionais.length;
 
     // Pickup
     const convPickup = online.length > 0 ? (cAdicional / online.length) * 100 : 0;
@@ -87,36 +81,35 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
       }
     });
 
-    // Métricas por Vendedor
+    // Métricas por Vendedor (Apenas esforço de loja)
     const vendors: Record<string, any> = {};
     const vendorCustomers = new Map<string, Set<string>>();
     
-    const processVendorSale = (r: DetailedSaleRow) => {
+    fisicaEAdicional.forEach(r => {
       const name = r.vendedor || "VENDEDOR";
       if (!vendors[name]) vendors[name] = { venda: 0, cupons: 0, itens: 0, ident: 0, adicionais: 0, pickups: 0 };
       vendors[name].venda += parseFloat(r.vNF);
       vendors[name].cupons += 1;
       vendors[name].itens += parseFloat(r.itens_qtd);
+      
       if (r.cpf_cnpj_dest) {
         vendors[name].ident += 1;
         if (!vendorCustomers.has(name)) vendorCustomers.set(name, new Set());
         vendorCustomers.get(name)!.add(r.cpf_cnpj_dest);
       }
-      if (r.is_adicional || r.is_adicional_suspeito) {
+      
+      if (r.is_adicional || r.is_adicional_suspeito || r.canal === "RETIRADA_ADICIONAL") {
         vendors[name].adicionais += 1;
       }
-    };
-
-    fisica.forEach(processVendorSale);
-    adicional.forEach(processVendorSale);
+    });
 
     vendorCustomers.forEach((customers, vendorName) => {
-      let totalPickups = 0;
+      let totalPotentialPickups = 0;
       customers.forEach(cpf => {
-        totalPickups += onlinePerCustomer.get(cpf) || 0;
+        totalPotentialPickups += onlinePerCustomer.get(cpf) || 0;
       });
       if (vendors[vendorName]) {
-        vendors[vendorName].pickups = totalPickups;
+        vendors[vendorName].pickups = totalPotentialPickups;
       }
     });
 
@@ -134,12 +127,12 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
       .sort((a, b) => b.venda - a.venda);
 
     return {
-      venda: vTotal,
-      cupons: cTotal,
-      itens: iTotal,
-      pa: cTotal > 0 ? iTotal / cTotal : 0,
-      tkm: cTotal > 0 ? vTotal / cTotal : 0,
-      cadastros: cFisica > 0 ? (idenFisica / cFisica) * 100 : 0,
+      venda: vLoja,
+      cupons: cLoja,
+      itens: iLoja,
+      pa: cLoja > 0 ? iLoja / cLoja : 0,
+      tkm: cLoja > 0 ? vLoja / cLoja : 0,
+      cadastros: cLoja > 0 ? (idenLoja / cLoja) * 100 : 0,
       retiradas: online.length,
       adicionais: cAdicional,
       convPickup,
@@ -151,7 +144,6 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
   const reportContent = useMemo(() => {
     const e = (emoji: string) => useEmojis ? emoji + " " : "";
     
-    // Detecção de Período
     const dates = data.map(r => parseISO(r.dhEmi)).filter(d => !isNaN(d.getTime()));
     let dateStr = "";
     if (dates.length > 0) {
@@ -164,24 +156,24 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
 
     switch (reportType) {
       case 'STORE_SUMMARY':
-        return `${e("📊")}*Parcial Loja – ${dateStr}*\n\n` +
+        return `${e("📊")}*Resultado Loja – ${dateStr}*\n\n` +
           `${e("💰")}*Venda:* ${formatBRL(metrics.venda)}\n` +
           `${e("🎯")}*PA:* ${metrics.pa.toFixed(2)} | ${e("💳")}*TKM:* ${formatBRL(metrics.tkm)}\n` +
-          `${e("🆔")}*Ident:* ${metrics.cadastros.toFixed(1)}%\n` +
-          `${e("🚚")}*Pickup:* ${metrics.retiradas} (${metrics.convPickup.toFixed(0)}% conv)\n` +
-          (metrics.trocas > 0 ? `${e("🔄")}*Trocas:* ${metrics.trocas} atend.` : "");
+          `${e("🆔")}*Ident:* ${metrics.cadastros.toFixed(1)}% | ${e("🚚")}*Pickup:* ${metrics.retiradas}\n` +
+          `${e("🎯")}*Conv:* ${metrics.convPickup.toFixed(1)}% | ${e("🔄")}*Trocas:* ${metrics.trocas}\n\n` +
+          `_(Apenas faturamento físico + adicional)_`;
 
       case 'VENDOR_PERFORMANCE':
         let perfText = `${e("👤")}*Performance Vendedores – ${dateStr}*\n\n`;
         metrics.vendorPerformanceList.forEach((v) => {
           perfText += `*${v.name}*\n` +
-            `${e("💰")}${v.venda.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} | ${e("🎯")}PA ${v.pa.toFixed(2)}\n` +
-            `${e("💳")}TKM ${formatBRL(v.tkm)} | ${e("🆔")}${v.ident.toFixed(0)}% Ident.\n`;
+            `${e("💰")}${formatBRL(v.venda)} | ${e("🎯")}PA ${v.pa.toFixed(2)}\n` +
+            `${e("💳")}TKM ${formatBRL(v.tkm)} | ${e("🆔")}${v.ident.toFixed(0)}%\n`;
           
           if (v.pickups > 0 || v.adicionais > 0) {
-            perfText += `${e("🚚")}${v.pickups} Pickups | ${e("➕")}${v.adicionais} Adic. (${v.conv.toFixed(0)}%)\n`;
+            perfText += `${e("🚚")}${v.pickups} Pks | ${e("➕")}${v.adicionais} Adic (${v.conv.toFixed(0)}%)\n`;
           }
-          perfText += "\n";
+          perfText += "------------------------\n";
         });
         return perfText;
 
@@ -215,14 +207,13 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
         return `${e("📅")}*Fechamento – ${dateStr}*\n\n` +
           `${e("💰")}*Venda:* ${formatBRL(metrics.venda)}\n` +
           `${e("🎯")}*PA:* ${metrics.pa.toFixed(2)} | ${e("💳")}*TKM:* ${formatBRL(metrics.tkm)}\n` +
-          `${e("🆔")}*Ident:* ${metrics.cadastros.toFixed(1)}%\n` +
-          `${e("🚚")}*Pickup:* ${metrics.convPickup.toFixed(1)}%\n\n` +
+          `${e("🆔")}*Ident:* ${metrics.cadastros.toFixed(1)}%\n\n` +
           `${e("🏆")}*DESTAQUES DO DIA:*\n` +
           (highlightsText || "Equipe toda engajada!");
 
       case 'STRATEGIC':
         return `${e("📈")}*Gestão Estratégica – ${dateStr}*\n\n` +
-          `*Status da Unidade:*\n` +
+          `*Status da Unidade (Físico):*\n` +
           `${metrics.pa < 2.0 ? e("🛑") : e("✅")} PA: ${metrics.pa.toFixed(2)}\n` +
           `${metrics.cadastros < 85 ? e("🛑") : e("✅")} Ident: ${metrics.cadastros.toFixed(1)}%\n` +
           `${metrics.convPickup < 15 ? e("🛑") : e("✅")} Conv: ${metrics.convPickup.toFixed(1)}%`;
@@ -260,7 +251,7 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="STORE_SUMMARY">Parcial da Loja</SelectItem>
+                    <SelectItem value="STORE_SUMMARY">Parcial da Loja (Físico)</SelectItem>
                     <SelectItem value="VENDOR_PERFORMANCE">Performance Vendedores</SelectItem>
                     <SelectItem value="PICKUP_CONVERSION">Relatório Pickup</SelectItem>
                     <SelectItem value="DAILY_CLOSING">Fechamento do Dia</SelectItem>
@@ -293,8 +284,8 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
              <div className="flex gap-4">
                 <Zap className="w-6 h-6 text-orange-500 shrink-0" />
                 <div className="space-y-1">
-                   <h4 className="text-xs font-black text-orange-900 uppercase">Dica Estratégica</h4>
-                   <p className="text-[11px] text-orange-800/70 font-medium">Envie a parcial da loja em horários de pico para manter o foco em PA e Identificação.</p>
+                   <h4 className="text-xs font-black text-orange-900 uppercase">Foco em Auditoria</h4>
+                   <p className="text-[11px] text-orange-800/70 font-medium">Este relatório isola o faturamento das retiradas online para medir o esforço real da equipe de loja.</p>
                 </div>
              </div>
           </Card>
@@ -303,7 +294,7 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
         <div className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between px-2">
             <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Pré-visualização</h3>
-            <Badge variant="outline" className="bg-white text-emerald-600 border-emerald-100 font-black text-[9px]">OTIMIZADO</Badge>
+            <Badge variant="outline" className="bg-white text-emerald-600 border-emerald-100 font-black text-[9px]">COMPACTO</Badge>
           </div>
 
           <div className="bg-[#E5DDD5] rounded-[2rem] p-4 md:p-8 shadow-inner min-h-[450px] relative overflow-hidden">

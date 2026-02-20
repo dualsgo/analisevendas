@@ -112,8 +112,9 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     const vNFValue = icmsTot ? dec(getElement(icmsTot, "vNF")?.textContent) : 0;
 
     const itemsList: Item[] = [];
-    
-    // Extração de itens
+    let hasExtremeDiscountItem = false; 
+    let hasSymbolicDiscountItem = false;
+
     getElements(infNFe, "det").forEach(det => {
       const prod = getElement(det, "prod");
       if (prod) {
@@ -121,6 +122,13 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
         const vDesc = dec(getElement(prod, "vDesc")?.textContent);
         const qCom = dec(getElement(prod, "qCom")?.textContent);
         
+        const unitPriceFinal = (vProd - vDesc) / qCom;
+        const unitDiscount = vDesc / qCom;
+
+        // Assinatura de Campanha (Leve 3 Pague 2 / Compre e Ganhe)
+        if (Math.abs(unitPriceFinal - 0.01) < 0.005 && vProd > 0.10) hasExtremeDiscountItem = true;
+        if (Math.abs(unitDiscount - 0.01) < 0.005 && vProd > 0.10) hasSymbolicDiscountItem = true;
+
         itemsList.push({
           cProd: getElement(prod, "cProd")?.textContent || "",
           xProd: getElement(prod, "xProd")?.textContent || "",
@@ -132,34 +140,9 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
       }
     });
 
-    // REGRA DE CAMPANHA (COMPLEMENTARIDADE): 99% + 0,01%
-    // Detecta a assinatura do "Leve 3 Pague 2" ou "Compre e Ganhe"
-    let hasExtremeDiscountItem = false; // Item que saiu por R$ 0,01 via desconto
-    let hasSymbolicDiscountItem = false; // Item que teve exatamente R$ 0,01 de desconto
-
-    itemsList.forEach(item => {
-      const unitPriceFinal = (item.vProd - item.vDesc) / item.qCom;
-      const unitDiscount = item.vDesc / item.qCom;
-
-      // 1. Detectar brinde (Preço final de exatamente 0,01)
-      if (Math.abs(unitPriceFinal - 0.01) < 0.005 && item.vProd > 0.10) {
-        hasExtremeDiscountItem = true;
-      }
-
-      // 2. Detectar sinalizador (Desconto de exatamente 0,01)
-      if (Math.abs(unitDiscount - 0.01) < 0.005 && item.vProd > 0.10) {
-        hasSymbolicDiscountItem = true;
-      }
-    });
-
-    // A nota só é classificada como CAMPANHA se houver o par complementar
     const isCampanhaNota = hasExtremeDiscountItem && hasSymbolicDiscountItem;
-
-    // Se for campanha, todos os itens da nota são blindados
     if (isCampanhaNota) {
-      itemsList.forEach(item => {
-        item.is_campanha = true;
-      });
+      itemsList.forEach(item => { item.is_campanha = true; });
     }
 
     const pagamentosDet: Array<{ tPag: string, vPag: number, tpIntegra?: string }> = [];
@@ -197,7 +180,6 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     const infCpl = infAdic ? (getElement(infAdic, "infCpl")?.textContent || "") : "";
     const vendedor = extractVendedor(infCpl);
 
-    // Score de Pickup
     let pickup_score = 0;
     if (tpIntegraValue === "2") pickup_score++;
     if (vTrocoPag === 0) pickup_score++;
@@ -206,7 +188,6 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     if (vendedor === "VENDEDOR NÃO IDENTIFICADO" || /SITE|ECOMM|INT|POS/i.test(vendedor)) pickup_score++;
 
     const isRetiradaOnline = pickup_score >= 3;
-
     const vTrocaCredito = pagamentosDet.filter(p => p.tPag === "05").reduce((acc, p) => acc + p.vPag, 0);
     const isTroca = vTrocaCredito > 0;
     const difTroca = vNFValue - vTrocaCredito;
@@ -220,7 +201,6 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
 
     const isDevolucao = tpNF === 0 && (finNFe === 4 || natOp.toLowerCase().includes("devolucao"));
 
-    // Determinação final do tipo de desconto
     let tipoDescontoFinal = "PADRÃO";
     if (isCampanhaNota) tipoDescontoFinal = "CAMPANHA";
     else if (isAdicionalDoc) tipoDescontoFinal = "ADICIONAL";
@@ -231,7 +211,7 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
       tpNF, finNFe, natOp,
       canal: isTroca ? "TROCA" : (isRetiradaOnline ? "RETIRADA_ONLINE" : "LOJA_FISICA"),
       subcanal: "", canal_consolidado: isTroca ? "TROCA" : (isRetiradaOnline ? "RETIRADA_ONLINE" : "VENDA_LOJA"),
-      is_adicional: isAdicionalDoc, is_adicional_suspeito: false, motivo_adicional: isAdicionalDoc ? "DESCONTO PADRÃO ADICIONAL" : "",
+      is_adicional: isAdicionalDoc && !isCampanhaNota, is_adicional_suspeito: false, motivo_adicional: isAdicionalDoc ? "DESCONTO PADRÃO ADICIONAL" : "",
       vNF: vNFValue.toFixed(2), itens_qtd: itemsList.reduce((acc, it) => acc + it.qCom, 0).toString(),
       desconto_total: descontoTotal.toFixed(2), percentual_desconto: percentualDesconto.toFixed(4),
       is_troca: isTroca, vTroca: vTrocaCredito.toFixed(2), dif_troca: difTroca.toFixed(2),

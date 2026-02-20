@@ -55,7 +55,9 @@ import {
   FileText,
   Download,
   ShieldCheck,
-  ShieldAlert
+  ShieldAlert,
+  Zap,
+  Star
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, parseISO } from "date-fns";
@@ -72,14 +74,12 @@ export function DiscountAudit({ data }: DiscountAuditProps) {
   const [selectedSale, setSelectedSale] = useState<DetailedSaleRow | null>(null);
   const [activeView, setActiveView] = useState<"audit" | "registry">("audit");
 
-  const HI_DISCOUNT_THRESHOLD = 15; // 15% é o gatilho de alerta para descontos avulsos
+  const HI_DISCOUNT_THRESHOLD = 15;
 
-  // Filtrar apenas vendas com desconto e não canceladas
   const discountSales = useMemo(() => {
     return data.filter(r => r.tem_desconto && !r.is_cancelada);
   }, [data]);
 
-  // Vendedores únicos para o filtro
   const vendorsList = useMemo(() => {
     const list = new Set(discountSales.map(r => r.vendedor).filter(Boolean));
     return Array.from(list).sort();
@@ -94,13 +94,12 @@ export function DiscountAudit({ data }: DiscountAuditProps) {
 
   const currentDataset = activeView === "audit" ? auditData : registryData;
 
-  // Aplicação dos Filtros Dinâmicos
   const filteredData = useMemo(() => {
     return currentDataset.filter(sale => {
       const matchesSearch = 
         sale.nf.includes(searchTerm) || 
-        sale.cpf_cnpj_dest.includes(searchTerm) || 
-        sale.nome_dest.toLowerCase().includes(searchTerm.toLowerCase());
+        (sale.cpf_cnpj_dest || "").includes(searchTerm) || 
+        (sale.nome_dest || "").toLowerCase().includes(searchTerm.toLowerCase());
       
       const matchesVendor = selectedVendor === "all" || sale.vendedor === selectedVendor;
       const matchesPercent = parseFloat(sale.percentual_desconto) * 100 >= parseFloat(minDiscountPercent);
@@ -109,7 +108,6 @@ export function DiscountAudit({ data }: DiscountAuditProps) {
     });
   }, [currentDataset, searchTerm, selectedVendor, minDiscountPercent]);
 
-  // KPIs Estratégicos
   const stats = useMemo(() => {
     const totalVenda = filteredData.reduce((acc, r) => acc + parseFloat(r.vNF), 0);
     const totalDesconto = filteredData.reduce((acc, r) => acc + parseFloat(r.desconto_total), 0);
@@ -149,53 +147,50 @@ export function DiscountAudit({ data }: DiscountAuditProps) {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20">
-      {/* Header Informativo Dinâmico */}
       <div className={cn(
         "p-6 rounded-[2rem] border-2 flex flex-col md:flex-row items-center gap-6 shadow-sm",
-        activeView === 'audit' ? "bg-rose-50 border-rose-100" : "bg-emerald-50 border-emerald-100"
+        activeView === 'audit' ? "bg-rose-50 border-rose-100" : "bg-sky-50 border-sky-100"
       )}>
         <div className={cn(
           "p-4 rounded-3xl shrink-0",
-          activeView === 'audit' ? "bg-white text-rose-500 shadow-rose-100" : "bg-white text-emerald-500 shadow-emerald-100"
+          activeView === 'audit' ? "bg-white text-rose-500 shadow-rose-100" : "bg-white text-sky-500 shadow-sky-100"
         )}>
           {activeView === 'audit' ? <ShieldAlert className="w-8 h-8" /> : <ShieldCheck className="w-8 h-8" />}
         </div>
         <div className="flex-1 space-y-1 text-center md:text-left">
-          <h2 className={cn("text-xl font-black uppercase tracking-tight", activeView === 'audit' ? "text-rose-800" : "text-emerald-800")}>
-            {activeView === 'audit' ? "Auditoria de Descontos Críticos" : "Descontos Estratégicos Validados"}
+          <h2 className={cn("text-xl font-black uppercase tracking-tight", activeView === 'audit' ? "text-rose-800" : "text-sky-800")}>
+            {activeView === 'audit' ? "Auditoria de Descontos Críticos" : "Filtro de Descontos Seguros"}
           </h2>
           <p className="text-sm font-medium text-slate-500 leading-relaxed">
             {activeView === 'audit' 
-              ? "Exibindo vendas com descontos que não se enquadram em Campanhas ou Adicionais de 10%. Estes casos exigem atenção à margem." 
-              : "Exibindo vendas com descontos protegidos por estratégia: Campanhas oficiais (Brindes) ou Venda Adicional (Upsell)."}
+              ? "Exibindo descontos avulsos ou arredondamentos manuais. Estes casos não possuem assinatura estratégica." 
+              : "Exibindo Campanhas oficiais (Brindes) e Vendas Adicionais (10%) validadas pelo motor de inteligência."}
           </p>
         </div>
         <div className="hidden lg:block w-px h-12 bg-slate-200" />
         <div className="grid grid-cols-2 gap-8 text-center md:text-left">
            <div>
-             <p className="text-[9px] font-black text-slate-400 uppercase">Volume Exibido</p>
+             <p className="text-[9px] font-black text-slate-400 uppercase">Volume Ativo</p>
              <p className="text-xl font-black text-slate-700">{stats.count} Notas</p>
            </div>
            <div>
-             <p className="text-[9px] font-black text-slate-400 uppercase">Impacto Total</p>
-             <p className={cn("text-xl font-black", activeView === 'audit' ? "text-rose-600" : "text-emerald-600")}>{formatBRL(stats.totalDesconto)}</p>
+             <p className="text-[9px] font-black text-slate-400 uppercase">Investimento</p>
+             <p className={cn("text-xl font-black", activeView === 'audit' ? "text-rose-600" : "text-sky-600")}>{formatBRL(stats.totalDesconto)}</p>
            </div>
         </div>
       </div>
 
-      {/* Tabs Customizadas */}
       <Tabs defaultValue="audit" onValueChange={(v) => setActiveView(v as any)} className="w-full">
         <TabsList className="grid w-full grid-cols-2 bg-white border-2 border-slate-100 rounded-2xl h-14 p-1 shadow-sm">
           <TabsTrigger value="audit" className="rounded-xl font-black text-xs uppercase data-[state=active]:bg-rose-500 data-[state=active]:text-white">
-            <AlertTriangle className="w-3.5 h-3.5 mr-2" /> Auditoria de Risco
+            <AlertTriangle className="w-3.5 h-3.5 mr-2" /> Risco Operacional
           </TabsTrigger>
-          <TabsTrigger value="registry" className="rounded-xl font-black text-xs uppercase data-[state=active]:bg-emerald-600 data-[state=active]:text-white">
+          <TabsTrigger value="registry" className="rounded-xl font-black text-xs uppercase data-[state=active]:bg-sky-600 data-[state=active]:text-white">
             <ShieldCheck className="w-3.5 h-3.5 mr-2" /> Estratégicos (Seguros)
           </TabsTrigger>
         </TabsList>
 
         <div className="mt-6 space-y-6">
-          {/* Filtros de Painel */}
           <Card className="ri-card border-none shadow-sm overflow-hidden">
             <div className="p-4 bg-white space-y-4">
               <div className="flex flex-col md:flex-row gap-4">
@@ -209,7 +204,7 @@ export function DiscountAudit({ data }: DiscountAuditProps) {
                   />
                 </div>
                 <Button variant="outline" onClick={handleExport} className="rounded-xl h-11 font-black text-[10px] border-slate-200 text-slate-600 gap-2">
-                  <Download className="w-4 h-4" /> EXPORTAR CSV
+                  <Download className="w-4 h-4" /> EXPORTAR
                 </Button>
               </div>
               
@@ -254,7 +249,6 @@ export function DiscountAudit({ data }: DiscountAuditProps) {
             </div>
           </Card>
 
-          {/* Listagem de Notas */}
           <div className="space-y-4">
             <div className="hidden lg:block bg-white rounded-[2rem] border-2 border-slate-50 overflow-hidden shadow-xl shadow-slate-100/20">
               <Table>
@@ -292,6 +286,7 @@ export function DiscountAudit({ data }: DiscountAuditProps) {
                             sale.tipo_desconto === 'ADICIONAL' ? "bg-emerald-100 text-emerald-700" :
                             "bg-orange-100 text-orange-700"
                           )}>
+                            {sale.tipo_desconto === 'CAMPANHA' ? <Star className="w-2.5 h-2.5 mr-1 fill-current" /> : <Zap className="w-2.5 h-2.5 mr-1 fill-current" />}
                             {sale.tipo_desconto}
                           </Badge>
                         </TableCell>
@@ -308,7 +303,7 @@ export function DiscountAudit({ data }: DiscountAuditProps) {
                           <Badge className={cn(
                             "text-[10px] font-black border-none px-3 h-6",
                             isHigh ? "bg-rose-600 text-white animate-pulse" : 
-                            activeView === 'audit' ? "bg-orange-100 text-orange-700" : "bg-emerald-100 text-emerald-700"
+                            activeView === 'audit' ? "bg-orange-100 text-orange-700" : "bg-sky-100 text-sky-700"
                           )}>
                             {perc.toFixed(1)}%
                           </Badge>
@@ -320,7 +315,7 @@ export function DiscountAudit({ data }: DiscountAuditProps) {
                   {filteredData.length === 0 && (
                     <TableRow>
                       <TableCell colSpan={7} className="text-center py-20 text-slate-300 font-black uppercase text-xs">
-                        Nenhum registro encontrado neste filtro
+                        Nenhum registro estratégico encontrado
                       </TableCell>
                     </TableRow>
                   )}
@@ -328,7 +323,6 @@ export function DiscountAudit({ data }: DiscountAuditProps) {
               </Table>
             </div>
 
-            {/* Mobile View */}
             <div className="lg:hidden space-y-3">
               {filteredData.map((sale) => {
                 const vFinal = parseFloat(sale.vNF);
@@ -344,7 +338,7 @@ export function DiscountAudit({ data }: DiscountAuditProps) {
                       </div>
                       <Badge className={cn(
                         "text-[10px] font-black border-none h-6",
-                        activeView === 'audit' ? "bg-orange-100 text-orange-700" : "bg-emerald-100 text-emerald-700"
+                        activeView === 'audit' ? "bg-orange-100 text-orange-700" : "bg-sky-100 text-sky-700"
                       )}>
                         {perc.toFixed(1)}%
                       </Badge>
@@ -357,7 +351,7 @@ export function DiscountAudit({ data }: DiscountAuditProps) {
                       </div>
                       <div className="text-right">
                         <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Desconto</p>
-                        <p className={cn("text-[10px] font-black", activeView === 'audit' ? "text-rose-600" : "text-emerald-600")}>-{formatBRL(vDesc)}</p>
+                        <p className={cn("text-[10px] font-black", activeView === 'audit' ? "text-rose-600" : "text-sky-600")}>-{formatBRL(vDesc)}</p>
                       </div>
                     </div>
 
@@ -373,7 +367,6 @@ export function DiscountAudit({ data }: DiscountAuditProps) {
         </div>
       </Tabs>
 
-      {/* Detalhamento da Nota (Audit Sheet) */}
       <Sheet open={!!selectedSale} onOpenChange={(open) => !open && setSelectedSale(null)}>
         <SheetContent className="w-full sm:max-w-xl bg-white border-l-4 border-orange-500 p-0 overflow-y-auto">
           {selectedSale && (
@@ -390,7 +383,7 @@ export function DiscountAudit({ data }: DiscountAuditProps) {
                   <div>
                     <SheetTitle className="text-2xl font-black uppercase text-white leading-none">Auditoria NF #{selectedSale.nf}</SheetTitle>
                     <Badge className="bg-white/20 text-white border-none mt-2 text-[10px] font-black uppercase">
-                      {selectedSale.tipo_desconto === 'CAMPANHA' || selectedSale.tipo_desconto === 'ADICIONAL' ? 'Registro Seguro' : 'Alerta de Auditoria'}
+                      {selectedSale.tipo_desconto === 'CAMPANHA' || selectedSale.tipo_desconto === 'ADICIONAL' ? 'Investimento Estratégico' : 'Alerta de Margem'}
                     </Badge>
                   </div>
                 </div>
@@ -407,14 +400,12 @@ export function DiscountAudit({ data }: DiscountAuditProps) {
               </div>
 
               <div className="p-8 md:p-10 space-y-10 flex-1">
-                {/* Resumo Financeiro */}
                 <div className="grid grid-cols-3 gap-4">
                   <ValueDetail label="Valor Bruto" value={formatBRL(parseFloat(selectedSale.vNF) + parseFloat(selectedSale.desconto_total))} color="text-slate-400" strike />
-                  <ValueDetail label="Total Desconto" value={formatBRL(parseFloat(selectedSale.desconto_total))} color="text-rose-500" />
+                  <ValueDetail label="Investimento" value={formatBRL(parseFloat(selectedSale.desconto_total))} color={selectedSale.tipo_desconto === 'PADRÃO' ? "text-rose-500" : "text-sky-500"} />
                   <ValueDetail label="Valor Final" value={formatBRL(parseFloat(selectedSale.vNF))} color="text-slate-800" />
                 </div>
 
-                {/* Info Colaborador/Cliente */}
                 <section className="space-y-4">
                    <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Dados da Operação</h4>
                    <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100 space-y-4">
@@ -427,13 +418,12 @@ export function DiscountAudit({ data }: DiscountAuditProps) {
                         <span className="text-xs font-black text-slate-700 uppercase truncate max-w-[180px]">{selectedSale.nome_dest || "Consumidor"}</span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-2 text-slate-400"><ShieldCheck className="w-4 h-4" /><span className="text-[10px] font-black uppercase">Status Auditoria:</span></div>
-                        <Badge variant="outline" className="bg-white text-orange-600 border-orange-100 font-black text-[9px]">{selectedSale.status_auditoria}</Badge>
+                        <div className="flex items-center gap-2 text-slate-400"><ShieldCheck className="w-4 h-4" /><span className="text-[10px] font-black uppercase">Tipo Desconto:</span></div>
+                        <Badge variant="outline" className="bg-white text-sky-600 border-sky-100 font-black text-[9px] uppercase">{selectedSale.tipo_desconto}</Badge>
                       </div>
                    </div>
                 </section>
 
-                {/* Lista de Itens */}
                 <section className="space-y-4">
                   <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">Detalhamento por Item</h4>
                   <div className="space-y-3">
@@ -446,7 +436,7 @@ export function DiscountAudit({ data }: DiscountAuditProps) {
                         <div className="text-right">
                           <p className="text-xs font-black text-slate-600">{formatBRL(item.vProd)}</p>
                           {item.vDesc > 0 && (
-                            <Badge className="bg-rose-50 text-rose-600 border-none font-black text-[8px] h-4 mt-1">
+                            <Badge className={cn("border-none font-black text-[8px] h-4 mt-1", item.is_campanha ? "bg-sky-50 text-sky-600" : "bg-rose-50 text-rose-600")}>
                               -{formatBRL(item.vDesc)}
                             </Badge>
                           )}

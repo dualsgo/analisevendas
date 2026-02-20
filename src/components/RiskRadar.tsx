@@ -151,7 +151,6 @@ export function RiskRadar({ data }: RiskRadarProps) {
 
   return (
     <div className="space-y-6 md:space-y-8 animate-in fade-in duration-500 pb-20">
-      {/* Diagnóstico de Saúde */}
       <Card className={cn("ri-card border-none overflow-hidden shadow-lg", healthStatus.bg)}>
         <CardContent className="p-6 md:p-10 flex flex-col md:flex-row items-center gap-8">
           <div className={cn("p-5 rounded-3xl bg-white shadow-sm shrink-0", healthStatus.color)}>
@@ -235,7 +234,6 @@ export function RiskRadar({ data }: RiskRadarProps) {
         </div>
       </div>
 
-      {/* Detalhamento do Alerta via Sheet */}
       <Sheet open={!!selectedAlert} onOpenChange={(open) => !open && setSelectedAlert(null)}>
         <SheetContent className="w-full sm:max-w-xl bg-white border-l-4 border-orange-500 p-0 flex flex-col">
           {selectedAlert && (
@@ -259,7 +257,6 @@ export function RiskRadar({ data }: RiskRadarProps) {
               </SheetHeader>
 
               <div className="flex-1 overflow-y-auto p-8 md:p-10 space-y-10">
-                {/* Métricas de Desvio */}
                 <div className="grid grid-cols-2 gap-6">
                   <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100 text-center">
                     <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Valor do Colaborador</p>
@@ -271,7 +268,6 @@ export function RiskRadar({ data }: RiskRadarProps) {
                   </div>
                 </div>
 
-                {/* Descrição do Risco */}
                 <section className="space-y-4">
                   <div className="flex items-center gap-2 text-slate-800">
                     <Info className="w-5 h-5 text-orange-500" />
@@ -282,7 +278,6 @@ export function RiskRadar({ data }: RiskRadarProps) {
                   </p>
                 </section>
 
-                {/* Impacto Financeiro/Operacional */}
                 <section className="space-y-4">
                   <div className="flex items-center gap-2 text-slate-800">
                     <TrendingDown className="w-5 h-5 text-rose-500" />
@@ -295,7 +290,6 @@ export function RiskRadar({ data }: RiskRadarProps) {
                   </Card>
                 </section>
 
-                {/* Recomendação de Gestão */}
                 <section className="space-y-4">
                   <div className="flex items-center gap-2 text-slate-800">
                     <Zap className="w-5 h-5 text-emerald-500" />

@@ -23,8 +23,9 @@ export function detectarAdicionaisSuspeitos(rows: DetailedSaleRow[]): DetailedSa
 
   // 3. Processar cada nota física para verificar vínculo
   candidatos.forEach(nota => {
-    // Se a nota já foi blindada como CAMPANHA pelo parser, não tentamos reclassificar como ADICIONAL
-    if (nota.tipo_desconto === "CAMPANHA") return;
+    // Se a nota já foi blindada como CAMPANHA, não reclassificamos.
+    // Se a nota é AJUSTE DE PREÇO (erro de loja), ela NÃO deve ser validada como "Segura" mesmo que tenha pickup.
+    if (nota.tipo_desconto === "CAMPANHA" || nota.tipo_desconto === "AJUSTE DE PREÇO") return;
 
     const cpf = nota.cpf_cnpj_dest;
     const temDescontoEstrategico = parseFloat(nota.percentual_desconto) >= 0.08 && parseFloat(nota.percentual_desconto) <= 0.12;

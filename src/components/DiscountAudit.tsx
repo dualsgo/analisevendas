@@ -86,7 +86,9 @@ export function DiscountAudit({ data }: DiscountAuditProps) {
     return Array.from(list).sort();
   }, [discountSales]);
 
-  // REGRA: Descontos SEGUROS são CAMPANHA e ADICIONAL. O restante é AUDITORIA.
+  // REGRA DE SEGURANÇA: 
+  // - Seguros: Campanhas (Motor Matemático) e Adicionais (Venda Sugerida Vinculada).
+  // - Risco: Todo o resto, com prioridade para Ajuste de Preço (Erro de Loja).
   const { auditData, registryData } = useMemo(() => {
     const registry = discountSales.filter(r => r.tipo_desconto === "ADICIONAL" || r.tipo_desconto === "CAMPANHA");
     const audit = discountSales.filter(r => r.tipo_desconto !== "ADICIONAL" && r.tipo_desconto !== "CAMPANHA");
@@ -150,6 +152,7 @@ export function DiscountAudit({ data }: DiscountAuditProps) {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20">
+      {/* Guia Didático de Segurança */}
       <div className={cn(
         "p-6 rounded-[2rem] border-2 flex flex-col md:flex-row items-center gap-6 shadow-sm",
         activeView === 'audit' ? "bg-rose-50 border-rose-100" : "bg-sky-50 border-sky-100"
@@ -407,6 +410,7 @@ export function DiscountAudit({ data }: DiscountAuditProps) {
               </div>
 
               <div className="p-8 md:p-10 space-y-10 flex-1">
+                {/* Alerta de Ajuste Manual */}
                 {selectedSale.tem_suspeita_preco_errado && (
                   <section className="bg-orange-50 border-2 border-orange-100 p-6 rounded-[2rem] space-y-3">
                     <div className="flex items-center gap-2 text-orange-700">
@@ -441,8 +445,8 @@ export function DiscountAudit({ data }: DiscountAuditProps) {
                         )}>
                           <div className="flex justify-between items-start mb-3">
                             <div className="flex-1 min-w-0 pr-4">
-                              <p className="text-xs font-black text-slate-700 truncate uppercase">{item.xProd}</p>
-                              <p className="text-[9px] text-slate-400 font-bold uppercase">Cod: {item.cProd} • Qtd: {item.qCom}</p>
+                              <p className="text-sm font-bold text-slate-700 truncate uppercase">{item.xProd}</p>
+                              <p className="text-xs text-slate-400 font-medium uppercase">Cod: {item.cProd} • Qtd: {item.qCom}</p>
                             </div>
                             {item.is_preco_errado && (
                               <Badge className="bg-orange-500 text-white text-[8px] font-black uppercase">AJUSTE</Badge>

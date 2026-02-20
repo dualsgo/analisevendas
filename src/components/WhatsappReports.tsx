@@ -79,7 +79,7 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
     // Pickup
     const convPickup = online.length > 0 ? (cAdicional / online.length) * 100 : 0;
 
-    // Mapeamento de Pickups para Clientes (para vincular ao vendedor que atendeu o cliente no físico)
+    // Mapeamento de Pickups para Clientes
     const onlinePerCustomer = new Map<string, number>();
     online.forEach(p => {
       if (p.cpf_cnpj_dest) {
@@ -110,7 +110,6 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
     fisica.forEach(processVendorSale);
     adicional.forEach(processVendorSale);
 
-    // Associar atendimentos de pickup aos vendedores baseados no CPF do cliente atendido
     vendorCustomers.forEach((customers, vendorName) => {
       let totalPickups = 0;
       customers.forEach(cpf => {
@@ -151,7 +150,6 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
 
   const reportContent = useMemo(() => {
     const e = (emoji: string) => useEmojis ? emoji + " " : "";
-    const isDetailed = formatType === 'detailed';
     
     // Detecção de Período
     const dates = data.map(r => parseISO(r.dhEmi)).filter(d => !isNaN(d.getTime()));
@@ -159,54 +157,30 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
     if (dates.length > 0) {
       const minDate = min(dates);
       const maxDate = max(dates);
-      if (isSameDay(minDate, maxDate)) {
-        dateStr = format(minDate, "dd/MM");
-      } else {
-        dateStr = `${format(minDate, "dd/MM")} a ${format(maxDate, "dd/MM")}`;
-      }
+      dateStr = isSameDay(minDate, maxDate) ? format(minDate, "dd/MM") : `${format(minDate, "dd/MM")} a ${format(maxDate, "dd/MM")}`;
     } else {
       dateStr = format(new Date(), "dd/MM");
     }
 
     switch (reportType) {
       case 'STORE_SUMMARY':
-        return `${e("📊")}*Parcial da Loja – ${dateStr}*\n\n` +
+        return `${e("📊")}*Parcial Loja – ${dateStr}*\n\n` +
           `${e("💰")}*Venda:* ${formatBRL(metrics.venda)}\n` +
-          (isDetailed ? `${e("🧾")}*Tickets:* ${metrics.cupons}\n` : "") +
-          (isDetailed ? `${e("📦")}*Peças:* ${metrics.itens}\n` : "") +
-          `${e("🎯")}*PA:* ${metrics.pa.toFixed(2)}\n` +
-          (isDetailed ? `${e("💳")}*TKM:* ${formatBRL(metrics.tkm)}\n` : "") +
-          `\n${e("🆔")}*Cadastros:* ${metrics.cadastros.toFixed(1)}%\n` +
-          `${e("🚚")}*Pickup:* ${metrics.retiradas} atend. | ${metrics.convPickup.toFixed(1)}% conv.\n` +
-          (isDetailed ? `${e("🔄")}*Trocas:* ${metrics.trocas} atendimentos` : "");
+          `${e("🎯")}*PA:* ${metrics.pa.toFixed(2)} | ${e("💳")}*TKM:* ${formatBRL(metrics.tkm)}\n` +
+          `${e("🆔")}*Ident:* ${metrics.cadastros.toFixed(1)}%\n` +
+          `${e("🚚")}*Pickup:* ${metrics.retiradas} (${metrics.convPickup.toFixed(0)}% conv)\n` +
+          (metrics.trocas > 0 ? `${e("🔄")}*Trocas:* ${metrics.trocas} atend.` : "");
 
       case 'VENDOR_PERFORMANCE':
-        let perfText = `${e("👤")}*Performance de Vendedores – ${dateStr}*\n\n`;
+        let perfText = `${e("👤")}*Performance Vendedores – ${dateStr}*\n\n`;
         metrics.vendorPerformanceList.forEach((v) => {
           perfText += `*${v.name}*\n` +
-            `${e("💰")}R$ ${v.venda.toLocaleString('pt-BR')}\n` +
-            `${e("🎯")}PA ${v.pa.toFixed(2)}`;
+            `${e("💰")}${v.venda.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} | ${e("🎯")}PA ${v.pa.toFixed(2)}\n` +
+            `${e("💳")}TKM ${formatBRL(v.tkm)} | ${e("🆔")}${v.ident.toFixed(0)}% Ident.\n`;
           
-          if (v.tkm > 0) {
-            perfText += ` | ${e("💳")}TKM ${formatBRL(v.tkm)}`;
+          if (v.pickups > 0 || v.adicionais > 0) {
+            perfText += `${e("🚚")}${v.pickups} Pickups | ${e("➕")}${v.adicionais} Adic. (${v.conv.toFixed(0)}%)\n`;
           }
-          
-          perfText += "\n";
-
-          if (isDetailed && v.ident > 0) {
-            perfText += `${e("🆔")}${v.ident.toFixed(0)}% Identificação\n`;
-          }
-
-          if (v.pickups > 0) {
-            perfText += `${e("🚚")}${v.pickups} Retiradas`;
-            if (v.adicionais > 0) {
-              perfText += ` | ${e("➕")}${v.adicionais} Adic. (${v.conv.toFixed(0)}%)`;
-            }
-            perfText += "\n";
-          } else if (v.adicionais > 0) {
-            perfText += `${e("➕")}${v.adicionais} Vendas Adicionais\n`;
-          }
-          
           perfText += "\n";
         });
         return perfText;
@@ -215,8 +189,7 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
         return `${e("🚚")}*Relatório Pickup – ${dateStr}*\n\n` +
           `${e("📦")}*Retiradas:* ${metrics.retiradas}\n` +
           `${e("➕")}*Adicionais:* ${metrics.adicionais}\n` +
-          `${e("📊")}*Conversão:* ${metrics.convPickup.toFixed(1)}%\n\n` +
-          (isDetailed ? (metrics.convPickup < 15 ? e("⚠️") + "*Alerta:* Conversão abaixo da meta!" : e("✅") + "*Status:* Bom desempenho de conversão.") : "");
+          `${e("📊")}*Conversão:* ${metrics.convPickup.toFixed(1)}%`;
 
       case 'DAILY_CLOSING':
         const highlights: Record<string, string[]> = {};
@@ -239,28 +212,25 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
           highlightsText += `${e("⭐")}*${name}:* ${kpis.join(", ")}\n`;
         });
 
-        return `${e("📅")}*Fechamento do Dia – ${dateStr}*\n\n` +
-          `A operação foi concluída com os seguintes indicadores:\n\n` +
-          `${e("💰")}*Faturamento:* ${formatBRL(metrics.venda)}\n` +
-          `${e("🎯")}*PA Final:* ${metrics.pa.toFixed(2)}\n` +
-          (isDetailed ? `${e("💳")}*TKM Final:* ${formatBRL(metrics.tkm)}\n` : "") +
-          `${e("🆔")}*Identificação:* ${metrics.cadastros.toFixed(1)}%\n` +
-          `${e("🚚")}*Conversão Pickup:* ${metrics.convPickup.toFixed(1)}%\n\n` +
+        return `${e("📅")}*Fechamento – ${dateStr}*\n\n` +
+          `${e("💰")}*Venda:* ${formatBRL(metrics.venda)}\n` +
+          `${e("🎯")}*PA:* ${metrics.pa.toFixed(2)} | ${e("💳")}*TKM:* ${formatBRL(metrics.tkm)}\n` +
+          `${e("🆔")}*Ident:* ${metrics.cadastros.toFixed(1)}%\n` +
+          `${e("🚚")}*Pickup:* ${metrics.convPickup.toFixed(1)}%\n\n` +
           `${e("🏆")}*DESTAQUES DO DIA:*\n` +
           (highlightsText || "Equipe toda engajada!");
 
       case 'STRATEGIC':
-        return `${e("📈")}*Indicadores Estratégicos*\n\n` +
-          `*Foco de Atuação:*\n` +
-          `${metrics.pa < 2.0 ? e("🛑") : e("✅")} PA (${metrics.pa.toFixed(2)})\n` +
-          `${metrics.cadastros < 85 ? e("🛑") : e("✅")} Identificação (${metrics.cadastros.toFixed(1)}%)\n` +
-          `${metrics.convPickup < 15 ? e("🛑") : e("✅")} Conversão Online (${metrics.convPickup.toFixed(1)}%)\n\n` +
-          (isDetailed ? `*Recomendação:* ${metrics.pa < 2.0 ? "Trabalhar produtos de impulso no checkout." : "Manter foco no atendimento consultivo."}` : "");
+        return `${e("📈")}*Gestão Estratégica – ${dateStr}*\n\n` +
+          `*Status da Unidade:*\n` +
+          `${metrics.pa < 2.0 ? e("🛑") : e("✅")} PA: ${metrics.pa.toFixed(2)}\n` +
+          `${metrics.cadastros < 85 ? e("🛑") : e("✅")} Ident: ${metrics.cadastros.toFixed(1)}%\n` +
+          `${metrics.convPickup < 15 ? e("🛑") : e("✅")} Conv: ${metrics.convPickup.toFixed(1)}%`;
 
       default:
         return "";
     }
-  }, [reportType, metrics, useEmojis, formatType, data]);
+  }, [reportType, metrics, useEmojis, data]);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(reportContent);
@@ -275,7 +245,6 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
   return (
     <div className="space-y-6 md:space-y-8 animate-in fade-in duration-500 pb-20">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Configurações */}
         <div className="lg:col-span-1 space-y-6">
           <Card className="ri-card border-none shadow-sm overflow-hidden">
             <CardHeader className="bg-emerald-50 border-b border-emerald-100">
@@ -308,23 +277,6 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
                   </div>
                   <Switch checked={useEmojis} onCheckedChange={setUseEmojis} />
                 </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label className="text-xs font-black text-slate-700">Formato</Label>
-                    <p className="text-[10px] text-slate-400 font-bold uppercase">Nível de detalhamento</p>
-                  </div>
-                  <div className="flex bg-slate-100 p-1 rounded-lg">
-                    <button 
-                      onClick={() => setFormatType('compact')}
-                      className={cn("px-4 py-1.5 text-[10px] font-black rounded-md transition-all", formatType === 'compact' ? "bg-white shadow-sm text-emerald-600" : "text-slate-400")}
-                    >P</button>
-                    <button 
-                      onClick={() => setFormatType('detailed')}
-                      className={cn("px-4 py-1.5 text-[10px] font-black rounded-md transition-all", formatType === 'detailed' ? "bg-white shadow-sm text-emerald-600" : "text-slate-400")}
-                    >G</button>
-                  </div>
-                </div>
               </div>
 
               <Button 
@@ -337,7 +289,6 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
             </CardContent>
           </Card>
 
-          {/* Dicas */}
           <Card className="ri-card border-none bg-orange-50/50 p-6 border-2 border-orange-100">
              <div className="flex gap-4">
                 <Zap className="w-6 h-6 text-orange-500 shrink-0" />
@@ -349,10 +300,9 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
           </Card>
         </div>
 
-        {/* Preview */}
         <div className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between px-2">
-            <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Pré-visualização da Mensagem</h3>
+            <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Pré-visualização</h3>
             <Badge variant="outline" className="bg-white text-emerald-600 border-emerald-100 font-black text-[9px]">OTIMIZADO</Badge>
           </div>
 

@@ -73,7 +73,7 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
     // Pickup
     const convPickup = online.length > 0 ? (cAdicional / online.length) * 100 : 0;
 
-    // Mapeamento de Pickups para Clientes
+    // Mapeamento de Pickups para Clientes (Proxy para quando o XML não traz o nome do colaborador na retirada)
     const onlinePerCustomer = new Map<string, number>();
     online.forEach(p => {
       if (p.cpf_cnpj_dest) {
@@ -81,7 +81,7 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
       }
     });
 
-    // Métricas por Vendedor (Apenas esforço de loja)
+    // Métricas por Colaborador (Apenas esforço de loja)
     const vendors: Record<string, any> = {};
     const vendorCustomers = new Map<string, Set<string>>();
     
@@ -103,6 +103,7 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
       }
     });
 
+    // Atribuir Pickups aos Colaboradores via CPF (atendimentos realizados no dia)
     vendorCustomers.forEach((customers, vendorName) => {
       let totalPotentialPickups = 0;
       customers.forEach(cpf => {
@@ -156,7 +157,7 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
 
     switch (reportType) {
       case 'STORE_SUMMARY':
-        return `${e("📊")}*Resultado Loja – ${dateStr}*\n\n` +
+        return `${e("📊")}*Resultado Unidade – ${dateStr}*\n\n` +
           `${e("💰")}*Venda:* ${formatBRL(metrics.venda)}\n` +
           `${e("🎯")}*PA:* ${metrics.pa.toFixed(2)} | ${e("💳")}*TKM:* ${formatBRL(metrics.tkm)}\n` +
           `${e("🆔")}*Ident:* ${metrics.cadastros.toFixed(1)}% | ${e("🚚")}*Pickup:* ${metrics.retiradas}\n` +
@@ -164,7 +165,7 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
           `_(Apenas faturamento físico + adicional)_`;
 
       case 'VENDOR_PERFORMANCE':
-        let perfText = `${e("👤")}*Performance Vendedores – ${dateStr}*\n\n`;
+        let perfText = `${e("👤")}*Performance Colaboradores – ${dateStr}*\n\n`;
         metrics.vendorPerformanceList.forEach((v) => {
           perfText += `*${v.name}*\n` +
             `${e("💰")}${formatBRL(v.venda)} | ${e("🎯")}PA ${v.pa.toFixed(2)}\n` +
@@ -251,8 +252,8 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="STORE_SUMMARY">Parcial da Loja (Físico)</SelectItem>
-                    <SelectItem value="VENDOR_PERFORMANCE">Performance Vendedores</SelectItem>
+                    <SelectItem value="STORE_SUMMARY">Parcial da Unidade (Físico)</SelectItem>
+                    <SelectItem value="VENDOR_PERFORMANCE">Performance Colaboradores</SelectItem>
                     <SelectItem value="PICKUP_CONVERSION">Relatório Pickup</SelectItem>
                     <SelectItem value="DAILY_CLOSING">Fechamento do Dia</SelectItem>
                     <SelectItem value="STRATEGIC">Estratégico / Gestão</SelectItem>
@@ -285,7 +286,7 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
                 <Zap className="w-6 h-6 text-orange-500 shrink-0" />
                 <div className="space-y-1">
                    <h4 className="text-xs font-black text-orange-900 uppercase">Foco em Auditoria</h4>
-                   <p className="text-[11px] text-orange-800/70 font-medium">Este relatório isola o faturamento das retiradas online para medir o esforço real da equipe de loja.</p>
+                   <p className="text-[11px] text-orange-800/70 font-medium">Este relatório isola o faturamento das retiradas online para medir o esforço real da equipe presencial.</p>
                 </div>
              </div>
           </Card>

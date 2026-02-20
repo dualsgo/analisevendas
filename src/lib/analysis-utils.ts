@@ -1,12 +1,11 @@
-
 import { DetailedSaleRow, VinculoTroca } from "./types";
 
 /**
- * ETAPA 2: Classificar Adicional (VÍNCULO DETERMINÍSTICO POR JANELA DE ATENDIMENTO)
- * Regra: CPF + Janela de Tempo (10min se vendedor bater, 3min se faltar)
+ * PIPELINE CAMADA B & C: Vincular e Confirmar Adicionais
+ * Regra: CPF + Janela de Tempo (10min) + Assinatura de Desconto (8-12%)
  */
 export function detectarAdicionaisSuspeitos(rows: DetailedSaleRow[]): DetailedSaleRow[] {
-  // 1. Isolar Retiradas confirmadas
+  // 1. Isolar Retiradas confirmadas (Camada A já processada no parser)
   const retiradas = rows.filter(r => r.canal === "RETIRADA_ONLINE" && !r.is_cancelada);
   
   // 2. Isolar notas candidatas (Vendas Físicas Ativas)
@@ -21,46 +20,42 @@ export function detectarAdicionaisSuspeitos(rows: DetailedSaleRow[]): DetailedSa
     }
   });
 
-  // 3. Processar cada nota física para verificar vínculo determinístico
+  // 3. Processar cada nota física para verificar vínculo contextual (Camada B)
   candidatos.forEach(nota => {
-    // BLINDAGEM: Campanhas ou Ajustes não entram no fluxo de adicional seguro
-    if (nota.tipo_desconto === "CAMPANHA" || nota.tipo_desconto === "AJUSTE DE PREÇO") {
+    // BLINDAGEM: Ajustes operacionais nunca são limpos como adicionais seguros
+    if (nota.tipo_desconto === "AJUSTE DE PREÇO") {
       nota.is_adicional = false;
       return;
     }
 
     const cpf = nota.cpf_cnpj_dest;
-    const perc = parseFloat(nota.percentual_desconto);
-    const temDescontoEstrategico = perc >= 0.08 && perc <= 0.12;
-
-    if (!cpf) {
-      if (temDescontoEstrategico) {
-        nota.status_auditoria = "DESCONTO SEM VÍNCULO (CPF AUSENTE)";
-      }
-      return;
-    }
+    if (!cpf) return;
 
     const pickupsDoCliente = pickupsPorCpf.get(cpf) || [];
     const timeNota = new Date(nota.dhEmi).getTime();
     
-    // REGRA DE VÍNCULO POR ATENDIMENTO
+    // REGRA DE VÍNCULO POR ATENDIMENTO (CAMADA B: DH_EMI ± 10 MINUTOS)
     const pickupVinculada = pickupsDoCliente.find(p => {
       const timePickup = new Date(p.dhEmi).getTime();
       const diffMinutes = Math.abs(timeNota - timePickup) / (1000 * 60);
       
+      // Refinador opcional: Mesma vendedora
       const v1 = (nota.vendedor || "").toUpperCase();
       const v2 = (p.vendedor || "").toUpperCase();
       const isSameVendor = v1 !== "COLABORADOR NÃO IDENTIFICADO" && v2 !== "COLABORADOR NÃO IDENTIFICADO" && v1 === v2;
 
-      // Se vendedor bater: janela de 10 min. Se faltar: janela de 3 min.
-      const windowLimit = isSameVendor ? 10 : 3;
-      return diffMinutes <= windowLimit;
+      // Se houver vendedor, usamos 10 min. Se um faltar, mantemos 10 min mas com menor peso qualitativo.
+      return diffMinutes <= 10;
     });
 
     if (pickupVinculada) {
       nota.chave_retirada_associada = pickupVinculada.chave;
       nota.data_retirada_associada = pickupVinculada.dhEmi;
       
+      // CAMADA C: CONFIRMAÇÃO POR ASSINATURA DE DESCONTO (≈10%)
+      const perc = parseFloat(nota.percentual_desconto);
+      const temDescontoEstrategico = perc >= 0.08 && perc <= 0.12;
+
       if (temDescontoEstrategico) {
         nota.canal = "RETIRADA_ADICIONAL";
         nota.canal_consolidado = "RETIRADA_ADICIONAL";
@@ -68,11 +63,10 @@ export function detectarAdicionaisSuspeitos(rows: DetailedSaleRow[]): DetailedSa
         nota.tipo_desconto = "ADICIONAL";
         nota.status_auditoria = "ADICIONAL CONFIRMADO";
       } else {
+        // Vínculo detectado mas sem o desconto padrão -> Vínculo qualitativo para auditoria
         nota.is_adicional_suspeito = true;
         nota.status_auditoria = "VÍNCULO IDENTIFICADO (SEM DESCONTO 10%)";
       }
-    } else if (temDescontoEstrategico) {
-      nota.status_auditoria = "DESCONTO AVULSO (FORA DA JANELA DE ATENDIMENTO)";
     }
   });
 

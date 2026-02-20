@@ -236,38 +236,19 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     const infCpl = infAdic ? (getElement(infAdic, "infCpl")?.textContent || "") : "";
     const vendedor = extractVendedor(infCpl);
 
-    // --- IDENTIFICAÇÃO DE RETIRADA ONLINE VIA SCORE DE EVIDÊNCIAS ---
-    let pickup_score = 0;
-    
-    // 1. tpIntegra 2 (Pagamento integrado e-commerce)
-    if (tpIntegraValue === "2") pickup_score += 1;
-    
-    // 2. Nome com minúsculas (Assinatura de cadastro via site)
-    const hasLowercaseInName = /[a-z]/.test(nome_dest);
-    if (hasLowercaseInName) pickup_score += 1;
-    
-    // 3. Marcadores textuais nas info complementares
-    const infCplUpper = infCpl.toUpperCase();
-    const hasPickupKeywords = infCplUpper.includes("RETIRADA") || infCplUpper.includes("PICKUP") || infCplUpper.includes("PEDIDO SITE");
-    if (hasPickupKeywords) pickup_score += 2;
-    
-    // 4. Endereço do destinatário é o da loja (Selo Forte / Assinatura de Unidade)
-    const isEnderecoRetirada = 
+    // --- CAMADA A: DETECÇÃO DE RETIRADA (PICKUP) VIA GATE RÍGIDO ---
+    // Condição 1: Assinatura do destinatário = endereço da loja
+    const isEnderecoLoja = 
       cep_dest === "21211007" && 
       nro_dest === "909" && 
       uf_dest === "RJ" && 
       /VICENTE\s+DE\s+CARVALHO/i.test(xLgr_dest);
-    
-    if (isEnderecoRetirada) pickup_score += 4;
 
-    // BLOQUEIO: Dinheiro ou Troco (Operações tipicamente físicas)
-    // Exceção: Não bloqueia se tiver a assinatura forte de endereço da loja
+    // Condição 2: Restrição de Pagamento (Sem dinheiro e troco zero)
     const temDinheiro = pagamentosDet.some(p => p.tPag === "01");
-    if (!isEnderecoRetirada && (temDinheiro || vTrocoPag > 0)) {
-      pickup_score = 0;
-    }
+    const trocoVal = vTrocoPag || 0;
 
-    const isRetiradaOnline = pickup_score >= 4;
+    const isRetiradaOnline = isEnderecoLoja && !temDinheiro && trocoVal === 0;
 
     const vTrocaCredito = pagamentosDet.filter(p => p.tPag === "05").reduce((acc, p) => acc + p.vPag, 0);
     const isTroca = vTrocaCredito > 0;
@@ -309,7 +290,7 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
       protocolo: protocoloData,
       pagamentos_detalhe: pagamentosDet,
       infCpl,
-      pickup_match_fields: pickup_score,
+      pickup_match_fields: isEnderecoLoja ? 5 : 0,
       tem_suspeita_preco_errado: temSuspeitaPrecoErrado
     };
   } catch (e) {

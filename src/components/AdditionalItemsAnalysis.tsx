@@ -34,6 +34,7 @@ interface AdditionalItemsAnalysisProps {
   data: DetailedSaleRow[];
 }
 
+// LISTA OFICIAL DE CÓDIGOS SLP (Super Lançamento Premiado)
 const SLP_CODES = [
   '5135238', '5135269', '5135270', '5135273',
   '5146458', '5146469', '5146470', '5146471', '5146472', '5146473', '5146474', '5146475', '5146476',
@@ -46,17 +47,31 @@ const SLP_CODES = [
   '5146477', '5146478', '5146502', '5146503'
 ];
 
+// LISTA OFICIAL DE CÓDIGOS AÇÃO SOCIAL (Baralhos, Sacolas, Livros Doação)
+const SOCIAL_CODES = [
+  '5057181', '5055875', '5135601', '5129270', '5129271', '5129247', '5129262', 
+  '5122642', '5122641', '5135612', '5122639', '5122638', '5133676', '5113644', 
+  '5113641', '5113642', '5113643', '5129267', '5129255', '5143422', '5139528', 
+  '5143423', '5145833', '5139527', '5147797', '5147796', '5145834', '5079753', 
+  '5079752', '5106673', '5106671', '5106674', '5106672', '5088519', '5097336', 
+  '5097335', '5011918', '5136558'
+];
+
 export function AdditionalItemsAnalysis({ data }: AdditionalItemsAnalysisProps) {
   const [activeCategory, setActiveCategory] = useState<"slp" | "social">("slp");
 
   const analytics = useMemo(() => {
     const activeSales = data.filter(s => !s.is_cancelada && s.tpNF === 1);
     
-    // 1. Identificação de Itens
-    const isSlpItem = (cProd: string) => SLP_CODES.includes(cProd);
-    const isSocialItem = (xProd: string) => {
-      const p = xProd.toUpperCase();
-      return p.includes("BARALHO") || p.includes("SACOLA") || p.includes("ACAO SOCIAL") || p.includes("DOACAO");
+    // 1. Identificação de Itens por Código ou Texto (Segurança Dupla)
+    const isSlpItem = (item: any) => {
+      return SLP_CODES.includes(item.cProd) || item.xProd.toUpperCase().includes("SLP ");
+    };
+
+    const isSocialItem = (item: any) => {
+      if (SOCIAL_CODES.includes(item.cProd)) return true;
+      const p = item.xProd.toUpperCase();
+      return p.includes("BARALHO") || p.includes("SACOLA") || p.includes("ACAO SOCIAL") || p.includes("DOACAO") || p.includes("ALMANAQUE");
     };
 
     const processCategory = (filterFn: (item: any) => boolean) => {
@@ -108,8 +123,8 @@ export function AdditionalItemsAnalysis({ data }: AdditionalItemsAnalysisProps) 
     };
 
     return {
-      slp: processCategory((it) => isSlpItem(it.cProd)),
-      social: processCategory((it) => isSocialItem(it.xProd))
+      slp: processCategory(isSlpItem),
+      social: processCategory(isSocialItem)
     };
   }, [data]);
 

@@ -43,16 +43,17 @@ import {
   Users,
   Calendar,
   ArrowUpRight,
-  UserCheck,
   TrendingUp,
   History,
   ShoppingBag,
   Star,
-  Medal,
-  Activity
+  Activity,
+  Award,
+  Flame,
+  Boxes
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { format, parseISO, startOfDay } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 interface ConversionAuditProps {
@@ -62,7 +63,7 @@ interface ConversionAuditProps {
 export function ConversionAudit({ data }: ConversionAuditProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedOrder, setSelectedOrder] = useState<DetailedSaleRow | null>(null);
-  const [activeView, setActiveView] = useState("atendimentos");
+  const [activeView, setActiveView] = useState("colaborador");
 
   const pickupOrders = useMemo(() => {
     return data.filter(r => r.canal === "RETIRADA_ONLINE" && !r.is_cancelada);
@@ -79,42 +80,63 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
     return map;
   }, [data]);
 
-  // --- ESTATÍSTICAS POR COLABORADOR ---
+  // --- ESTATÍSTICAS MULTIDIMENSIONAIS POR COLABORADOR ---
   const statsByVendor = useMemo(() => {
     const vendors: Record<string, any> = {};
     
     pickupOrders.forEach(order => {
       const adicionais = vinculadosMap[order.chave] || [];
-      const hasAdicional = adicionais.length > 0;
       
-      // Se houver adicional, creditamos ao colaborador que fez a venda física
-      // Se não houver, a oportunidade fica como "Não Convertida" (Geral da Unidade)
-      if (hasAdicional) {
-        adicionais.forEach(adic => {
-          const vName = adic.vendedor || "OUTROS";
-          if (!vendors[vName]) vendors[vName] = { name: vName, pickups: 0, converted: 0, rev: 0, items: 0 };
-          vendors[vName].pickups++;
-          vendors[vName].converted++;
-          vendors[vName].rev += parseFloat(adic.vNF);
-          vendors[vName].items += parseInt(adic.itens_qtd);
-        });
-      }
+      adicionais.forEach(adic => {
+        const vName = adic.vendedor || "OUTROS";
+        const dateKey = adic.dhEmi.substring(0, 10);
+
+        if (!vendors[vName]) {
+          vendors[vName] = { 
+            name: vName, 
+            converted: 0, 
+            rev: 0, 
+            items: 0, 
+            dailyCounts: {} as Record<string, number>,
+            complexBaskets: 0 // Vendas com PA > 2
+          };
+        }
+
+        vendors[vName].converted++;
+        vendors[vName].rev += parseFloat(adic.vNF);
+        const qItens = parseInt(adic.itens_qtd);
+        vendors[vName].items += qItens;
+        
+        if (qItens >= 2) vendors[vName].complexBaskets++;
+        
+        vendors[vName].dailyCounts[dateKey] = (vendors[vName].dailyCounts[dateKey] || 0) + 1;
+      });
     });
 
     return Object.values(vendors).map(v => {
-      const convRate = v.pickups > 0 ? (v.converted / v.pickups) * 100 : 0;
+      const avgPA = v.converted > 0 ? v.items / v.converted : 0;
       const tkm = v.converted > 0 ? v.rev / v.converted : 0;
       
-      // Critério de Classificação Solzinho
-      let level: 'ELITE' | 'REGULAR' | 'TREINAMENTO' = 'REGULAR';
-      if (convRate >= 25 && tkm > 150) level = 'ELITE';
-      else if (convRate < 15) level = 'TREINAMENTO';
+      // Análise de Consistência
+      const daysActive = Object.keys(v.dailyCounts).length;
+      const multiConversionDays = Object.values(v.dailyCounts).filter((c: any) => c > 1).length;
+      const hattricks = Object.values(v.dailyCounts).filter((c: any) => c >= 3).length;
 
-      return { ...v, convRate, tkm, level };
-    }).sort((a, b) => b.rev - a.rev);
+      // Cálculo do IQ de Conversão (0-100)
+      // Pesos: Volume (30%), Profundidade PA (30%), Consistência/Hattricks (20%), Valor Financeiro (20%)
+      let score = (Math.min(v.converted / 10, 1) * 30) + 
+                  (Math.min(avgPA / 2.5, 1) * 30) + 
+                  (Math.min(multiConversionDays / 3, 1) * 20) + 
+                  (Math.min(tkm / 200, 1) * 20);
+
+      let level: 'SNIPER' | 'VOLUME' | 'EVOLUCAO' = 'VOLUME';
+      if (score >= 75 || hattricks > 0) level = 'SNIPER';
+      else if (score < 40) level = 'EVOLUCAO';
+
+      return { ...v, avgPA, tkm, score, level, multiConversionDays, hattricks, daysActive };
+    }).sort((a, b) => b.score - a.score);
   }, [pickupOrders, vinculadosMap]);
 
-  // --- ESTATÍSTICAS POR DIA ---
   const statsByDay = useMemo(() => {
     const days: Record<string, any> = {};
     pickupOrders.forEach(order => {
@@ -147,10 +169,10 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
           <Trophy className="w-8 h-8" />
         </div>
         <div className="flex-1 space-y-1">
-          <h1 className="text-xl md:text-2xl font-black uppercase tracking-tight text-slate-800">Champions de Conversão</h1>
+          <h1 className="text-xl md:text-2xl font-black uppercase tracking-tight text-slate-800 italic">Matriz de Delegação Sniper</h1>
           <p className="text-sm text-slate-500 font-medium leading-relaxed">
-            Identificamos quem são os seus especialistas em transformar retiradas online em faturamento adicional. 
-            <strong> Delegue os clientes de pickup preferencialmente para os colaboradores de nível Elite.</strong>
+            Não olhamos apenas para a taxa. Premiamos quem traz <strong>profundidade de itens</strong> e <strong>consistência diária</strong>. 
+            Priorize a entrega de pickups para os colaboradores de nível <span className="text-orange-500 font-black">SNIPER ELITE</span>.
           </p>
         </div>
       </div>
@@ -158,52 +180,88 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
       <Tabs value={activeView} onValueChange={setActiveView} className="w-full">
         <TabsList className="grid w-full grid-cols-3 bg-white border-2 border-slate-100 rounded-2xl h-14 p-1 shadow-sm">
           <TabsTrigger value="colaborador" className="rounded-xl font-black text-[10px] md:text-xs uppercase data-[state=active]:bg-sky-500 data-[state=active]:text-white">
-            <Users className="w-3.5 h-3.5 mr-2" /> Por Colaborador
+            <Users className="w-3.5 h-3.5 mr-2" /> Inteligência Individual
           </TabsTrigger>
           <TabsTrigger value="dia" className="rounded-xl font-black text-[10px] md:text-xs uppercase data-[state=active]:bg-orange-500 data-[state=active]:text-white">
-            <Calendar className="w-3.5 h-3.5 mr-2" /> Por Dia
+            <Calendar className="w-3.5 h-3.5 mr-2" /> Ritmo Diário
           </TabsTrigger>
           <TabsTrigger value="atendimentos" className="rounded-xl font-black text-[10px] md:text-xs uppercase data-[state=active]:bg-slate-800 data-[state=active]:text-white">
-            <Activity className="w-3.5 h-3.5 mr-2" /> Transações
+            <Activity className="w-3.5 h-3.5 mr-2" /> Log de Transações
           </TabsTrigger>
         </TabsList>
 
         <div className="mt-6">
-          {/* VISÃO POR COLABORADOR */}
+          {/* VISÃO POR COLABORADOR - NOVA LÓGICA */}
           <TabsContent value="colaborador" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {statsByVendor.map((v, i) => (
-                <Card key={i} className="ri-card border-none bg-white p-5 shadow-sm space-y-4">
-                  <div className="flex justify-between items-start">
+                <Card key={i} className="ri-card border-none bg-white overflow-hidden shadow-md flex flex-col">
+                  <div className={cn(
+                    "p-5 flex justify-between items-start",
+                    v.level === 'SNIPER' ? "bg-slate-900 text-white" : "bg-white"
+                  )}>
                     <div className="space-y-1">
-                      <p className="text-xs font-black text-slate-800 uppercase">{v.name}</p>
+                      <p className={cn("text-xs font-black uppercase", v.level === 'SNIPER' ? "text-orange-400" : "text-slate-800")}>{v.name}</p>
                       <div className="flex items-center gap-2">
-                        {v.level === 'ELITE' ? (
-                          <Badge className="bg-amber-100 text-amber-700 border-none font-black text-[8px] uppercase">🥇 Especialista Elite</Badge>
-                        ) : v.level === 'TREINAMENTO' ? (
-                          <Badge className="bg-rose-100 text-rose-700 border-none font-black text-[8px] uppercase">⚠️ Focar Treinamento</Badge>
+                        {v.level === 'SNIPER' ? (
+                          <Badge className="bg-orange-500 text-white border-none font-black text-[8px] uppercase gap-1">
+                            <Flame className="w-2.5 h-2.5" /> Sniper Elite
+                          </Badge>
+                        ) : v.level === 'EVOLUCAO' ? (
+                          <Badge className="bg-rose-100 text-rose-700 border-none font-black text-[8px] uppercase">Focar Abordagem</Badge>
                         ) : (
-                          <Badge className="bg-sky-100 text-sky-700 border-none font-black text-[8px] uppercase">🥈 Regular</Badge>
+                          <Badge className="bg-sky-100 text-sky-700 border-none font-black text-[8px] uppercase">Consistent Volume</Badge>
                         )}
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-[10px] font-black text-slate-400 uppercase">Incremental</p>
-                      <p className="text-lg font-black text-emerald-600">{formatBRL(v.rev)}</p>
+                      <p className={cn("text-[8px] font-black uppercase opacity-60", v.level === 'SNIPER' ? "text-white" : "text-slate-400")}>Conversão IQ</p>
+                      <p className={cn("text-2xl font-black", v.level === 'SNIPER' ? "text-white" : "text-sky-600")}>{v.score.toFixed(0)}</p>
                     </div>
                   </div>
-                  <div className="grid grid-cols-3 gap-2 border-t pt-3">
-                    <MiniStat label="Adicionais" val={v.converted} icon={Zap} />
-                    <MiniStat label="Conv. %" val={`${v.convRate.toFixed(0)}%`} icon={Target} />
-                    <MiniStat label="Upsell" val={formatBRL(v.tkm)} icon={ArrowUpRight} />
-                  </div>
+
+                  <CardContent className="p-5 space-y-5 flex-1">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <p className="text-[8px] font-black text-slate-400 uppercase">Vendas Realizadas</p>
+                        <p className="text-sm font-black text-slate-700">{v.converted} atend.</p>
+                      </div>
+                      <div className="space-y-1 text-right">
+                        <p className="text-[8px] font-black text-slate-400 uppercase">Faturamento Extra</p>
+                        <p className="text-sm font-black text-emerald-600">{formatBRL(v.rev)}</p>
+                      </div>
+                    </div>
+
+                    <div className="bg-slate-50 rounded-xl p-3 grid grid-cols-3 gap-2">
+                      <div className="text-center">
+                        <p className="text-[7px] font-black text-slate-400 uppercase">PA Médio</p>
+                        <p className={cn("text-xs font-black", v.avgPA >= 2 ? "text-emerald-600" : "text-slate-600")}>{v.avgPA.toFixed(2)}</p>
+                      </div>
+                      <div className="text-center border-x border-slate-200">
+                        <p className="text-[7px] font-black text-slate-400 uppercase">Multi-Day</p>
+                        <p className="text-xs font-black text-slate-600">{v.multiConversionDays} d</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-[7px] font-black text-slate-400 uppercase">Hattricks</p>
+                        <p className={cn("text-xs font-black", v.hattricks > 0 ? "text-orange-500" : "text-slate-300")}>{v.hattricks}</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                       <div className="flex justify-between items-center">
+                          <p className="text-[8px] font-black text-slate-400 uppercase">Índice de Cesta Complexa</p>
+                          <span className="text-[9px] font-black text-slate-700">{((v.complexBaskets / v.converted || 0) * 100).toFixed(0)}%</span>
+                       </div>
+                       <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                          <div 
+                            className={cn("h-full transition-all duration-1000", v.level === 'SNIPER' ? "bg-orange-500" : "bg-sky-500")} 
+                            style={{ width: `${(v.complexBaskets / v.converted || 0) * 100}%` }} 
+                          />
+                       </div>
+                    </div>
+                  </CardContent>
                 </Card>
               ))}
-              {statsByVendor.length === 0 && (
-                <div className="col-span-full py-20 text-center text-slate-300 font-black uppercase text-sm">
-                  Nenhuma conversão registrada no período
-                </div>
-              )}
             </div>
           </TabsContent>
 
@@ -244,7 +302,7 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
             </div>
           </TabsContent>
 
-          {/* VISÃO TRANSAÇÕES (ORIGINAL) */}
+          {/* VISÃO TRANSAÇÕES */}
           <TabsContent value="atendimentos" className="space-y-4">
             <Card className="ri-card border-none shadow-sm overflow-hidden mb-4">
               <div className="p-3 bg-white flex items-center">
@@ -402,18 +460,6 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
           )}
         </SheetContent>
       </Sheet>
-    </div>
-  );
-}
-
-function MiniStat({ label, val, icon: Icon }: any) {
-  return (
-    <div className="text-center space-y-1">
-      <div className="flex items-center justify-center gap-1.5 text-slate-400">
-        <Icon className="w-3 h-3" />
-        <p className="text-[7px] font-black uppercase leading-none">{label}</p>
-      </div>
-      <p className="text-xs font-black text-slate-700">{val}</p>
     </div>
   );
 }

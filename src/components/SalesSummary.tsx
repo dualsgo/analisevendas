@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useMemo, useState } from "react";
@@ -37,7 +36,8 @@ import {
   LineChart,
   Boxes,
   ActivitySquare,
-  History
+  History,
+  ShoppingBag
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -71,6 +71,7 @@ import { QualityAnalysis } from "./QualityAnalysis";
 import { BottleneckDiagnosis } from "./BottleneckDiagnosis";
 import { YoYAnalysis } from "./YoYAnalysis";
 import { TeamProductivityAI } from "./TeamProductivityAI";
+import { AdditionalItemsAnalysis } from "./AdditionalItemsAnalysis";
 
 interface SalesSummaryProps {
   data: DetailedSaleRow[];
@@ -90,6 +91,10 @@ const TAB_INSIGHTS: Record<string, { title: string; desc: string }> = {
   geral: {
     title: "Visão Macro da Unidade",
     desc: "O faturamento consolidado é a base, mas o lucro real mora na gestão fina de cada canal de venda."
+  },
+  venda_sugestiva: {
+    title: "Análise de Checkout (SLP & Social)",
+    desc: "Vender o brinquedo principal é o esperado. Garantir o SLP e a Ação Social é o que traz a rentabilidade extra e o engajamento da equipe."
   },
   diagnostico_gargalo: {
     title: "Diagnóstico de Limitadores",
@@ -281,6 +286,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
 
   const navItems = [
     { id: "geral", label: "Visão Geral", icon: LayoutDashboard },
+    { id: "venda_sugestiva", label: "SLP & Social", icon: ShoppingBag, color: "text-orange-600 font-black" },
     { id: "diagnostico_gargalo", label: "Diagnóstico Gargalo", icon: ActivitySquare, color: "text-rose-600 font-black" },
     { id: "ai_insights", label: "Insights IA", icon: BrainCircuit, color: "text-orange-500 font-black" },
     { id: "yoy_analise", label: "Resultado YoY", icon: History, color: "text-indigo-600 font-bold" },
@@ -350,6 +356,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
             </div>
           </div>
         );
+      case "venda_sugestiva": return <AdditionalItemsAnalysis data={data} />;
       case "ai_insights": return <AISummary data={data} vinculos={vinculos} />;
       case "ai_chat": return <AIChat data={data} vinculos={vinculos} />;
       case "diario": return <DailyPerformance data={data} />;

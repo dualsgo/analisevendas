@@ -87,13 +87,13 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
       vendors[name] = {
         name,
         group: GROUPS[name] || "Outros",
-        base: { venda: 0, cupons: 0, itens: 0 },
-        extra: { venda: 0, cupons: 0, itens: 0 },
+        base: { venda: 0, cupons: 0, itens: 0, ident: 0 },
+        extra: { venda: 0, cupons: 0, itens: 0, ident: 0 },
+        troca: { venda: 0, itens: 0, ident: 0 },
         pickupsAtendidas: 0,
         adicionaisFeitos: 0,
         slpQty: 0,
-        socialQty: 0,
-        identCount: 0
+        socialQty: 0
       };
     });
 
@@ -110,19 +110,23 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
         if (SOCIAL_CODES.includes(it.cProd)) vendors[v].socialQty += it.qCom;
       });
 
-      if (s.cpf_cnpj_dest) vendors[v].identCount += 1;
+      const isIdentified = s.cpf_cnpj_dest && s.cpf_cnpj_dest.trim() !== "";
 
+      // Venda Física/Adicional (Base)
       if (s.canal === "LOJA_FISICA" || s.canal === "RETIRADA_ADICIONAL" || s.is_adicional || s.is_adicional_suspeito) {
         vendors[v].base.venda += val;
         vendors[v].base.cupons += 1;
         vendors[v].base.itens += qItens;
+        if (isIdentified) vendors[v].base.ident += 1;
       }
 
+      // Retirada Online (Extra)
       if (s.canal === "RETIRADA_ONLINE") {
         vendors[v].extra.venda += val;
         vendors[v].extra.cupons += 1;
         vendors[v].extra.itens += qItens;
         vendors[v].pickupsAtendidas += 1;
+        if (isIdentified) vendors[v].extra.ident += 1;
       }
 
       if (s.is_adicional || s.is_adicional_suspeito || s.canal === "RETIRADA_ADICIONAL") {
@@ -134,20 +138,26 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
       const v = vinc.vendedor || "OUTROS";
       if (IGNORE_LIST.includes(v)) return;
       if (vendors[v]) {
-        vendors[v].extra.venda += vinc.valor_diferenca;
-        vendors[v].extra.itens += vinc.diferenca_itens;
+        vendors[v].troca.venda += vinc.valor_diferenca;
+        vendors[v].troca.itens += vinc.diferenca_itens;
+        if (vinc.cpf_cliente) vendors[v].troca.ident += 1;
       }
     });
 
     const results = Object.values(vendors).map((v: any) => {
-      const totalVenda = v.base.venda + (includePickups ? v.extra.venda : 0);
-      const totalItens = v.base.itens + (includePickups ? v.extra.itens : 0);
-      const totalCupons = v.base.cupons + (includePickups ? v.extra.cupons : 0);
+      // Cálculo Dinâmico baseado nos Toggles
+      const totalVenda = v.base.venda + (includePickups ? v.extra.venda : 0) + (includeExchanges ? v.troca.venda : 0);
+      const totalItens = v.base.itens + (includePickups ? v.extra.itens : 0) + (includeExchanges ? v.troca.itens : 0);
+      const totalCupons = v.base.cupons + (includePickups ? v.extra.cupons : 0); // Trocas não geram novo cupom na base geralmente
+      const totalIdent = v.base.ident + (includePickups ? v.extra.ident : 0);
+
+      const basePA = v.base.cupons > 0 ? v.base.itens / v.base.cupons : 0;
+      const baseTKM = v.base.cupons > 0 ? v.base.venda / v.base.cupons : 0;
 
       const metrics = {
         pa: totalCupons > 0 ? totalItens / totalCupons : 0,
         tkm: totalCupons > 0 ? totalVenda / totalCupons : 0,
-        ident: totalCupons > 0 ? (v.identCount / totalCupons) * 100 : 0,
+        ident: totalCupons > 0 ? Math.min((totalIdent / totalCupons) * 100, 100) : 0,
         conv: v.pickupsAtendidas > 0 ? (v.adicionaisFeitos / v.pickupsAtendidas) * 100 : 0
       };
 
@@ -157,8 +167,8 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
         metrics,
         deltas: {
           venda: totalVenda - v.base.venda,
-          vendaPerc: v.base.venda > 0 ? ((totalVenda / v.base.venda) - 1) * 100 : 0,
-          pa: metrics.pa - (v.base.cupons > 0 ? v.base.itens / v.base.cupons : 0)
+          pa: metrics.pa - basePA,
+          tkm: metrics.tkm - baseTKM
         }
       };
     });
@@ -295,8 +305,9 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
                     <div className="flex flex-col items-end">
                       <span className="text-xs font-black text-slate-700">{formatBRL(v.current.venda)}</span>
                       {Math.abs(v.deltas.venda) > 0.1 && (
-                        <span className={cn("text-[8px] font-bold", v.deltas.venda > 0 ? "text-emerald-600" : "text-rose-500")}>
-                          {v.deltas.venda > 0 ? "+" : ""}{formatBRL(v.deltas.venda)}
+                        <span className={cn("text-[8px] font-bold flex items-center gap-0.5", v.deltas.venda > 0 ? "text-emerald-600" : "text-rose-500")}>
+                          {v.deltas.venda > 0 ? <ArrowUpRight className="w-2 h-2" /> : <ArrowDownRight className="w-2 h-2" />}
+                          {formatBRL(Math.abs(v.deltas.venda))}
                         </span>
                       )}
                     </div>
@@ -308,7 +319,11 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
                         <span className="text-xs font-black text-slate-700">{formatNum(v.metrics.pa)}</span>
                         {isAbovePA ? <ArrowUpRight className="w-2.5 h-2.5 text-emerald-500" /> : <ArrowDownRight className="w-2.5 h-2.5 text-rose-500" />}
                       </div>
-                      <p className="text-[7px] font-bold text-slate-300 uppercase italic">Ref Grupo: {formatNum(v.groupAverages.pa)}</p>
+                      {Math.abs(v.deltas.pa) > 0.01 && (
+                        <span className={cn("text-[7px] font-black", v.deltas.pa > 0 ? "text-emerald-600" : "text-rose-500")}>
+                          {v.deltas.pa > 0 ? "+" : ""}{v.deltas.pa.toFixed(2)}
+                        </span>
+                      )}
                     </div>
                   </TableCell>
 
@@ -318,7 +333,11 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
                         <span className="text-xs font-black text-slate-700">{formatBRL(v.metrics.tkm)}</span>
                         {isAboveTKM ? <ArrowUpRight className="w-2.5 h-2.5 text-emerald-500" /> : <ArrowDownRight className="w-2.5 h-2.5 text-rose-500" />}
                       </div>
-                      <p className="text-[7px] font-bold text-slate-300 uppercase italic">Ref Grupo: {formatBRL(v.groupAverages.tkm)}</p>
+                      {Math.abs(v.deltas.tkm) > 0.1 && (
+                        <span className={cn("text-[7px] font-black", v.deltas.tkm > 0 ? "text-emerald-600" : "text-rose-500")}>
+                          {v.deltas.tkm > 0 ? "+" : ""}{formatBRL(v.deltas.tkm)}
+                        </span>
+                      )}
                     </div>
                   </TableCell>
 
@@ -372,7 +391,7 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
       <div className="flex justify-between items-center text-[9px] font-black text-slate-400 uppercase tracking-widest px-4 border-t pt-4">
         <div className="flex items-center gap-2">
           <Info className="w-3 h-3" />
-          <p>Média por Grupo Ativada • Gerentes Ocultados • Comparativos Relativos ao Perfil</p>
+          <p>Média por Grupo Ativada • Gerentes Ocultados • Diferenciais em relação à venda física destacados</p>
         </div>
         <p>Documento Estratégico Ri Happy - Uso Interno Unidade</p>
       </div>

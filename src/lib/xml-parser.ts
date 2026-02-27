@@ -41,6 +41,11 @@ function extractVendedor(infCpl: string): string {
     result = result.substring(0, trailingIdMatch.index);
   }
 
+  // CONSOLIDAÇÃO DE IDENTIDADES (CONFORME SOLICITADO)
+  const normalized = result.toUpperCase().trim();
+  if (normalized === "LIDIANE B" || normalized === "BARBOSA") return "BARBOSA";
+  if (normalized === "LIDIANE" || normalized === "LIDI") return "LIDI";
+
   return result || "COLABORADOR NÃO IDENTIFICADO";
 }
 
@@ -242,14 +247,13 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     const infCpl = infAdic ? (getElement(infAdic, "infCpl")?.textContent || "") : "";
     const vendedor = extractVendedor(infCpl);
 
-    // --- LOGICA DE CLASSIFICAÇÃO UNIFICADA (Python + NextJS) ---
+    // --- LOGICA DE CLASSIFICAÇÃO UNIFICADA ---
     const isEnderecoLoja = 
       cep_dest === "21211007" && 
       nro_dest === "909" && 
       uf_dest === "RJ" && 
       /VICENTE\s+DE\s+CARVALHO/i.test(xLgr_dest);
 
-    const isVendedorIdentificado = vendedor !== "COLABORADOR NÃO IDENTIFICADO" && vendedor !== "SEM_VENDEDOR";
     const temDinheiro = pagamentosDet.some(p => p.tPag === "01");
     const hasTextualPickupEvidence = /RETIRADA|PICKUP|PEDIDO|SITE|ECOMM|MAGENTO/i.test(infCpl);
 

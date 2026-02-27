@@ -29,7 +29,6 @@ import {
   FileText,
   Heart,
   Star,
-  Minus,
   CheckCircle2,
   XCircle,
   Info
@@ -213,7 +212,7 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
   const handlePrint = () => window.print();
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 pb-20 print:p-0 print:pb-0 print:space-y-2">
+    <div className="space-y-6 animate-in fade-in duration-500 pb-20 print:p-0 print:pb-0 print:space-y-0">
       {/* HEADER EXECUTIVO */}
       <div className="bg-white rounded-[2rem] p-6 border-2 border-slate-100 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6 print:hidden">
         <div className="flex items-center gap-4">
@@ -244,28 +243,22 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
         </div>
       </div>
 
-      {/* LEGENDA DE GRUPOS */}
-      <div className="flex flex-wrap items-center gap-4 px-4 print:hidden">
-        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mr-2">Legenda de Grupos:</span>
-        <LegendItem label="Vendedores" color="bg-orange-100/50" />
-        <LegendItem label="Apoio Venda" color="bg-sky-100/50" />
-        <LegendItem label="Apoio Operação" color="bg-emerald-100/50" />
-        <LegendItem label="Aprendiz" color="bg-slate-100/50" />
-      </div>
-
-      {/* CABEÇALHO PARA IMPRESSÃO */}
-      <div className="hidden print:flex justify-between items-end border-b border-slate-900 pb-2 mb-2">
-        <div>
-          <h1 className="text-lg font-black uppercase leading-none">Ri Happy | Performance Consolidada</h1>
-          <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mt-1">
-            Físico {includePickups && "+ Retiradas"} {includeExchanges && "+ Troca"}
+      {/* CABEÇALHO PARA IMPRESSÃO - SIMPLIFICADO */}
+      <div className="hidden print:flex justify-between items-end border-b-2 border-black pb-1 mb-2">
+        <div className="space-y-0.5">
+          <h1 className="text-sm font-black uppercase leading-none">Ri Happy | Performance Consolidada da Unidade</h1>
+          <p className="text-[8px] font-bold text-slate-600 uppercase tracking-widest">
+            Visão: Físico {includePickups && "+ Retiradas"} {includeExchanges && "+ Trocas (Saldo)"}
           </p>
         </div>
-        <p className="text-[8px] font-black uppercase">{new Date().toLocaleDateString('pt-BR')} {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>
+        <div className="text-right">
+          <p className="text-[8px] font-black uppercase">{new Date().toLocaleDateString('pt-BR')} - {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>
+          <p className="text-[7px] font-bold text-slate-400">DOCUMENTO DE AUDITORIA INTERNA</p>
+        </div>
       </div>
 
-      {/* KPI TOTALIZADORES */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 print:flex print:items-center print:justify-between print:gap-0 print:border print:p-2 print:bg-slate-50 print:mb-2">
+      {/* KPI TOTALIZADORES - COMPACTO PARA IMPRESSÃO */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 print:flex print:items-center print:justify-between print:gap-0 print:border print:border-black print:p-1 print:bg-slate-50 print:mb-2">
         <ReportKPI label="Venda Unidade" value={formatBRL(totals.venda)} icon={TrendingUp} color="text-emerald-600" />
         <ReportKPI label="Atendimentos" value={totals.cupons} icon={Users} color="text-sky-600" />
         <ReportKPI label="P.A. Médio" value={formatNum(totals.pa)} icon={Target} color="text-orange-600" />
@@ -274,21 +267,21 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
         <ReportKPI label="Conv. Real" value={`${formatNum(totals.conv, 1)}%`} icon={Zap} color="text-amber-500" />
       </div>
 
-      {/* TABELA CONSOLIDADA */}
-      <Card className="ri-card border-none overflow-hidden shadow-xl bg-white print:shadow-none print:border print:w-full print:rounded-none">
-        <Table className="print:table-fixed">
-          <TableHeader className="bg-slate-900">
-            <TableRow className="hover:bg-slate-900 border-none h-10 md:h-12 print:h-8">
-              <TableHead className="text-white font-black uppercase text-[8px] md:text-[9px] pl-4 md:pl-8 print:pl-2 print:w-[15%]">Colaborador</TableHead>
-              <TableHead className="text-white font-black uppercase text-[8px] md:text-[9px] text-right print:w-[12%]">Venda Total</TableHead>
-              <TableHead className="text-white font-black uppercase text-[8px] md:text-[9px] text-center print:w-[8%]">PA</TableHead>
-              <TableHead className="text-white font-black uppercase text-[8px] md:text-[9px] text-right print:w-[10%]">TKM</TableHead>
-              <TableHead className="text-white font-black uppercase text-[8px] md:text-[9px] text-center print:w-[8%]">CPF %</TableHead>
-              <TableHead className="text-white font-black uppercase text-[8px] md:text-[9px] text-center print:w-[7%]">SLP</TableHead>
-              <TableHead className="text-white font-black uppercase text-[8px] md:text-[9px] text-center print:w-[7%]">Social</TableHead>
-              <TableHead className="text-white font-black uppercase text-[8px] md:text-[9px] text-center print:w-[8%]">Pks</TableHead>
-              <TableHead className="text-white font-black uppercase text-[8px] md:text-[9px] text-center print:w-[8%]">Adic</TableHead>
-              <TableHead className="text-white font-black uppercase text-[8px] md:text-[9px] text-right pr-4 md:pr-8 print:pr-2 print:w-[10%]">Conv %</TableHead>
+      {/* TABELA CONSOLIDADA - OTIMIZADA PARA P&B */}
+      <Card className="ri-card border-none overflow-hidden shadow-xl bg-white print:shadow-none print:border print:border-black print:w-full print:rounded-none">
+        <Table className="print:table-fixed print:border-collapse">
+          <TableHeader className="bg-slate-900 print:bg-slate-200">
+            <TableRow className="hover:bg-slate-900 border-none h-10 md:h-12 print:h-7 print:border-b print:border-black">
+              <TableHead className="text-white print:text-black font-black uppercase text-[8px] md:text-[9px] pl-4 md:pl-8 print:pl-1 print:w-[15%]">Colaborador</TableHead>
+              <TableHead className="text-white print:text-black font-black uppercase text-[8px] md:text-[9px] text-right print:w-[12%]">Venda Total</TableHead>
+              <TableHead className="text-white print:text-black font-black uppercase text-[8px] md:text-[9px] text-center print:w-[8%]">PA</TableHead>
+              <TableHead className="text-white print:text-black font-black uppercase text-[8px] md:text-[9px] text-right print:w-[10%]">TKM</TableHead>
+              <TableHead className="text-white print:text-black font-black uppercase text-[8px] md:text-[9px] text-center print:w-[8%]">CPF %</TableHead>
+              <TableHead className="text-white print:text-black font-black uppercase text-[8px] md:text-[9px] text-center print:w-[7%]">SLP</TableHead>
+              <TableHead className="text-white print:text-black font-black uppercase text-[8px] md:text-[9px] text-center print:w-[7%]">Social</TableHead>
+              <TableHead className="text-white print:text-black font-black uppercase text-[8px] md:text-[9px] text-center print:w-[8%]">Pks</TableHead>
+              <TableHead className="text-white print:text-black font-black uppercase text-[8px] md:text-[9px] text-center print:w-[8%]">Adic</TableHead>
+              <TableHead className="text-white print:text-black font-black uppercase text-[8px] md:text-[9px] text-right pr-4 md:pr-8 print:pr-1 print:w-[10%]">Conv %</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -299,18 +292,19 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
               const rowColor = GROUP_COLORS[v.group] || "bg-white";
 
               return (
-                <TableRow key={i} className={cn("border-slate-100 hover:bg-slate-100/50 h-12 md:h-14 group print:bg-white print:border-b print:h-9", rowColor)}>
-                  <TableCell className="pl-4 md:pl-8 print:pl-2">
-                    <p className="text-[10px] md:text-[11px] print:text-[9px] font-black text-slate-800 uppercase leading-none">{v.name}</p>
-                    <Badge variant="outline" className="text-[6px] md:text-[7px] print:text-[6px] font-black uppercase border-slate-200 text-slate-400 mt-1 h-3 md:h-4 px-1 md:px-1.5">{v.group}</Badge>
+                <TableRow key={i} className={cn("border-slate-100 hover:bg-slate-100/50 h-12 md:h-14 group print:bg-white print:border-b print:border-slate-300 print:h-8", rowColor)}>
+                  <TableCell className="pl-4 md:pl-8 print:pl-1">
+                    <p className="text-[10px] md:text-[11px] print:text-[8px] font-black text-slate-800 uppercase leading-none">{v.name}</p>
+                    <span className="hidden print:block text-[6px] font-bold text-slate-500 uppercase">{v.group}</span>
+                    <Badge variant="outline" className="print:hidden text-[6px] md:text-[7px] font-black uppercase border-slate-200 text-slate-400 mt-1 h-3 md:h-4 px-1 md:px-1.5">{v.group}</Badge>
                   </TableCell>
                   
                   <TableCell className="text-right">
                     <div className="flex flex-col items-end">
-                      <span className="text-[10px] md:text-xs print:text-[9px] font-black text-slate-700">{formatBRL(v.current.venda)}</span>
+                      <span className="text-[10px] md:text-xs print:text-[8px] font-black text-slate-700">{formatBRL(v.current.venda)}</span>
                       {Math.abs(v.deltas.venda) > 0.1 && (
-                        <span className={cn("text-[7px] md:text-[8px] font-bold flex items-center gap-0.5", v.deltas.venda > 0 ? "text-emerald-600" : "text-rose-500")}>
-                          {v.deltas.venda > 0 ? <ArrowUpRight className="w-2 md:w-2.5 h-2 md:h-2.5" /> : <ArrowDownRight className="w-2 md:w-2.5 h-2 md:h-2.5" />}
+                        <span className={cn("text-[7px] md:text-[8px] print:text-[6px] font-bold flex items-center gap-0.5", v.deltas.venda > 0 ? "text-emerald-600" : "text-rose-500")}>
+                          {v.deltas.venda > 0 ? <ArrowUpRight className="w-2 md:w-2.5 h-2 md:h-2.5 print:w-1.5 print:h-1.5" /> : <ArrowDownRight className="w-2 md:w-2.5 h-2 md:h-2.5 print:w-1.5 print:h-1.5" />}
                           {formatBRL(Math.abs(v.deltas.venda))}
                         </span>
                       )}
@@ -320,11 +314,11 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
                   <TableCell className="text-center">
                     <div className="flex flex-col items-center">
                       <div className="flex items-center gap-1">
-                        <span className="text-[10px] md:text-xs print:text-[9px] font-black text-slate-700">{formatNum(v.metrics.pa)}</span>
-                        {isAbovePA ? <ArrowUpRight className="w-2 md:w-2.5 h-2 md:h-2.5 text-emerald-500" /> : <ArrowDownRight className="w-2 md:w-2.5 h-2 md:h-2.5 text-rose-500" />}
+                        <span className="text-[10px] md:text-xs print:text-[8px] font-black text-slate-700">{formatNum(v.metrics.pa)}</span>
+                        {isAbovePA ? <ArrowUpRight className="w-2 md:w-2.5 h-2 md:h-2.5 text-emerald-500 print:w-1.5 print:h-1.5" /> : <ArrowDownRight className="w-2 md:w-2.5 h-2 md:h-2.5 text-rose-500 print:w-1.5 print:h-1.5" />}
                       </div>
                       {Math.abs(v.deltas.pa) > 0.01 && (
-                        <span className={cn("text-[6px] md:text-[7px] font-black", v.deltas.pa > 0 ? "text-emerald-600" : "text-rose-500")}>
+                        <span className={cn("text-[6px] md:text-[7px] print:text-[5px] font-black", v.deltas.pa > 0 ? "text-emerald-600" : "text-rose-500")}>
                           {v.deltas.pa > 0 ? "+" : ""}{v.deltas.pa.toFixed(2)}
                         </span>
                       )}
@@ -334,11 +328,11 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
                   <TableCell className="text-right">
                     <div className="flex flex-col items-end">
                       <div className="flex items-center gap-1">
-                        <span className="text-[10px] md:text-xs print:text-[9px] font-black text-slate-700">{formatBRL(v.metrics.tkm)}</span>
-                        {isAboveTKM ? <ArrowUpRight className="w-2 md:w-2.5 h-2 md:h-2.5 text-emerald-500" /> : <ArrowDownRight className="w-2 md:w-2.5 h-2 md:h-2.5 text-rose-500" />}
+                        <span className="text-[10px] md:text-xs print:text-[8px] font-black text-slate-700">{formatBRL(v.metrics.tkm)}</span>
+                        {isAboveTKM ? <ArrowUpRight className="w-2 md:w-2.5 h-2 md:h-2.5 text-emerald-500 print:w-1.5 print:h-1.5" /> : <ArrowDownRight className="w-2 md:w-2.5 h-2 md:h-2.5 text-rose-500 print:w-1.5 print:h-1.5" />}
                       </div>
                       {Math.abs(v.deltas.tkm) > 0.1 && (
-                        <span className={cn("text-[6px] md:text-[7px] font-black", v.deltas.tkm > 0 ? "text-emerald-600" : "text-rose-500")}>
+                        <span className={cn("text-[6px] md:text-[7px] print:text-[5px] font-black", v.deltas.tkm > 0 ? "text-emerald-600" : "text-rose-500")}>
                           {v.deltas.tkm > 0 ? "+" : ""}{formatBRL(Math.abs(v.deltas.tkm))}
                         </span>
                       )}
@@ -348,11 +342,13 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
                   <TableCell className="text-center">
                     <div className="flex flex-col items-center">
                       <div className="flex items-center gap-1">
-                        <span className="text-[10px] md:text-xs print:text-[9px] font-black text-slate-700">{v.metrics.ident.toFixed(0)}%</span>
-                        {isAboveIdent ? <CheckCircle2 className="w-2 md:w-2.5 h-2 md:h-2.5 text-emerald-500" /> : <XCircle className="w-2 md:w-2.5 h-2 md:h-2.5 text-rose-400" />}
+                        <span className="text-[10px] md:text-xs print:text-[8px] font-black text-slate-700">{v.metrics.ident.toFixed(0)}%</span>
+                        <div className="print:hidden">
+                          {isAboveIdent ? <CheckCircle2 className="w-2 md:w-2.5 h-2 md:h-2.5 text-emerald-500" /> : <XCircle className="w-2 md:w-2.5 h-2 md:h-2.5 text-rose-400" />}
+                        </div>
                       </div>
                       {Math.abs(v.deltas.ident) > 0.1 && (
-                        <span className={cn("text-[6px] md:text-[7px] font-black", v.deltas.ident > 0 ? "text-emerald-600" : "text-rose-500")}>
+                        <span className={cn("text-[6px] md:text-[7px] print:text-[5px] font-black", v.deltas.ident > 0 ? "text-emerald-600" : "text-rose-500")}>
                           {v.deltas.ident > 0 ? "+" : ""}{v.deltas.ident.toFixed(1)}%
                         </span>
                       )}
@@ -360,28 +356,31 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
                   </TableCell>
 
                   <TableCell className="text-center">
-                    <Badge className={cn("text-[8px] md:text-[9px] print:text-[8px] font-black border-none px-1 h-4 md:h-5", v.slpQty > 0 ? "bg-orange-100 text-orange-700" : "bg-slate-50 text-slate-300")}>
+                    <span className="hidden print:inline text-[8px] font-black">{v.slpQty}</span>
+                    <Badge className={cn("print:hidden text-[8px] md:text-[9px] font-black border-none px-1 h-4 md:h-5", v.slpQty > 0 ? "bg-orange-100 text-orange-700" : "bg-slate-50 text-slate-300")}>
                       <Star className="w-2 md:w-2.5 h-2 md:h-2.5 mr-0.5 md:mr-1 fill-current" /> {v.slpQty}
                     </Badge>
                   </TableCell>
 
                   <TableCell className="text-center">
-                    <Badge className={cn("text-[8px] md:text-[9px] print:text-[8px] font-black border-none px-1 h-4 md:h-5", v.socialQty > 0 ? "bg-rose-100 text-rose-700" : "bg-slate-50 text-slate-300")}>
+                    <span className="hidden print:inline text-[8px] font-black">{v.socialQty}</span>
+                    <Badge className={cn("print:hidden text-[8px] md:text-[9px] font-black border-none px-1 h-4 md:h-5", v.socialQty > 0 ? "bg-rose-100 text-rose-700" : "bg-slate-50 text-slate-300")}>
                       <Heart className="w-2 md:w-2.5 h-2 md:h-2.5 mr-0.5 md:mr-1 fill-current" /> {v.socialQty}
                     </Badge>
                   </TableCell>
 
-                  <TableCell className="text-center font-bold text-slate-400 text-[10px] md:text-xs print:text-[9px]">
+                  <TableCell className="text-center font-bold text-slate-400 text-[10px] md:text-xs print:text-[8px] print:text-black">
                     {v.pickupsAtendidas}
                   </TableCell>
 
-                  <TableCell className="text-center font-black text-emerald-600 text-[10px] md:text-xs print:text-[9px]">
+                  <TableCell className="text-center font-black text-emerald-600 text-[10px] md:text-xs print:text-[8px] print:text-black">
                     {v.adicionaisFeitos}
                   </TableCell>
 
-                  <TableCell className="text-right pr-4 md:pr-8 print:pr-2">
+                  <TableCell className="text-right pr-4 md:pr-8 print:pr-1">
+                    <span className="hidden print:inline text-[8px] font-black">{formatNum(v.metrics.conv, 1)}%</span>
                     <Badge className={cn(
-                      "text-[8px] md:text-[9px] print:text-[8px] font-black border-none px-1 md:px-2 h-4 md:h-5",
+                      "print:hidden text-[8px] md:text-[9px] font-black border-none px-1 md:px-2 h-4 md:h-5",
                       v.metrics.conv >= 20 ? "bg-emerald-100 text-emerald-700" : 
                       v.metrics.conv >= 10 ? "bg-sky-100 text-sky-700" : "bg-slate-100 text-slate-400"
                     )}>
@@ -395,20 +394,20 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
         </Table>
       </Card>
 
-      {/* RODAPÉ TÉCNICO */}
-      <div className="flex justify-between items-center text-[8px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest px-4 border-t pt-4 print:pt-2 print:border-none">
+      {/* RODAPÉ TÉCNICO - SIMPLIFICADO */}
+      <div className="flex justify-between items-center text-[8px] font-black text-slate-400 uppercase tracking-widest px-4 border-t pt-4 print:pt-1 print:border-none print:text-slate-600">
         <div className="flex items-center gap-2">
-          <Info className="w-3 h-3" />
-          <p>Comparativo por Grupo Ativado • Maycon/Ruan Ocultados</p>
+          <Info className="w-3 h-3 print:hidden" />
+          <p>Média Relativa por Grupo Ativada • Auditoria Ri Happy Vicente de Carvalho</p>
         </div>
-        <p>Documento Estratégico Ri Happy - Uso Interno</p>
+        <p>RESTRITO: USO INTERNO GERENCIAL</p>
       </div>
 
       <style jsx global>{`
         @media print {
           @page { 
             size: A4 landscape; 
-            margin: 0.4cm; 
+            margin: 0.3cm; 
           }
           body, html { 
             height: auto !important;
@@ -416,9 +415,10 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
             background: white !important;
             padding: 0 !important;
             margin: 0 !important;
+            color: black !important;
           }
           
-          header, aside, .sidebar-trigger, [data-sidebar="sidebar"], .print\:hidden, button, [role="switch"] {
+          header, aside, .sidebar-trigger, [data-sidebar="sidebar"], .print\:hidden, button, [role="switch"], .legenda-grupos {
             display: none !important;
           }
 
@@ -433,7 +433,7 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
           }
 
           .ri-card { 
-            border: 1px solid #e2e8f0 !important; 
+            border: 1px solid black !important; 
             box-shadow: none !important;
             border-radius: 0 !important;
             margin: 0 !important;
@@ -443,37 +443,42 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
           table {
             width: 100% !important;
             border-collapse: collapse !important;
-            font-size: 7.2pt !important;
+            font-size: 7pt !important;
             table-layout: fixed !important;
+            color: black !important;
           }
 
-          th, td {
-            padding: 2pt 1pt !important;
-            word-wrap: break-word !important;
-            overflow: hidden !important;
+          th {
+            background-color: #f1f5f9 !important;
+            color: black !important;
+            border-bottom: 1px solid black !important;
+            font-weight: 900 !important;
+          }
+
+          td {
+            padding: 1pt 1pt !important;
+            border-bottom: 1px solid #e2e8f0 !important;
+            color: black !important;
           }
 
           tr {
             page-break-inside: avoid !important;
           }
 
+          /* Forçar cores nas setas mesmo em P&B se possível */
+          .text-emerald-600 { color: #059669 !important; }
+          .text-rose-500 { color: #e11d48 !important; }
+
           /* KPI Mini para Impressão */
           .print\:flex { display: flex !important; }
           .print\:items-center { align-items: center !important; }
           .print\:justify-between { justify-content: space-between !important; }
-          .print\:border { border: 1px solid #e2e8f0 !important; }
-          .print\:p-2 { padding: 4pt !important; }
+          .print\:border { border: 1px solid black !important; }
+          .print\:p-1 { padding: 2pt !important; }
           .print\:bg-slate-50 { background-color: #f8fafc !important; }
-          .print\:mb-2 { margin-bottom: 8pt !important; }
+          .print\:mb-2 { margin-bottom: 4pt !important; }
 
           * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-          .bg-slate-900 { background-color: #0f172a !important; color: white !important; }
-          .text-white { color: white !important; }
-          
-          .bg-orange-100\/50 { background-color: rgba(255, 237, 213, 0.4) !important; }
-          .bg-sky-100\/50 { background-color: rgba(224, 242, 254, 0.4) !important; }
-          .bg-emerald-100\/50 { background-color: rgba(209, 250, 229, 0.4) !important; }
-          .bg-slate-100\/50 { background-color: rgba(241, 245, 249, 0.4) !important; }
         }
       `}</style>
     </div>
@@ -491,13 +496,13 @@ function LegendItem({ label, color }: { label: string, color: string }) {
 
 function ReportKPI({ label, value, icon: Icon, color }: any) {
   return (
-    <Card className="ri-card border-none bg-white p-4 md:p-5 flex flex-col justify-between h-20 md:h-24 shadow-sm print:border-none print:h-auto print:p-0 print:bg-transparent print:flex-row print:items-center print:gap-2">
+    <Card className="ri-card border-none bg-white p-4 md:p-5 flex flex-col justify-between h-20 md:h-24 shadow-sm print:border-none print:h-auto print:p-0 print:bg-transparent print:flex-row print:items-center print:gap-1">
       <div className="flex items-center justify-between print:hidden">
         <div className={cn("p-1.5 rounded-lg bg-slate-50", color)}><Icon className="w-4 h-4" /></div>
       </div>
-      <div className="print:flex print:items-center print:gap-1">
-        <p className="text-[7px] md:text-[8px] print:text-[7px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1 print:mb-0">{label}:</p>
-        <p className="text-[10px] md:text-sm print:text-[9px] font-black text-slate-800 leading-none truncate">{value}</p>
+      <div className="print:flex print:items-center print:gap-0.5">
+        <p className="text-[7px] md:text-[8px] print:text-[6px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1 print:mb-0 print:text-black">{label}:</p>
+        <p className="text-[10px] md:text-sm print:text-[8px] font-black text-slate-800 leading-none truncate print:text-black">{value}</p>
       </div>
     </Card>
   );

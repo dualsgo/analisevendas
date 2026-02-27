@@ -16,7 +16,7 @@ interface HeaderProps {
 
 export function Header({ status, fileStats, onReset }: HeaderProps) {
   return (
-    <header className="bg-[#FFD100] border-b-4 border-orange-500 text-orange-900 shadow-md h-16 md:h-20 flex items-center sticky top-0 z-[60] shrink-0">
+    <header className="bg-[#FFD100] border-b-4 border-orange-500 text-orange-900 shadow-md h-16 md:h-20 flex items-center sticky top-0 z-[60] shrink-0 print:hidden">
       <div className="container mx-auto px-4 flex items-center justify-between gap-4">
         <div className="flex items-center gap-2 md:gap-3 shrink-0">
           {status === "success" && (

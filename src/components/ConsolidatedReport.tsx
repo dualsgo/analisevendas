@@ -149,10 +149,11 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
       const totalVenda = v.base.venda + (includePickups ? v.extra.venda : 0) + (includeExchanges ? v.troca.venda : 0);
       const totalItens = v.base.itens + (includePickups ? v.extra.itens : 0) + (includeExchanges ? v.troca.itens : 0);
       const totalCupons = v.base.cupons + (includePickups ? v.extra.cupons : 0); // Trocas não geram novo cupom na base geralmente
-      const totalIdent = v.base.ident + (includePickups ? v.extra.ident : 0);
+      const totalIdent = v.base.ident + (includePickups ? v.extra.ident : 0) + (includeExchanges ? v.troca.ident : 0);
 
       const basePA = v.base.cupons > 0 ? v.base.itens / v.base.cupons : 0;
       const baseTKM = v.base.cupons > 0 ? v.base.venda / v.base.cupons : 0;
+      const baseIdent = v.base.cupons > 0 ? (v.base.ident / v.base.cupons) * 100 : 0;
 
       const metrics = {
         pa: totalCupons > 0 ? totalItens / totalCupons : 0,
@@ -168,7 +169,8 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
         deltas: {
           venda: totalVenda - v.base.venda,
           pa: metrics.pa - basePA,
-          tkm: metrics.tkm - baseTKM
+          tkm: metrics.tkm - baseTKM,
+          ident: metrics.ident - baseIdent
         }
       };
     });
@@ -271,7 +273,7 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
       </div>
 
       {/* TABELA CONSOLIDADA */}
-      <Card className="ri-card border-none overflow-hidden shadow-xl bg-white print:shadow-none print:border">
+      <Card className="ri-card border-none overflow-hidden shadow-xl bg-white print:shadow-none print:border print:w-full">
         <Table>
           <TableHeader className="bg-slate-900">
             <TableRow className="hover:bg-slate-900 border-none h-12">
@@ -295,7 +297,7 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
               const rowColor = GROUP_COLORS[v.group] || "bg-white";
 
               return (
-                <TableRow key={i} className={cn("border-slate-100 hover:bg-slate-100/50 h-14 group", rowColor)}>
+                <TableRow key={i} className={cn("border-slate-100 hover:bg-slate-100/50 h-14 group print:bg-white", rowColor)}>
                   <TableCell className="pl-8">
                     <p className="text-[11px] font-black text-slate-800 uppercase leading-none">{v.name}</p>
                     <Badge variant="outline" className="text-[7px] font-black uppercase border-slate-200 text-slate-400 mt-1 h-4 px-1.5">{v.group}</Badge>
@@ -306,7 +308,7 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
                       <span className="text-xs font-black text-slate-700">{formatBRL(v.current.venda)}</span>
                       {Math.abs(v.deltas.venda) > 0.1 && (
                         <span className={cn("text-[8px] font-bold flex items-center gap-0.5", v.deltas.venda > 0 ? "text-emerald-600" : "text-rose-500")}>
-                          {v.deltas.venda > 0 ? <ArrowUpRight className="w-2 h-2" /> : <ArrowDownRight className="w-2 h-2" />}
+                          {v.deltas.venda > 0 ? <ArrowUpRight className="w-2.5 h-2.5" /> : <ArrowDownRight className="w-2.5 h-2.5" />}
                           {formatBRL(Math.abs(v.deltas.venda))}
                         </span>
                       )}
@@ -335,7 +337,7 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
                       </div>
                       {Math.abs(v.deltas.tkm) > 0.1 && (
                         <span className={cn("text-[7px] font-black", v.deltas.tkm > 0 ? "text-emerald-600" : "text-rose-500")}>
-                          {v.deltas.tkm > 0 ? "+" : ""}{formatBRL(v.deltas.tkm)}
+                          {v.deltas.tkm > 0 ? "+" : ""}{formatBRL(Math.abs(v.deltas.tkm))}
                         </span>
                       )}
                     </div>
@@ -347,7 +349,11 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
                         <span className="text-xs font-black text-slate-700">{v.metrics.ident.toFixed(0)}%</span>
                         {isAboveIdent ? <CheckCircle2 className="w-2.5 h-2.5 text-emerald-500" /> : <XCircle className="w-2.5 h-2.5 text-rose-400" />}
                       </div>
-                      <p className="text-[7px] font-bold text-slate-300 uppercase italic">Ref: {v.groupAverages.ident.toFixed(0)}%</p>
+                      {Math.abs(v.deltas.ident) > 0.1 && (
+                        <span className={cn("text-[7px] font-black", v.deltas.ident > 0 ? "text-emerald-600" : "text-rose-500")}>
+                          {v.deltas.ident > 0 ? "+" : ""}{v.deltas.ident.toFixed(1)}%
+                        </span>
+                      )}
                     </div>
                   </TableCell>
 
@@ -398,11 +404,41 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
 
       <style jsx global>{`
         @media print {
-          body { background: white !important; }
-          .container { max-width: 100% !important; padding: 0 !important; }
-          @page { size: landscape; margin: 0.5cm; }
-          .ri-card { border: 1px solid #e2e8f0 !important; }
-          tr { -webkit-print-color-adjust: exact !important; }
+          body { 
+            background: white !important; 
+            padding: 0 !important;
+            margin: 0 !important;
+          }
+          /* Ocultar elementos de navegação do sistema */
+          .sidebar-trigger,
+          header,
+          aside,
+          .welcome-section,
+          nav {
+            display: none !important;
+          }
+          /* Garantir que o container principal ocupe toda a folha */
+          .container { 
+            max-width: 100% !important; 
+            width: 100% !important;
+            padding: 0 !important; 
+            margin: 0 !important;
+          }
+          /* Configurações de página para A4 Horizontal */
+          @page { 
+            size: A4 landscape; 
+            margin: 1cm; 
+          }
+          /* Remover sombras e fundos desnecessários */
+          .ri-card { 
+            border: 1px solid #e2e8f0 !important; 
+            box-shadow: none !important;
+            background: white !important;
+          }
+          /* Forçar cores de fundo em navegadores Webkit */
+          tr { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          .bg-slate-900 { background-color: #0f172a !important; color: white !important; }
+          .text-white { color: white !important; }
         }
       `}</style>
     </div>

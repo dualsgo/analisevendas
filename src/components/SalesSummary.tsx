@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useMemo, useState } from "react";
@@ -37,7 +38,8 @@ import {
   Boxes,
   ActivitySquare,
   History,
-  ShoppingBag
+  ShoppingBag,
+  Sword
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -72,6 +74,7 @@ import { BottleneckDiagnosis } from "./BottleneckDiagnosis";
 import { YoYAnalysis } from "./YoYAnalysis";
 import { TeamProductivityAI } from "./TeamProductivityAI";
 import { AdditionalItemsAnalysis } from "./AdditionalItemsAnalysis";
+import { CollaboratorGamification } from "./CollaboratorGamification";
 
 interface SalesSummaryProps {
   data: DetailedSaleRow[];
@@ -92,9 +95,13 @@ const TAB_INSIGHTS: Record<string, { title: string; desc: string }> = {
     title: "Visão Macro da Unidade",
     desc: "O faturamento consolidado é a base, mas o lucro real mora na gestão fina de cada canal de venda."
   },
+  gamification: {
+    title: "Arena Ri Happy de Talentos",
+    desc: "Ranking gamificado baseado em 8 competências. Identifique quem são suas lendas e quem precisa de treinamento."
+  },
   venda_sugestiva: {
     title: "Análise de Checkout (SLP & Social)",
-    desc: "Vender o brinquedo principal é o esperado. Garantir o SLP e a Ação Social é o que traz a rentabilidade extra e o engajamento da equipe."
+    desc: "Vender o brinquedo principal é o esperado. Garantir o SLP e a Ação Social é o que traz a rentabilidade extra."
   },
   diagnostico_gargalo: {
     title: "Diagnóstico de Limitadores",
@@ -154,7 +161,7 @@ const TAB_INSIGHTS: Record<string, { title: string; desc: string }> = {
   },
   conversao: {
     title: "Eficiência Pickup & Adicionais",
-    desc: "Transforme o cliente de retirada em faturamento adicional presencial através do argumento técnico e monitoramento de operador."
+    desc: "Transforme o cliente de retirada em faturamento adicional presencial."
   },
   auditoria: {
     title: "Gestão de Margem",
@@ -170,7 +177,7 @@ const TAB_INSIGHTS: Record<string, { title: string; desc: string }> = {
   },
   whatsapp: {
     title: "Engajamento do Time",
-    desc: "Formate os resultados em metas claras e envie destaques diários para manter a equipe focada no objetivo."
+    desc: "Formate os resultados em metas claras e envie destaques diários para o grupo da loja."
   }
 };
 
@@ -286,6 +293,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
 
   const navItems = [
     { id: "geral", label: "Visão Geral", icon: LayoutDashboard },
+    { id: "gamification", label: "Arena de Talentos", icon: Sword, color: "text-yellow-500 font-black" },
     { id: "venda_sugestiva", label: "SLP & Social", icon: ShoppingBag, color: "text-orange-600 font-black" },
     { id: "diagnostico_gargalo", label: "Diagnóstico Gargalo", icon: ActivitySquare, color: "text-rose-600 font-black" },
     { id: "ai_insights", label: "Insights IA", icon: BrainCircuit, color: "text-orange-500 font-black" },
@@ -356,6 +364,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
             </div>
           </div>
         );
+      case "gamification": return <CollaboratorGamification data={data} vinculos={vinculos} />;
       case "venda_sugestiva": return <AdditionalItemsAnalysis data={data} />;
       case "ai_insights": return <AISummary data={data} vinculos={vinculos} />;
       case "ai_chat": return <AIChat data={data} vinculos={vinculos} />;

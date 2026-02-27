@@ -148,7 +148,7 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
       // Cálculo Dinâmico baseado nos Toggles
       const totalVenda = v.base.venda + (includePickups ? v.extra.venda : 0) + (includeExchanges ? v.troca.venda : 0);
       const totalItens = v.base.itens + (includePickups ? v.extra.itens : 0) + (includeExchanges ? v.troca.itens : 0);
-      const totalCupons = v.base.cupons + (includePickups ? v.extra.cupons : 0); // Trocas não geram novo cupom na base geralmente
+      const totalCupons = v.base.cupons + (includePickups ? v.extra.cupons : 0); 
       const totalIdent = v.base.ident + (includePickups ? v.extra.ident : 0) + (includeExchanges ? v.troca.ident : 0);
 
       const basePA = v.base.cupons > 0 ? v.base.itens / v.base.cupons : 0;
@@ -213,7 +213,7 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
   const handlePrint = () => window.print();
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 pb-20 print:p-0 print:pb-0">
+    <div className="space-y-6 animate-in fade-in duration-500 pb-20 print:p-0 print:pb-0 print:space-y-4">
       {/* HEADER EXECUTIVO */}
       <div className="bg-white rounded-[2rem] p-6 border-2 border-slate-100 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6 print:hidden">
         <div className="flex items-center gap-4">
@@ -254,16 +254,16 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
       </div>
 
       {/* CABEÇALHO PARA IMPRESSÃO */}
-      <div className="hidden print:block text-center border-b-4 border-slate-900 pb-6 mb-8">
-        <h1 className="text-3xl font-black uppercase mb-1">Ri Happy | Performance Consolidada</h1>
-        <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">
+      <div className="hidden print:block text-center border-b-2 border-slate-900 pb-4 mb-4">
+        <h1 className="text-2xl font-black uppercase mb-1">Ri Happy | Performance Consolidada</h1>
+        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
           Emissão: {new Date().toLocaleDateString('pt-BR')} • 
           Critério: Esforço de Loja {includePickups && "+ Retiradas"} {includeExchanges && "+ Saldo de Troca"}
         </p>
       </div>
 
       {/* KPI TOTALIZADORES */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 print:grid-cols-6">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 print:grid-cols-6 print:gap-2">
         <ReportKPI label="Venda Unidade" value={formatBRL(totals.venda)} icon={TrendingUp} color="text-emerald-600" />
         <ReportKPI label="Atendimentos" value={totals.cupons} icon={Users} color="text-sky-600" />
         <ReportKPI label="P.A. Médio" value={formatNum(totals.pa)} icon={Target} color="text-orange-600" />
@@ -273,20 +273,20 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
       </div>
 
       {/* TABELA CONSOLIDADA */}
-      <Card className="ri-card border-none overflow-hidden shadow-xl bg-white print:shadow-none print:border print:w-full">
-        <Table>
+      <Card className="ri-card border-none overflow-hidden shadow-xl bg-white print:shadow-none print:border print:w-full print:rounded-none">
+        <Table className="print:table-fixed">
           <TableHeader className="bg-slate-900">
-            <TableRow className="hover:bg-slate-900 border-none h-12">
-              <TableHead className="text-white font-black uppercase text-[9px] pl-8">Colaborador / Perfil</TableHead>
-              <TableHead className="text-white font-black uppercase text-[9px] text-right">Venda Total</TableHead>
-              <TableHead className="text-white font-black uppercase text-[9px] text-center">PA</TableHead>
-              <TableHead className="text-white font-black uppercase text-[9px] text-right">TKM</TableHead>
-              <TableHead className="text-white font-black uppercase text-[9px] text-center">CPF %</TableHead>
-              <TableHead className="text-white font-black uppercase text-[9px] text-center">SLP</TableHead>
-              <TableHead className="text-white font-black uppercase text-[9px] text-center">Social</TableHead>
-              <TableHead className="text-white font-black uppercase text-[9px] text-center">Pickups</TableHead>
-              <TableHead className="text-white font-black uppercase text-[9px] text-center">Adicionais</TableHead>
-              <TableHead className="text-white font-black uppercase text-[9px] text-right pr-8">Conv %</TableHead>
+            <TableRow className="hover:bg-slate-900 border-none h-10 md:h-12">
+              <TableHead className="text-white font-black uppercase text-[8px] md:text-[9px] pl-4 md:pl-8">Colaborador / Perfil</TableHead>
+              <TableHead className="text-white font-black uppercase text-[8px] md:text-[9px] text-right">Venda Total</TableHead>
+              <TableHead className="text-white font-black uppercase text-[8px] md:text-[9px] text-center">PA</TableHead>
+              <TableHead className="text-white font-black uppercase text-[8px] md:text-[9px] text-right">TKM</TableHead>
+              <TableHead className="text-white font-black uppercase text-[8px] md:text-[9px] text-center">CPF %</TableHead>
+              <TableHead className="text-white font-black uppercase text-[8px] md:text-[9px] text-center">SLP</TableHead>
+              <TableHead className="text-white font-black uppercase text-[8px] md:text-[9px] text-center">Social</TableHead>
+              <TableHead className="text-white font-black uppercase text-[8px] md:text-[9px] text-center">Pickups</TableHead>
+              <TableHead className="text-white font-black uppercase text-[8px] md:text-[9px] text-center">Adicionais</TableHead>
+              <TableHead className="text-white font-black uppercase text-[8px] md:text-[9px] text-right pr-4 md:pr-8">Conv %</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -297,18 +297,18 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
               const rowColor = GROUP_COLORS[v.group] || "bg-white";
 
               return (
-                <TableRow key={i} className={cn("border-slate-100 hover:bg-slate-100/50 h-14 group print:bg-white", rowColor)}>
-                  <TableCell className="pl-8">
-                    <p className="text-[11px] font-black text-slate-800 uppercase leading-none">{v.name}</p>
-                    <Badge variant="outline" className="text-[7px] font-black uppercase border-slate-200 text-slate-400 mt-1 h-4 px-1.5">{v.group}</Badge>
+                <TableRow key={i} className={cn("border-slate-100 hover:bg-slate-100/50 h-12 md:h-14 group print:bg-white print:border-b", rowColor)}>
+                  <TableCell className="pl-4 md:pl-8">
+                    <p className="text-[10px] md:text-[11px] font-black text-slate-800 uppercase leading-none">{v.name}</p>
+                    <Badge variant="outline" className="text-[6px] md:text-[7px] font-black uppercase border-slate-200 text-slate-400 mt-1 h-3 md:h-4 px-1 md:px-1.5">{v.group}</Badge>
                   </TableCell>
                   
                   <TableCell className="text-right">
                     <div className="flex flex-col items-end">
-                      <span className="text-xs font-black text-slate-700">{formatBRL(v.current.venda)}</span>
+                      <span className="text-[10px] md:text-xs font-black text-slate-700">{formatBRL(v.current.venda)}</span>
                       {Math.abs(v.deltas.venda) > 0.1 && (
-                        <span className={cn("text-[8px] font-bold flex items-center gap-0.5", v.deltas.venda > 0 ? "text-emerald-600" : "text-rose-500")}>
-                          {v.deltas.venda > 0 ? <ArrowUpRight className="w-2.5 h-2.5" /> : <ArrowDownRight className="w-2.5 h-2.5" />}
+                        <span className={cn("text-[7px] md:text-[8px] font-bold flex items-center gap-0.5", v.deltas.venda > 0 ? "text-emerald-600" : "text-rose-500")}>
+                          {v.deltas.venda > 0 ? <ArrowUpRight className="w-2 md:w-2.5 h-2 md:h-2.5" /> : <ArrowDownRight className="w-2 md:w-2.5 h-2 md:h-2.5" />}
                           {formatBRL(Math.abs(v.deltas.venda))}
                         </span>
                       )}
@@ -318,11 +318,11 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
                   <TableCell className="text-center">
                     <div className="flex flex-col items-center">
                       <div className="flex items-center gap-1">
-                        <span className="text-xs font-black text-slate-700">{formatNum(v.metrics.pa)}</span>
-                        {isAbovePA ? <ArrowUpRight className="w-2.5 h-2.5 text-emerald-500" /> : <ArrowDownRight className="w-2.5 h-2.5 text-rose-500" />}
+                        <span className="text-[10px] md:text-xs font-black text-slate-700">{formatNum(v.metrics.pa)}</span>
+                        {isAbovePA ? <ArrowUpRight className="w-2 md:w-2.5 h-2 md:h-2.5 text-emerald-500" /> : <ArrowDownRight className="w-2 md:w-2.5 h-2 md:h-2.5 text-rose-500" />}
                       </div>
                       {Math.abs(v.deltas.pa) > 0.01 && (
-                        <span className={cn("text-[7px] font-black", v.deltas.pa > 0 ? "text-emerald-600" : "text-rose-500")}>
+                        <span className={cn("text-[6px] md:text-[7px] font-black", v.deltas.pa > 0 ? "text-emerald-600" : "text-rose-500")}>
                           {v.deltas.pa > 0 ? "+" : ""}{v.deltas.pa.toFixed(2)}
                         </span>
                       )}
@@ -332,11 +332,11 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
                   <TableCell className="text-right">
                     <div className="flex flex-col items-end">
                       <div className="flex items-center gap-1">
-                        <span className="text-xs font-black text-slate-700">{formatBRL(v.metrics.tkm)}</span>
-                        {isAboveTKM ? <ArrowUpRight className="w-2.5 h-2.5 text-emerald-500" /> : <ArrowDownRight className="w-2.5 h-2.5 text-rose-500" />}
+                        <span className="text-[10px] md:text-xs font-black text-slate-700">{formatBRL(v.metrics.tkm)}</span>
+                        {isAboveTKM ? <ArrowUpRight className="w-2 md:w-2.5 h-2 md:h-2.5 text-emerald-500" /> : <ArrowDownRight className="w-2 md:w-2.5 h-2 md:h-2.5 text-rose-500" />}
                       </div>
                       {Math.abs(v.deltas.tkm) > 0.1 && (
-                        <span className={cn("text-[7px] font-black", v.deltas.tkm > 0 ? "text-emerald-600" : "text-rose-500")}>
+                        <span className={cn("text-[6px] md:text-[7px] font-black", v.deltas.tkm > 0 ? "text-emerald-600" : "text-rose-500")}>
                           {v.deltas.tkm > 0 ? "+" : ""}{formatBRL(Math.abs(v.deltas.tkm))}
                         </span>
                       )}
@@ -346,11 +346,11 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
                   <TableCell className="text-center">
                     <div className="flex flex-col items-center">
                       <div className="flex items-center gap-1">
-                        <span className="text-xs font-black text-slate-700">{v.metrics.ident.toFixed(0)}%</span>
-                        {isAboveIdent ? <CheckCircle2 className="w-2.5 h-2.5 text-emerald-500" /> : <XCircle className="w-2.5 h-2.5 text-rose-400" />}
+                        <span className="text-[10px] md:text-xs font-black text-slate-700">{v.metrics.ident.toFixed(0)}%</span>
+                        {isAboveIdent ? <CheckCircle2 className="w-2 md:w-2.5 h-2 md:h-2.5 text-emerald-500" /> : <XCircle className="w-2 md:w-2.5 h-2 md:h-2.5 text-rose-400" />}
                       </div>
                       {Math.abs(v.deltas.ident) > 0.1 && (
-                        <span className={cn("text-[7px] font-black", v.deltas.ident > 0 ? "text-emerald-600" : "text-rose-500")}>
+                        <span className={cn("text-[6px] md:text-[7px] font-black", v.deltas.ident > 0 ? "text-emerald-600" : "text-rose-500")}>
                           {v.deltas.ident > 0 ? "+" : ""}{v.deltas.ident.toFixed(1)}%
                         </span>
                       )}
@@ -358,28 +358,28 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
                   </TableCell>
 
                   <TableCell className="text-center">
-                    <Badge className={cn("text-[9px] font-black border-none", v.slpQty > 0 ? "bg-orange-100 text-orange-700" : "bg-slate-50 text-slate-300")}>
-                      <Star className="w-2.5 h-2.5 mr-1 fill-current" /> {v.slpQty}
+                    <Badge className={cn("text-[8px] md:text-[9px] font-black border-none px-1 h-4 md:h-5", v.slpQty > 0 ? "bg-orange-100 text-orange-700" : "bg-slate-50 text-slate-300")}>
+                      <Star className="w-2 md:w-2.5 h-2 md:h-2.5 mr-0.5 md:mr-1 fill-current" /> {v.slpQty}
                     </Badge>
                   </TableCell>
 
                   <TableCell className="text-center">
-                    <Badge className={cn("text-[9px] font-black border-none", v.socialQty > 0 ? "bg-rose-100 text-rose-700" : "bg-slate-50 text-slate-300")}>
-                      <Heart className="w-2.5 h-2.5 mr-1 fill-current" /> {v.socialQty}
+                    <Badge className={cn("text-[8px] md:text-[9px] font-black border-none px-1 h-4 md:h-5", v.socialQty > 0 ? "bg-rose-100 text-rose-700" : "bg-slate-50 text-slate-300")}>
+                      <Heart className="w-2 md:w-2.5 h-2 md:h-2.5 mr-0.5 md:mr-1 fill-current" /> {v.socialQty}
                     </Badge>
                   </TableCell>
 
-                  <TableCell className="text-center font-bold text-slate-400 text-xs">
+                  <TableCell className="text-center font-bold text-slate-400 text-[10px] md:text-xs">
                     {v.pickupsAtendidas}
                   </TableCell>
 
-                  <TableCell className="text-center font-black text-emerald-600 text-xs">
+                  <TableCell className="text-center font-black text-emerald-600 text-[10px] md:text-xs">
                     {v.adicionaisFeitos}
                   </TableCell>
 
-                  <TableCell className="text-right pr-8">
+                  <TableCell className="text-right pr-4 md:pr-8">
                     <Badge className={cn(
-                      "text-[9px] font-black border-none",
+                      "text-[8px] md:text-[9px] font-black border-none px-1 md:px-2 h-4 md:h-5",
                       v.metrics.conv >= 20 ? "bg-emerald-100 text-emerald-700" : 
                       v.metrics.conv >= 10 ? "bg-sky-100 text-sky-700" : "bg-slate-100 text-slate-400"
                     )}>
@@ -394,51 +394,86 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
       </Card>
 
       {/* RODAPÉ TÉCNICO */}
-      <div className="flex justify-between items-center text-[9px] font-black text-slate-400 uppercase tracking-widest px-4 border-t pt-4">
+      <div className="flex justify-between items-center text-[8px] md:text-[9px] font-black text-slate-400 uppercase tracking-widest px-4 border-t pt-4">
         <div className="flex items-center gap-2">
           <Info className="w-3 h-3" />
-          <p>Média por Grupo Ativada • Gerentes Ocultados • Diferenciais em relação à venda física destacados</p>
+          <p>Média por Grupo Ativada • Gerentes Ocultados • Diferenciais destacados</p>
         </div>
         <p>Documento Estratégico Ri Happy - Uso Interno Unidade</p>
       </div>
 
       <style jsx global>{`
         @media print {
-          body { 
-            background: white !important; 
+          @page { 
+            size: A4 landscape; 
+            margin: 0.5cm; 
+          }
+          body, html { 
+            height: auto !important;
+            overflow: visible !important;
+            background: white !important;
             padding: 0 !important;
             margin: 0 !important;
           }
-          /* Ocultar elementos de navegação do sistema */
+          
+          /* Ocultar elementos de navegação e controles */
+          header, 
+          aside, 
           .sidebar-trigger,
-          header,
-          aside,
+          [data-sidebar="sidebar"],
           .welcome-section,
-          nav {
+          .print\:hidden,
+          button:not(.print-only),
+          [role="switch"] {
             display: none !important;
           }
-          /* Garantir que o container principal ocupe toda a folha */
-          .container { 
-            max-width: 100% !important; 
+
+          /* Reset containers do NextJS/Sidebar */
+          main, 
+          [data-sidebar-wrapper], 
+          .group\/sidebar-wrapper,
+          .flex-1 {
+            display: block !important;
+            height: auto !important;
+            overflow: visible !important;
             width: 100% !important;
-            padding: 0 !important; 
+            max-width: 100% !important;
             margin: 0 !important;
+            padding: 0 !important;
+            background: none !important;
           }
-          /* Configurações de página para A4 Horizontal */
-          @page { 
-            size: A4 landscape; 
-            margin: 1cm; 
-          }
-          /* Remover sombras e fundos desnecessários */
+
           .ri-card { 
             border: 1px solid #e2e8f0 !important; 
             box-shadow: none !important;
             background: white !important;
+            border-radius: 0 !important;
+            margin: 0 !important;
+            width: 100% !important;
           }
-          /* Forçar cores de fundo em navegadores Webkit */
-          tr { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+
+          /* Ajuste de escala da tabela para caber horizontalmente */
+          table {
+            width: 100% !important;
+            border-collapse: collapse !important;
+            font-size: 7.5pt !important; /* Redução para garantir que caiba todas as colunas */
+          }
+
+          th, td {
+            padding: 3pt 2pt !important;
+            word-wrap: break-word !important;
+          }
+
+          /* Forçar cores de fundo em navegadores */
+          * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
           .bg-slate-900 { background-color: #0f172a !important; color: white !important; }
           .text-white { color: white !important; }
+          
+          /* Forçar cores de grupo na impressão */
+          .bg-orange-100\/50 { background-color: rgba(255, 237, 213, 0.4) !important; }
+          .bg-sky-100\/50 { background-color: rgba(224, 242, 254, 0.4) !important; }
+          .bg-emerald-100\/50 { background-color: rgba(209, 250, 229, 0.4) !important; }
+          .bg-slate-100\/50 { background-color: rgba(241, 245, 249, 0.4) !important; }
         }
       `}</style>
     </div>
@@ -456,13 +491,13 @@ function LegendItem({ label, color }: { label: string, color: string }) {
 
 function ReportKPI({ label, value, icon: Icon, color }: any) {
   return (
-    <Card className="ri-card border-none bg-white p-4 flex flex-col justify-between h-24 shadow-sm print:border print:h-20">
-      <div className="flex items-center justify-between">
+    <Card className="ri-card border-none bg-white p-4 md:p-5 flex flex-col justify-between h-20 md:h-24 shadow-sm print:border print:h-16 print:p-2">
+      <div className="flex items-center justify-between print:hidden">
         <div className={cn("p-1.5 rounded-lg bg-slate-50", color)}><Icon className="w-4 h-4" /></div>
       </div>
       <div>
-        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">{label}</p>
-        <p className="text-sm font-black text-slate-800 leading-none truncate">{value}</p>
+        <p className="text-[7px] md:text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">{label}</p>
+        <p className="text-[10px] md:text-sm font-black text-slate-800 leading-none truncate">{value}</p>
       </div>
     </Card>
   );

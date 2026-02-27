@@ -16,6 +16,13 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
+import { 
   Printer, 
   ArrowUpRight, 
   ArrowDownRight, 
@@ -31,7 +38,8 @@ import {
   Star,
   CheckCircle2,
   XCircle,
-  Info
+  Info,
+  Filter
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -71,6 +79,7 @@ const SOCIAL_CODES = ['5057181', '5055875', '5135601', '5129270', '5129271', '51
 export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) {
   const [includePickups, setIncludePickups] = useState(false);
   const [includeExchanges, setIncludeExchanges] = useState(false);
+  const [selectedGroup, setSelectedGroup] = useState<string>("all");
 
   const formatBRL = (val: number) => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   const formatNum = (val: number, precision = 2) => val.toLocaleString('pt-BR', { minimumFractionDigits: precision, maximumFractionDigits: precision });
@@ -186,11 +195,13 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
       };
     });
 
-    return results.map(r => ({
-      ...r,
-      groupAverages: groupStats[r.group]
-    })).sort((a, b) => b.current.venda - a.current.venda);
-  }, [data, vinculos, includePickups, includeExchanges]);
+    return results
+      .filter(r => selectedGroup === "all" || r.group === selectedGroup)
+      .map(r => ({
+        ...r,
+        groupAverages: groupStats[r.group]
+      })).sort((a, b) => b.current.venda - a.current.venda);
+  }, [data, vinculos, includePickups, includeExchanges, selectedGroup]);
 
   const totals = useMemo(() => {
     const sum = reportData.reduce((acc, v) => ({
@@ -211,6 +222,8 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
 
   const handlePrint = () => window.print();
 
+  const groupsAvailable = ["Vendedores", "Apoio Venda", "Apoio Operação", "Aprendiz"];
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20 print:p-0 print:pb-0 print:space-y-0">
       {/* HEADER EXECUTIVO */}
@@ -219,11 +232,30 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
           <div className="bg-slate-900 p-3 rounded-2xl text-white shadow-lg"><FileText className="w-6 h-6" /></div>
           <div>
             <h1 className="text-xl font-black uppercase tracking-tight text-slate-800">Relatório Consolidado de Performance</h1>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Análise de Médias por Grupo e Diferenças Reais</p>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Visão Técnica e Financeira da Unidade</p>
           </div>
         </div>
         
-        <div className="flex flex-wrap items-center gap-6 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+        <div className="flex flex-wrap items-center gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+          {/* Novo Filtro de Grupo */}
+          <div className="flex flex-col gap-1.5 mr-4">
+            <Label className="text-[9px] font-black uppercase text-slate-400 px-1">Filtrar Perfil</Label>
+            <Select value={selectedGroup} onValueChange={setSelectedGroup}>
+              <SelectTrigger className="h-9 w-[180px] rounded-xl border-slate-200 bg-white font-black text-[10px] uppercase">
+                <div className="flex items-center gap-2">
+                  <Filter className="w-3 h-3 text-orange-500" />
+                  <SelectValue />
+                </div>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all" className="text-xs font-bold uppercase">Todos os Perfis</SelectItem>
+                {groupsAvailable.map(g => (
+                  <SelectItem key={g} value={g} className="text-xs font-bold uppercase">{g}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           <div className="flex items-center gap-3">
             <Switch id="inc-pickups" checked={includePickups} onCheckedChange={setIncludePickups} />
             <Label htmlFor="inc-pickups" className="text-[10px] font-black uppercase cursor-pointer flex items-center gap-1.5">
@@ -234,21 +266,21 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
           <div className="flex items-center gap-3">
             <Switch id="inc-trocas" checked={includeExchanges} onCheckedChange={setIncludeExchanges} />
             <Label htmlFor="inc-trocas" className="text-[10px] font-black uppercase cursor-pointer flex items-center gap-1.5">
-              <ArrowRightLeft className="w-3 h-3 text-purple-500" /> Incluir Diferenças Troca
+              <ArrowRightLeft className="w-3 h-3 text-purple-500" /> Incluir Trocas
             </Label>
           </div>
           <Button onClick={handlePrint} variant="outline" className="ml-4 rounded-xl font-black text-[10px] gap-2 border-slate-200 hover:bg-white hover:text-orange-500 shadow-sm">
-            <Printer className="w-4 h-4" /> IMPRIMIR RELATÓRIO
+            <Printer className="w-4 h-4" /> IMPRIMIR
           </Button>
         </div>
       </div>
 
-      {/* CABEÇALHO PARA IMPRESSÃO - SIMPLIFICADO */}
+      {/* CABEÇALHO PARA IMPRESSÃO */}
       <div className="hidden print:flex justify-between items-end border-b-2 border-black pb-1 mb-2">
         <div className="space-y-0.5">
-          <h1 className="text-sm font-black uppercase leading-none">Ri Happy | Performance Consolidada da Unidade</h1>
+          <h1 className="text-sm font-black uppercase leading-none">Ri Happy | Performance Consolidada</h1>
           <p className="text-[8px] font-bold text-slate-600 uppercase tracking-widest">
-            Visão: Físico {includePickups && "+ Retiradas"} {includeExchanges && "+ Trocas (Saldo)"}
+            Visão: {selectedGroup === "all" ? "UNIDADE COMPLETA" : selectedGroup.toUpperCase()} • Físico {includePickups && "+ Retiradas"} {includeExchanges && "+ Trocas"}
           </p>
         </div>
         <div className="text-right">
@@ -257,9 +289,9 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
         </div>
       </div>
 
-      {/* KPI TOTALIZADORES - COMPACTO PARA IMPRESSÃO (SEM BORDAS, COM PADDING) */}
+      {/* KPI TOTALIZADORES */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 print:flex print:items-center print:justify-between print:gap-4 print:p-2 print:bg-slate-50 print:mb-4 print:border-none">
-        <ReportKPI label="Venda Unidade" value={formatBRL(totals.venda)} icon={TrendingUp} color="text-emerald-600" />
+        <ReportKPI label="Venda Grupo" value={formatBRL(totals.venda)} icon={TrendingUp} color="text-emerald-600" />
         <ReportKPI label="Atendimentos" value={totals.cupons} icon={Users} color="text-sky-600" />
         <ReportKPI label="P.A. Médio" value={formatNum(totals.pa)} icon={Target} color="text-orange-600" />
         <ReportKPI label="Ticket Médio" value={formatBRL(totals.tkm)} icon={ShoppingBag} color="text-purple-600" />
@@ -267,7 +299,7 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
         <ReportKPI label="Conv. Real" value={`${formatNum(totals.conv, 1)}%`} icon={Zap} color="text-amber-500" />
       </div>
 
-      {/* TABELA CONSOLIDADA - OTIMIZADA PARA P&B */}
+      {/* TABELA CONSOLIDADA */}
       <Card className="ri-card border-none overflow-hidden shadow-xl bg-white print:shadow-none print:border print:border-black print:w-full print:rounded-none">
         <Table className="print:table-fixed print:border-collapse">
           <TableHeader className="bg-slate-900 print:bg-slate-200">
@@ -295,8 +327,6 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
                 <TableRow key={i} className={cn("border-slate-100 hover:bg-slate-100/50 h-12 md:h-14 group print:bg-white print:border-b print:border-slate-300 print:h-8", rowColor)}>
                   <TableCell className="pl-4 md:pl-8 print:pl-1">
                     <p className="text-[10px] md:text-[11px] print:text-[8px] font-black text-slate-800 uppercase leading-none">{v.name}</p>
-                    <span className="hidden print:block text-[6px] font-bold text-slate-500 uppercase">{v.group}</span>
-                    <Badge variant="outline" className="print:hidden text-[6px] md:text-[7px] font-black uppercase border-slate-200 text-slate-400 mt-1 h-3 md:h-4 px-1 md:px-1.5">{v.group}</Badge>
                   </TableCell>
                   
                   <TableCell className="text-right">
@@ -394,13 +424,13 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
         </Table>
       </Card>
 
-      {/* RODAPÉ TÉCNICO - SIMPLIFICADO */}
+      {/* RODAPÉ TÉCNICO */}
       <div className="flex justify-between items-center text-[8px] font-black text-slate-400 uppercase tracking-widest px-4 border-t pt-4 print:pt-1 print:border-none print:text-slate-600">
         <div className="flex items-center gap-2">
           <Info className="w-3 h-3 print:hidden" />
-          <p>Média Relativa por Grupo Ativada • Auditoria Ri Happy Vicente de Carvalho</p>
+          <p>Média Relativa por Grupo Ativada • Auditoria Interna Ri Happy</p>
         </div>
-        <p>RESTRITO: USO INTERNO GERENCIAL</p>
+        <p>RESTRITO: USO GERENCIAL</p>
       </div>
 
       <style jsx global>{`
@@ -465,11 +495,9 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
             page-break-inside: avoid !important;
           }
 
-          /* Forçar cores nas setas mesmo em P&B se possível */
           .text-emerald-600 { color: #059669 !important; }
           .text-rose-500 { color: #e11d48 !important; }
 
-          /* KPI Mini para Impressão */
           .print\:flex { display: flex !important; }
           .print\:items-center { align-items: center !important; }
           .print\:justify-between { justify-content: space-between !important; }

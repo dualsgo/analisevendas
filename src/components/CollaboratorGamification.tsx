@@ -43,11 +43,13 @@ export function CollaboratorGamification({ data, vinculos }: CollaboratorGamific
     const activeSales = data.filter(s => !s.is_cancelada && s.tpNF === 1);
     
     // Normalizadores (para escala 0-100)
-    const maxVenda = Math.max(...activeSales.reduce((acc: any, s) => {
+    const vendorSalesMap: Record<string, number> = {};
+    activeSales.forEach(s => {
       const v = s.vendedor || "OUTROS";
-      acc[v] = (acc[v] || 0) + parseFloat(s.vNF);
-      return acc;
-    }, {} as any), 1000);
+      vendorSalesMap[v] = (vendorSalesMap[v] || 0) + parseFloat(s.vNF);
+    });
+    const vendorTotals = Object.values(vendorSalesMap);
+    const maxVenda = vendorTotals.length > 0 ? Math.max(...vendorTotals, 1000) : 1000;
 
     activeSales.forEach(s => {
       const v = s.vendedor || "OUTROS";

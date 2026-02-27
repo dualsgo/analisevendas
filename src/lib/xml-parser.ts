@@ -1,6 +1,17 @@
 
 import { DetailedSaleRow, Item } from "./types";
 
+// LISTA OFICIAL DE CÓDIGOS SLP (Super Lançamento Premiado)
+const SLP_CODES = [
+  '5135238', '5135269', '5135270', '5135273', '5146458', '5146469', '5146470', '5146471', 
+  '5146472', '5146473', '5146474', '5146475', '5146476', '5146501', '5146504', '5146505', 
+  '5141894', '5141895', '5141896', '5141897', '5141898', '5141899', '5141900', '5141902', 
+  '5141903', '5141904', '5141905', '5141907', '5141909', '5141910', '5141911', '5141912', 
+  '5141913', '5141914', '5141915', '5141916', '5141917', '5141920', '5141949', '5141978', 
+  '5140469', '5140475', '5140476', '5140477', '5140478', '5140479', '5146477', '5146478', 
+  '5146502', '5146503'
+];
+
 // Parâmetros para detecção robusta de campanhas (Leve X Pague Y)
 const NEAR_FREE_MAX = 0.10;
 const RESIDUAL_MAX = 0.10;
@@ -274,11 +285,33 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     const descontoTotal = itemsList.reduce((acc, it) => acc + it.vDesc, 0);
     const percentualDesconto = valorTotalProds > 0 ? (descontoTotal / valorTotalProds) : 0;
 
+    // --- LÓGICA DE CAMPANHA SLP (9,99) ---
+    const hasSlpDiscount = itemsList.some(it => SLP_CODES.includes(it.cProd) && it.vDesc > 0);
+    const hasNonSlpDiscount = itemsList.some(it => !SLP_CODES.includes(it.cProd) && it.vDesc > 0);
+
     let tipoDescontoFinal = "PADRÃO";
-    if (isCampanhaNota) tipoDescontoFinal = "CAMPANHA";
-    else if (temSuspeitaPrecoErrado) tipoDescontoFinal = "AJUSTE DE PREÇO";
-    else if (percentualDesconto >= 0.08 && percentualDesconto <= 0.12) tipoDescontoFinal = "ADICIONAL";
-    else if (percentualDesconto >= 0.045 && percentualDesconto <= 0.055) tipoDescontoFinal = "MOSTRUÁRIO";
+    let statusAuditoriaFinal = temSuspeitaPrecoErrado ? "SUSPEITA DE AJUSTE MANUAL" : (descontoTotal > 0 ? "DESCONTO APLICADO" : "SEM DESCONTO");
+
+    if (hasSlpDiscount) {
+      if (hasNonSlpDiscount) {
+        tipoDescontoFinal = "CAMPANHA + ALERTA";
+        statusAuditoriaFinal = "CAMPANHA SLP + OUTRO DESCONTO DETECTADO";
+      } else {
+        tipoDescontoFinal = "CAMPANHA";
+        statusAuditoriaFinal = "CAMPANHA SLP IDENTIFICADA";
+      }
+    } else if (isCampanhaNota) {
+      tipoDescontoFinal = "CAMPANHA";
+      statusAuditoriaFinal = "CAMPANHA IDENTIFICADA";
+    } else if (temSuspeitaPrecoErrado) {
+      tipoDescontoFinal = "AJUSTE DE PREÇO";
+      statusAuditoriaFinal = "SUSPEITA DE AJUSTE MANUAL";
+    } else if (percentualDesconto >= 0.08 && percentualDesconto <= 0.12) {
+      tipoDescontoFinal = "ADICIONAL";
+      statusAuditoriaFinal = "DESCONTO ESTRATÉGICO (10%)";
+    } else if (percentualDesconto >= 0.045 && percentualDesconto <= 0.055) {
+      tipoDescontoFinal = "MOSTRUÁRIO";
+    }
 
     return {
       chave, nf, serie: getElement(ide, "serie")?.textContent || "", modelo: getElement(ide, "mod")?.textContent || "", dhEmi, vendedor,
@@ -293,8 +326,8 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
       refNFe: refNFes, refNFe_normalizadas: refNFes.map(r => r.replace(/\D/g, "")),
       is_retirada_online: isRetiradaOnline, vTroco: vTrocoPag.toFixed(2), is_presencial_por_troco: !isRetiradaOnline, tpIntegra: tpIntegraValue,
       tem_desconto: descontoTotal > 0, tipo_desconto: tipoDescontoFinal,
-      status_auditoria: isCampanhaNota ? "CAMPANHA IDENTIFICADA" : (temSuspeitaPrecoErrado ? "SUSPEITA DE AJUSTE MANUAL" : (descontoTotal > 0 ? "DESCONTO APLICADO" : "SEM DESCONTO")),
-      cep_dest, cep_loja, is_cep_diferente_da_loja: !!cep_dest && cep_dest !== cep_loja,
+      status_auditoria: statusAuditoriaFinal,
+      cep_dest, cep_loja, is_cep_diferente_da_lo_ja: !!cep_dest && cep_dest !== cep_loja,
       is_endereco_real: !!cep_dest, cpf_cnpj_dest: cpf_cnpj, nome_dest, endereco_dest: "", tem_destinatario: !!cpf_cnpj,
       itens: itemsList,
       is_cancelada: false,

@@ -61,8 +61,8 @@ export function RiskRadar({ data }: RiskRadarProps) {
     const saidas = data.filter(s => s.tpNF === 1 && !s.is_cancelada);
     if (saidas.length === 0) return [];
 
-    // Excluir notas de CAMPANHA da auditoria de risco de desconto para evitar distorção (desconto de 99% em brinde)
-    const validForDiscountAudit = saidas.filter(s => s.tipo_desconto !== "CAMPANHA");
+    // Excluir notas de CAMPANHA e CAMPANHA + ALERTA da auditoria de risco de desconto para evitar distorção
+    const validForDiscountAudit = saidas.filter(s => s.tipo_desconto !== "CAMPANHA" && s.tipo_desconto !== "CAMPANHA + ALERTA");
 
     const avgStoreDiscount = (validForDiscountAudit.filter(s => parseFloat(s.desconto_total) > 0).reduce((acc, s) => acc + parseFloat(s.percentual_desconto), 0) / validForDiscountAudit.filter(s => parseFloat(s.desconto_total) > 0).length || 0) * 100;
     const avgStoreRegistration = (saidas.filter(s => s.cpf_cnpj_dest).length / saidas.length) * 100;
@@ -70,15 +70,15 @@ export function RiskRadar({ data }: RiskRadarProps) {
     const vendors: Record<string, any> = {};
     saidas.forEach(s => {
       const v = s.vendedor || "VENDEDOR";
-      if (!vendors[v]) vendors[v] = { name: v, sales: [], discounts: [], regCount: 0, campaignCount: 0 };
+      if (!vendors[v]) vendors[v] = { name: v, sales: [], discounts: [], regCount: 0, campaignAlertCount: 0 };
       vendors[v].sales.push(s);
       
       // Apenas considera descontos que não são de campanha para o alerta de margem
-      if (s.tipo_desconto !== "CAMPANHA" && parseFloat(s.desconto_total) > 0) {
+      if (s.tipo_desconto !== "CAMPANHA" && s.tipo_desconto !== "CAMPANHA + ALERTA" && parseFloat(s.desconto_total) > 0) {
         vendors[v].discounts.push(parseFloat(s.percentual_desconto) * 100);
       }
       
-      if (s.tipo_desconto === "CAMPANHA") vendors[v].campaignCount++;
+      if (s.tipo_desconto === "CAMPANHA + ALERTA") vendors[v].campaignAlertCount++;
       if (s.cpf_cnpj_dest) vendors[v].regCount++;
     });
 
@@ -98,9 +98,27 @@ export function RiskRadar({ data }: RiskRadarProps) {
           variation: `+${(avgVDesc - avgStoreDiscount).toFixed(1)}%`,
           level: avgVDesc > avgStoreDiscount * 1.8 ? 'high' : 'medium',
           icon: Percent,
-          description: `O colaborador está praticando uma média de descontos significativamente superior à média da unidade (excluindo brindes de campanha).`,
-          impact: `Isso compromete diretamente a margem de lucro da loja e indica que o desconto está sendo usado como principal argumento de venda (vício), em vez de técnica de abordagem.`,
-          recommendation: `Acompanhar o atendimento deste colaborador para identificar se ele oferece o desconto antes mesmo do cliente solicitar ou se falta técnica para agregar valor ao produto.`
+          description: `O colaborador está praticando uma média de descontos significativamente superior à média da unidade (excluindo campanhas oficiais).`,
+          impact: `Isso compromete diretamente a margem de lucro da loja e indica que o desconto está sendo usado como principal argumento de venda.`,
+          recommendation: `Acompanhar o atendimento para identificar se o desconto é oferecido precocemente ou se falta técnica de agregação de valor.`
+        });
+      }
+
+      // Alerta de Campanha + Outros (Novo)
+      if (v.campaignAlertCount > 0) {
+        list.push({
+          id: `slp-alert-${v.name}`,
+          type: 'Uso Indevido Campanha',
+          collaborator: v.name,
+          indicator: 'Alertas SLP',
+          value: `${v.campaignAlertCount} Notas`,
+          reference: '0 Notas',
+          variation: `+${v.campaignAlertCount}`,
+          level: 'high',
+          icon: AlertTriangle,
+          description: `Identificamos cupons onde o item SLP da campanha foi vendido junto com descontos manuais em outros produtos do carrinho.`,
+          impact: `Quebra de política de margem. O benefício do SLP por 9,99 não deve ser cumulativo com descontos manuais no mesmo atendimento.`,
+          recommendation: `Auditar individualmente estas notas no menu "Audit. Descontos" e reforçar que a campanha SLP é o incentivo máximo permitido no cupom.`
         });
       }
 
@@ -117,8 +135,8 @@ export function RiskRadar({ data }: RiskRadarProps) {
           level: 'high',
           icon: UserMinus,
           description: `Baixa taxa de coleta de CPF/Identificação nas vendas realizadas por este colaborador.`,
-          impact: `Perda de inteligência de CRM e redução do Lifetime Value (LTV). Sem o cadastro, a Ri Happy não consegue reengajar este cliente para compras futuras.`,
-          recommendation: `Reforçar o treinamento sobre o Programa de Fidelidade e a importância da identificação para garantir a segurança da troca para o cliente.`
+          impact: `Perda de inteligência de CRM e redução do Lifetime Value (LTV).`,
+          recommendation: `Reforçar a importância da identificação para garantir a segurança da troca e fidelização do cliente.`
         });
       }
     });
@@ -135,8 +153,8 @@ export function RiskRadar({ data }: RiskRadarProps) {
         level: 'high',
         icon: AlertTriangle,
         description: `O volume de notas canceladas no lote atual está acima do limite operacional aceitável de 3%.`,
-        impact: `Pode indicar erros sistêmicos, falta de treinamento operacional no PDV ou comportamentos anômalos que precisam de auditoria imediata para evitar prejuízo fiscal.`,
-        recommendation: `Analisar a aba "Transações" filtrando por notas canceladas e verificar os motivos/horários desses cancelamentos.`
+        impact: `Pode indicar erros sistêmicos ou comportamentos anômalos no PDV.`,
+        recommendation: `Analisar a aba "Transações" filtrando por notas canceladas para identificar padrões de horário ou motivo.`
       });
     }
     return list;

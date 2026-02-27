@@ -86,9 +86,9 @@ export function DiscountAudit({ data }: DiscountAuditProps) {
     return Array.from(list).sort();
   }, [discountSales]);
 
-  // REGRA DE SEGURANÇA: 
-  // - Seguros: Campanhas (Motor Matemático) e Adicionais (Venda Sugerida Vinculada).
-  // - Risco: Todo o resto, com prioridade para Ajuste de Preço (Erro de Loja).
+  // REGRA DE SEGURANÇA ATUALIZADA: 
+  // - Seguros: Campanhas Limpas e Adicionais Confirmados.
+  // - Risco: CAMPANHA + ALERTA, Ajuste de Preço, Avulsos.
   const { auditData, registryData } = useMemo(() => {
     const registry = discountSales.filter(r => r.tipo_desconto === "ADICIONAL" || r.tipo_desconto === "CAMPANHA");
     const audit = discountSales.filter(r => r.tipo_desconto !== "ADICIONAL" && r.tipo_desconto !== "CAMPANHA");
@@ -123,7 +123,7 @@ export function DiscountAudit({ data }: DiscountAuditProps) {
       totalDesconto,
       avgPercent,
       tkm: filteredData.length > 0 ? totalVenda / filteredData.length : 0,
-      precoErradoCount: filteredData.filter(s => s.tem_suspeita_preco_errado).length
+      precoErradoCount: filteredData.filter(s => s.tem_suspeita_preco_errado || s.tipo_desconto === 'CAMPANHA + ALERTA').length
     };
   }, [filteredData]);
 
@@ -144,7 +144,7 @@ export function DiscountAudit({ data }: DiscountAuditProps) {
         "Desconto R$": vDesc.toFixed(2),
         "% Desconto": (parseFloat(sale.percentual_desconto) * 100).toFixed(2),
         "Valor Final": vFinal.toFixed(2),
-        "Suspeita Ajuste": sale.tem_suspeita_preco_errado ? "SIM" : "NÃO"
+        "Suspeita Ajuste": (sale.tem_suspeita_preco_errado || sale.tipo_desconto === 'CAMPANHA + ALERTA') ? "SIM" : "NÃO"
       };
     });
     exportToCsv(`Auditoria_Descontos_${activeView}.csv`, rows, headers);
@@ -169,8 +169,8 @@ export function DiscountAudit({ data }: DiscountAuditProps) {
           </h2>
           <p className="text-sm font-medium text-slate-500 leading-relaxed">
             {activeView === 'audit' 
-              ? "Identificando descontos manuais, avulsos ou suspeitos de correção de preço errado (ajustes para final psicológico 1, 5 ou 9)." 
-              : "Exibindo Campanhas oficiais validas pelo motor matemático e Vendas Adicionais confirmadas."}
+              ? "Identificando descontos manuais, campanhas com descontos extras (ALERTA) ou suspeitos de correção de preço errado." 
+              : "Exibindo Campanhas oficiais limpas e Vendas Adicionais confirmadas pelo sistema."}
           </p>
         </div>
         <div className="hidden lg:block w-px h-12 bg-slate-200" />
@@ -181,7 +181,7 @@ export function DiscountAudit({ data }: DiscountAuditProps) {
            </div>
            {activeView === 'audit' && (
              <div>
-               <p className="text-[9px] font-black text-slate-400 uppercase">Suspeita Ajuste</p>
+               <p className="text-[9px] font-black text-slate-400 uppercase">Riscos/Alertas</p>
                <p className="text-xl font-black text-orange-600">{stats.precoErradoCount}</p>
              </div>
            )}
@@ -276,7 +276,7 @@ export function DiscountAudit({ data }: DiscountAuditProps) {
                     const vFinal = parseFloat(sale.vNF);
                     const vDesc = parseFloat(sale.desconto_total);
                     const perc = parseFloat(sale.percentual_desconto) * 100;
-                    const isHigh = perc >= HI_DISCOUNT_THRESHOLD && activeView === 'audit';
+                    const isHigh = (perc >= HI_DISCOUNT_THRESHOLD || sale.tipo_desconto === 'CAMPANHA + ALERTA') && activeView === 'audit';
 
                     return (
                       <TableRow key={sale.chave} className="hover:bg-slate-50 border-slate-50 cursor-pointer group transition-colors h-16" onClick={() => setSelectedSale(sale)}>
@@ -291,6 +291,7 @@ export function DiscountAudit({ data }: DiscountAuditProps) {
                           <Badge variant="outline" className={cn(
                             "text-[8px] font-black uppercase px-2 h-5 border-none",
                             sale.tipo_desconto === 'CAMPANHA' ? "bg-sky-100 text-sky-700" :
+                            sale.tipo_desconto === 'CAMPANHA + ALERTA' ? "bg-rose-100 text-rose-700 animate-pulse" :
                             sale.tipo_desconto === 'ADICIONAL' ? "bg-emerald-100 text-emerald-700" :
                             sale.tipo_desconto === 'AJUSTE DE PREÇO' ? "bg-orange-100 text-orange-700 animate-pulse" :
                             "bg-slate-100 text-slate-700"
@@ -383,6 +384,7 @@ export function DiscountAudit({ data }: DiscountAuditProps) {
               <div className={cn(
                 "p-8 md:p-10 space-y-4 text-white",
                 selectedSale.tipo_desconto === 'CAMPANHA' ? "bg-sky-500" :
+                selectedSale.tipo_desconto === 'CAMPANHA + ALERTA' ? "bg-rose-600" :
                 selectedSale.tipo_desconto === 'ADICIONAL' ? "bg-emerald-500" : 
                 selectedSale.tipo_desconto === 'AJUSTE DE PREÇO' ? "bg-orange-500" : "bg-slate-800"
               )}>
@@ -410,15 +412,17 @@ export function DiscountAudit({ data }: DiscountAuditProps) {
               </div>
 
               <div className="p-8 md:p-10 space-y-10 flex-1">
-                {/* Alerta de Ajuste Manual */}
-                {selectedSale.tem_suspeita_preco_errado && (
+                {/* Alerta de Ajuste Manual ou Campanha + Outros */}
+                {(selectedSale.tem_suspeita_preco_errado || selectedSale.tipo_desconto === 'CAMPANHA + ALERTA') && (
                   <section className="bg-orange-50 border-2 border-orange-100 p-6 rounded-[2rem] space-y-3">
                     <div className="flex items-center gap-2 text-orange-700">
                       <AlertTriangle className="w-5 h-5" />
-                      <h4 className="text-xs font-black uppercase tracking-widest">Suspeita de Correção Manual</h4>
+                      <h4 className="text-xs font-black uppercase tracking-widest">Alerta de Integridade</h4>
                     </div>
                     <p className="text-sm font-medium text-orange-800 leading-relaxed italic">
-                      "Identificamos que um ou mais itens deste cupom foram ajustados para terminar em final psicológico (1, 5 ou 9). Isso geralmente indica correção de preço de prateleira via desconto direto no PDV."
+                      {selectedSale.tipo_desconto === 'CAMPANHA + ALERTA' 
+                        ? "Identificamos que este cupom possui um item de campanha (SLP) em conjunto com descontos manuais em outros produtos. Isso fere a política de margem da unidade."
+                        : "Identificamos que um ou mais itens deste cupom foram ajustados para terminar em final psicológico (1, 5 ou 9). Isso geralmente indica correção de prateleira via PDV."}
                     </p>
                   </section>
                 )}

@@ -109,11 +109,11 @@ export function LostOpportunities({ data, vinculos }: LostOpportunitiesProps) {
         <OpportunityCard label="1 Item" value={stats.oneItemSales.length} percent={`${stats.oneItemPercent.toFixed(0)}%`} icon={ShoppingBag} color="text-orange-500" isActive={activeFilter === 'one_item'} onClick={() => setActiveFilter(activeFilter === 'one_item' ? 'all' : 'one_item')} />
         <OpportunityCard label="Pickup s/ Adic" value={stats.pickupsNoAdd.length} percent={`${stats.pickupNoAddPercent.toFixed(0)}%`} icon={Smartphone} color="text-sky-500" isActive={activeFilter === 'pickup_no_additional'} onClick={() => setActiveFilter(activeFilter === 'pickup_no_additional' ? 'all' : 'pickup_no_additional')} />
         <OpportunityCard label="Sem Identif" value={stats.noRegSales.length} percent={`${stats.noRegPercent.toFixed(0)}%`} icon={UserX} color="text-rose-500" isActive={activeFilter === 'no_registration'} onClick={() => setActiveFilter(activeFilter === 'no_registration' ? 'all' : 'no_registration')} />
-        <OpportunityCard label="Alto Valor/PA Baixo" value={stats.highValueLowPA.length} icon={TrendingDown} color="text-purple-500" isActive={activeFilter === 'high_value_low_pa'} onClick={() => setActiveFilter(activeFilter === 'high_value_low_pa' ? 'all' : 'high_value_low_pa')} />
+        <OpportunityCard label="PA Baixo" value={stats.highValueLowPA.length} icon={TrendingDown} color="text-purple-500" isActive={activeFilter === 'high_value_low_pa'} onClick={() => setActiveFilter(activeFilter === 'high_value_low_pa' ? 'all' : 'high_value_low_pa')} />
         <OpportunityCard label="Troca c/ Perda" value={stats.exchangeLoss.length} icon={ArrowRightLeft} color="text-slate-500" isActive={activeFilter === 'exchange_loss'} onClick={() => setActiveFilter(activeFilter === 'exchange_loss' ? 'all' : 'exchange_loss')} />
-        <Card className="ri-card border-none bg-emerald-50/50 p-3 flex flex-col justify-between">
-           <p className="text-[8px] font-black text-slate-400 uppercase mb-1">Impacto PA Global</p>
-           <p className="text-xl font-black text-emerald-700">{stats.avgPA.toFixed(2)}</p>
+        <Card className="ri-card border-none bg-emerald-50/50 p-3 flex flex-col items-center justify-center text-center gap-1">
+           <p className="text-[8px] font-black text-slate-400 uppercase leading-none">Impacto PA Global</p>
+           <p className="text-xl font-black text-emerald-700 leading-none">{stats.avgPA.toFixed(2)}</p>
         </Card>
       </div>
 
@@ -230,9 +230,9 @@ export function LostOpportunities({ data, vinculos }: LostOpportunitiesProps) {
 
 function OpportunityCard({ label, value, percent, icon: Icon, color, isActive, onClick }: any) {
   return (
-    <Card onClick={onClick} className={cn("ri-card border-none bg-white p-3 cursor-pointer transition-all shadow-sm", isActive ? "ring-2 ring-orange-400 scale-[1.02]" : "hover:bg-slate-50")}>
-      <div className="flex items-center justify-between mb-2">
-        <div className={cn("p-1.5 rounded-lg bg-slate-50", color)}><Icon className="w-4 h-4" /></div>
+    <Card onClick={onClick} className={cn("ri-card border-none bg-white p-3 cursor-pointer transition-all shadow-sm flex flex-col items-center justify-center text-center gap-2 min-h-[100px]", isActive ? "ring-2 ring-orange-400 scale-[1.02]" : "hover:bg-slate-50")}>
+      <div className="flex items-center justify-center gap-2 w-full">
+        <div className={cn("p-1.5 rounded-lg bg-slate-50 shadow-inner", color)}><Icon className="w-4 h-4" /></div>
         {percent && <span className="text-[9px] font-black text-slate-400">{percent}</span>}
       </div>
       <div>

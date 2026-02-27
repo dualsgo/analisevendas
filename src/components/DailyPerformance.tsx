@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useMemo, useState } from "react";
@@ -204,14 +203,14 @@ export function DailyPerformance({ data }: DailyPerformanceProps) {
     <div className="space-y-6 md:space-y-8 animate-in fade-in duration-500">
       {/* Filtros Otimizados */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-white p-4 rounded-2xl border border-orange-100 shadow-sm">
-        <div className="space-y-1.5">
+        <div className="space-y-1.5 text-center">
           <label className="text-[9px] font-black uppercase text-slate-400 px-1">Visão</label>
           <div className="flex gap-1">
             <Button size="sm" variant={viewMode === 'daily' ? 'default' : 'outline'} onClick={() => setViewMode('daily')} className="flex-1 h-8 text-[10px] font-black uppercase">Dia</Button>
             <Button size="sm" variant={viewMode === 'weekly' ? 'default' : 'outline'} onClick={() => setViewMode('weekly')} className="flex-1 h-8 text-[10px] font-black uppercase">7D</Button>
           </div>
         </div>
-        <div className="space-y-1.5">
+        <div className="space-y-1.5 text-center">
           <label className="text-[9px] font-black uppercase text-slate-400 px-1">Indicador</label>
           <Select value={selectedMetric} onValueChange={(v) => setSelectedMetric(v as MetricType)}>
             <SelectTrigger className="h-8 text-[10px] font-bold border-slate-100"><SelectValue /></SelectTrigger>
@@ -220,7 +219,7 @@ export function DailyPerformance({ data }: DailyPerformanceProps) {
             </SelectContent>
           </Select>
         </div>
-        <div className="space-y-1.5">
+        <div className="space-y-1.5 text-center">
           <label className="text-[9px] font-black uppercase text-slate-400 px-1">Semana</label>
           <Select value={dayOfWeekFilter} onValueChange={setDayOfWeekFilter}>
             <SelectTrigger className="h-8 text-[10px] font-bold border-slate-100"><SelectValue /></SelectTrigger>
@@ -230,7 +229,7 @@ export function DailyPerformance({ data }: DailyPerformanceProps) {
             </SelectContent>
           </Select>
         </div>
-        <div className="space-y-1.5">
+        <div className="space-y-1.5 text-center">
           <label className="text-[9px] font-black uppercase text-slate-400 px-1">Colaborador</label>
           <Select value={selectedVendors[0] || "all"} onValueChange={(v) => setSelectedVendors(v === "all" ? [] : [v])}>
             <SelectTrigger className="h-8 text-[10px] font-bold border-slate-100"><SelectValue /></SelectTrigger>
@@ -315,11 +314,17 @@ export function DailyPerformance({ data }: DailyPerformanceProps) {
 
 function QuickStat({ label, value, icon: Icon, color }: any) {
   return (
-    <Card className="ri-card border-none bg-white p-3 flex items-center gap-3 shadow-sm">
-      <div className={cn("p-2 rounded-lg bg-slate-50", color)}><Icon className="w-4 h-4" /></div>
-      <div className="min-w-0">
-        <p className="text-[8px] font-black text-slate-400 uppercase leading-none mb-1">{label}</p>
-        <p className="text-sm font-black text-slate-800 truncate">{value}</p>
+    <Card className="ri-card border-none bg-white p-4 flex flex-col items-center justify-center text-center gap-3 shadow-sm min-h-[100px]">
+      <div className={cn("p-2 rounded-lg bg-slate-50", color)}>
+        <Icon className="w-5 h-5" />
+      </div>
+      <div className="min-w-0 space-y-1">
+        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none">
+          {label}
+        </p>
+        <p className="text-sm font-black text-slate-800 truncate leading-none">
+          {value}
+        </p>
       </div>
     </Card>
   );
@@ -327,7 +332,7 @@ function QuickStat({ label, value, icon: Icon, color }: any) {
 
 function MiniMetric({ label, value }: any) {
   return (
-    <div className="hidden sm:block">
+    <div className="hidden sm:block text-center">
       <p className="text-[8px] font-black text-slate-400 uppercase mb-0.5">{label}</p>
       <p className="text-[10px] font-black text-slate-700">{value}</p>
     </div>

@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useMemo, useState } from "react";
@@ -125,7 +124,7 @@ export function ExchangeManagement({ data, vinculos }: ExchangeManagementProps) 
           </div>
           
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 text-center">
               <label className="text-[9px] font-black text-slate-400 uppercase px-1">Colaborador</label>
               <Select value={vendorFilter} onValueChange={setVendorFilter}>
                 <SelectTrigger className="rounded-xl border-slate-100 bg-slate-50/50 h-10 font-bold text-xs uppercase">
@@ -140,7 +139,7 @@ export function ExchangeManagement({ data, vinculos }: ExchangeManagementProps) 
               </Select>
             </div>
             
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 text-center">
               <label className="text-[9px] font-black text-slate-400 uppercase px-1">Status Financeiro</label>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="rounded-xl border-slate-100 bg-slate-50/50 h-10 font-bold text-xs uppercase">
@@ -208,7 +207,7 @@ export function ExchangeManagement({ data, vinculos }: ExchangeManagementProps) 
                     <div className="col-span-1 md:text-right">
                       <Badge className={cn(
                         "text-[8px] font-black uppercase border-none",
-                        isGood ? "bg-emerald-500 text-white" : (isCritical ? "bg-rose-500 text-white" : "bg-orange-500 text-white")
+                        isGood ? "bg-emerald-50 text-white" : (isCritical ? "bg-rose-50 text-white" : "bg-orange-50 text-white")
                       )}>
                         {vinc.diagnostico.split(' ')[0]}
                       </Badge>
@@ -219,15 +218,15 @@ export function ExchangeManagement({ data, vinculos }: ExchangeManagementProps) 
                 <AccordionContent className="px-4 md:px-6 pb-6 pt-2 border-t border-slate-50 space-y-6">
                   {/* Dashboard de Inteligência da Troca */}
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                    <Card className="bg-slate-50 border-none p-4 flex flex-col justify-between gap-4">
-                      <div className="flex items-center gap-3">
+                    <Card className="bg-slate-50 border-none p-4 flex flex-col justify-between gap-4 text-center items-center">
+                      <div className="flex flex-col items-center gap-2">
                         <div className="p-2 bg-white rounded-lg shadow-sm"><TrendingUp className="w-4 h-4 text-emerald-500" /></div>
                         <div>
                           <p className="text-[10px] font-black text-slate-400 uppercase">Impacto Financeiro</p>
                           <p className="text-lg font-black text-slate-700">{vinc.valor_diferenca > 0 ? `Ganho de ${formatBRL(vinc.valor_diferenca)}` : (vinc.valor_diferenca < 0 ? `Perda de ${formatBRL(Math.abs(vinc.valor_diferenca))}` : "Saldo Zero")}</p>
                         </div>
                       </div>
-                      <div className="space-y-1">
+                      <div className="space-y-1 w-full">
                         <div className="flex justify-between">
                           <span className="text-[9px] font-bold text-slate-400 uppercase">Valor Devolvido:</span>
                           <span className="text-[9px] font-black text-slate-600">{formatBRL(vinc.valor_devolvido)}</span>
@@ -239,8 +238,8 @@ export function ExchangeManagement({ data, vinculos }: ExchangeManagementProps) 
                       </div>
                     </Card>
 
-                    <Card className="bg-slate-50 border-none p-4 flex flex-col justify-between gap-4">
-                      <div className="flex items-center gap-3">
+                    <Card className="bg-slate-50 border-none p-4 flex flex-col justify-between gap-4 text-center items-center">
+                      <div className="flex flex-col items-center gap-2">
                         <div className="p-2 bg-white rounded-lg shadow-sm"><Package className="w-4 h-4 text-sky-500" /></div>
                         <div>
                           <p className="text-[10px] font-black text-slate-400 uppercase">Variação de PA</p>
@@ -254,8 +253,8 @@ export function ExchangeManagement({ data, vinculos }: ExchangeManagementProps) 
                       </div>
                     </Card>
 
-                    <Card className={cn("border-none p-4 flex flex-col justify-between gap-4 shadow-sm", isGood ? "bg-emerald-50" : (isCritical ? "bg-rose-50" : "bg-orange-50"))}>
-                      <div className="flex items-center gap-3">
+                    <Card className={cn("border-none p-4 flex flex-col justify-between gap-4 shadow-sm text-center items-center", isGood ? "bg-emerald-50" : (isCritical ? "bg-rose-50" : "bg-orange-50"))}>
+                      <div className="flex flex-col items-center gap-2">
                         <div className="p-2 bg-white rounded-lg shadow-sm"><Zap className={cn("w-4 h-4", isGood ? "text-emerald-500" : "text-orange-500")} /></div>
                         <div>
                           <p className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Conclusão Estratégica</p>
@@ -317,16 +316,16 @@ export function ExchangeManagement({ data, vinculos }: ExchangeManagementProps) 
 
 function KPIStat({ label, value, icon: Icon, color, subLabel }: { label: string, value: string | number, icon: any, color: string, subLabel?: string }) {
   return (
-    <Card className="ri-card border-none bg-white p-4 md:p-5 flex flex-col justify-between gap-3">
-      <div className="flex items-center justify-between">
+    <Card className="ri-card border-none bg-white p-4 md:p-5 flex flex-col items-center justify-center text-center gap-3 shadow-sm min-h-[110px]">
+      <div className="flex items-center justify-center">
         <div className={cn("p-2 rounded-xl bg-slate-50", color)}>
-          <Icon className="w-4 h-4" />
+          <Icon className="w-5 h-5" />
         </div>
-        {subLabel && <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">{subLabel}</span>}
       </div>
-      <div>
-        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1.5">{label}</p>
+      <div className="space-y-1">
+        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">{label}</p>
         <p className="text-sm md:text-xl font-black text-slate-800 tracking-tight leading-none">{value}</p>
+        {subLabel && <p className="text-[8px] font-black text-slate-400 uppercase tracking-tighter mt-1">{subLabel}</p>}
       </div>
     </Card>
   );

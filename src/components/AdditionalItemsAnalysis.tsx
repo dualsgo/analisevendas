@@ -135,11 +135,11 @@ export function AdditionalItemsAnalysis({ data }: AdditionalItemsAnalysisProps) 
     <div className="space-y-8 animate-in fade-in duration-500 pb-20">
       {/* Header Didático */}
       <div className="bg-white rounded-[2rem] p-6 md:p-8 border-2 border-orange-100 shadow-sm space-y-4">
-        <div className="flex items-center gap-3 text-orange-500">
+        <div className="flex items-center gap-3 text-orange-500 justify-center">
           <Zap className="w-6 h-6" />
           <h1 className="text-xl md:text-2xl font-black uppercase tracking-tight">O poder do "Um Item a Mais"</h1>
         </div>
-        <p className="text-sm text-slate-500 font-medium leading-relaxed max-w-4xl">
+        <p className="text-sm text-slate-500 font-medium leading-relaxed max-w-4xl mx-auto text-center">
           Este painel monitora os itens de **checkout e lançamentos**. Vender um brinquedo caro é técnica, mas garantir que cada cliente leve um **SLP** ou contribua com a **Ação Social** é disciplina e consistência de atendimento.
         </p>
       </div>
@@ -194,7 +194,7 @@ export function AdditionalItemsAnalysis({ data }: AdditionalItemsAnalysisProps) 
 
             {/* Ranking Colaborador */}
             <div className="lg:col-span-4 space-y-4">
-              <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-2">Engajamento por Equipe</h3>
+              <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-2 text-center">Engajamento por Equipe</h3>
               <div className="space-y-3">
                 {currentData.vendorRanking.slice(0, 6).map((v, i) => (
                   <Card key={i} className="ri-card border-none bg-white p-4 shadow-sm hover:shadow-md transition-all">
@@ -271,14 +271,14 @@ export function AdditionalItemsAnalysis({ data }: AdditionalItemsAnalysisProps) 
 
 function KPIItem({ label, value, subValue, icon: Icon, color }: any) {
   return (
-    <Card className="ri-card border-none bg-white p-5 flex items-center gap-4 shadow-sm">
-      <div className={cn("p-3 rounded-2xl bg-slate-50 shrink-0", color)}>
+    <Card className="ri-card border-none bg-white p-5 flex flex-col items-center justify-center text-center gap-4 shadow-sm min-h-[120px]">
+      <div className={cn("p-3 rounded-2xl bg-slate-50 shadow-inner", color)}>
         <Icon className="w-6 h-6" />
       </div>
       <div>
         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1.5">{label}</p>
         <p className="text-xl font-black text-slate-800 leading-none">{value}</p>
-        <p className="text-[9px] font-bold text-slate-400 mt-1 uppercase">{subValue}</p>
+        <p className="text-[9px] font-bold text-slate-400 mt-1 uppercase leading-none">{subValue}</p>
       </div>
     </Card>
   );

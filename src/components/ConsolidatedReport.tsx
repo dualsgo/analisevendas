@@ -485,24 +485,21 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
   );
 }
 
-function LegendItem({ label, color }: { label: string, color: string }) {
-  return (
-    <div className="flex items-center gap-1.5">
-      <div className={cn("w-3 h-3 rounded-sm border border-slate-200", color)} />
-      <span className="text-[10px] font-bold text-slate-500 uppercase">{label}</span>
-    </div>
-  );
-}
-
 function ReportKPI({ label, value, icon: Icon, color }: any) {
   return (
-    <Card className="ri-card border-none bg-white p-4 md:p-5 flex flex-col justify-between h-20 md:h-24 shadow-sm print:border-none print:h-auto print:p-1.5 print:bg-transparent print:flex-row print:items-center print:gap-1.5">
-      <div className="flex items-center justify-between print:hidden">
-        <div className={cn("p-1.5 rounded-lg bg-slate-50", color)}><Icon className="w-4 h-4" /></div>
+    <Card className="ri-card border-none bg-white p-4 md:p-5 flex flex-col items-center justify-center text-center h-24 md:h-28 shadow-sm print:border-none print:h-auto print:p-1.5 print:bg-transparent print:flex-row print:items-center print:gap-1.5">
+      <div className="flex items-center justify-center mb-2 print:hidden">
+        <div className={cn("p-2 rounded-xl bg-slate-50", color)}>
+          <Icon className="w-5 h-5" />
+        </div>
       </div>
-      <div className="print:flex print:items-center print:gap-1">
-        <p className="text-[7px] md:text-[8px] print:text-[6.5px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1 print:mb-0 print:text-black">{label}:</p>
-        <p className="text-[10px] md:text-sm print:text-[8px] font-black text-slate-800 leading-none truncate print:text-black">{value}</p>
+      <div className="flex flex-col items-center justify-center print:flex-row print:items-center print:gap-1">
+        <p className="text-[8px] md:text-[9px] print:text-[6.5px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1.5 print:mb-0 print:text-black">
+          {label}:
+        </p>
+        <p className="text-sm md:text-lg print:text-[8px] font-black text-slate-800 leading-none truncate print:text-black">
+          {value}
+        </p>
       </div>
     </Card>
   );

@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useMemo, useState } from "react";
@@ -157,7 +156,7 @@ export function ComplianceAudit({ data }: ComplianceAuditProps) {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Ranking de Vendedores */}
         <Card className="ri-card border-none shadow-sm lg:col-span-1">
-          <CardHeader className="bg-slate-50/50 border-b p-4">
+          <CardHeader className="bg-slate-50/50 border-b p-4 text-center">
             <CardTitle className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Ranking por Colaborador</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
@@ -275,16 +274,16 @@ export function ComplianceAudit({ data }: ComplianceAuditProps) {
 
 function ComplianceStat({ label, value, icon: Icon, color, subLabel }: any) {
   return (
-    <Card className="ri-card border-none bg-white p-4 flex flex-col justify-between shadow-sm">
-      <div className="flex items-center justify-between mb-2">
+    <Card className="ri-card border-none bg-white p-4 md:p-5 flex flex-col items-center justify-center text-center gap-3 shadow-sm min-h-[110px]">
+      <div className="flex items-center justify-center">
         <div className={cn("p-2 rounded-xl bg-slate-50", color)}>
-          <Icon className="w-4 h-4" />
+          <Icon className="w-5 h-5" />
         </div>
-        {subLabel && <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">{subLabel}</span>}
       </div>
-      <div>
-        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">{label}</p>
-        <p className="text-lg font-black text-slate-800">{value}</p>
+      <div className="space-y-1">
+        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">{label}</p>
+        <p className="text-sm md:text-xl font-black text-slate-800 leading-none">{value}</p>
+        {subLabel && <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter mt-1 block">{subLabel}</span>}
       </div>
     </Card>
   );

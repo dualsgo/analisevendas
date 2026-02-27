@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useMemo, useState } from "react";
@@ -149,9 +148,9 @@ export function OperationalProductivity({ data }: OperationalProductivityProps) 
 
       {/* Gráfico de Evolução */}
       <Card className="ri-card overflow-hidden">
-        <CardHeader className="bg-slate-50 border-b p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <CardHeader className="bg-slate-50 border-b p-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-center">
           <div>
-            <CardTitle className="text-xs font-black uppercase text-slate-600 flex items-center gap-2">
+            <CardTitle className="text-xs font-black uppercase text-slate-600 flex items-center justify-center gap-2">
               <Activity className="w-4 h-4" /> Evolução Operacional
             </CardTitle>
           </div>
@@ -192,7 +191,7 @@ export function OperationalProductivity({ data }: OperationalProductivityProps) 
 
       {/* Ranking de Produtividade */}
       <div className="space-y-4">
-        <h3 className="text-xs font-black uppercase text-slate-400 tracking-widest px-2">Eficiência por Colaborador</h3>
+        <h3 className="text-xs font-black uppercase text-slate-400 tracking-widest px-2 text-center">Eficiência por Colaborador</h3>
         
         {/* Desktop Table */}
         <div className="hidden lg:block bg-white rounded-[2rem] border-2 border-slate-50 overflow-hidden shadow-sm">
@@ -269,13 +268,13 @@ export function OperationalProductivity({ data }: OperationalProductivityProps) 
 
 function OpStat({ label, value, icon: Icon, color }: { label: string, value: string | number, icon: any, color: string }) {
   return (
-    <Card className="ri-card border-none bg-white p-4 md:p-5 flex flex-col justify-between gap-3">
+    <Card className="ri-card border-none bg-white p-4 md:p-5 flex flex-col items-center justify-center text-center gap-3 shadow-sm min-h-[110px]">
       <div className={cn("p-2 rounded-xl bg-slate-50 w-fit", color)}>
-        <Icon className="w-4 h-4" />
+        <Icon className="w-5 h-5" />
       </div>
       <div>
-        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">{label}</p>
-        <p className="text-sm md:text-xl font-black text-slate-800">{value}</p>
+        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1.5">{label}</p>
+        <p className="text-sm md:text-xl font-black text-slate-800 leading-none">{value}</p>
       </div>
     </Card>
   );

@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useMemo, useState } from "react";
@@ -284,7 +283,7 @@ export function VendorPerformance({ data }: VendorPerformanceProps) {
                 <SheetTitle className="text-xl md:text-2xl font-black text-orange-900 uppercase tracking-tighter leading-none">{selectedVendor.name}</SheetTitle>
                 <SheetDescription className="text-orange-800 font-bold uppercase text-[9px] md:text-[10px] tracking-[0.2em]">Análise de Performance Individual</SheetDescription>
               </div>
-              <div className="p-6 md:p-8 space-y-6 flex-1">
+              <div className="p-6 md:p-8 space-y-6 flex-1 text-center">
                 <div className="grid grid-cols-2 gap-3">
                   <DetailMiniCard label="Venda Bruta" value={formatBRL(selectedVendor.venda)} />
                   <DetailMiniCard label="Tickets" value={selectedVendor.cupons} />
@@ -292,12 +291,12 @@ export function VendorPerformance({ data }: VendorPerformanceProps) {
                   <DetailMiniCard label="P.A." value={selectedVendor.pa.toFixed(2)} />
                 </div>
                 <div className="space-y-4 pt-4 border-t border-slate-100">
-                  <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2"><TrendingUp className="w-3.5 h-3.5" /> Comparativo vs Média Unidade</h4>
+                  <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center justify-center gap-2"><TrendingUp className="w-3.5 h-3.5" /> Comparativo vs Média Unidade</h4>
                   <div className="space-y-3">
                     <ComparisonRow label="Ticket Médio" value={formatBRL(selectedVendor.tkm)} storeAvg={storeAverage ? formatBRL(storeAverage.tkm) : ""} diff={storeAverage ? (selectedVendor.tkm - storeAverage.tkm) : 0} isCurrency />
                     <ComparisonRow label="P.A. Médio" value={selectedVendor.pa.toFixed(2)} storeAvg={storeAverage ? storeAverage.pa.toFixed(2) : ""} diff={storeAverage ? (selectedVendor.pa - storeAverage.pa) : 0} />
-                    <ComparisonRow label="Taxa Fidelização" value={`${selectedVendor.taxaIdentificacao.toFixed(1)}%`} storeAvg={storeAverage ? `${storeAverage.taxaIdentificacao.toFixed(1)}%` : ""} diff={storeAverage ? (selectedVendor.taxaIdentificacao - storeAverage.taxaIdentificacao) : 0} isPercent />
-                    <ComparisonRow label="Conversão Pickup" value={`${selectedVendor.taxaConversaoOnline.toFixed(1)}%`} storeAvg={storeAverage ? `${storeAverage.taxaConversaoOnline.toFixed(1)}%` : ""} diff={storeAverage ? (selectedVendor.taxaConversaoOnline - storeAverage.taxaConversaoOnline) : 0} isPercent />
+                    <ComparisonRow label="Taxa Fidelização" value={`${selectedVendor.taxaIdentificacao.toFixed(1)}%`} storeAvg={storeAverage ? `${selectedVendor.taxaIdentificacao.toFixed(1)}%` : ""} diff={storeAverage ? (selectedVendor.taxaIdentificacao - storeAverage.taxaIdentificacao) : 0} isPercent />
+                    <ComparisonRow label="Conversão Pickup" value={`${selectedVendor.taxaConversaoOnline.toFixed(1)}%`} storeAvg={storeAverage ? `${selectedVendor.taxaConversaoOnline.toFixed(1)}%` : ""} diff={storeAverage ? (selectedVendor.taxaConversaoOnline - storeAverage.taxaConversaoOnline) : 0} isPercent />
                   </div>
                 </div>
               </div>
@@ -314,11 +313,9 @@ export function VendorPerformance({ data }: VendorPerformanceProps) {
 
 function SummaryCard({ label, value, icon: Icon, color }: { label: string, value: string, icon: any, color: string }) {
   return (
-    <Card className="ri-card border-none bg-white p-4 md:p-5 space-y-3 shadow-sm hover:shadow-md transition-shadow">
-      <div className="flex items-center justify-between">
-        <div className={cn("p-2 rounded-xl bg-slate-50 shadow-inner", color)}>
-          <Icon className="w-4 h-4 md:w-5 md:h-5" />
-        </div>
+    <Card className="ri-card border-none bg-white p-4 md:p-5 flex flex-col items-center justify-center text-center space-y-3 shadow-sm hover:shadow-md transition-shadow min-h-[110px]">
+      <div className={cn("p-2 rounded-xl bg-slate-50 shadow-inner", color)}>
+        <Icon className="w-5 h-5 md:w-6 md:h-6" />
       </div>
       <div>
         <p className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1.5">{label}</p>
@@ -383,7 +380,7 @@ function ComparisonRow({ label, value, storeAvg, diff, isCurrency = false, isPer
     : (isPercent ? `${diff > 0 ? '+' : ''}${diff.toFixed(1)}%` : `${diff > 0 ? '+' : ''}${diff.toFixed(2)}`);
 
   return (
-    <div className="flex items-center justify-between p-4 bg-white rounded-xl border-2 border-slate-50 gap-4 shadow-sm">
+    <div className="flex items-center justify-between p-4 bg-white rounded-xl border-2 border-slate-50 gap-4 shadow-sm text-left">
       <div className="min-w-0 space-y-0.5">
         <p className="text-[11px] font-black text-slate-800 uppercase tracking-tight truncate">{label}</p>
         <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Média Unidade: {storeAvg}</p>

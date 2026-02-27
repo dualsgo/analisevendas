@@ -345,15 +345,15 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
                    <span className="text-xs font-bold text-emerald-600">{consolidado.cadastros.toFixed(1)}% IDENT.</span>
                 </div>
               </div>
-              <CardContent className="p-5 md:p-6 space-y-6">
-                <div className="text-center lg:text-left border-b border-orange-100 pb-6">
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Faturamento Consolidado</p>
-                  <p className="text-3xl sm:text-5xl font-black text-slate-800 tracking-tighter">
+              <CardContent className="p-5 md:p-6 space-y-10 flex flex-col items-center justify-center text-center">
+                <div className="space-y-2">
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest leading-none">Faturamento Consolidado</p>
+                  <p className="text-4xl sm:text-6xl font-black text-slate-800 tracking-tighter leading-none">
                     {formatCurrency(consolidado.venda)}
                   </p>
                 </div>
 
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-10 w-full px-4 md:px-10">
                   <QuickMetric label="Cupons" value={consolidado.cupons} />
                   <QuickMetric label="Peças" value={consolidado.itens} />
                   <QuickMetric label="Ticket Médio" value={formatCurrency(consolidado.tkm, true)} color="text-orange-600" />
@@ -432,11 +432,11 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
           <section className="bg-gradient-to-br from-orange-500 to-[#F37021] rounded-2xl p-4 md:p-6 text-white shadow-xl flex items-center gap-4 relative shrink-0 overflow-hidden group border-4 border-orange-400 print:hidden">
             <div className="bg-white/20 p-3 rounded-full hidden lg:block shrink-0"><Sparkles className="w-6 h-6 text-white" /></div>
             <div className="flex-1 space-y-1 text-center md:text-left">
-              <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 mb-1">
+              <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 mb-1 justify-center md:justify-start">
                 <h2 className="text-lg md:text-xl font-black uppercase tracking-tight leading-none italic">{currentInsight.title}</h2>
                 <TeamProductivityAI data={data} vinculos={vinculos} activeTab={activeTab} />
               </div>
-              <p className="text-orange-50 font-medium text-xs md:sm opacity-90 leading-relaxed max-w-2xl">
+              <p className="text-orange-50 font-medium text-xs md:sm opacity-90 leading-relaxed max-w-2xl mx-auto md:mx-0">
                 {currentInsight.desc}
               </p>
             </div>
@@ -456,9 +456,9 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
 
 function QuickMetric({ label, value, color }: any) {
   return (
-    <div className="space-y-1">
-      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{label}</p>
-      <p className={cn("text-xl md:text-3xl font-black", color || "text-slate-700")}>{value}</p>
+    <div className="space-y-2 text-center">
+      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">{label}</p>
+      <p className={cn("text-xl md:text-3xl font-black leading-none", color || "text-slate-700")}>{value}</p>
     </div>
   );
 }
@@ -468,7 +468,7 @@ function ChannelSelector({ label, icon: Icon, active, color, onToggle }: any) {
     <div 
       onClick={onToggle}
       className={cn(
-        "flex flex-col items-center justify-center p-3 md:p-4 rounded-xl cursor-pointer transition-all border-2 gap-2 h-full select-none",
+        "flex flex-col items-center justify-center p-3 md:p-4 rounded-xl cursor-pointer transition-all border-2 gap-2 h-full select-none text-center",
         active ? "bg-white border-orange-400 shadow-md scale-[1.02]" : "bg-slate-50 border-transparent opacity-50 hover:opacity-80"
       )}
     >
@@ -480,19 +480,19 @@ function ChannelSelector({ label, icon: Icon, active, color, onToggle }: any) {
 
 function FixedChannelCard({ title, metrics, color }: any) {
   return (
-    <Card className={cn("ri-card border-2 overflow-hidden bg-white shadow-sm", color)}>
-      <div className="p-3 bg-slate-50/50 border-b flex justify-between items-center">
-        <h4 className="text-xs font-bold uppercase tracking-widest text-slate-600">{title}</h4>
-        <p className="text-base font-black text-slate-800">{formatCurrency(metrics.venda, true)}</p>
+    <Card className={cn("ri-card border-2 overflow-hidden bg-white shadow-sm flex flex-col h-full", color)}>
+      <div className="p-3 bg-slate-50/50 border-b flex flex-col items-center justify-center text-center gap-1">
+        <h4 className="text-[10px] font-bold uppercase tracking-widest text-slate-600 leading-none">{title}</h4>
+        <p className="text-lg font-black text-slate-800 leading-none">{formatCurrency(metrics.venda, true)}</p>
       </div>
-      <CardContent className="p-4 grid grid-cols-2 gap-3 text-center">
-        <div className="space-y-0.5">
-          <p className="text-[10px] font-bold text-slate-400 uppercase">TKM</p>
-          <p className="text-sm font-bold text-orange-600">{formatCurrency(metrics.tkm, true)}</p>
+      <CardContent className="p-4 grid grid-cols-2 gap-3 text-center items-center justify-center flex-1">
+        <div className="space-y-1">
+          <p className="text-[9px] font-bold text-slate-400 uppercase leading-none">TKM</p>
+          <p className="text-sm font-bold text-orange-600 leading-none">{formatCurrency(metrics.tkm, true)}</p>
         </div>
-        <div className="space-y-0.5">
-          <p className="text-[10px] font-bold text-slate-400 uppercase">P.A.</p>
-          <p className="text-sm font-bold text-sky-600">{metrics.pa.toFixed(2)}</p>
+        <div className="space-y-1">
+          <p className="text-[9px] font-bold text-slate-400 uppercase leading-none">P.A.</p>
+          <p className="text-sm font-bold text-sky-600 leading-none">{metrics.pa.toFixed(2)}</p>
         </div>
       </CardContent>
     </Card>

@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { DetailedSaleRow, VinculoTroca, UploadHistoryItem } from "@/lib/types";
 import { detectarAdicionaisSuspeitos, vincularTrocas as vincularTrocasUtils } from "@/lib/analysis-utils";
@@ -5,6 +6,14 @@ import { format, parseISO, min, max } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 
 type ProcessingStatus = "idle" | "processing" | "analyzed" | "success";
+
+// Função Central de Normalização de Vendedores (Solzinho Engine)
+function normalizeVendedor(name: string): string {
+    const n = (name || "").toUpperCase().trim();
+    if (n === "LIDIANE B" || n === "BARBOSA") return "BARBOSA";
+    if (n === "LIDIANE" || n === "LIDI") return "LIDI";
+    return n || "COLABORADOR NÃO IDENTIFICADO";
+}
 
 export function useSalesProcessor() {
     const [parsedRows, setParsedRows] = useState<DetailedSaleRow[]>([]);
@@ -32,7 +41,12 @@ export function useSalesProcessor() {
             try {
                 const { rows, links, currentStatus } = JSON.parse(sessionData);
                 if (rows && rows.length > 0) {
-                    setParsedRows(rows);
+                    // Re-normalizar vendedores na carga de sessão para garantir consistência
+                    const normalizedRows = rows.map((r: DetailedSaleRow) => ({
+                        ...r,
+                        vendedor: normalizeVendedor(r.vendedor)
+                    }));
+                    setParsedRows(normalizedRows);
                     setVinculos(links || []);
                     setStatus(currentStatus || "success");
                 }
@@ -108,7 +122,13 @@ export function useSalesProcessor() {
 
         setTimeout(() => {
             try {
-                const withSuspects = detectarAdicionaisSuspeitos(rows);
+                // Passo 0: Consolidação de Identidades Mandatória
+                const normalizedRows = rows.map(r => ({
+                    ...r,
+                    vendedor: normalizeVendedor(r.vendedor)
+                }));
+
+                const withSuspects = detectarAdicionaisSuspeitos(normalizedRows);
                 const exchangeLinks = vincularTrocasUtils(withSuspects);
 
                 setParsedRows(withSuspects);
@@ -148,8 +168,14 @@ export function useSalesProcessor() {
             return;
         }
         
-        const processedRows = detectarAdicionaisSuspeitos(item.data);
-        setParsedRows(item.data);
+        // Re-normalizar vendedores ao reabrir histórico antigo (Migration Clean)
+        const normalizedData = item.data.map(r => ({
+            ...r,
+            vendedor: normalizeVendedor(r.vendedor)
+        }));
+
+        const processedRows = detectarAdicionaisSuspeitos(normalizedData);
+        setParsedRows(normalizedData);
         setVinculos(vincularTrocasUtils(processedRows));
         setStatus("success");
     }, [toast]);

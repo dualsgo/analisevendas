@@ -46,16 +46,16 @@ function extractVendedor(infCpl: string): string {
   const multiSpace = candidate.match(/\s{2,}/);
   if (multiSpace && multiSpace.index !== undefined && multiSpace.index < endIdx) endIdx = multiSpace.index;
 
-  let result = candidate.substring(0, endIdx).trim();
+  let result = candidate.substring(0, endIdx).trim().toUpperCase();
+  
   const trailingIdMatch = result.match(/\s+\d+$/);
   if (trailingIdMatch && trailingIdMatch.index) {
-    result = result.substring(0, trailingIdMatch.index);
+    result = result.substring(0, trailingIdMatch.index).trim();
   }
 
   // CONSOLIDAÇÃO DE IDENTIDADES (CONFORME SOLICITADO)
-  const normalized = result.toUpperCase().trim();
-  if (normalized === "LIDIANE B" || normalized === "BARBOSA") return "BARBOSA";
-  if (normalized === "LIDIANE" || normalized === "LIDI") return "LIDI";
+  if (result === "LIDIANE B" || result === "BARBOSA") return "BARBOSA";
+  if (result === "LIDIANE" || result === "LIDI") return "LIDI";
 
   return result || "COLABORADOR NÃO IDENTIFICADO";
 }
@@ -256,7 +256,7 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
 
     const infAdic = getElement(infNFe, "infAdic");
     const infCpl = infAdic ? (getElement(infAdic, "infCpl")?.textContent || "") : "";
-    const vendedor = extractVendedor(infCpl);
+    const vendedorRaw = extractVendedor(infCpl);
 
     // --- LOGICA DE CLASSIFICAÇÃO UNIFICADA ---
     const isEnderecoLoja = 
@@ -314,10 +314,11 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     }
 
     return {
-      chave, nf, serie: getElement(ide, "serie")?.textContent || "", modelo: getElement(ide, "mod")?.textContent || "", dhEmi, vendedor,
+      chave, nf, serie: getElement(ide, "serie")?.textContent || "", modelo: getElement(ide, "mod")?.textContent || "", dhEmi, vendedor: vendedorRaw,
       tpNF, finNFe, natOp, indPres,
       canal: isTroca ? "TROCA" : (isRetiradaOnline ? "RETIRADA_ONLINE" : "LOJA_FISICA"),
-      subcanal: "", canal_consolidado: isTroca ? "TROCA" : (isRetiradaOnline ? "RETIRADA_ONLINE" : "VENDA_LOJA"),
+      subcanal: "", canal_consolidated: isTroca ? "TROCA" : (isRetiradaOnline ? "RETIRADA_ONLINE" : "VENDA_LOJA"),
+      canal_consolidado: isTroca ? "TROCA" : (isRetiradaOnline ? "RETIRADA_ONLINE" : "VENDA_LOJA"),
       is_adicional: false, is_adicional_suspeito: false, motivo_adicional: "NAO_ADICIONAL",
       vNF: vNFValue.toFixed(2), itens_qtd: itemsList.reduce((acc, it) => acc + it.qCom, 0).toString(),
       desconto_total: descontoTotal.toFixed(2), percentual_desconto: percentualDesconto.toFixed(4),
@@ -327,7 +328,7 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
       is_retirada_online: isRetiradaOnline, vTroco: vTrocoPag.toFixed(2), is_presencial_por_troco: !isRetiradaOnline, tpIntegra: tpIntegraValue,
       tem_desconto: descontoTotal > 0, tipo_desconto: tipoDescontoFinal,
       status_auditoria: statusAuditoriaFinal,
-      cep_dest, cep_loja, is_cep_diferente_da_lo_ja: !!cep_dest && cep_dest !== cep_loja,
+      cep_dest, cep_loja, is_cep_diferente_da_loja: !!cep_dest && cep_dest !== cep_loja,
       is_endereco_real: !!cep_dest, cpf_cnpj_dest: cpf_cnpj, nome_dest, endereco_dest: "", tem_destinatario: !!cpf_cnpj,
       itens: itemsList,
       is_cancelada: false,

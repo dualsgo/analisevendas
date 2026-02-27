@@ -257,8 +257,8 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
         </div>
       </div>
 
-      {/* KPI TOTALIZADORES - COMPACTO PARA IMPRESSÃO */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 print:flex print:items-center print:justify-between print:gap-0 print:border print:border-black print:p-1 print:bg-slate-50 print:mb-2">
+      {/* KPI TOTALIZADORES - COMPACTO PARA IMPRESSÃO (SEM BORDAS, COM PADDING) */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 print:flex print:items-center print:justify-between print:gap-4 print:p-2 print:bg-slate-50 print:mb-4 print:border-none">
         <ReportKPI label="Venda Unidade" value={formatBRL(totals.venda)} icon={TrendingUp} color="text-emerald-600" />
         <ReportKPI label="Atendimentos" value={totals.cupons} icon={Users} color="text-sky-600" />
         <ReportKPI label="P.A. Médio" value={formatNum(totals.pa)} icon={Target} color="text-orange-600" />
@@ -496,12 +496,12 @@ function LegendItem({ label, color }: { label: string, color: string }) {
 
 function ReportKPI({ label, value, icon: Icon, color }: any) {
   return (
-    <Card className="ri-card border-none bg-white p-4 md:p-5 flex flex-col justify-between h-20 md:h-24 shadow-sm print:border-none print:h-auto print:p-0 print:bg-transparent print:flex-row print:items-center print:gap-1">
+    <Card className="ri-card border-none bg-white p-4 md:p-5 flex flex-col justify-between h-20 md:h-24 shadow-sm print:border-none print:h-auto print:p-1.5 print:bg-transparent print:flex-row print:items-center print:gap-1.5">
       <div className="flex items-center justify-between print:hidden">
         <div className={cn("p-1.5 rounded-lg bg-slate-50", color)}><Icon className="w-4 h-4" /></div>
       </div>
-      <div className="print:flex print:items-center print:gap-0.5">
-        <p className="text-[7px] md:text-[8px] print:text-[6px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1 print:mb-0 print:text-black">{label}:</p>
+      <div className="print:flex print:items-center print:gap-1">
+        <p className="text-[7px] md:text-[8px] print:text-[6.5px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1 print:mb-0 print:text-black">{label}:</p>
         <p className="text-[10px] md:text-sm print:text-[8px] font-black text-slate-800 leading-none truncate print:text-black">{value}</p>
       </div>
     </Card>

@@ -31,7 +31,8 @@ import {
   Star,
   Minus,
   CheckCircle2,
-  XCircle
+  XCircle,
+  Info
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -46,6 +47,7 @@ const GROUPS: Record<string, string> = {
   "BARBOSA": "Vendedores",
   "LUIZ": "Vendedores",
   "CAREN": "Vendedores",
+  "BIANCA": "Vendedores",
   "ERIKA": "Apoio Venda",
   "LUIZA": "Apoio Venda",
   "CAROL": "Apoio Venda",
@@ -53,6 +55,13 @@ const GROUPS: Record<string, string> = {
   "THAIS": "Apoio Operação",
   "LIDI": "Apoio Operação",
   "RAFA": "Aprendiz"
+};
+
+const GROUP_COLORS: Record<string, string> = {
+  "Vendedores": "bg-orange-50/40",
+  "Apoio Venda": "bg-sky-50/40",
+  "Apoio Operação": "bg-emerald-50/40",
+  "Aprendiz": "bg-slate-50/40"
 };
 
 const IGNORE_LIST = ["MAYCON", "RUAN"];
@@ -71,7 +80,6 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
     const vendors: Record<string, any> = {};
     const activeSales = data.filter(s => !s.is_cancelada && s.tpNF === 1);
 
-    // 1. Identificar o Universo de Vendedores (Filtrando Gerentes)
     const vendorNames = Array.from(new Set(activeSales.map(s => s.vendedor || "OUTROS")))
       .filter(name => !IGNORE_LIST.includes(name));
 
@@ -89,7 +97,6 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
       };
     });
 
-    // 2. Processar Vendas
     activeSales.forEach(s => {
       const v = s.vendedor || "OUTROS";
       if (IGNORE_LIST.includes(v)) return;
@@ -98,23 +105,19 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
       const val = parseFloat(s.vNF);
       const qItens = parseFloat(s.itens_qtd);
 
-      // Itens de Checkout (SLP e Social)
       s.itens.forEach(it => {
         if (SLP_CODES.includes(it.cProd)) vendors[v].slpQty += it.qCom;
         if (SOCIAL_CODES.includes(it.cProd)) vendors[v].socialQty += it.qCom;
       });
 
-      // CPF Identificado
       if (s.cpf_cnpj_dest) vendors[v].identCount += 1;
 
-      // Classificação Base (Loja Física + Adicional)
       if (s.canal === "LOJA_FISICA" || s.canal === "RETIRADA_ADICIONAL" || s.is_adicional || s.is_adicional_suspeito) {
         vendors[v].base.venda += val;
         vendors[v].base.cupons += 1;
         vendors[v].base.itens += qItens;
       }
 
-      // Classificação Extra: Retiradas (Isoladas para o toggle)
       if (s.canal === "RETIRADA_ONLINE") {
         vendors[v].extra.venda += val;
         vendors[v].extra.cupons += 1;
@@ -122,34 +125,21 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
         vendors[v].pickupsAtendidas += 1;
       }
 
-      // Contador de Adicionais realizados
       if (s.is_adicional || s.is_adicional_suspeito || s.canal === "RETIRADA_ADICIONAL") {
         vendors[v].adicionaisFeitos += 1;
       }
     });
 
-    // 3. Processar Trocas (Apenas Diferenças)
     vinculos.forEach(vinc => {
       const v = vinc.vendedor || "OUTROS";
       if (IGNORE_LIST.includes(v)) return;
       if (vendors[v]) {
-        // Se o toggle de trocas estiver ativo, os valores de saldo entram no pool extra
         vendors[v].extra.venda += vinc.valor_diferenca;
-        // vendors[v].extra.cupons += 1; // Uma troca é tecnicamente um atendimento manual
         vendors[v].extra.itens += vinc.diferenca_itens;
       }
     });
 
-    // 4. Consolidar e Calcular Métricas
     const results = Object.values(vendors).map((v: any) => {
-      const current = {
-        venda: v.base.venda + (includePickups ? v.extra.venda : 0) + (includeExchanges ? 0 : 0), // O pool extra já foi preenchido no passo 2 e 3
-        cupons: v.base.cupons + (includePickups ? v.extra.cupons : 0) + (includeExchanges ? v.extra.cupons : 0),
-        itens: v.base.itens + (includePickups ? v.extra.itens : 0) + (includeExchanges ? 0 : 0),
-      };
-
-      // Recalcular base considerando que o pool extra agora contém pickups e saldos de troca
-      // Se os toggles estiverem desligados, ignoramos o que está no extra
       const totalVenda = v.base.venda + (includePickups ? v.extra.venda : 0);
       const totalItens = v.base.itens + (includePickups ? v.extra.itens : 0);
       const totalCupons = v.base.cupons + (includePickups ? v.extra.cupons : 0);
@@ -165,7 +155,6 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
         ...v,
         current: { venda: totalVenda, cupons: totalCupons, itens: totalItens },
         metrics,
-        // Deltas para exibição visual
         deltas: {
           venda: totalVenda - v.base.venda,
           vendaPerc: v.base.venda > 0 ? ((totalVenda / v.base.venda) - 1) * 100 : 0,
@@ -174,7 +163,6 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
       };
     });
 
-    // 5. Calcular Médias por Grupo para Comparação Justa
     const groupStats: Record<string, any> = {};
     const groupNames = Array.from(new Set(results.map(r => r.group)));
     
@@ -220,7 +208,7 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
           <div className="bg-slate-900 p-3 rounded-2xl text-white shadow-lg"><FileText className="w-6 h-6" /></div>
           <div>
             <h1 className="text-xl font-black uppercase tracking-tight text-slate-800">Relatório Consolidado de Performance</h1>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Análise de Médias por Grupo e Saldo de Trocas</p>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Análise de Médias por Grupo e Diferenças Reais</p>
           </div>
         </div>
         
@@ -235,7 +223,7 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
           <div className="flex items-center gap-3">
             <Switch id="inc-trocas" checked={includeExchanges} onCheckedChange={setIncludeExchanges} />
             <Label htmlFor="inc-trocas" className="text-[10px] font-black uppercase cursor-pointer flex items-center gap-1.5">
-              <ArrowRightLeft className="w-3 h-3 text-purple-500" /> Incluir Saldo Trocas
+              <ArrowRightLeft className="w-3 h-3 text-purple-500" /> Incluir Diferenças Troca
             </Label>
           </div>
           <Button onClick={handlePrint} variant="outline" className="ml-4 rounded-xl font-black text-[10px] gap-2 border-slate-200 hover:bg-white hover:text-orange-500 shadow-sm">
@@ -244,12 +232,21 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
         </div>
       </div>
 
+      {/* LEGENDA DE GRUPOS */}
+      <div className="flex flex-wrap items-center gap-4 px-4 print:hidden">
+        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mr-2">Legenda de Grupos:</span>
+        <LegendItem label="Vendedores" color="bg-orange-100/50" />
+        <LegendItem label="Apoio Venda" color="bg-sky-100/50" />
+        <LegendItem label="Apoio Operação" color="bg-emerald-100/50" />
+        <LegendItem label="Aprendiz" color="bg-slate-100/50" />
+      </div>
+
       {/* CABEÇALHO PARA IMPRESSÃO */}
       <div className="hidden print:block text-center border-b-4 border-slate-900 pb-6 mb-8">
         <h1 className="text-3xl font-black uppercase mb-1">Ri Happy | Performance Consolidada</h1>
         <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">
           Emissão: {new Date().toLocaleDateString('pt-BR')} • 
-          Critério: Esforço de Loja {includePickups && "+ Retiradas"} {includeExchanges && "+ Diferenças de Troca"}
+          Critério: Esforço de Loja {includePickups && "+ Retiradas"} {includeExchanges && "+ Saldo de Troca"}
         </p>
       </div>
 
@@ -268,15 +265,15 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
         <Table>
           <TableHeader className="bg-slate-900">
             <TableRow className="hover:bg-slate-900 border-none h-12">
-              <TableHead className="text-white font-black uppercase text-[9px] pl-8">Colaborador / Grupo</TableHead>
+              <TableHead className="text-white font-black uppercase text-[9px] pl-8">Colaborador / Perfil</TableHead>
               <TableHead className="text-white font-black uppercase text-[9px] text-right">Venda Total</TableHead>
               <TableHead className="text-white font-black uppercase text-[9px] text-center">PA</TableHead>
               <TableHead className="text-white font-black uppercase text-[9px] text-right">TKM</TableHead>
               <TableHead className="text-white font-black uppercase text-[9px] text-center">CPF %</TableHead>
               <TableHead className="text-white font-black uppercase text-[9px] text-center">SLP</TableHead>
               <TableHead className="text-white font-black uppercase text-[9px] text-center">Social</TableHead>
-              <TableHead className="text-white font-black uppercase text-[9px] text-center">Pks Servidas</TableHead>
-              <TableHead className="text-white font-black uppercase text-[9px] text-center">Adic Feitos</TableHead>
+              <TableHead className="text-white font-black uppercase text-[9px] text-center">Pickups</TableHead>
+              <TableHead className="text-white font-black uppercase text-[9px] text-center">Adicionais</TableHead>
               <TableHead className="text-white font-black uppercase text-[9px] text-right pr-8">Conv %</TableHead>
             </TableRow>
           </TableHeader>
@@ -285,9 +282,10 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
               const isAbovePA = v.metrics.pa >= v.groupAverages.pa;
               const isAboveTKM = v.metrics.tkm >= v.groupAverages.tkm;
               const isAboveIdent = v.metrics.ident >= v.groupAverages.ident;
+              const rowColor = GROUP_COLORS[v.group] || "bg-white";
 
               return (
-                <TableRow key={i} className="border-slate-100 hover:bg-slate-50/50 h-14 group">
+                <TableRow key={i} className={cn("border-slate-100 hover:bg-slate-100/50 h-14 group", rowColor)}>
                   <TableCell className="pl-8">
                     <p className="text-[11px] font-black text-slate-800 uppercase leading-none">{v.name}</p>
                     <Badge variant="outline" className="text-[7px] font-black uppercase border-slate-200 text-slate-400 mt-1 h-4 px-1.5">{v.group}</Badge>
@@ -310,7 +308,7 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
                         <span className="text-xs font-black text-slate-700">{formatNum(v.metrics.pa)}</span>
                         {isAbovePA ? <ArrowUpRight className="w-2.5 h-2.5 text-emerald-500" /> : <ArrowDownRight className="w-2.5 h-2.5 text-rose-500" />}
                       </div>
-                      <p className="text-[7px] font-bold text-slate-300 uppercase">Ref Grupo: {formatNum(v.groupAverages.pa)}</p>
+                      <p className="text-[7px] font-bold text-slate-300 uppercase italic">Ref Grupo: {formatNum(v.groupAverages.pa)}</p>
                     </div>
                   </TableCell>
 
@@ -320,7 +318,7 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
                         <span className="text-xs font-black text-slate-700">{formatBRL(v.metrics.tkm)}</span>
                         {isAboveTKM ? <ArrowUpRight className="w-2.5 h-2.5 text-emerald-500" /> : <ArrowDownRight className="w-2.5 h-2.5 text-rose-500" />}
                       </div>
-                      <p className="text-[7px] font-bold text-slate-300 uppercase">Ref Grupo: {formatBRL(v.groupAverages.tkm)}</p>
+                      <p className="text-[7px] font-bold text-slate-300 uppercase italic">Ref Grupo: {formatBRL(v.groupAverages.tkm)}</p>
                     </div>
                   </TableCell>
 
@@ -330,7 +328,7 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
                         <span className="text-xs font-black text-slate-700">{v.metrics.ident.toFixed(0)}%</span>
                         {isAboveIdent ? <CheckCircle2 className="w-2.5 h-2.5 text-emerald-500" /> : <XCircle className="w-2.5 h-2.5 text-rose-400" />}
                       </div>
-                      <p className="text-[7px] font-bold text-slate-300 uppercase">Ref: {v.groupAverages.ident.toFixed(0)}%</p>
+                      <p className="text-[7px] font-bold text-slate-300 uppercase italic">Ref: {v.groupAverages.ident.toFixed(0)}%</p>
                     </div>
                   </TableCell>
 
@@ -372,8 +370,11 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
 
       {/* RODAPÉ TÉCNICO */}
       <div className="flex justify-between items-center text-[9px] font-black text-slate-400 uppercase tracking-widest px-4 border-t pt-4">
-        <p>Base: {data.length} XMLs • Média por Grupo Ativada • Gerentes Maycon/Ruan Ocultados da Média</p>
-        <p>Documento Estratégico Ri Happy - Uso Interno</p>
+        <div className="flex items-center gap-2">
+          <Info className="w-3 h-3" />
+          <p>Média por Grupo Ativada • Gerentes Ocultados • Comparativos Relativos ao Perfil</p>
+        </div>
+        <p>Documento Estratégico Ri Happy - Uso Interno Unidade</p>
       </div>
 
       <style jsx global>{`
@@ -382,8 +383,18 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
           .container { max-width: 100% !important; padding: 0 !important; }
           @page { size: landscape; margin: 0.5cm; }
           .ri-card { border: 1px solid #e2e8f0 !important; }
+          tr { -webkit-print-color-adjust: exact !important; }
         }
       `}</style>
+    </div>
+  );
+}
+
+function LegendItem({ label, color }: { label: string, color: string }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <div className={cn("w-3 h-3 rounded-sm border border-slate-200", color)} />
+      <span className="text-[10px] font-bold text-slate-500 uppercase">{label}</span>
     </div>
   );
 }

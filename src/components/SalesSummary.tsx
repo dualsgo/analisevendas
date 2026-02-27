@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useMemo, useState } from "react";
@@ -39,7 +38,8 @@ import {
   ActivitySquare,
   History,
   ShoppingBag,
-  Sword
+  Sword,
+  ClipboardList
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -75,6 +75,7 @@ import { YoYAnalysis } from "./YoYAnalysis";
 import { TeamProductivityAI } from "./TeamProductivityAI";
 import { AdditionalItemsAnalysis } from "./AdditionalItemsAnalysis";
 import { CollaboratorGamification } from "./CollaboratorGamification";
+import { ConsolidatedReport } from "./ConsolidatedReport";
 
 interface SalesSummaryProps {
   data: DetailedSaleRow[];
@@ -94,6 +95,10 @@ const TAB_INSIGHTS: Record<string, { title: string; desc: string }> = {
   geral: {
     title: "Visão Macro da Unidade",
     desc: "O faturamento consolidado é a base, mas o lucro real mora na gestão fina de cada canal de venda."
+  },
+  consolidado: {
+    title: "Relatório Final Consolidado",
+    desc: "A visão definitiva para impressão. Compare o faturamento real versus o impacto de pickups e trocas por colaborador."
   },
   gamification: {
     title: "Arena Ri Happy de Talentos",
@@ -293,6 +298,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
 
   const navItems = [
     { id: "geral", label: "Visão Geral", icon: LayoutDashboard },
+    { id: "consolidado", label: "Relatório Consolidado", icon: ClipboardList, color: "text-emerald-600 font-black" },
     { id: "gamification", label: "Arena de Talentos", icon: Sword, color: "text-yellow-500 font-black" },
     { id: "venda_sugestiva", label: "SLP & Social", icon: ShoppingBag, color: "text-orange-600 font-black" },
     { id: "diagnostico_gargalo", label: "Diagnóstico Gargalo", icon: ActivitySquare, color: "text-rose-600 font-black" },
@@ -364,6 +370,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
             </div>
           </div>
         );
+      case "consolidado": return <ConsolidatedReport data={data} vinculos={vinculos} />;
       case "gamification": return <CollaboratorGamification data={data} vinculos={vinculos} />;
       case "venda_sugestiva": return <AdditionalItemsAnalysis data={data} />;
       case "ai_insights": return <AISummary data={data} vinculos={vinculos} />;
@@ -391,7 +398,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
 
   return (
     <div className="flex-1 flex flex-col md:flex-row h-full overflow-hidden">
-      <Sidebar className="border-r border-orange-100 bg-white" collapsible="offcanvas">
+      <Sidebar className="border-r border-orange-100 bg-white print:hidden" collapsible="offcanvas">
         <SidebarContent className="p-3 md:p-4">
           <SidebarGroup>
             <SidebarGroupLabel className="text-xs font-bold uppercase text-slate-400 tracking-widest mb-4 px-2">Menu Estratégico</SidebarGroupLabel>
@@ -420,9 +427,9 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
         </SidebarContent>
       </Sidebar>
 
-      <div className="flex-1 overflow-y-auto bg-amber-50/20 p-4 md:p-6 flex flex-col gap-6 scrollbar-hide">
+      <div className="flex-1 overflow-y-auto bg-amber-50/20 p-4 md:p-6 flex flex-col gap-6 scrollbar-hide print:p-0 print:bg-white">
         {showWelcome && (
-          <section className="bg-gradient-to-br from-orange-500 to-[#F37021] rounded-2xl p-4 md:p-6 text-white shadow-xl flex items-center gap-4 relative shrink-0 overflow-hidden group border-4 border-orange-400">
+          <section className="bg-gradient-to-br from-orange-500 to-[#F37021] rounded-2xl p-4 md:p-6 text-white shadow-xl flex items-center gap-4 relative shrink-0 overflow-hidden group border-4 border-orange-400 print:hidden">
             <div className="bg-white/20 p-3 rounded-full hidden lg:block shrink-0"><Sparkles className="w-6 h-6 text-white" /></div>
             <div className="flex-1 space-y-1 text-center md:text-left">
               <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 mb-1">

@@ -1,7 +1,6 @@
 
 import { DetailedSaleRow, Item } from "./types";
 
-// LISTA OFICIAL DE CÓDIGOS SLP (Super Lançamento Premiado)
 const SLP_CODES = [
   '5135238', '5135269', '5135270', '5135273', '5146458', '5146469', '5146470', '5146471', 
   '5146472', '5146473', '5146474', '5146475', '5146476', '5146501', '5146504', '5146505', 
@@ -12,12 +11,9 @@ const SLP_CODES = [
   '5146502', '5146503'
 ];
 
-// Parâmetros para detecção robusta de campanhas (Leve X Pague Y)
 const NEAR_FREE_MAX = 0.10;
 const RESIDUAL_MAX = 0.10;
 const UNIT_BRUTO_MIN = 1.00;
-
-// Parâmetros para detecção de Correção de Preço Errado (Psicológico)
 const MIN_DESC_CENTS_MATERIAL = 100;
 const STANDARD_PERCENTS = [0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.40, 0.50];
 
@@ -53,7 +49,6 @@ function extractVendedor(infCpl: string): string {
     result = result.substring(0, trailingIdMatch.index).trim();
   }
 
-  // CONSOLIDAÇÃO DE IDENTIDADES (CONFORME SOLICITADO)
   if (result === "LIDIANE B" || result === "BARBOSA") return "BARBOSA";
   if (result === "LIDIANE" || result === "LIDI") return "LIDI";
 
@@ -127,12 +122,8 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     const nro_dest = enderDest ? (getElement(enderDest, "nro")?.textContent || "") : "";
     const uf_dest = enderDest ? (getElement(enderDest, "UF")?.textContent || "") : "";
 
-    const isNomeMinusculo = /[a-z]/.test(nome_dest);
-
     const emit = getElement(infNFe, "emit");
     const enderEmit = emit ? getElement(emit, "enderEmit") : null;
-    const cep_loja = enderEmit ? (getElement(enderEmit, "CEP")?.textContent || "").replace(/\D/g, "") : "";
-
     const xNomeEmit = emit ? getElement(emit, "xNome")?.textContent || "" : "";
     const cnpjEmit = emit ? getElement(emit, "CNPJ")?.textContent || "" : "";
     const ieEmit = emit ? getElement(emit, "IE")?.textContent || "" : "";
@@ -169,7 +160,6 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
 
           if (unitFinal > 0 && unitFinal <= NEAR_FREE_MAX) nearFreeCount++;
           if (unitDesc > 0 && unitDesc <= RESIDUAL_MAX) residualCount++;
-          else if (unitFinal > 0 && unitFinal <= RESIDUAL_MAX && unitDesc > 0) residualCount++;
         }
 
         itemsList.push({
@@ -189,8 +179,7 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     if (precoBase > 0) {
       const isCampanhaCandidato = (nearFreeCount >= 1) && (residualCount >= 1 || nearFreeCount >= 2);
       const k = Math.round(totalDescontoNota / precoBase);
-      const tol = Math.max(0.05, 0.10 * k);
-      const coerente = k >= 1 && Math.abs(totalDescontoNota - k * precoBase) <= tol;
+      const coerente = k >= 1 && Math.abs(totalDescontoNota - k * precoBase) <= Math.max(0.05, 0.10 * k);
       isCampanhaNota = isCampanhaCandidato && coerente;
     }
 
@@ -199,29 +188,22 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     }
 
     let temSuspeitaPrecoErrado = false;
-    if (!isCampanhaNota) {
-      itemsList.forEach(item => {
-        if (item.vDesc <= 0) return;
+    itemsList.forEach(item => {
+      if (item.vDesc <= 0) return;
+      const unitLiq = (item.vProd - item.vDesc) / item.qCom;
+      const unitLiqCents = Math.round(unitLiq * 100);
+      const lastDigit = unitLiqCents % 10;
+      // Detecção de preços psicológicos (final 1, 5 ou 9) cruzados com descontos manuais
+      const isPsychEnding = [1, 5, 9].includes(lastDigit);
+      const percDesc = item.vProd > 0 ? item.vDesc / item.vProd : 0;
+      const isRiHappyStandard = (percDesc >= 0.08 && percDesc <= 0.12) || (percDesc >= 0.045 && percDesc <= 0.055);
 
-        const unitBruto = item.vProd / item.qCom;
-        const unitLiq = (item.vProd - item.vDesc) / item.qCom;
-        const unitDesc = item.vDesc / item.qCom;
-        const unitLiqCents = Math.round(unitLiq * 100);
-        const lastDigit = unitLiqCents % 10;
-        const isPsychEnding = [1, 5, 9].includes(lastDigit);
-        const unitDescCents = Math.round(unitDesc * 100);
-        const hasMaterialDiscount = unitDescCents >= MIN_DESC_CENTS_MATERIAL;
-        const percDesc = item.vProd > 0 ? item.vDesc / item.vProd : 0;
-        const isStandardPercent = STANDARD_PERCENTS.some(p => Math.abs(percDesc - p) <= 0.01);
-        const isRiHappyStandard = (percDesc >= 0.08 && percDesc <= 0.12) || (percDesc >= 0.045 && percDesc <= 0.055);
-
-        if (isPsychEnding && hasMaterialDiscount && !isStandardPercent && !isRiHappyStandard) {
-          item.is_preco_errado = true;
-          item.evidencia_preco_errado = `Final ${lastDigit} com desconto manual de R$ ${unitDesc.toFixed(2)}`;
-          temSuspeitaPrecoErrado = true;
-        }
-      });
-    }
+      if (isPsychEnding && !isRiHappyStandard && !isCampanhaNota) {
+        item.is_preco_errado = true;
+        item.evidencia_preco_errado = `Final ${lastDigit} com desconto manual`;
+        temSuspeitaPrecoErrado = true;
+      }
+    });
 
     const pagamentosDet: Array<{ tPag: string, vPag: number, tpIntegra?: string }> = [];
     let vTrocoPag = 0;
@@ -258,90 +240,46 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     const infCpl = infAdic ? (getElement(infAdic, "infCpl")?.textContent || "") : "";
     const vendedorRaw = extractVendedor(infCpl);
 
-    // --- LOGICA DE CLASSIFICAÇÃO UNIFICADA ---
-    const isEnderecoLoja = 
-      cep_dest === "21211007" && 
-      nro_dest === "909" && 
-      uf_dest === "RJ" && 
-      /VICENTE\s+DE\s+CARVALHO/i.test(xLgr_dest);
-
+    const isEnderecoLoja = cep_dest === "21211007" && nro_dest === "909";
     const temDinheiro = pagamentosDet.some(p => p.tPag === "01");
-    const hasTextualPickupEvidence = /RETIRADA|PICKUP|PEDIDO|SITE|ECOMM|MAGENTO/i.test(infCpl);
-
-    // BLOQUEIOS DE BALCÃO
-    const isBalcaoBlocked = 
-      hasSymbolicItem || 
-      temDinheiro || 
-      vTrocoPag > 0 || 
-      (tpIntegraValue !== "2" && !hasTextualPickupEvidence);
-
-    const isRetiradaOnline = isEnderecoLoja && !isBalcaoBlocked;
+    const hasTextualPickupEvidence = /RETIRADA|PICKUP|SITE|ECOMM/i.test(infCpl);
+    const isRetiradaOnline = isEnderecoLoja && !temDinheiro && vTrocoPag === 0 && (tpIntegraValue === "2" || hasTextualPickupEvidence);
 
     const vTrocaCredito = pagamentosDet.filter(p => p.tPag === "05").reduce((acc, p) => acc + p.vPag, 0);
     const isTroca = vTrocaCredito > 0;
-    const dif_troca = vNFValue - vTrocaCredito;
-
+    
     const valorTotalProds = itemsList.reduce((acc, it) => acc + it.vProd, 0);
     const descontoTotal = itemsList.reduce((acc, it) => acc + it.vDesc, 0);
     const percentualDesconto = valorTotalProds > 0 ? (descontoTotal / valorTotalProds) : 0;
 
-    // --- LÓGICA DE CAMPANHA SLP (9,99) ---
     const hasSlpDiscount = itemsList.some(it => SLP_CODES.includes(it.cProd) && it.vDesc > 0);
-    const hasNonSlpDiscount = itemsList.some(it => !SLP_CODES.includes(it.cProd) && it.vDesc > 0);
-
     let tipoDescontoFinal = "PADRÃO";
-    let statusAuditoriaFinal = temSuspeitaPrecoErrado ? "SUSPEITA DE AJUSTE MANUAL" : (descontoTotal > 0 ? "DESCONTO APLICADO" : "SEM DESCONTO");
-
-    if (hasSlpDiscount) {
-      if (hasNonSlpDiscount) {
-        tipoDescontoFinal = "CAMPANHA + ALERTA";
-        statusAuditoriaFinal = "CAMPANHA SLP + OUTRO DESCONTO DETECTADO";
-      } else {
-        tipoDescontoFinal = "CAMPANHA";
-        statusAuditoriaFinal = "CAMPANHA SLP IDENTIFICADA";
-      }
-    } else if (isCampanhaNota) {
-      tipoDescontoFinal = "CAMPANHA";
-      statusAuditoriaFinal = "CAMPANHA IDENTIFICADA";
-    } else if (temSuspeitaPrecoErrado) {
-      tipoDescontoFinal = "AJUSTE DE PREÇO";
-      statusAuditoriaFinal = "SUSPEITA DE AJUSTE MANUAL";
-    } else if (percentualDesconto >= 0.08 && percentualDesconto <= 0.12) {
-      tipoDescontoFinal = "ADICIONAL";
-      statusAuditoriaFinal = "DESCONTO ESTRATÉGICO (10%)";
-    } else if (percentualDesconto >= 0.045 && percentualDesconto <= 0.055) {
-      tipoDescontoFinal = "MOSTRUÁRIO";
-    }
+    if (hasSlpDiscount) tipoDescontoFinal = itemsList.some(it => !SLP_CODES.includes(it.cProd) && it.vDesc > 0) ? "CAMPANHA + ALERTA" : "CAMPANHA";
+    else if (isCampanhaNota) tipoDescontoFinal = "CAMPANHA";
+    else if (temSuspeitaPrecoErrado) tipoDescontoFinal = "AJUSTE DE PREÇO";
+    else if (percentualDesconto >= 0.08 && percentualDesconto <= 0.12) tipoDescontoFinal = "ADICIONAL";
 
     return {
-      chave, nf, serie: getElement(ide, "serie")?.textContent || "", modelo: getElement(ide, "mod")?.textContent || "", dhEmi, vendedor: vendedorRaw,
-      tpNF, finNFe, natOp, indPres,
+      chave, nf, dhEmi, vendedor: vendedorRaw, tpNF, finNFe, natOp, indPres,
+      serie: getElement(ide, "serie")?.textContent || "",
+      modelo: getElement(ide, "mod")?.textContent || "",
       canal: isTroca ? "TROCA" : (isRetiradaOnline ? "RETIRADA_ONLINE" : "LOJA_FISICA"),
-      subcanal: "", canal_consolidated: isTroca ? "TROCA" : (isRetiradaOnline ? "RETIRADA_ONLINE" : "VENDA_LOJA"),
       canal_consolidado: isTroca ? "TROCA" : (isRetiradaOnline ? "RETIRADA_ONLINE" : "VENDA_LOJA"),
-      is_adicional: false, is_adicional_suspeito: false, motivo_adicional: "NAO_ADICIONAL",
+      subcanal: "", is_adicional: false, is_adicional_suspeito: false, motivo_adicional: "",
       vNF: vNFValue.toFixed(2), itens_qtd: itemsList.reduce((acc, it) => acc + it.qCom, 0).toString(),
       desconto_total: descontoTotal.toFixed(2), percentual_desconto: percentualDesconto.toFixed(4),
-      is_troca: isTroca, vTroca: vTrocaCredito.toFixed(2), dif_troca: dif_troca.toFixed(2),
+      is_troca, vTroca: vTrocaCredito.toFixed(2), dif_troca: (vNFValue - vTrocaCredito).toFixed(2),
       is_devolucao: tpNF === 0 && (finNFe === 4 || natOp.toLowerCase().includes("devolucao")),
       refNFe: refNFes, refNFe_normalizadas: refNFes.map(r => r.replace(/\D/g, "")),
-      is_retirada_online: isRetiradaOnline, vTroco: vTrocoPag.toFixed(2), is_presencial_por_troco: !isRetiradaOnline, tpIntegra: tpIntegraValue,
-      tem_desconto: descontoTotal > 0, tipo_desconto: tipoDescontoFinal,
-      status_auditoria: statusAuditoriaFinal,
-      cep_dest, cep_loja, is_cep_diferente_da_loja: !!cep_dest && cep_dest !== cep_loja,
-      is_endereco_real: !!cep_dest, cpf_cnpj_dest: cpf_cnpj, nome_dest, endereco_dest: "", tem_destinatario: !!cpf_cnpj,
-      itens: itemsList,
-      is_cancelada: false,
+      is_retirada_online: isRetiradaOnline, vTroco: vTrocoPag.toFixed(2), is_presencial_por_troco: !isRetiradaOnline,
+      tpIntegra: tpIntegraValue, tem_desconto: descontoTotal > 0, tipo_desconto: tipoDescontoFinal,
+      status_auditoria: temSuspeitaPrecoErrado ? "SUSPEITA AJUSTE" : (descontoTotal > 0 ? "DESCONTO" : "LIMPO"),
+      cep_dest, cep_loja: "", is_cep_diferente_da_loja: false, is_endereco_real: !!cep_dest,
+      cpf_cnpj_dest: cpf_cnpj, nome_dest, endereco_dest: "", tem_destinatario: !!cpf_cnpj,
+      itens: itemsList, is_cancelada: false, pickup_match_fields: isEnderecoLoja ? 5 : 0,
+      tem_suspeita_preco_errado: temSuspeitaPrecoErrado,
       emitente: { xNome: xNomeEmit, cnpj: cnpjEmit, ie: ieEmit, endereco: enderEmitFull },
-      protocolo: protocoloData,
-      pagamentos_detalhe: pagamentosDet,
-      infCpl,
-      pickup_match_fields: isEnderecoLoja ? 5 : 0,
-      is_nome_minusculo: isNomeMinusculo,
-      has_symbolic_item: hasSymbolicItem,
-      tem_suspeita_preco_errado: temSuspeitaPrecoErrado
+      protocolo: protocoloData, pagamentos_detalhe: pagamentosDet, infCpl
     };
-  } catch (e) {
-    return null;
-  }
+  } catch (e) { return null; }
 }

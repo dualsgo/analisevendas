@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useMemo, useState } from "react";
@@ -33,7 +34,8 @@ import {
   ShoppingBag,
   Sword,
   ClipboardList,
-  Flame
+  Flame,
+  MousePointer2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -67,6 +69,9 @@ import { AdditionalItemsAnalysis } from "./AdditionalItemsAnalysis";
 import { CollaboratorGamification } from "./CollaboratorGamification";
 import { ConsolidatedReport } from "./ConsolidatedReport";
 import { HeatmapAnalysis } from "./HeatmapAnalysis";
+import { BasketBehavior } from "./BasketBehavior";
+import { SalesEnergy } from "./SalesEnergy";
+import { ProductRisk } from "./ProductRisk";
 
 interface SalesSummaryProps {
   data: DetailedSaleRow[];
@@ -81,6 +86,18 @@ const TAB_INSIGHTS: Record<string, { title: string; desc: string }> = {
   heatmap: {
     title: "Mapa de Calor Operacional",
     desc: "Visualize os picos de faturamento e volume por hora. Otimize sua escala para os momentos de 'fogo' no caixa."
+  },
+  energy: {
+    title: "Curva de Energia Comercial",
+    desc: "A loja vende de forma constante ou em explosões? Analise o intervalo entre vendas para medir o fluxo."
+  },
+  basket: {
+    title: "Anatomia da Cesta",
+    desc: "Descubra quais produtos puxam o PA e identifique o comportamento real do seu cliente no balcão."
+  },
+  product_risk: {
+    title: "Risco de Mix Comercial",
+    desc: "Analise o quanto do seu faturamento depende de poucos SKUs e evite a 'cegueira' de metas penduradas em um só item."
   },
   consolidado: {
     title: "Relatório Final Consolidado",
@@ -115,7 +132,7 @@ const TAB_INSIGHTS: Record<string, { title: string; desc: string }> = {
     desc: "O sucesso da unidade não pode depender de poucos talentos. Analise o Pareto e treine a base."
   },
   qualidade_avancada: {
-    title: "Anatomia da Cesta",
+    title: "Qualidade de Atendimento",
     desc: "Foque em transformar a venda de volume (homogênea) em venda consultiva (cesta complementar)."
   },
   composicao: {
@@ -273,6 +290,9 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
   const navItems = [
     { id: "geral", label: "Visão Geral", icon: LayoutDashboard },
     { id: "heatmap", label: "Mapa de Calor", icon: Flame, color: "text-orange-500 font-black" },
+    { id: "energy", label: "Curva de Energia", icon: Activity, color: "text-sky-500 font-bold" },
+    { id: "basket", label: "Anatomia da Cesta", icon: ShoppingBag, color: "text-emerald-600 font-bold" },
+    { id: "product_risk", label: "Risco Comercial", icon: ShieldAlert, color: "text-rose-600 font-bold" },
     { id: "consolidado", label: "Relatório Consolidado", icon: ClipboardList, color: "text-emerald-600 font-black" },
     { id: "gamification", label: "Arena de Talentos", icon: Sword, color: "text-yellow-500 font-black" },
     { id: "venda_sugestiva", label: "SLP & Social", icon: ShoppingBag, color: "text-orange-600 font-black" },
@@ -281,7 +301,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
     { id: "performance_vendedores", label: "Performance Colaboradores", icon: Award },
     { id: "elasticidade", label: "Elasticidade Desconto", icon: LineChart, color: "text-amber-600" },
     { id: "deep_dive", label: "Fluxo & Pareto", icon: TrendingUp, color: "text-indigo-600" },
-    { id: "qualidade_avancada", label: "Qualidade & Cesta", icon: Boxes, color: "text-emerald-600" },
+    { id: "qualidade_avancada", label: "Qualidade de Venda", icon: UserCheck, color: "text-emerald-600" },
     { id: "composicao", label: "Composição", icon: Layers, color: "text-indigo-500" },
     { id: "produtividade", label: "Produtividade", icon: Activity, color: "text-cyan-500" },
     { id: "compliance", label: "Auditoria PA", icon: ShieldCheck, color: "text-red-600" },
@@ -346,6 +366,9 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
           </div>
         );
       case "heatmap": return <HeatmapAnalysis data={data} vinculos={vinculos} />;
+      case "energy": return <SalesEnergy data={data} />;
+      case "basket": return <BasketBehavior data={data} />;
+      case "product_risk": return <ProductRisk data={data} />;
       case "consolidado": return <ConsolidatedReport data={data} vinculos={vinculos} />;
       case "gamification": return <CollaboratorGamification data={data} vinculos={vinculos} />;
       case "venda_sugestiva": return <AdditionalItemsAnalysis data={data} />;

@@ -68,6 +68,7 @@ export interface DetailedSaleRow {
   tipo_desconto: string;
   status_auditoria: string;
   tem_suspeita_preco_errado?: boolean;
+  is_fragmentada?: boolean; // Nova: Detecção de cupom dividido
   
   // CEP e Endereço
   cep_dest: string;
@@ -84,7 +85,7 @@ export interface DetailedSaleRow {
   // Produtos
   itens: Item[];
 
-  // Novos campos para status de arquivos
+  // Status de arquivos
   is_cancelada?: boolean;
   is_error?: boolean;
 

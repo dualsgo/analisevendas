@@ -14,7 +14,9 @@ import {
   ArrowRight,
   Target,
   Dizzy,
-  Sparkles
+  Sparkles,
+  Info,
+  AlertTriangle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -27,7 +29,6 @@ export function BasketBehavior({ data }: BasketBehaviorProps) {
     const activeSales = data.filter(s => !s.is_cancelada && s.tpNF === 1);
     const totalCount = activeSales.length;
 
-    // 1. Identificação de SKUs Aceleradores (Itens que aparecem em cestas > 1)
     const skuMap: Record<string, { name: string, alone: number, withOthers: number }> = {};
     
     activeSales.forEach(sale => {
@@ -47,10 +48,9 @@ export function BasketBehavior({ data }: BasketBehaviorProps) {
         total: s.alone + s.withOthers,
         rate: s.total > 0 ? (s.withOthers / s.total) * 100 : 0
       }))
-      .filter(s => s.total >= 3) // Mínimo de 3 aparições
+      .filter(s => s.total >= 3)
       .sort((a, b) => b.rate - a.rate);
 
-    // 2. Anatomia da Cesta
     const anatomy = {
       impulso: activeSales.filter(s => parseFloat(s.vNF) < 50 && parseInt(s.itens_qtd) > 1).length,
       complementar: activeSales.filter(s => parseFloat(s.vNF) >= 100 && parseInt(s.itens_qtd) > 1).length,
@@ -62,20 +62,7 @@ export function BasketBehavior({ data }: BasketBehaviorProps) {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-20">
-      <div className="bg-white rounded-[2rem] p-6 border-2 border-orange-100 shadow-sm flex flex-col md:flex-row items-center gap-6">
-        <div className="bg-orange-500 p-4 rounded-3xl text-white shadow-lg shrink-0">
-          <Layers className="w-8 h-8" />
-        </div>
-        <div className="flex-1 space-y-1">
-          <h1 className="text-xl md:text-2xl font-black uppercase tracking-tight text-slate-800 italic">Anatomia do Ticket</h1>
-          <p className="text-sm text-slate-500 font-medium">
-            O que faz o cliente levar mais? Descubra os produtos que "puxam" a cesta e o comportamento real de compra.
-          </p>
-        </div>
-      </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Anatomia da Cesta */}
         <Card className="ri-card border-none bg-white shadow-xl flex flex-col">
           <CardHeader className="bg-slate-50/50 border-b p-6">
             <CardTitle className="text-xs font-black uppercase text-slate-500 flex items-center gap-2">
@@ -83,31 +70,24 @@ export function BasketBehavior({ data }: BasketBehaviorProps) {
             </CardTitle>
           </CardHeader>
           <CardContent className="p-6 space-y-8 flex-1">
-            <AnatomyItem 
-              label="Cesta Complementar" 
-              desc="Vendas de valor (R$ 100+) com mais de 1 item." 
-              count={analytics.anatomy.complementar} 
-              total={analytics.totalCount} 
-              color="bg-emerald-500"
-            />
-            <AnatomyItem 
-              label="Venda de Impulso" 
-              desc="Vendas rápidas (< R$ 50) com mais de 1 item." 
-              count={analytics.anatomy.impulso} 
-              total={analytics.totalCount} 
-              color="bg-sky-500"
-            />
-            <AnatomyItem 
-              label="Venda Solitária" 
-              desc="Oportunidades de 1 único item." 
-              count={analytics.anatomy.solitaria} 
-              total={analytics.totalCount} 
-              color="bg-rose-400"
-            />
+            <AnatomyItem label="Cesta Complementar" desc="Vendas de valor (R$ 100+) com mais de 1 item." count={analytics.anatomy.complementar} total={analytics.totalCount} color="bg-emerald-500" />
+            <AnatomyItem label="Venda de Impulso" desc="Vendas rápidas (< R$ 50) com mais de 1 item." count={analytics.anatomy.impulso} total={analytics.totalCount} color="bg-sky-500" />
+            <AnatomyItem label="Venda Solitária" desc="Oportunidades de 1 único item." count={analytics.anatomy.solitaria} total={analytics.totalCount} color="bg-rose-400" />
+            
+            <div className="pt-6 border-t border-dashed space-y-4">
+               <div className="flex items-center gap-2 text-rose-600">
+                  <AlertTriangle className="w-4 h-4" />
+                  <span className="text-[10px] font-black uppercase tracking-widest">Gargalo Detectado</span>
+               </div>
+               <p className="text-xs font-medium text-slate-600 leading-relaxed italic">
+                 {analytics.anatomy.solitaria > analytics.totalCount * 0.5 
+                   ? "Sua loja está com EXCESSO DE VENDAS UNITÁRIAS (50%+). Isso indica que a equipe está atuando apenas como 'tiradora de pedidos'. Faltam itens de checkout (pilhas, SLP) na argumentação final." 
+                   : "Distribuição Saudável: A equipe está conseguindo converter a maior parte das intenções de compra em cestas com mais de um produto."}
+               </p>
+            </div>
           </CardContent>
         </Card>
 
-        {/* SKUs Aceleradores de PA */}
         <Card className="ri-card border-none bg-white shadow-xl lg:col-span-2">
           <CardHeader className="bg-slate-900 text-white p-6">
             <div className="flex items-center justify-between">
@@ -118,27 +98,34 @@ export function BasketBehavior({ data }: BasketBehaviorProps) {
             </div>
           </CardHeader>
           <CardContent className="p-6">
-            <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {analytics.accelerators.slice(0, 6).map((sku, i) => (
                 <div key={i} className="group p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:border-orange-200 transition-all">
                   <div className="flex justify-between items-start mb-3">
                     <div className="min-w-0 pr-4">
-                      <p className="text-xs font-black text-slate-700 uppercase truncate">{sku.name}</p>
-                      <p className="text-[9px] font-bold text-slate-400 uppercase">Cód: {sku.cProd} • {sku.total} Vendas</p>
+                      <p className="text-[10px] font-black text-slate-700 uppercase truncate">{sku.name}</p>
+                      <p className="text-[8px] font-bold text-slate-400">Cód: {sku.cProd}</p>
                     </div>
                     <div className="text-right">
                       <span className="text-xs font-black text-orange-600">{sku.rate.toFixed(0)}%</span>
-                      <p className="text-[8px] font-bold text-slate-400 uppercase">Adesão</p>
                     </div>
                   </div>
                   <div className="h-1.5 bg-white rounded-full overflow-hidden shadow-inner">
-                    <div className="h-full bg-orange-500 transition-all duration-1000" style={{ width: `${sku.rate}%` }} />
+                    <div className="h-full bg-orange-500 transition-all" style={{ width: `${sku.rate}%` }} />
                   </div>
-                  <p className="text-[9px] text-slate-400 italic mt-2">
-                    "Em {sku.withOthers} de cada {sku.total} vezes que este item foi vendido, ele veio acompanhado de outros produtos."
-                  </p>
+                  <p className="text-[8px] text-slate-400 italic mt-2">"Este item puxa outras vendas {sku.rate.toFixed(0)}% das vezes."</p>
                 </div>
               ))}
+            </div>
+
+            <div className="mt-8 p-6 bg-orange-50 rounded-[2rem] border-2 border-orange-100 flex items-start gap-4">
+               <Target className="w-6 h-6 text-orange-500 shrink-0 mt-1" />
+               <div className="space-y-1">
+                  <p className="text-[10px] font-black text-orange-600 uppercase">Estratégia Sugerida</p>
+                  <p className="text-xs font-medium text-orange-800 leading-relaxed italic">
+                    Os itens acima são seus maiores aliados. Se um vendedor está com PA baixo, peça para ele focar na oferta desses SKUs específicos no balcão. Eles possuem a maior probabilidade estatística de serem aceitos como "item extra".
+                  </p>
+               </div>
             </div>
           </CardContent>
         </Card>

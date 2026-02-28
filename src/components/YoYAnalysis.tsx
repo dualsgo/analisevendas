@@ -15,7 +15,9 @@ import {
   AlertCircle,
   Settings2,
   History,
-  ShoppingBag
+  ShoppingBag,
+  Zap,
+  Info
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -124,13 +126,11 @@ export function YoYAnalysis({ data }: YoYAnalysisProps) {
 
     return {
       isReady: true,
-      ty,
-      ly,
+      ty, ly,
       diff: {
         venda: ty.venda - ly.venda,
         percVenda: (ty.venda / ly.venda - 1) * 100,
         percFluxo: (ty.cupons / ly.cupons - 1) * 100,
-        percPA: (ty.pa / ly.pa - 1) * 100,
         percTKM: (ty.tkm / ly.tkm - 1) * 100,
       },
       impacto: { pa: impactoPA, fluxo: impactoFluxo, tkm: impactoTKM },
@@ -141,41 +141,14 @@ export function YoYAnalysis({ data }: YoYAnalysisProps) {
     };
   }, [tyInput, lyInput]);
 
-  const formatBRL = (val: number) => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-20 max-w-6xl mx-auto">
-      
-      <div className="bg-white rounded-[2rem] p-6 border-2 border-indigo-100 shadow-sm space-y-3">
-        <div className="flex items-center gap-3 text-indigo-600">
-          <History className="w-6 h-6" />
-          <h1 className="text-xl md:text-2xl font-black uppercase tracking-tight">Análise de Resultado YoY</h1>
-        </div>
-        <p className="text-sm text-slate-500 font-medium leading-relaxed">
-          Compare o desempenho histórico da sua unidade. A **Engenharia de Resultado** isola o quanto você ganhou ou perdeu por conta da eficiência de venda (**TKM/PA**) ou do volume de clientes (**Fluxo**).
-        </p>
-      </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <PeriodFormCard 
-          title="Dados do Ano Atual" 
-          subtitle="Preenchimento via XML ou Manual"
-          input={tyInput} 
-          setInput={setTyInput} 
-          color="border-orange-200 bg-orange-50/20"
-          accent="orange"
-        />
-        <PeriodFormCard 
-          title="Dados do Ano Anterior" 
-          subtitle="Dados históricos para comparação"
-          input={lyInput} 
-          setInput={setLyInput} 
-          color="border-indigo-200 bg-indigo-50/20"
-          accent="indigo"
-        />
+        <PeriodFormCard title="Ano Atual (TY)" input={tyInput} setInput={setTyInput} accent="orange" />
+        <PeriodFormCard title="Ano Anterior (LY)" input={lyInput} setInput={setLyInput} accent="indigo" />
       </div>
 
-      {stats.isReady ? (
+      {stats.isReady && (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <YoYCard label="Faturamento" ty={stats.ty.venda} ly={stats.ly.venda} isCurrency icon={TrendingUp} color="text-emerald-600" />
@@ -188,87 +161,75 @@ export function YoYAnalysis({ data }: YoYAnalysisProps) {
             <Card className="ri-card border-none bg-white overflow-hidden shadow-xl lg:col-span-8">
               <CardHeader className="bg-slate-900 text-white p-6">
                 <CardTitle className="text-xs font-black uppercase tracking-widest flex items-center gap-3">
-                  <Calculator className="w-5 h-5 text-indigo-400" /> Matriz de Impacto Financeiro (R$)
+                  <Calculator className="w-5 h-5 text-indigo-400" /> Engenharia de Resultado (Impacto R$)
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-8 space-y-8">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <ImpactBox label="Impacto do Fluxo" value={stats.impacto.fluxo} desc="Contribuição do volume de tráfego." isPositive={stats.impacto.fluxo > 0} />
-                  <ImpactBox label="Impacto do Ticket (TKM)" value={stats.impacto.tkm} desc="Venda gerada/perdida pelo valor do ticket." isPositive={stats.impacto.tkm > 0} />
-                  <ImpactBox label="Peso do PA" value={stats.impacto.pa} desc="Parcela do impacto vinda da eficiência de itens." isPositive={stats.impacto.pa > 0} />
+                  <ImpactBox label="Contribuição Fluxo" value={stats.impacto.fluxo} isPositive={stats.impacto.fluxo > 0} />
+                  <ImpactBox label="Contribuição Técnica" value={stats.impacto.tkm} isPositive={stats.impacto.tkm > 0} />
+                  <ImpactBox label="Peso do PA" value={stats.impacto.pa} isPositive={stats.impacto.pa > 0} />
                 </div>
 
-                <div className="bg-slate-50 p-6 rounded-[2rem] border-2 border-dashed border-slate-200 space-y-6">
-                   <ProgressBar label="Contribuição por Fluxo" perc={stats.contrib.fluxo} color="bg-sky-500" />
-                   <ProgressBar label="Contribuição por Técnica (TKM)" perc={stats.contrib.tkm} color="bg-purple-500" />
+                <div className="p-6 bg-slate-900 rounded-[2rem] text-white space-y-4">
+                   <div className="flex items-center gap-3 text-indigo-400">
+                      <Zap className="w-5 h-5" />
+                      <span className="text-[10px] font-black uppercase tracking-widest">Diagnóstico de Gestão</span>
+                   </div>
+                   <p className="text-sm font-medium leading-relaxed opacity-90 italic">
+                     {stats.impacto.tkm > stats.impacto.fluxo 
+                       ? "Crescimento Saudável (Ativo): O resultado da loja foi 'carregado' pela técnica da equipe. Mesmo com oscilação de fluxo, o aumento de TKM/PA compensou e gerou lucro real." 
+                       : "Crescimento Perigoso (Passivo): A loja cresceu apenas porque entrou mais gente (Fluxo). A técnica de venda (TKM) está perdendo força. Se o tráfego externo cair amanhã, sua meta estará em risco total."}
+                   </p>
                 </div>
               </CardContent>
             </Card>
 
             <div className="lg:col-span-4 space-y-4">
-              <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-2">Análise Executiva</h3>
-              
-              <YoYAlert 
-                title="Status de Conclusão"
-                desc={stats.diff.percVenda > 0 
-                  ? (stats.impacto.fluxo > stats.impacto.tkm 
-                    ? "Seu crescimento é impulsionado pelo fluxo de pessoas. A equipe está operando em 'modo passivo', dependendo do tráfego externo." 
-                    : "Crescimento de alta qualidade! Sua equipe está vencendo através da técnica de venda (TKM/PA), compensando qualquer variação de fluxo.")
-                  : "O faturamento recuou. Analise a matriz ao lado para identificar se o problema foi a falta de gente na loja ou a perda de argumentação de venda."
-                }
-                type={stats.diff.percVenda > 0 ? "success" : "danger"}
-              />
+              <Card className="ri-card border-none bg-orange-50/50 p-6 space-y-4">
+                 <div className="flex items-center gap-2 text-orange-600">
+                    <Info className="w-4 h-4" />
+                    <span className="text-[10px] font-black uppercase tracking-widest">Gargalo Estratégico</span>
+                 </div>
+                 <p className="text-xs font-medium text-slate-700 leading-relaxed italic">
+                   {stats.diff.percTKM < 0 
+                     ? "Gargalo de Valor: Seu faturamento está sendo canibalizado por tickets baixos. Motivos prováveis: excesso de descontos agressivos ou falta de treinamento em itens de alto valor (Upsell)." 
+                     : "Técnica de Valor em dia. O time está conseguindo extrair mais valor de cada cliente que entra na loja."}
+                 </p>
+              </Card>
             </div>
           </div>
         </>
-      ) : (
-        <div className="h-[40vh] flex flex-col items-center justify-center space-y-4 border-2 border-dashed border-slate-200 rounded-[2rem] bg-white text-center px-6">
-          <History className="w-12 h-12 text-slate-200" />
-          <p className="text-sm font-black text-slate-400 uppercase tracking-tighter">Preencha os indicadores de ambos os anos acima</p>
-        </div>
       )}
     </div>
   );
 }
 
-function PeriodFormCard({ title, subtitle, input, setInput, color, accent }: any) {
+function PeriodFormCard({ title, input, setInput, accent }: any) {
   const handleChange = (field: keyof PeriodInput, value: string) => {
     setInput((prev: any) => ({ ...prev, [field]: value }));
   };
-
   return (
-    <Card className={cn("ri-card border-2 overflow-hidden shadow-sm", color)}>
-      <CardHeader className="bg-white border-b p-5">
-        <div className="flex items-center gap-3">
-          <div className={cn("p-2 rounded-xl text-white", accent === 'orange' ? "bg-orange-500" : "bg-indigo-500")}>
-            <Settings2 className="w-4 h-4" />
-          </div>
-          <div>
-            <CardTitle className="text-xs font-black uppercase text-slate-700 tracking-tight">{title}</CardTitle>
-            <p className="text-[9px] font-bold text-slate-400 uppercase">{subtitle}</p>
-          </div>
-        </div>
+    <Card className="ri-card border-2 border-slate-100 overflow-hidden shadow-sm">
+      <CardHeader className="bg-slate-50 border-b p-4">
+        <CardTitle className="text-[10px] font-black uppercase text-slate-500 tracking-tight">{title}</CardTitle>
       </CardHeader>
-      <CardContent className="p-5 grid grid-cols-2 md:grid-cols-3 gap-4">
-        <div className="space-y-1.5">
-          <Label className="text-[9px] font-black uppercase text-slate-400">Ano</Label>
-          <Input value={input.year} onChange={e => handleChange('year', e.target.value)} className="h-9 rounded-xl border-slate-200 font-bold text-xs" />
+      <CardContent className="p-4 grid grid-cols-2 md:grid-cols-3 gap-3">
+        <div className="space-y-1">
+          <Label className="text-[8px] font-black uppercase text-slate-400">Venda Total</Label>
+          <Input type="number" value={input.venda} onChange={e => handleChange('venda', e.target.value)} className="h-8 text-xs font-bold" />
         </div>
-        <div className="space-y-1.5">
-          <Label className="text-[9px] font-black uppercase text-slate-400">Venda Total (R$)</Label>
-          <Input type="number" value={input.venda} onChange={e => handleChange('venda', e.target.value)} className="h-9 rounded-xl border-slate-200 font-bold text-xs" />
+        <div className="space-y-1">
+          <Label className="text-[8px] font-black uppercase text-slate-400">Cupons</Label>
+          <Input type="number" value={input.cupons} onChange={e => handleChange('cupons', e.target.value)} className="h-8 text-xs font-bold" />
         </div>
-        <div className="space-y-1.5">
-          <Label className="text-[9px] font-black uppercase text-slate-400">Fluxo (Cupons)</Label>
-          <Input type="number" value={input.cupons} onChange={e => handleChange('cupons', e.target.value)} className="h-9 rounded-xl border-slate-200 font-bold text-xs" />
+        <div className="space-y-1">
+          <Label className="text-[8px] font-black uppercase text-slate-400">PA</Label>
+          <Input type="number" step="0.01" value={input.pa} onChange={e => handleChange('pa', e.target.value)} className="h-8 text-xs font-bold" />
         </div>
-        <div className="space-y-1.5">
-          <Label className="text-[9px] font-black uppercase text-slate-400">PA (Peças/Atend)</Label>
-          <Input type="number" step="0.01" value={input.pa} onChange={e => handleChange('pa', e.target.value)} className="h-9 rounded-xl border-slate-200 font-bold text-xs" />
-        </div>
-        <div className="space-y-1.5">
-          <Label className="text-[9px] font-black uppercase text-slate-400">Ticket Médio (R$)</Label>
-          <Input type="number" step="0.01" value={input.tkm} onChange={e => handleChange('tkm', e.target.value)} className="h-9 rounded-xl border-slate-200 font-bold text-xs" />
+        <div className="space-y-1">
+          <Label className="text-[8px] font-black uppercase text-slate-400">TKM</Label>
+          <Input type="number" step="0.01" value={input.tkm} onChange={e => handleChange('tkm', e.target.value)} className="h-8 text-xs font-bold" />
         </div>
       </CardContent>
     </Card>
@@ -278,68 +239,27 @@ function PeriodFormCard({ title, subtitle, input, setInput, color, accent }: any
 function YoYCard({ label, ty, ly, isCurrency = false, icon: Icon, color, precision = 0 }: any) {
   const perc = ly > 0 ? (ty / ly - 1) * 100 : 0;
   const isPositive = ty > ly;
-  const formatValue = (v: number) => isCurrency ? v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : v.toFixed(precision);
-
   return (
-    <Card className="ri-card border-none bg-white p-5 space-y-4 shadow-sm">
-      <div className="flex items-center justify-between">
-        <div className={cn("p-2 rounded-xl bg-slate-50", color)}><Icon className="w-5 h-5" /></div>
-        <Badge className={cn("font-black text-[10px] border-none px-2 h-5", isPositive ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700")}>
+    <Card className="ri-card border-none bg-white p-4 shadow-sm text-center items-center flex flex-col justify-center gap-3">
+      <div className={cn("p-2 rounded-xl bg-slate-50", color)}><Icon className="w-5 h-5" /></div>
+      <div>
+        <p className="text-[8px] font-black text-slate-400 uppercase mb-1">{label}</p>
+        <p className="text-lg font-black text-slate-800">{isCurrency ? ty.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : ty.toFixed(precision)}</p>
+        <Badge className={cn("mt-1 text-[8px] font-black border-none h-4", isPositive ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700")}>
           {perc > 0 ? "+" : ""}{perc.toFixed(1)}%
         </Badge>
-      </div>
-      <div>
-        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 leading-none">{label}</p>
-        <div className="flex items-baseline gap-2">
-          <p className="text-xl font-black text-slate-800 tracking-tighter">{formatValue(ty)}</p>
-          <p className="text-[9px] font-bold text-slate-300 line-through">LY: {formatValue(ly)}</p>
-        </div>
       </div>
     </Card>
   );
 }
 
-function ImpactBox({ label, value, desc, isPositive }: any) {
+function ImpactBox({ label, value, isPositive }: any) {
   return (
-    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
-      <p className="text-[10px] font-black text-slate-500 uppercase leading-none">{label}</p>
-      <p className={cn("text-lg font-black", isPositive ? "text-emerald-600" : "text-rose-600")}>
+    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-center space-y-1">
+      <p className="text-[8px] font-black text-slate-500 uppercase">{label}</p>
+      <p className={cn("text-sm font-black", isPositive ? "text-emerald-600" : "text-rose-600")}>
         {isPositive ? "+" : ""}{value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
       </p>
-      <p className="text-[9px] text-slate-400 leading-tight font-medium">{desc}</p>
-    </div>
-  );
-}
-
-function ProgressBar({ label, perc, color }: any) {
-  const displayPerc = Math.min(100, Math.max(5, Math.abs(perc)));
-  return (
-    <div className="space-y-1.5">
-      <div className="flex justify-between items-end">
-        <span className="text-[10px] font-black text-slate-600 uppercase">{label}</span>
-        <span className={cn("text-xs font-black", perc > 0 ? "text-emerald-600" : "text-rose-600")}>{perc.toFixed(1)}%</span>
-      </div>
-      <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
-        <div className={cn("h-full rounded-full transition-all duration-1000", color)} style={{ width: `${displayPerc}%` }} />
-      </div>
-    </div>
-  );
-}
-
-function YoYAlert({ title, desc, type }: { title: string, desc: string, type: 'danger' | 'success' }) {
-  const styles = {
-    danger: "bg-rose-50 border-rose-200 text-rose-800",
-    success: "bg-emerald-50 border-emerald-200 text-emerald-800"
-  };
-  const Icon = type === 'success' ? TrendingUp : AlertCircle;
-
-  return (
-    <div className={cn("p-4 rounded-2xl border-2 space-y-1 shadow-sm", styles[type])}>
-      <div className="flex items-center gap-2">
-        <Icon className="w-4 h-4" />
-        <h4 className="text-[10px] font-black uppercase tracking-tight">{title}</h4>
-      </div>
-      <p className="text-[11px] font-medium leading-relaxed opacity-90">{desc}</p>
     </div>
   );
 }

@@ -16,7 +16,8 @@ import {
   Smartphone, 
   ArrowRightLeft,
   Info,
-  Calendar
+  Calendar,
+  Sigma
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { parseISO, getHours, getDay } from "date-fns";
@@ -77,7 +78,7 @@ export function HeatmapAnalysis({ data, vinculos }: HeatmapAnalysisProps) {
           return sumB - sumA;
         });
 
-    // Achar o valor máximo para a escala de cores
+    // Achar o valor máximo para a escala de cores (apenas dados individuais, não o total)
     let maxVal = 0;
     Object.values(grid).forEach(row => {
       Object.values(row).forEach(v => {
@@ -85,7 +86,17 @@ export function HeatmapAnalysis({ data, vinculos }: HeatmapAnalysisProps) {
       });
     });
 
-    return { grid, sortedRowKeys, maxVal };
+    // Calcular Totais por Hora (Rodapé)
+    const hourTotals: Record<number, number> = {};
+    HOURS.forEach(h => {
+      let total = 0;
+      sortedRowKeys.forEach(rowKey => {
+        total += grid[rowKey]?.[h] || 0;
+      });
+      hourTotals[h] = total;
+    });
+
+    return { grid, sortedRowKeys, maxVal, hourTotals };
   }, [data, category, metric, grouping]);
 
   const getColor = (value: number, max: number) => {
@@ -245,6 +256,27 @@ export function HeatmapAnalysis({ data, vinculos }: HeatmapAnalysisProps) {
                     </div>
                   </div>
                 ))}
+              </div>
+
+              {/* RODAPÉ DE TOTAIS CONSOLIDADOS */}
+              <div className="flex bg-slate-900 text-white border-t border-slate-800 sticky bottom-0 z-10 shadow-[0_-4px_10px_rgba(0,0,0,0.1)]">
+                <div className="w-40 md:w-48 p-4 shrink-0 border-r border-slate-800 flex items-center justify-center gap-2">
+                  <Sigma className="w-3.5 h-3.5 text-orange-400" />
+                  <span className="text-[10px] font-black uppercase">Consolidado</span>
+                </div>
+                <div className="flex-1 grid grid-cols-15">
+                  {HOURS.map(h => {
+                    const total = heatmapData.hourTotals[h] || 0;
+                    return (
+                      <div key={h} className="p-3 h-16 text-center border-r border-slate-800 last:border-r-0 flex flex-col items-center justify-center bg-slate-900">
+                        <span className="text-[8px] font-bold text-orange-400 uppercase mb-1 leading-none">{h}h</span>
+                        <span className="text-[10px] font-black text-white leading-none">
+                          {total > 0 ? (metric === 'value' ? formatBRL(total) : total) : "---"}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           </CardContent>

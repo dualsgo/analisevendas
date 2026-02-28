@@ -67,17 +67,18 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
     const idenLoja = fisicaEAdicional.filter(r => r.cpf_cnpj_dest && r.cpf_cnpj_dest.trim() !== "").length;
 
     // Métricas de Adicional para Conversão
-    const adicionais = fisicaEAdicional.filter(r => r.canal === "RETIRADA_ADICIONAL" || r.is_adicional || r.is_adicional_suspeito);
-    const cAdicional = adicionais.length;
+    const adicionaisTotal = fisicaEAdicional.filter(r => r.canal === "RETIRADA_ADICIONAL" || r.is_adicional || r.is_adicional_suspeito);
+    const cAdicional = adicionaisTotal.length;
 
     // Pickup
     const convPickup = online.length > 0 ? (cAdicional / online.length) * 100 : 0;
 
-    // Mapeamento de Pickups para Clientes (Proxy para quando o XML não traz o nome do colaborador na retirada)
-    const onlinePerCustomer = new Map<string, number>();
+    // Mapeamento de Pickups por CPF para atribuição inteligente
+    const onlinePerCustomer = new Map<string, string[]>();
     online.forEach(p => {
       if (p.cpf_cnpj_dest) {
-        onlinePerCustomer.set(p.cpf_cnpj_dest, (onlinePerCustomer.get(p.cpf_cnpj_dest) || 0) + 1);
+        if (!onlinePerCustomer.has(p.cpf_cnpj_dest)) onlinePerCustomer.set(p.cpf_cnpj_dest, []);
+        onlinePerCustomer.get(p.cpf_cnpj_dest)!.push(p.chave);
       }
     });
 
@@ -87,7 +88,10 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
     
     fisicaEAdicional.forEach(r => {
       const name = r.vendedor || "COLABORADOR";
-      if (!collaborators[name]) collaborators[name] = { venda: 0, cupons: 0, itens: 0, ident: 0, adicionais: 0, pickups: 0 };
+      if (!collaborators[name]) collaborators[name] = { 
+        venda: 0, cupons: 0, itens: 0, ident: 0, adicionais: 0, pickups: 0,
+        explicitPickupKeys: new Set<string>() 
+      };
       collaborators[name].venda += parseFloat(r.vNF);
       collaborators[name].cupons += 1;
       collaborators[name].itens += parseFloat(r.itens_qtd);
@@ -100,18 +104,25 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
       
       if (r.is_adicional || r.is_adicional_suspeito || r.canal === "RETIRADA_ADICIONAL") {
         collaborators[name].adicionais += 1;
+        if (r.chave_retirada_associada) {
+          collaborators[name].explicitPickupKeys.add(r.chave_retirada_associada);
+        }
       }
     });
 
-    // Atribuir Pickups aos Colaboradores via CPF (atendimentos realizados no dia)
-    collabCustomers.forEach((customers, name) => {
-      let totalPotentialPickups = 0;
-      customers.forEach(cpf => {
-        totalPotentialPickups += onlinePerCustomer.get(cpf) || 0;
-      });
-      if (collaborators[name]) {
-        collaborators[name].pickups = totalPotentialPickups;
+    // Atribuir Pickups aos Colaboradores (Total de atendimentos de retirada que o colaborador 'viu')
+    Object.keys(collaborators).forEach(name => {
+      const uniquePickupsHandled = new Set<string>(collaborators[name].explicitPickupKeys);
+      
+      const customerCPFs = collabCustomers.get(name);
+      if (customerCPFs) {
+        customerCPFs.forEach(cpf => {
+          const keys = onlinePerCustomer.get(cpf) || [];
+          keys.forEach(k => uniquePickupsHandled.add(k));
+        });
       }
+      
+      collaborators[name].pickups = uniquePickupsHandled.size;
     });
 
     const vendorPerformanceList = Object.entries(collaborators)
@@ -160,8 +171,8 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
         return `${e("📊")}*Resultado Unidade – ${dateStr}*\n\n` +
           `${e("💰")}*Venda:* ${formatBRL(metrics.venda)}\n` +
           `${e("🎯")}*PA:* ${metrics.pa.toFixed(2)} | ${e("💳")}*TKM:* ${formatBRL(metrics.tkm)}\n` +
-          `${e("🆔")}*Ident:* ${metrics.cadastros.toFixed(1)}% | ${e("🚚")}*Pks:* ${metrics.retiradas}\n` +
-          `${e("🎯")}*Conv:* ${metrics.convPickup.toFixed(1)}% | ${e("🔄")}*Trocas:* ${metrics.trocas}\n\n` +
+          `${e("🆔")}*Ident:* ${metrics.cadastros.toFixed(1)}% | ${e("🔄")}*Trocas:* ${metrics.trocas}\n` +
+          `${e("🚚")}*Pks:* ${metrics.retiradas} | ${e("➕")}*Adic:* ${metrics.adicionais} (${metrics.convPickup.toFixed(1)}%)\n\n` +
           `_(Faturamento presencial + adicional)_`;
 
       case 'VENDOR_PERFORMANCE':
@@ -177,9 +188,9 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
 
       case 'PICKUP_CONVERSION':
         return `${e("🚚")}*Relatório Pickup – ${dateStr}*\n\n` +
-          `${e("📦")}*Retiradas:* ${metrics.retiradas}\n` +
-          `${e("➕")}*Adicionais:* ${metrics.adicionais}\n` +
-          `${e("📊")}*Conversão:* ${metrics.convPickup.toFixed(1)}%`;
+          `${e("📦")}*Retiradas Totais:* ${metrics.retiradas}\n` +
+          `${e("➕")}*Com Adicional:* ${metrics.adicionais}\n` +
+          `${e("📊")}*Conversão Geral:* ${metrics.convPickup.toFixed(1)}%`;
 
       case 'DAILY_CLOSING':
         const highlights: Record<string, string[]> = {};

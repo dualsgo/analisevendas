@@ -16,7 +16,10 @@ import {
   Dizzy,
   Sparkles,
   Info,
-  AlertTriangle
+  AlertTriangle,
+  Users,
+  Award,
+  UserX
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -30,16 +33,35 @@ export function BasketBehavior({ data }: BasketBehaviorProps) {
     const totalCount = activeSales.length;
 
     const skuMap: Record<string, { name: string, alone: number, withOthers: number }> = {};
+    const vendorsMap: Record<string, any> = {};
     
     activeSales.forEach(sale => {
       const items = sale.itens;
       const isMulti = items.length > 1 || (items.length === 1 && items[0].qCom > 1);
-      
+      const vName = sale.vendedor || "OUTROS";
+      const value = parseFloat(sale.vNF);
+      const qItens = parseInt(sale.itens_qtd);
+
+      // SKU Analysis
       items.forEach(it => {
         if (!skuMap[it.cProd]) skuMap[it.cProd] = { name: it.xProd, alone: 0, withOthers: 0 };
         if (isMulti) skuMap[it.cProd].withOthers++;
         else skuMap[it.cProd].alone++;
       });
+
+      // Vendor Analysis
+      if (!vendorsMap[vName]) vendorsMap[vName] = { 
+        name: vName, 
+        total: 0, 
+        solitaria: 0, 
+        complementar: 0, 
+        impulso: 0 
+      };
+      
+      vendorsMap[vName].total++;
+      if (qItens === 1) vendorsMap[vName].solitaria++;
+      else if (value >= 100) vendorsMap[vName].complementar++;
+      else if (value < 50) vendorsMap[vName].impulso++;
     });
 
     const accelerators = Object.values(skuMap)
@@ -51,35 +73,44 @@ export function BasketBehavior({ data }: BasketBehaviorProps) {
       .filter(s => s.total >= 3)
       .sort((a, b) => b.rate - a.rate);
 
+    const vendorRanking = Object.values(vendorsMap).map((v: any) => ({
+      ...v,
+      solitariaRate: (v.solitaria / v.total) * 100,
+      complementarRate: (v.complementar / v.total) * 100
+    })).sort((a, b) => b.solitariaRate - a.solitariaRate);
+
     const anatomy = {
       impulso: activeSales.filter(s => parseFloat(s.vNF) < 50 && parseInt(s.itens_qtd) > 1).length,
       complementar: activeSales.filter(s => parseFloat(s.vNF) >= 100 && parseInt(s.itens_qtd) > 1).length,
       solitaria: activeSales.filter(s => parseInt(s.itens_qtd) === 1).length
     };
 
-    return { accelerators, anatomy, totalCount };
+    return { accelerators, anatomy, totalCount, vendorRanking };
   }, [data]);
+
+  const avgSolitariaRate = analytics.totalCount > 0 ? (analytics.anatomy.solitaria / analytics.totalCount) * 100 : 0;
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-20">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Composição Global */}
         <Card className="ri-card border-none bg-white shadow-xl flex flex-col">
           <CardHeader className="bg-slate-50/50 border-b p-6">
-            <CardTitle className="text-xs font-black uppercase text-slate-500 flex items-center gap-2">
+            <CardTitle className="text-xs font-black uppercase text-slate-500 flex items-center justify-center gap-2">
               <ShoppingBag className="w-4 h-4" /> Composição de Atendimento
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-6 space-y-8 flex-1">
+          <CardContent className="p-6 space-y-8 flex-1 flex flex-col justify-center">
             <AnatomyItem label="Cesta Complementar" desc="Vendas de valor (R$ 100+) com mais de 1 item." count={analytics.anatomy.complementar} total={analytics.totalCount} color="bg-emerald-500" />
             <AnatomyItem label="Venda de Impulso" desc="Vendas rápidas (< R$ 50) com mais de 1 item." count={analytics.anatomy.impulso} total={analytics.totalCount} color="bg-sky-500" />
             <AnatomyItem label="Venda Solitária" desc="Oportunidades de 1 único item." count={analytics.anatomy.solitaria} total={analytics.totalCount} color="bg-rose-400" />
             
             <div className="pt-6 border-t border-dashed space-y-4">
-               <div className="flex items-center gap-2 text-rose-600">
+               <div className="flex items-center gap-2 text-rose-600 justify-center">
                   <AlertTriangle className="w-4 h-4" />
-                  <span className="text-[10px] font-black uppercase tracking-widest">Gargalo Detectado</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest">Diagnóstico de Atendimento</span>
                </div>
-               <p className="text-xs font-medium text-slate-600 leading-relaxed italic">
+               <p className="text-xs font-medium text-slate-600 leading-relaxed italic text-center">
                  {analytics.anatomy.solitaria > analytics.totalCount * 0.5 
                    ? "Sua loja está com EXCESSO DE VENDAS UNITÁRIAS (50%+). Isso indica que a equipe está atuando apenas como 'tiradora de pedidos'. Faltam itens de checkout (pilhas, SLP) na argumentação final." 
                    : "Distribuição Saudável: A equipe está conseguindo converter a maior parte das intenções de compra em cestas com mais de um produto."}
@@ -88,6 +119,7 @@ export function BasketBehavior({ data }: BasketBehaviorProps) {
           </CardContent>
         </Card>
 
+        {/* Aceleradores de PA (Produtos) */}
         <Card className="ri-card border-none bg-white shadow-xl lg:col-span-2">
           <CardHeader className="bg-slate-900 text-white p-6">
             <div className="flex items-center justify-between">
@@ -100,7 +132,7 @@ export function BasketBehavior({ data }: BasketBehaviorProps) {
           <CardContent className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {analytics.accelerators.slice(0, 6).map((sku, i) => (
-                <div key={i} className="group p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:border-orange-200 transition-all">
+                <div key={i} className="group p-4 bg-slate-50 rounded-2xl border border-slate-100 hover:border-orange-200 transition-all flex flex-col justify-center">
                   <div className="flex justify-between items-start mb-3">
                     <div className="min-w-0 pr-4">
                       <p className="text-[10px] font-black text-slate-700 uppercase truncate">{sku.name}</p>
@@ -113,7 +145,7 @@ export function BasketBehavior({ data }: BasketBehaviorProps) {
                   <div className="h-1.5 bg-white rounded-full overflow-hidden shadow-inner">
                     <div className="h-full bg-orange-500 transition-all" style={{ width: `${sku.rate}%` }} />
                   </div>
-                  <p className="text-[8px] text-slate-400 italic mt-2">"Este item puxa outras vendas {sku.rate.toFixed(0)}% das vezes."</p>
+                  <p className="text-[8px] text-slate-400 italic mt-2 text-center">"Puxa outras vendas {sku.rate.toFixed(0)}% das vezes."</p>
                 </div>
               ))}
             </div>
@@ -121,14 +153,81 @@ export function BasketBehavior({ data }: BasketBehaviorProps) {
             <div className="mt-8 p-6 bg-orange-50 rounded-[2rem] border-2 border-orange-100 flex items-start gap-4">
                <Target className="w-6 h-6 text-orange-500 shrink-0 mt-1" />
                <div className="space-y-1">
-                  <p className="text-[10px] font-black text-orange-600 uppercase">Estratégia Sugerida</p>
+                  <p className="text-[10px] font-black text-orange-600 uppercase">Estratégia de Balcão</p>
                   <p className="text-xs font-medium text-orange-800 leading-relaxed italic">
-                    Os itens acima são seus maiores aliados. Se um vendedor está com PA baixo, peça para ele focar na oferta desses SKUs específicos no balcão. Eles possuem a maior probabilidade estatística de serem aceitos como "item extra".
+                    Os itens acima são seus maiores aliados. Se um vendedor está com PA baixo, peça para ele focar na oferta desses SKUs específicos no checkout.
                   </p>
                </div>
             </div>
           </CardContent>
         </Card>
+      </div>
+
+      {/* NOVO: Ranking por Colaborador - FOCO EM ATUAÇÃO */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between px-2">
+          <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">
+            <Users className="w-4 h-4" /> Perfil de Atendimento por Equipe
+          </h3>
+          <Badge variant="outline" className="text-[9px] font-black uppercase text-slate-400">Média Unidade: {avgSolitariaRate.toFixed(1)}% Unitárias</Badge>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {analytics.vendorRanking.map((v, i) => {
+            const isHighSolitaria = v.solitariaRate > avgSolitariaRate + 5;
+            const isMestreCesta = v.complementarRate > 20;
+
+            return (
+              <Card key={i} className={cn(
+                "ri-card border-none bg-white p-5 space-y-4 transition-all hover:shadow-lg",
+                isHighSolitaria ? "border-l-4 border-l-rose-500" : (isMestreCesta ? "border-l-4 border-l-emerald-500" : "")
+              )}>
+                <div className="flex justify-between items-start">
+                  <div className="min-w-0">
+                    <h4 className="text-xs font-black text-slate-800 uppercase truncate">{v.name}</h4>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase">{v.total} Atendimentos</p>
+                  </div>
+                  {isHighSolitaria ? (
+                    <div className="p-1.5 bg-rose-50 rounded-lg text-rose-500" title="Tirador de Pedidos"><UserX className="w-4 h-4" /></div>
+                  ) : isMestreCesta ? (
+                    <div className="p-1.5 bg-emerald-50 rounded-lg text-emerald-500" title="Mestre de Cesta"><Award className="w-4 h-4" /></div>
+                  ) : null}
+                </div>
+
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-[9px] font-black uppercase">
+                      <span className="text-slate-400">Vendas Solitárias</span>
+                      <span className={cn(isHighSolitaria ? "text-rose-600" : "text-slate-600")}>{v.solitariaRate.toFixed(1)}%</span>
+                    </div>
+                    <Progress value={v.solitariaRate} className={cn("h-1.5", isHighSolitaria ? "bg-rose-100" : "bg-slate-100")} />
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-[9px] font-black uppercase">
+                      <span className="text-slate-400">Cestas de Valor</span>
+                      <span className="text-emerald-600">{v.complementarRate.toFixed(1)}%</span>
+                    </div>
+                    <Progress value={v.complementarRate} className="h-1.5 bg-emerald-50" />
+                  </div>
+                </div>
+
+                <div className="pt-2">
+                  <p className={cn(
+                    "text-[9px] font-bold italic text-center",
+                    isHighSolitaria ? "text-rose-500" : "text-slate-400"
+                  )}>
+                    {isHighSolitaria 
+                      ? "Gargalo: Atuando apenas na entrega do produto planejado. Falta oferta ativa." 
+                      : isMestreCesta 
+                        ? "Referência: Alta eficiência em agregar valor e acessórios no cupom."
+                        : "Perfil Equilibrado: Mantém a média de complexidade da unidade."}
+                  </p>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
@@ -137,9 +236,9 @@ export function BasketBehavior({ data }: BasketBehaviorProps) {
 function AnatomyItem({ label, desc, count, total, color }: any) {
   const perc = total > 0 ? (count / total) * 100 : 0;
   return (
-    <div className="space-y-2">
-      <div className="flex justify-between items-end">
-        <div>
+    <div className="space-y-2 text-center flex flex-col items-center">
+      <div className="flex justify-between items-end w-full">
+        <div className="text-left">
           <p className="text-[10px] font-black text-slate-700 uppercase">{label}</p>
           <p className="text-[8px] font-medium text-slate-400 leading-tight">{desc}</p>
         </div>

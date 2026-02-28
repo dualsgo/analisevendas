@@ -1,3 +1,4 @@
+
 "use client";
 
 import { UploadZone } from "@/components/UploadZone";
@@ -6,7 +7,7 @@ import { UploadDiagnosis } from "@/components/UploadDiagnosis";
 import { Toaster } from "@/components/ui/toaster";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
-import { Loader2, Sparkles } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { Header } from "@/components/Header";
 import { UploadHistory } from "@/components/UploadHistory";
 import { useSalesProcessor } from "@/hooks/useSalesProcessor";
@@ -28,7 +29,6 @@ export default function Home() {
   return (
     <SidebarProvider>
       <main className="h-screen w-full bg-amber-50/30 font-body flex flex-col overflow-hidden">
-        {/* Header Fixo Ri Happy Style */}
         <Header 
           status={status} 
           fileStats={fileStats} 
@@ -42,7 +42,6 @@ export default function Home() {
                 "w-full max-w-6xl flex flex-col gap-6",
                 history.length > 0 && "lg:grid lg:grid-cols-12 lg:gap-8 items-start"
               )}>
-                {/* Seção de Upload */}
                 <section className={cn(
                   "bg-white rounded-[2rem] md:rounded-[3rem] shadow-2xl shadow-orange-100/50 border-4 border-white p-6 md:p-10 text-center animate-in zoom-in duration-500",
                   history.length > 0 ? "lg:col-span-7" : "max-w-2xl mx-auto w-full"
@@ -51,7 +50,7 @@ export default function Home() {
                     <div className="inline-block bg-orange-100 text-orange-600 px-4 py-1.5 rounded-full text-[9px] md:text-[10px] font-black uppercase mb-4 tracking-widest">Início da Jornada</div>
                     <h2 className="text-xl md:text-3xl font-black text-slate-800 tracking-tighter mb-2 leading-tight uppercase">Pronto para encontrar oportunidades?</h2>
                     <p className="text-slate-500 font-medium text-xs md:text-sm leading-relaxed max-w-md mx-auto">
-                      Arraste seus pacotes <span className="text-orange-500 font-bold">ZIP</span> ou <span className="text-orange-500 font-bold">XMLs</span>. O Solzinho fará o resto!
+                      Arraste seus pacotes <span className="text-orange-500 font-bold">ZIP</span> ou <span className="text-orange-500 font-bold">XMLs</span>. O sistema fará o resto!
                     </p>
                   </div>
                   
@@ -61,14 +60,12 @@ export default function Home() {
                     <div className="mt-8 flex flex-col items-center gap-4 text-orange-600">
                       <div className="relative">
                          <Loader2 className="w-10 h-10 md:w-12 h-12 animate-spin opacity-20" />
-                         <Sparkles className="w-5 h-5 md:w-6 h-6 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-bounce" />
                       </div>
                       <span className="text-xs md:text-sm font-black animate-pulse tracking-tight uppercase">Analisando nota por nota...</span>
                     </div>
                   )}
                 </section>
 
-                {/* Histórico de Uploads */}
                 {status === "idle" && (
                   <UploadHistory 
                     history={history} 

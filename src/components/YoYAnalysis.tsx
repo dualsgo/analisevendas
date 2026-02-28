@@ -1,32 +1,23 @@
+
 "use client";
 
 import React, { useMemo, useState, useEffect } from "react";
 import { DetailedSaleRow } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { 
-  ArrowUpRight, 
   TrendingUp, 
   Users, 
   Target, 
   Calculator,
   AlertCircle,
-  Sparkles,
-  Loader2,
-  BrainCircuit,
   Settings2,
   History,
-  ArrowRight,
-  Zap,
-  ShoppingBag,
-  AlertTriangle
+  ShoppingBag
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { aiYoYConsiderations } from "@/ai/flows/ai-yoy-considerations-flow";
 
 interface YoYAnalysisProps {
   data: DetailedSaleRow[];
@@ -56,10 +47,6 @@ export function YoYAnalysis({ data }: YoYAnalysisProps) {
     pa: "",
     tkm: ""
   });
-
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiResult, setAiResult] = useState<any>(null);
-  const [aiError, setAiError] = useState<string | null>(null);
 
   useEffect(() => {
     const activeSales = data.filter(s => !s.is_cancelada && s.tpNF === 1);
@@ -123,7 +110,6 @@ export function YoYAnalysis({ data }: YoYAnalysisProps) {
     const isReady = ty.venda > 0 && ly.venda > 0;
     if (!isReady) return { isReady: false };
 
-    // --- DECOMPOSIÇÃO E IMPACTO ---
     const vendaSimuladaTKM = ty.cupons * ly.tkm;
     const impactoTKM = ty.venda - vendaSimuladaTKM;
 
@@ -154,33 +140,6 @@ export function YoYAnalysis({ data }: YoYAnalysisProps) {
       }
     };
   }, [tyInput, lyInput]);
-
-  const handleGenerateAI = async () => {
-    if (!stats.isReady) return;
-    setAiLoading(true);
-    setAiError(null);
-    try {
-      const context = `Comparação entre ${stats.ly.year} e ${stats.ty.year}. Variação Venda: ${stats.diff.percVenda.toFixed(1)}%. Impacto Fluxo: R$ ${stats.impacto.fluxo.toFixed(2)}, Impacto TKM: R$ ${stats.impacto.tkm.toFixed(2)}, Impacto Eficiência (PA): R$ ${stats.impacto.pa.toFixed(2)}.`;
-      const result = await aiYoYConsiderations({
-        metrics: {
-          vendaVarPerc: stats.diff.percVenda,
-          fluxoVarPerc: stats.diff.percFluxo,
-          paVarPerc: stats.diff.percPA,
-          tkmVarPerc: stats.diff.percTKM,
-          impactoPA: stats.impacto.pa,
-          impactoFluxo: stats.impacto.fluxo,
-          impactoTKM: stats.impacto.tkm,
-        },
-        context
-      });
-      setAiResult(result);
-    } catch (e) {
-      console.error(e);
-      setAiError("Não foi possível gerar considerações automáticas agora. Os cálculos matemáticos acima continuam válidos.");
-    } finally {
-      setAiLoading(false);
-    }
-  };
 
   const formatBRL = (val: number) => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
@@ -259,50 +218,6 @@ export function YoYAnalysis({ data }: YoYAnalysisProps) {
                 }
                 type={stats.diff.percVenda > 0 ? "success" : "danger"}
               />
-
-              {aiError && (
-                <Alert variant="destructive" className="bg-amber-50 border-amber-200 text-amber-800 rounded-2xl">
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertTitle className="font-black uppercase text-[10px]">IA Indisponível</AlertTitle>
-                  <AlertDescription className="text-[10px] font-medium leading-tight">
-                    {aiError}
-                  </AlertDescription>
-                </Alert>
-              )}
-
-              {!aiResult ? (
-                <Button 
-                  onClick={handleGenerateAI}
-                  disabled={aiLoading}
-                  className="w-full h-24 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl flex-col gap-2 shadow-xl shadow-indigo-200 group"
-                >
-                  {aiLoading ? (
-                    <>
-                      <Loader2 className="w-6 h-6 animate-spin" />
-                      <span className="text-[10px] font-black uppercase">Calculando Estratégia...</span>
-                    </>
-                  ) : (
-                    <>
-                      <BrainCircuit className="w-6 h-6 animate-pulse" />
-                      <span className="text-xs font-black uppercase">Gerar Considerações IA</span>
-                    </>
-                  )}
-                </Button>
-              ) : (
-                <Card className="ri-card border-none bg-indigo-50 p-6 space-y-4 animate-in slide-in-from-bottom-2">
-                  <div className="flex items-center gap-2 text-indigo-600">
-                    <Sparkles className="w-5 h-5" />
-                    <h4 className="text-[10px] font-black uppercase">Visão do Solzinho</h4>
-                  </div>
-                  <div className="space-y-4">
-                    <p className="text-xs font-medium text-slate-700 leading-relaxed">{aiResult.analysis}</p>
-                    <div className="p-3 bg-white rounded-xl border border-indigo-100">
-                      <p className="text-[9px] font-black text-indigo-600 uppercase mb-1">Ação Sugerida</p>
-                      <p className="text-xs font-bold text-slate-800">{aiResult.suggestion}</p>
-                    </div>
-                  </div>
-                </Card>
-              )}
             </div>
           </div>
         </>

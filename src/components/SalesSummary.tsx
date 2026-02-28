@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useMemo, useState } from "react";
@@ -19,8 +20,6 @@ import {
   Calendar as CalendarIcon,
   Smartphone,
   Zap,
-  CheckCircle2,
-  Circle,
   UserCheck,
   Award,
   Percent,
@@ -28,14 +27,10 @@ import {
   Layers,
   Activity,
   ShieldAlert,
-  Users,
   ShieldCheck,
-  BrainCircuit,
-  MessageSquare,
   TrendingUp,
   LineChart,
   Boxes,
-  ActivitySquare,
   History,
   ShoppingBag,
   Sword,
@@ -65,14 +60,10 @@ import { SalesComposition } from "./SalesComposition";
 import { OperationalProductivity } from "./OperationalProductivity";
 import { RiskRadar } from "./RiskRadar";
 import { ComplianceAudit } from "./ComplianceAudit";
-import { AISummary } from "./AISummary";
-import { AIChat } from "./AIChat";
 import { ElasticityAnalysis } from "./ElasticityAnalysis";
 import { AdvancedAnalytics } from "./AdvancedAnalytics";
 import { QualityAnalysis } from "./QualityAnalysis";
-import { BottleneckDiagnosis } from "./BottleneckDiagnosis";
 import { YoYAnalysis } from "./YoYAnalysis";
-import { TeamProductivityAI } from "./TeamProductivityAI";
 import { AdditionalItemsAnalysis } from "./AdditionalItemsAnalysis";
 import { CollaboratorGamification } from "./CollaboratorGamification";
 import { ConsolidatedReport } from "./ConsolidatedReport";
@@ -90,7 +81,6 @@ const formatCurrency = (val: number | string, isMobile = false) => {
   return num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 };
 
-// Dicionário de Insights Estratégicos por Aba
 const TAB_INSIGHTS: Record<string, { title: string; desc: string }> = {
   geral: {
     title: "Visão Macro da Unidade",
@@ -108,21 +98,9 @@ const TAB_INSIGHTS: Record<string, { title: string; desc: string }> = {
     title: "Análise de Checkout (SLP & Social)",
     desc: "Vender o brinquedo principal é o esperado. Garantir o SLP e a Ação Social é o que traz a rentabilidade extra."
   },
-  diagnostico_gargalo: {
-    title: "Diagnóstico de Limitadores",
-    desc: "Análise profunda de gargalos. Resolvendo o limitador principal, os outros KPIs sobem por gravidade."
-  },
-  ai_insights: {
-    title: "Motor Genkit Ativado",
-    desc: "Cruzando dados de auditoria e vendas para encontrar oportunidades que os números sozinhos não mostram."
-  },
   yoy_analise: {
     title: "Engenharia de Resultado",
     desc: "Identifique se o crescimento é fruto do esforço técnico da equipe ou apenas fluxo de mercado."
-  },
-  ai_chat: {
-    title: "Copiloto Estratégico",
-    desc: "Consultoria digital em tempo real. Pergunte qualquer coisa sobre os indicadores da sua unidade."
   },
   diario: {
     title: "Ritmo da Operação",
@@ -209,7 +187,6 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
 
   const currentInsight = TAB_INSIGHTS[activeTab] || TAB_INSIGHTS.geral;
 
-  // Cálculo de Métricas Fixas por Canal
   const metricsByChannel = useMemo(() => {
     const saidas = data.filter(r => r.tpNF === 1 && !r.is_devolucao && !r.is_cancelada);
     
@@ -301,10 +278,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
     { id: "consolidado", label: "Relatório Consolidado", icon: ClipboardList, color: "text-emerald-600 font-black" },
     { id: "gamification", label: "Arena de Talentos", icon: Sword, color: "text-yellow-500 font-black" },
     { id: "venda_sugestiva", label: "SLP & Social", icon: ShoppingBag, color: "text-orange-600 font-black" },
-    { id: "diagnostico_gargalo", label: "Diagnóstico Gargalo", icon: ActivitySquare, color: "text-rose-600 font-black" },
-    { id: "ai_insights", label: "Insights IA", icon: BrainCircuit, color: "text-orange-500 font-black" },
     { id: "yoy_analise", label: "Resultado YoY", icon: History, color: "text-indigo-600 font-bold" },
-    { id: "ai_chat", label: "Chat Estratégico", icon: MessageSquare, color: "text-sky-500 font-bold" },
     { id: "diario", label: "Performance Diária", icon: CalendarIcon },
     { id: "performance_vendedores", label: "Performance Colaboradores", icon: Award },
     { id: "elasticidade", label: "Elasticidade Desconto", icon: LineChart, color: "text-amber-600" },
@@ -373,8 +347,6 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
       case "consolidado": return <ConsolidatedReport data={data} vinculos={vinculos} />;
       case "gamification": return <CollaboratorGamification data={data} vinculos={vinculos} />;
       case "venda_sugestiva": return <AdditionalItemsAnalysis data={data} />;
-      case "ai_insights": return <AISummary data={data} vinculos={vinculos} />;
-      case "ai_chat": return <AIChat data={data} vinculos={vinculos} />;
       case "diario": return <DailyPerformance data={data} />;
       case "performance_vendedores": return <VendorPerformance data={data} />;
       case "composicao": return <SalesComposition data={data} vinculos={vinculos} />;
@@ -390,7 +362,6 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
       case "elasticidade": return <ElasticityAnalysis data={data} />;
       case "deep_dive": return <AdvancedAnalytics data={data} />;
       case "qualidade_avancada": return <QualityAnalysis data={data} vinculos={vinculos} />;
-      case "diagnostico_gargalo": return <BottleneckDiagnosis data={data} />;
       case "yoy_analise": return <YoYAnalysis data={data} />;
       default: return null;
     }
@@ -434,7 +405,6 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
             <div className="flex-1 space-y-1 text-center md:text-left">
               <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 mb-1 justify-center md:justify-start">
                 <h2 className="text-lg md:text-xl font-black uppercase tracking-tight leading-none italic">{currentInsight.title}</h2>
-                <TeamProductivityAI data={data} vinculos={vinculos} activeTab={activeTab} />
               </div>
               <p className="text-orange-50 font-medium text-xs md:sm opacity-90 leading-relaxed max-w-2xl mx-auto md:mx-0">
                 {currentInsight.desc}

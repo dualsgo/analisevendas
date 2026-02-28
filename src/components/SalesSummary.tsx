@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useMemo, useState } from "react";
@@ -74,14 +73,6 @@ interface SalesSummaryProps {
   data: DetailedSaleRow[];
   vinculos: VinculoTroca[];
 }
-
-const formatCurrency = (val: number | string, isMobile = false) => {
-  const num = typeof val === 'string' ? parseFloat(val) : val;
-  if (isMobile && num >= 1000) {
-    return `R$ ${(num / 1000).toFixed(1)}k`;
-  }
-  return num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-};
 
 const TAB_INSIGHTS: Record<string, { title: string; desc: string }> = {
   geral: {
@@ -173,7 +164,8 @@ const TAB_INSIGHTS: Record<string, { title: string; desc: string }> = {
 export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
   const [activeTab, setActiveTab] = useState("geral");
   const [showWelcome, setShowWelcome] = useState(true);
-  const { setOpenMobile } = useSidebar();
+  const { setOpenMobile, state } = useSidebar();
+  const isCollapsed = state === "collapsed";
 
   const [selectedChannels, setSelectedChannels] = useState({
     fisica: true,
@@ -329,25 +321,28 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
               <CardContent className="p-5 md:p-6 space-y-10 flex flex-col items-center justify-center text-center">
                 <div className="space-y-2">
                   <p className="text-xs font-bold text-slate-400 uppercase tracking-widest leading-none mb-4">Faturamento Consolidado</p>
-                  <p className="text-4xl sm:text-6xl font-black text-slate-800 tracking-tighter leading-none">
+                  <p className={cn(
+                    "font-black text-slate-800 tracking-tighter leading-none transition-all duration-300",
+                    isCollapsed ? "text-5xl sm:text-8xl" : "text-4xl sm:text-6xl"
+                  )}>
                     {formatCurrency(consolidado.venda)}
                   </p>
                 </div>
 
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-10 w-full px-4 md:px-10">
-                  <QuickMetric label="Cupons" value={consolidado.cupons} />
-                  <QuickMetric label="Peças" value={consolidado.itens} />
-                  <QuickMetric label="Ticket Médio" value={formatCurrency(consolidado.tkm, true)} color="text-orange-600" />
-                  <QuickMetric label="P.A. Geral" value={consolidado.pa.toFixed(2)} color="text-sky-600" />
+                  <QuickMetric label="Cupons" value={consolidado.cupons} large={isCollapsed} />
+                  <QuickMetric label="Peças" value={consolidado.itens} large={isCollapsed} />
+                  <QuickMetric label="Ticket Médio" value={formatCurrency(consolidado.tkm, true)} color="text-orange-600" large={isCollapsed} />
+                  <QuickMetric label="P.A. Geral" value={consolidado.pa.toFixed(2)} color="text-sky-600" large={isCollapsed} />
                 </div>
               </CardContent>
             </Card>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <FixedChannelCard title="Físico" icon={Store} metrics={metricsByChannel.fisica} color="border-slate-200" />
-              <FixedChannelCard title="Pickup" icon={Smartphone} metrics={metricsByChannel.online} color="border-sky-200" />
-              <FixedChannelCard title="Adicional" icon={Zap} metrics={metricsByChannel.adicional} color="border-emerald-200" />
-              <FixedChannelCard title="Trocas" icon={ArrowRightLeft} metrics={metricsByChannel.troca} color="border-purple-200" />
+              <FixedChannelCard title="Físico" icon={Store} metrics={metricsByChannel.fisica} color="border-slate-200" large={isCollapsed} />
+              <FixedChannelCard title="Pickup" icon={Smartphone} metrics={metricsByChannel.online} color="border-sky-200" large={isCollapsed} />
+              <FixedChannelCard title="Adicional" icon={Zap} metrics={metricsByChannel.adicional} color="border-emerald-200" large={isCollapsed} />
+              <FixedChannelCard title="Trocas" icon={ArrowRightLeft} metrics={metricsByChannel.troca} color="border-purple-200" large={isCollapsed} />
             </div>
           </div>
         );
@@ -375,12 +370,20 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
     }
   };
 
+  const formatCurrency = (val: number | string, isMobile = false) => {
+    const num = typeof val === 'string' ? parseFloat(val) : val;
+    if (isMobile && num >= 1000) {
+      return `R$ ${(num / 1000).toFixed(1)}k`;
+    }
+    return num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  };
+
   return (
     <div className="flex-1 flex flex-col md:flex-row h-full overflow-hidden">
-      <Sidebar className="border-r border-orange-100 bg-white print:hidden" collapsible="offcanvas">
+      <Sidebar className="border-r border-orange-100 bg-white print:hidden" collapsible="icon">
         <SidebarContent className="p-3 md:p-4">
           <SidebarGroup>
-            <SidebarGroupLabel className="text-xs font-bold uppercase text-slate-400 tracking-widest mb-4 px-2">Menu Estratégico</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-xs font-bold uppercase text-slate-400 tracking-widest mb-4 px-2 group-data-[collapsible=icon]:hidden">Menu Estratégico</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu className="gap-1.5">
                 {navItems.map((item) => (
@@ -388,6 +391,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
                     <SidebarMenuButton 
                       isActive={activeTab === item.id} 
                       onClick={() => handleTabChange(item.id)}
+                      tooltip={item.label}
                       className={cn(
                         "rounded-xl py-5 px-4 transition-all duration-200 h-auto",
                         activeTab === item.id 
@@ -396,7 +400,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
                       )}
                     >
                       <item.icon className={cn("w-4 h-4 mr-3 shrink-0", activeTab !== item.id && (item.color || "text-slate-400"))} />
-                      <span className="text-sm font-medium tracking-tight">{item.label}</span>
+                      <span className="text-sm font-medium tracking-tight group-data-[collapsible=icon]:hidden">{item.label}</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}
@@ -406,7 +410,10 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
         </SidebarContent>
       </Sidebar>
 
-      <div className="flex-1 overflow-y-auto bg-amber-50/20 p-4 md:p-6 flex flex-col gap-6 scrollbar-hide print:p-0 print:bg-white">
+      <div className={cn(
+        "flex-1 overflow-y-auto bg-amber-50/20 p-4 md:p-6 flex flex-col gap-6 scrollbar-hide print:p-0 print:bg-white transition-all duration-300",
+        isCollapsed ? "text-mode-large" : ""
+      )}>
         {showWelcome && (
           <section className="bg-gradient-to-br from-orange-500 to-[#F37021] rounded-2xl p-4 md:p-6 text-white shadow-xl flex items-center gap-4 relative shrink-0 overflow-hidden group border-4 border-orange-400 print:hidden">
             <div className="bg-white/20 p-3 rounded-full hidden lg:block shrink-0"><Sparkles className="w-6 h-6 text-white" /></div>
@@ -432,11 +439,15 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
   );
 }
 
-function QuickMetric({ label, value, color }: any) {
+function QuickMetric({ label, value, color, large }: any) {
   return (
     <div className="space-y-4 text-center flex flex-col items-center justify-center">
-      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">{label}</p>
-      <p className={cn("text-xl md:text-3xl font-black leading-none", color || "text-slate-700")}>{value}</p>
+      <p className={cn("font-bold text-slate-400 uppercase tracking-widest leading-none mb-4", large ? "text-[12px]" : "text-[10px]")}>{label}</p>
+      <p className={cn(
+        "font-black leading-none transition-all duration-300", 
+        color || "text-slate-700",
+        large ? "text-3xl md:text-5xl" : "text-xl md:text-3xl"
+      )}>{value}</p>
     </div>
   );
 }
@@ -456,21 +467,29 @@ function ChannelSelector({ label, icon: Icon, active, color, onToggle }: any) {
   );
 }
 
-function FixedChannelCard({ title, metrics, color }: any) {
+function FixedChannelCard({ title, metrics, color, large }: any) {
+  const formatCurrency = (val: number | string, isMobile = false) => {
+    const num = typeof val === 'string' ? parseFloat(val) : val;
+    if (isMobile && num >= 1000) {
+      return `R$ ${(num / 1000).toFixed(1)}k`;
+    }
+    return num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  };
+
   return (
     <Card className={cn("ri-card border-2 overflow-hidden bg-white shadow-sm flex flex-col h-full", color)}>
       <div className="p-3 bg-slate-50/50 border-b flex flex-col items-center justify-center text-center gap-1">
-        <h4 className="text-[10px] font-bold uppercase tracking-widest text-slate-600 leading-none">{title}</h4>
-        <p className="text-lg font-black text-slate-800 leading-none">{formatCurrency(metrics.venda, true)}</p>
+        <h4 className={cn("font-bold uppercase tracking-widest text-slate-600 leading-none", large ? "text-[11px]" : "text-[10px]")}>{title}</h4>
+        <p className={cn("font-black text-slate-800 leading-none", large ? "text-xl" : "text-lg")}>{formatCurrency(metrics.venda, true)}</p>
       </div>
       <CardContent className="p-4 grid grid-cols-2 gap-3 text-center items-center justify-center flex-1">
         <div className="space-y-1">
-          <p className="text-[9px] font-bold text-slate-400 uppercase leading-none">TKM</p>
-          <p className="text-sm font-bold text-orange-600 leading-none">{formatCurrency(metrics.tkm, true)}</p>
+          <p className={cn("font-bold text-slate-400 uppercase leading-none", large ? "text-[10px]" : "text-[9px]")}>TKM</p>
+          <p className={cn("font-bold text-orange-600 leading-none", large ? "text-base" : "text-sm")}>{formatCurrency(metrics.tkm, true)}</p>
         </div>
         <div className="space-y-1">
-          <p className="text-[9px] font-bold text-slate-400 uppercase leading-none">P.A.</p>
-          <p className="text-sm font-bold text-sky-600 leading-none">{metrics.pa.toFixed(2)}</p>
+          <p className={cn("font-bold text-slate-400 uppercase leading-none", large ? "text-[10px]" : "text-[9px]")}>P.A.</p>
+          <p className={cn("font-bold text-sky-600 leading-none", large ? "text-base" : "text-sm")}>{metrics.pa.toFixed(2)}</p>
         </div>
       </CardContent>
     </Card>

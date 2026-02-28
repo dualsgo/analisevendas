@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { useSidebar } from "@/components/ui/sidebar";
 import { 
   Select, 
   SelectContent, 
@@ -80,6 +81,8 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
   const [includePickups, setIncludePickups] = useState(false);
   const [includeExchanges, setIncludeExchanges] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<string>("all");
+  const { state } = useSidebar();
+  const isCollapsed = state === "collapsed";
 
   const formatBRL = (val: number) => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   const formatNum = (val: number, precision = 2) => val.toLocaleString('pt-BR', { minimumFractionDigits: precision, maximumFractionDigits: precision });
@@ -225,13 +228,16 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
   const groupsAvailable = ["Vendedores", "Apoio Venda", "Apoio Operação", "Aprendiz"];
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 pb-20 print:p-0 print:pb-0 print:space-y-0">
+    <div className={cn(
+      "space-y-6 animate-in fade-in duration-500 pb-20 print:p-0 print:pb-0 print:space-y-0",
+      isCollapsed ? "text-mode-large" : ""
+    )}>
       {/* HEADER EXECUTIVO */}
       <div className="bg-white rounded-[2rem] p-6 border-2 border-slate-100 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6 print:hidden">
         <div className="flex items-center gap-4">
           <div className="bg-slate-900 p-3 rounded-2xl text-white shadow-lg"><FileText className="w-6 h-6" /></div>
           <div>
-            <h1 className="text-xl font-black uppercase tracking-tight text-slate-800">Relatório Consolidado de Performance</h1>
+            <h1 className={cn("font-black uppercase tracking-tight text-slate-800", isCollapsed ? "text-2xl" : "text-xl")}>Relatório Consolidado de Performance</h1>
             <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Visão Técnica e Financeira da Unidade</p>
           </div>
         </div>
@@ -291,12 +297,12 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
 
       {/* KPI TOTALIZADORES */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 print:flex print:items-center print:justify-between print:gap-4 print:p-2 print:bg-slate-50 print:mb-4 print:border-none">
-        <ReportKPI label="Venda Grupo" value={formatBRL(totals.venda)} icon={TrendingUp} color="text-emerald-600" />
-        <ReportKPI label="Atendimentos" value={totals.cupons} icon={Users} color="text-sky-600" />
-        <ReportKPI label="P.A. Médio" value={formatNum(totals.pa)} icon={Target} color="text-orange-600" />
-        <ReportKPI label="Ticket Médio" value={formatBRL(totals.tkm)} icon={ShoppingBag} color="text-purple-600" />
-        <ReportKPI label="Retiradas" value={totals.pickups} icon={Smartphone} color="text-slate-500" />
-        <ReportKPI label="Conv. Real" value={`${formatNum(totals.conv, 1)}%`} icon={Zap} color="text-amber-500" />
+        <ReportKPI label="Venda Grupo" value={formatBRL(totals.venda)} icon={TrendingUp} color="text-emerald-600" large={isCollapsed} />
+        <ReportKPI label="Atendimentos" value={totals.cupons} icon={Users} color="text-sky-600" large={isCollapsed} />
+        <ReportKPI label="P.A. Médio" value={formatNum(totals.pa)} icon={Target} color="text-orange-600" large={isCollapsed} />
+        <ReportKPI label="Ticket Médio" value={formatBRL(totals.tkm)} icon={ShoppingBag} color="text-purple-600" large={isCollapsed} />
+        <ReportKPI label="Retiradas" value={totals.pickups} icon={Smartphone} color="text-slate-500" large={isCollapsed} />
+        <ReportKPI label="Conv. Real" value={`${formatNum(totals.conv, 1)}%`} icon={Zap} color="text-amber-500" large={isCollapsed} />
       </div>
 
       {/* TABELA CONSOLIDADA */}
@@ -324,17 +330,17 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
               const rowColor = GROUP_COLORS[v.group] || "bg-white";
 
               return (
-                <TableRow key={i} className={cn("border-slate-100 hover:bg-slate-100/50 h-12 md:h-14 group print:bg-white print:border-b print:border-slate-300 print:h-8", rowColor)}>
+                <TableRow key={i} className={cn("border-slate-100 hover:bg-slate-100/50 group print:bg-white print:border-b print:border-slate-300 print:h-8", rowColor, isCollapsed ? "h-14 md:h-16" : "h-12 md:h-14")}>
                   <TableCell className="pl-4 md:pl-8 print:pl-1">
-                    <p className="text-[10px] md:text-[11px] print:text-[8px] font-black text-slate-800 uppercase leading-none">{v.name}</p>
+                    <p className={cn("font-black text-slate-800 uppercase leading-none", isCollapsed ? "text-[12px] md:text-[13px]" : "text-[10px] md:text-[11px]", "print:text-[8px]")}>{v.name}</p>
                   </TableCell>
                   
                   <TableCell className="text-right">
                     <div className="flex flex-col items-end">
-                      <span className="text-[10px] md:text-xs print:text-[8px] font-black text-slate-700">{formatBRL(v.current.venda)}</span>
+                      <span className={cn("font-black text-slate-700", isCollapsed ? "text-sm" : "text-[10px] md:xs", "print:text-[8px]")}>{formatBRL(v.current.venda)}</span>
                       {Math.abs(v.deltas.venda) > 0.1 && (
-                        <span className={cn("text-[7px] md:text-[8px] print:text-[6px] font-bold flex items-center gap-0.5", v.deltas.venda > 0 ? "text-emerald-600" : "text-rose-500")}>
-                          {v.deltas.venda > 0 ? <ArrowUpRight className="w-2 md:w-2.5 h-2 md:h-2.5 print:w-1.5 print:h-1.5" /> : <ArrowDownRight className="w-2 md:w-2.5 h-2 md:h-2.5 print:w-1.5 print:h-1.5" />}
+                        <span className={cn("font-bold flex items-center gap-0.5", v.deltas.venda > 0 ? "text-emerald-600" : "text-rose-500", isCollapsed ? "text-[10px]" : "text-[7px] md:text-[8px]", "print:text-[6px]")}>
+                          {v.deltas.venda > 0 ? <ArrowUpRight className={cn(isCollapsed ? "w-3 h-3" : "w-2 md:w-2.5 h-2 md:h-2.5", "print:w-1.5 print:h-1.5")} /> : <ArrowDownRight className={cn(isCollapsed ? "w-3 h-3" : "w-2 md:w-2.5 h-2 md:h-2.5", "print:w-1.5 print:h-1.5")} />}
                           {formatBRL(Math.abs(v.deltas.venda))}
                         </span>
                       )}
@@ -344,11 +350,11 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
                   <TableCell className="text-center">
                     <div className="flex flex-col items-center">
                       <div className="flex items-center gap-1">
-                        <span className="text-[10px] md:text-xs print:text-[8px] font-black text-slate-700">{formatNum(v.metrics.pa)}</span>
-                        {isAbovePA ? <ArrowUpRight className="w-2 md:w-2.5 h-2 md:h-2.5 text-emerald-500 print:w-1.5 print:h-1.5" /> : <ArrowDownRight className="w-2 md:w-2.5 h-2 md:h-2.5 text-rose-500 print:w-1.5 print:h-1.5" />}
+                        <span className={cn("font-black text-slate-700", isCollapsed ? "text-sm" : "text-[10px] md:text-xs", "print:text-[8px]")}>{formatNum(v.metrics.pa)}</span>
+                        {isAbovePA ? <ArrowUpRight className={cn("text-emerald-500", isCollapsed ? "w-3.5 h-3.5" : "w-2 md:w-2.5 h-2 md:h-2.5", "print:w-1.5 print:h-1.5")} /> : <ArrowDownRight className={cn("text-rose-500", isCollapsed ? "w-3.5 h-3.5" : "w-2 md:w-2.5 h-2 md:h-2.5", "print:w-1.5 print:h-1.5")} />}
                       </div>
                       {Math.abs(v.deltas.pa) > 0.01 && (
-                        <span className={cn("text-[6px] md:text-[7px] print:text-[5px] font-black", v.deltas.pa > 0 ? "text-emerald-600" : "text-rose-500")}>
+                        <span className={cn("font-black", v.deltas.pa > 0 ? "text-emerald-600" : "text-rose-500", isCollapsed ? "text-[9px]" : "text-[6px] md:text-[7px]", "print:text-[5px]")}>
                           {v.deltas.pa > 0 ? "+" : ""}{v.deltas.pa.toFixed(2)}
                         </span>
                       )}
@@ -358,11 +364,11 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
                   <TableCell className="text-right">
                     <div className="flex flex-col items-end">
                       <div className="flex items-center gap-1">
-                        <span className="text-[10px] md:text-xs print:text-[8px] font-black text-slate-700">{formatBRL(v.metrics.tkm)}</span>
-                        {isAboveTKM ? <ArrowUpRight className="w-2 md:w-2.5 h-2 md:h-2.5 text-emerald-500 print:w-1.5 print:h-1.5" /> : <ArrowDownRight className="w-2 md:w-2.5 h-2 md:h-2.5 text-rose-500 print:w-1.5 print:h-1.5" />}
+                        <span className={cn("font-black text-slate-700", isCollapsed ? "text-sm" : "text-[10px] md:text-xs", "print:text-[8px]")}>{formatBRL(v.metrics.tkm)}</span>
+                        {isAboveTKM ? <ArrowUpRight className={cn("text-emerald-500", isCollapsed ? "w-3.5 h-3.5" : "w-2 md:w-2.5 h-2 md:h-2.5", "print:w-1.5 print:h-1.5")} /> : <ArrowDownRight className={cn("text-rose-500", isCollapsed ? "w-3.5 h-3.5" : "w-2 md:w-2.5 h-2 md:h-2.5", "print:w-1.5 print:h-1.5")} />}
                       </div>
                       {Math.abs(v.deltas.tkm) > 0.1 && (
-                        <span className={cn("text-[6px] md:text-[7px] print:text-[5px] font-black", v.deltas.tkm > 0 ? "text-emerald-600" : "text-rose-500")}>
+                        <span className={cn("font-black", v.deltas.tkm > 0 ? "text-emerald-600" : "text-rose-500", isCollapsed ? "text-[9px]" : "text-[6px] md:text-[7px]", "print:text-[5px]")}>
                           {v.deltas.tkm > 0 ? "+" : ""}{formatBRL(Math.abs(v.deltas.tkm))}
                         </span>
                       )}
@@ -372,13 +378,13 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
                   <TableCell className="text-center">
                     <div className="flex flex-col items-center">
                       <div className="flex items-center gap-1">
-                        <span className="text-[10px] md:text-xs print:text-[8px] font-black text-slate-700">{v.metrics.ident.toFixed(0)}%</span>
+                        <span className={cn("font-black text-slate-700", isCollapsed ? "text-sm" : "text-[10px] md:text-xs", "print:text-[8px]")}>{v.metrics.ident.toFixed(0)}%</span>
                         <div className="print:hidden">
-                          {isAboveIdent ? <CheckCircle2 className="w-2 md:w-2.5 h-2 md:h-2.5 text-emerald-500" /> : <XCircle className="w-2 md:w-2.5 h-2 md:h-2.5 text-rose-400" />}
+                          {isAboveIdent ? <CheckCircle2 className={cn("text-emerald-500", isCollapsed ? "w-3.5 h-3.5" : "w-2 md:w-2.5 h-2 md:h-2.5")} /> : <XCircle className={cn("text-rose-400", isCollapsed ? "w-3.5 h-3.5" : "w-2 md:w-2.5 h-2 md:h-2.5")} />}
                         </div>
                       </div>
                       {Math.abs(v.deltas.ident) > 0.1 && (
-                        <span className={cn("text-[6px] md:text-[7px] print:text-[5px] font-black", v.deltas.ident > 0 ? "text-emerald-600" : "text-rose-500")}>
+                        <span className={cn("font-black", v.deltas.ident > 0 ? "text-emerald-600" : "text-rose-500", isCollapsed ? "text-[9px]" : "text-[6px] md:text-[7px]", "print:text-[5px]")}>
                           {v.deltas.ident > 0 ? "+" : ""}{v.deltas.ident.toFixed(1)}%
                         </span>
                       )}
@@ -387,32 +393,33 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
 
                   <TableCell className="text-center">
                     <span className="hidden print:inline text-[8px] font-black">{v.slpQty}</span>
-                    <Badge className={cn("print:hidden text-[8px] md:text-[9px] font-black border-none px-1 h-4 md:h-5", v.slpQty > 0 ? "bg-orange-100 text-orange-700" : "bg-slate-50 text-slate-300")}>
-                      <Star className="w-2 md:w-2.5 h-2 md:h-2.5 mr-0.5 md:mr-1 fill-current" /> {v.slpQty}
+                    <Badge className={cn("print:hidden font-black border-none px-1", v.slpQty > 0 ? "bg-orange-100 text-orange-700" : "bg-slate-50 text-slate-300", isCollapsed ? "text-[11px] h-6" : "text-[8px] md:text-[9px] h-4 md:h-5")}>
+                      <Star className={cn("fill-current", isCollapsed ? "w-3.5 h-3.5 mr-1.5" : "w-2 md:w-2.5 h-2 md:h-2.5 mr-0.5 md:mr-1")} /> {v.slpQty}
                     </Badge>
                   </TableCell>
 
                   <TableCell className="text-center">
                     <span className="hidden print:inline text-[8px] font-black">{v.socialQty}</span>
-                    <Badge className={cn("print:hidden text-[8px] md:text-[9px] font-black border-none px-1 h-4 md:h-5", v.socialQty > 0 ? "bg-rose-100 text-rose-700" : "bg-slate-50 text-slate-300")}>
-                      <Heart className="w-2 md:w-2.5 h-2 md:h-2.5 mr-0.5 md:mr-1 fill-current" /> {v.socialQty}
+                    <Badge className={cn("print:hidden font-black border-none px-1", v.socialQty > 0 ? "bg-rose-100 text-rose-700" : "bg-slate-50 text-slate-300", isCollapsed ? "text-[11px] h-6" : "text-[8px] md:text-[9px] h-4 md:h-5")}>
+                      <Heart className={cn("fill-current", isCollapsed ? "w-3.5 h-3.5 mr-1.5" : "w-2 md:w-2.5 h-2 md:h-2.5 mr-0.5 md:mr-1")} /> {v.socialQty}
                     </Badge>
                   </TableCell>
 
-                  <TableCell className="text-center font-bold text-slate-400 text-[10px] md:text-xs print:text-[8px] print:text-black">
+                  <TableCell className={cn("text-center font-bold text-slate-400 print:text-[8px] print:text-black", isCollapsed ? "text-sm" : "text-[10px] md:text-xs")}>
                     {v.pickupsAtendidas}
                   </TableCell>
 
-                  <TableCell className="text-center font-black text-emerald-600 text-[10px] md:text-xs print:text-[8px] print:text-black">
+                  <TableCell className={cn("text-center font-black text-emerald-600 print:text-[8px] print:text-black", isCollapsed ? "text-sm" : "text-[10px] md:text-xs")}>
                     {v.adicionaisFeitos}
                   </TableCell>
 
                   <TableCell className="text-right pr-4 md:pr-8 print:pr-1">
                     <span className="hidden print:inline text-[8px] font-black">{formatNum(v.metrics.conv, 1)}%</span>
                     <Badge className={cn(
-                      "print:hidden text-[8px] md:text-[9px] font-black border-none px-1 md:px-2 h-4 md:h-5",
+                      "print:hidden font-black border-none px-1 md:px-2",
                       v.metrics.conv >= 20 ? "bg-emerald-100 text-emerald-700" : 
-                      v.metrics.conv >= 10 ? "bg-sky-100 text-sky-700" : "bg-slate-100 text-slate-400"
+                      v.metrics.conv >= 10 ? "bg-sky-100 text-sky-700" : "bg-slate-100 text-slate-400",
+                      isCollapsed ? "text-xs h-6" : "text-[8px] md:text-[9px] h-4 md:h-5"
                     )}>
                       {formatNum(v.metrics.conv, 1)}%
                     </Badge>
@@ -513,19 +520,31 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
   );
 }
 
-function ReportKPI({ label, value, icon: Icon, color }: any) {
+function ReportKPI({ label, value, icon: Icon, color, large }: any) {
   return (
-    <Card className="ri-card border-none bg-white p-4 md:p-5 flex flex-col items-center justify-center text-center h-24 md:h-28 shadow-sm print:border-none print:h-auto print:p-1.5 print:bg-transparent print:flex-row print:items-center print:gap-1.5">
+    <Card className={cn(
+      "ri-card border-none bg-white p-4 md:p-5 flex flex-col items-center justify-center text-center shadow-sm transition-all duration-300",
+      large ? "h-28 md:h-36" : "h-24 md:h-28",
+      "print:border-none print:h-auto print:p-1.5 print:bg-transparent print:flex-row print:items-center print:gap-1.5"
+    )}>
       <div className="flex items-center justify-center mb-2 print:hidden">
         <div className={cn("p-2 rounded-xl bg-slate-50", color)}>
-          <Icon className="w-5 h-5" />
+          <Icon className={cn(large ? "w-6 h-6" : "w-5 h-5")} />
         </div>
       </div>
       <div className="flex flex-col items-center justify-center print:flex-row print:items-center print:gap-1">
-        <p className="text-[8px] md:text-[9px] print:text-[6.5px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1.5 print:mb-0 print:text-black">
+        <p className={cn(
+          "font-black text-slate-400 uppercase tracking-widest leading-none mb-1.5 print:mb-0 print:text-black",
+          large ? "text-[10px] md:text-[11px]" : "text-[8px] md:text-[9px]",
+          "print:text-[6.5px]"
+        )}>
           {label}:
         </p>
-        <p className="text-sm md:text-lg print:text-[8px] font-black text-slate-800 leading-none truncate print:text-black">
+        <p className={cn(
+          "font-black text-slate-800 leading-none truncate print:text-black",
+          large ? "text-lg md:text-2xl" : "text-sm md:text-lg",
+          "print:text-[8px]"
+        )}>
           {value}
         </p>
       </div>

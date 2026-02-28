@@ -55,6 +55,14 @@
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
+
+  /* Classes de Acessibilidade para Menu Minimizado */
+  /* Substituí @apply por CSS puro para evitar erro de dependência circular no PostCSS */
+  .text-mode-large .text-xs { font-size: 0.875rem !important; line-height: 1.25rem !important; }
+  .text-mode-large .text-[10px] { font-size: 0.75rem !important; line-height: 1rem !important; }
+  .text-mode-large .text-[9px] { font-size: 0.6875rem !important; }
+  .text-mode-large .text-[8px] { font-size: 0.625rem !important; }
+  .text-mode-large .font-black { font-weight: 900 !important; letter-spacing: -0.025em !important; }
 }
 
 @layer base {

@@ -20,7 +20,7 @@ export function Header({ status, fileStats, onReset }: HeaderProps) {
       <div className="container mx-auto px-4 flex items-center justify-between gap-4">
         <div className="flex items-center gap-2 md:gap-3 shrink-0">
           {status === "success" && (
-            <SidebarTrigger className="md:hidden bg-white/20 hover:bg-white/40 border-0" />
+            <SidebarTrigger className="bg-white/20 hover:bg-white/40 border-0 text-orange-900" title="Expandir/Recolher Menu" />
           )}
           <div className="bg-white p-1 rounded-xl md:rounded-2xl shadow-sm rotate-3 border-2 border-orange-400">
             <Sparkles className="w-5 h-5 md:w-7 h-7 text-orange-500" />

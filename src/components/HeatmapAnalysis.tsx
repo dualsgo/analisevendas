@@ -17,7 +17,8 @@ import {
   ArrowRightLeft,
   Info,
   Calendar,
-  Sigma
+  Sigma,
+  ChevronRight
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { parseISO, getHours, getDay } from "date-fns";
@@ -31,7 +32,8 @@ type HeatmapCategory = 'sales' | 'pickup' | 'exchanges';
 type HeatmapMetric = 'value' | 'count';
 type HeatmapGrouping = 'day' | 'vendor';
 
-const HOURS = Array.from({ length: 15 }, (_, i) => i + 8); // 08:00 às 22:00
+// Inicia às 09:00 e vai até 22:00 (14 colunas de hora)
+const HOURS = Array.from({ length: 14 }, (_, i) => i + 9); 
 const DAYS = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
 
 export function HeatmapAnalysis({ data, vinculos }: HeatmapAnalysisProps) {
@@ -42,7 +44,6 @@ export function HeatmapAnalysis({ data, vinculos }: HeatmapAnalysisProps) {
   const heatmapData = useMemo(() => {
     let filtered: any[] = [];
     
-    // 1. Filtragem por Categoria
     if (category === 'sales') {
       filtered = data.filter(s => s.tpNF === 1 && !s.is_cancelada);
     } else if (category === 'pickup') {
@@ -58,7 +59,7 @@ export function HeatmapAnalysis({ data, vinculos }: HeatmapAnalysisProps) {
       if (!item.dhEmi) return;
       const date = parseISO(item.dhEmi);
       const hour = getHours(date);
-      if (hour < 8 || hour > 22) return;
+      if (hour < 9 || hour > 22) return;
 
       const rowKey = grouping === 'day' ? DAYS[getDay(date)] : (item.vendedor || "OUTROS");
       rowKeys.add(rowKey);
@@ -69,7 +70,6 @@ export function HeatmapAnalysis({ data, vinculos }: HeatmapAnalysisProps) {
       grid[rowKey][hour] = (grid[rowKey][hour] || 0) + val;
     });
 
-    // Ordenação das linhas
     const sortedRowKeys = grouping === 'day' 
       ? DAYS.filter(d => rowKeys.has(d))
       : Array.from(rowKeys).sort((a, b) => {
@@ -78,7 +78,6 @@ export function HeatmapAnalysis({ data, vinculos }: HeatmapAnalysisProps) {
           return sumB - sumA;
         });
 
-    // Achar o valor máximo para a escala de cores (apenas dados individuais, não o total)
     let maxVal = 0;
     Object.values(grid).forEach(row => {
       Object.values(row).forEach(v => {
@@ -86,17 +85,22 @@ export function HeatmapAnalysis({ data, vinculos }: HeatmapAnalysisProps) {
       });
     });
 
-    // Calcular Totais por Hora (Rodapé)
     const hourTotals: Record<number, number> = {};
+    const rowTotals: Record<string, number> = {};
+    let grandTotal = 0;
+
     HOURS.forEach(h => {
       let total = 0;
       sortedRowKeys.forEach(rowKey => {
-        total += grid[rowKey]?.[h] || 0;
+        const val = grid[rowKey]?.[h] || 0;
+        total += val;
+        rowTotals[rowKey] = (rowTotals[rowKey] || 0) + val;
+        grandTotal += val;
       });
       hourTotals[h] = total;
     });
 
-    return { grid, sortedRowKeys, maxVal, hourTotals };
+    return { grid, sortedRowKeys, maxVal, hourTotals, rowTotals, grandTotal };
   }, [data, category, metric, grouping]);
 
   const getColor = (value: number, max: number) => {
@@ -113,7 +117,6 @@ export function HeatmapAnalysis({ data, vinculos }: HeatmapAnalysisProps) {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20">
-      {/* Header Didático */}
       <div className="bg-white rounded-[2rem] p-6 md:p-8 border-2 border-orange-100 shadow-sm flex flex-col md:flex-row items-center gap-6">
         <div className="bg-orange-500 p-4 rounded-3xl text-white shadow-lg shadow-orange-100 shrink-0">
           <Flame className="w-8 h-8 animate-pulse" />
@@ -121,13 +124,12 @@ export function HeatmapAnalysis({ data, vinculos }: HeatmapAnalysisProps) {
         <div className="flex-1 space-y-1 text-center md:text-left">
           <h1 className="text-xl md:text-2xl font-black uppercase tracking-tight text-slate-800 italic">Mapa de Calor Operacional</h1>
           <p className="text-sm text-slate-500 font-medium leading-relaxed">
-            Identifique os horários de pico e otimize a escala da sua equipe. As cores mais escuras indicam maior concentração de <strong>{metric === 'value' ? 'Faturamento' : 'Volume de Cupons'}</strong>.
+            Identifique os horários de pico e otimize a escala da sua equipe. A grade agora mostra o faturamento por hora e o **total consolidado por dia** à direita.
           </p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Controles Laterais */}
         <Card className="ri-card border-none shadow-sm lg:col-span-1 h-fit">
           <CardHeader className="bg-slate-50/50 border-b p-4">
             <CardTitle className="text-[10px] font-black uppercase text-slate-500 tracking-widest flex items-center gap-2">
@@ -195,7 +197,6 @@ export function HeatmapAnalysis({ data, vinculos }: HeatmapAnalysisProps) {
           </CardContent>
         </Card>
 
-        {/* Grade do Mapa de Calor */}
         <Card className="ri-card border-none shadow-xl lg:col-span-3 overflow-hidden flex flex-col bg-white">
           <CardHeader className="bg-slate-900 text-white p-6 shrink-0">
             <div className="flex items-center justify-between">
@@ -203,7 +204,7 @@ export function HeatmapAnalysis({ data, vinculos }: HeatmapAnalysisProps) {
                 <Clock className="w-5 h-5 text-orange-400" />
                 <div>
                   <CardTitle className="text-xs font-black uppercase tracking-widest">Distribuição por Faixa Horária</CardTitle>
-                  <p className="text-[9px] text-slate-400 font-bold uppercase mt-1">Horário de Brasília (08h - 22h)</p>
+                  <p className="text-[9px] text-slate-400 font-bold uppercase mt-1">Horário de Brasília (09h - 22h)</p>
                 </div>
               </div>
               <Badge className="bg-orange-500 text-white border-none font-black h-6 px-3">
@@ -212,8 +213,8 @@ export function HeatmapAnalysis({ data, vinculos }: HeatmapAnalysisProps) {
             </div>
           </CardHeader>
           <CardContent className="p-0 flex-1 overflow-auto">
-            <div className="min-w-[800px]">
-              {/* Header Horas */}
+            <div className="min-w-[900px]">
+              {/* Header Horas + Coluna Total */}
               <div className="flex bg-slate-50 border-b border-slate-100 sticky top-0 z-10">
                 <div className="w-40 md:w-48 p-4 shrink-0 border-r border-slate-100 flex items-center justify-center">
                   <span className="text-[9px] font-black text-slate-400 uppercase">{grouping === 'day' ? 'DIA' : 'COLABORADOR'}</span>
@@ -224,6 +225,9 @@ export function HeatmapAnalysis({ data, vinculos }: HeatmapAnalysisProps) {
                       <span className="text-[10px] font-black text-slate-500">{h}h</span>
                     </div>
                   ))}
+                  <div className="p-3 text-center bg-orange-50 border-l border-orange-100">
+                    <span className="text-[10px] font-black text-orange-600 uppercase">Total</span>
+                  </div>
                 </div>
               </div>
 
@@ -253,6 +257,12 @@ export function HeatmapAnalysis({ data, vinculos }: HeatmapAnalysisProps) {
                           </div>
                         );
                       })}
+                      {/* Coluna Total por Linha */}
+                      <div className="p-3 h-14 bg-orange-50 border-l border-orange-100 flex items-center justify-center">
+                        <span className="text-[10px] font-black text-orange-700">
+                          {metric === 'value' ? formatBRL(heatmapData.rowTotals[rowKey] || 0) : heatmapData.rowTotals[rowKey]}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -276,6 +286,13 @@ export function HeatmapAnalysis({ data, vinculos }: HeatmapAnalysisProps) {
                       </div>
                     );
                   })}
+                  {/* Grande Total do Lote */}
+                  <div className="p-3 h-16 text-center border-l border-slate-700 bg-orange-600 flex flex-col items-center justify-center">
+                    <span className="text-[8px] font-bold text-white uppercase mb-1 leading-none italic">Geral</span>
+                    <span className="text-[11px] font-black text-white leading-none">
+                      {metric === 'value' ? formatBRL(heatmapData.grandTotal) : heatmapData.grandTotal}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>

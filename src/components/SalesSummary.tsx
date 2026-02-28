@@ -14,7 +14,6 @@ import {
   ArrowRightLeft, 
   FileText, 
   MessageCircle, 
-  Sparkles, 
   X, 
   Calendar as CalendarIcon,
   Smartphone,
@@ -267,7 +266,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
       itens: i,
       tkm: c > 0 ? v / c : 0,
       pa: c > 0 ? i / c : 0,
-      cadastros: c > 0 ? (iden / c) * 100 : 0
+      cadastros: c > 0 ? Math.min((iden / c) * 100, 100) : 0
     };
   }, [selectedChannels, metricsByChannel]);
 
@@ -286,7 +285,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
     { id: "composicao", label: "Composição", icon: Layers, color: "text-indigo-500" },
     { id: "produtividade", label: "Produtividade", icon: Activity, color: "text-cyan-500" },
     { id: "compliance", label: "Auditoria PA", icon: ShieldCheck, color: "text-red-600" },
-    { id: "radar", label: "Radar de Risco", icon: ShieldAlert, color: "text-rose-600" },
+    { id: "radar", label: "Radar de Alertas", icon: ShieldAlert, color: "text-rose-600" },
     { id: "oportunidades", label: "Oportunidades", icon: CircleAlert, color: "text-orange-600" },
     { id: "conversao", label: "Audit. Conversão", icon: Smartphone, color: "text-sky-500" },
     { id: "auditoria", label: "Audit. Descontos", icon: Percent, color: "text-rose-500" },
@@ -416,7 +415,6 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
       )}>
         {showWelcome && (
           <section className="bg-gradient-to-br from-orange-500 to-[#F37021] rounded-2xl p-4 md:p-6 text-white shadow-xl flex items-center gap-4 relative shrink-0 overflow-hidden group border-4 border-orange-400 print:hidden">
-            <div className="bg-white/20 p-3 rounded-full hidden lg:block shrink-0"><Sparkles className="w-6 h-6 text-white" /></div>
             <div className="flex-1 space-y-1 text-center md:text-left">
               <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 mb-1 justify-center md:justify-start">
                 <h2 className="text-lg md:text-xl font-black uppercase tracking-tight leading-none italic">{currentInsight.title}</h2>

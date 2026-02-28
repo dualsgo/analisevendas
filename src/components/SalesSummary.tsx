@@ -78,108 +78,8 @@ interface SalesSummaryProps {
   vinculos: VinculoTroca[];
 }
 
-const TAB_INSIGHTS: Record<string, { title: string; desc: string }> = {
-  geral: {
-    title: "Visão Macro da Unidade",
-    desc: "O faturamento consolidado é a base, mas o lucro real mora na gestão fina de cada canal de venda."
-  },
-  heatmap: {
-    title: "Mapa de Calor Operacional",
-    desc: "Visualize os picos de faturamento e volume por hora. Otimize sua escala para os momentos de 'fogo' no caixa."
-  },
-  energy: {
-    title: "Curva de Energia Comercial",
-    desc: "A loja vende de forma constante ou em explosões? Analise o intervalo entre vendas para medir o fluxo."
-  },
-  basket: {
-    title: "Anatomia da Cesta",
-    desc: "Descubra quais produtos puxam o PA e identifique o comportamento real do seu cliente no balcão."
-  },
-  product_risk: {
-    title: "Risco de Mix Comercial",
-    desc: "Analise o quanto do seu faturamento depende de poucos SKUs e evite a 'cegueira' de metas penduradas em um só item."
-  },
-  consolidado: {
-    title: "Relatório Final Consolidado",
-    desc: "A visão definitiva para impressão. Compare o faturamento real versus o impacto de pickups e trocas por colaborador."
-  },
-  gamification: {
-    title: "Arena Ri Happy de Talentos",
-    desc: "Ranking gamificado baseado em 8 competências. Identifique quem são suas lendas e quem precisa de treinamento."
-  },
-  venda_sugestiva: {
-    title: "Análise de Checkout (SLP & Social)",
-    desc: "Vender o brinquedo principal é o esperado. Garantir o SLP e a Ação Social é o que traz a rentabilidade extra."
-  },
-  yoy_analise: {
-    title: "Engenharia de Resultado",
-    desc: "Identifique se o crescimento é fruto do esforço técnico da equipe ou apenas fluxo de mercado."
-  },
-  diario: {
-    title: "Ritmo da Operação",
-    desc: "Identifique picos de ociosidade e garanta cobertura total de escala nos horários de maior faturamento."
-  },
-  performance_vendedores: {
-    title: "Gestão de Colaboradores",
-    desc: "Use o ranking qualitativo para direcionar treinamentos específicos para cada perfil de profissional."
-  },
-  elasticidade: {
-    title: "Qualidade do Desconto",
-    desc: "O desconto deve 'comprar' PA incremental. Se não houver aumento de peças, você está apenas perdendo margem."
-  },
-  deep_dive: {
-    title: "Concentração e Risco",
-    desc: "O sucesso da unidade não pode depender de poucos talentos. Analise o Pareto e treine a base."
-  },
-  qualidade_avancada: {
-    title: "Qualidade de Atendimento",
-    desc: "Foque em transformar a venda de volume (homogênea) em venda consultiva (cesta complementar)."
-  },
-  composicao: {
-    title: "Fatiamento de Faturamento",
-    desc: "Análise didática: veja quanto do seu resultado vem de estratégia ativa versus faturamento passivo."
-  },
-  produtividade: {
-    title: "Saúde Operacional",
-    desc: "Monitoramento de agilidade e taxas de cancelamento para evitar a 'perda silenciosa' de vendas."
-  },
-  compliance: {
-    title: "Integridade de PA",
-    desc: "O PA deve ser fruto de venda real. Itens de baixo valor (0,01) devem ser eliminados da estratégia."
-  },
-  radar: {
-    title: "Radar de Alertas",
-    desc: "Antecipe-se a problemas críticos de fuga de cadastro e excesso de descontos por colaborador."
-  },
-  oportunidades: {
-    title: "Dinheiro na Mesa",
-    desc: "Mapeamento de cupons de 1 item e retiradas online sem venda sugerida. Onde está o seu lucro extra?"
-  },
-  conversao: {
-    title: "Eficiência Pickup & Adicionais",
-    desc: "Transforme o cliente de retirada em faturamento adicional presencial."
-  },
-  auditoria: {
-    title: "Gestão de Margem",
-    desc: "Diferencie descontos estratégicos necessários de perda de valor por falta de argumentação."
-  },
-  trocas: {
-    title: "Qualidade das Trocas",
-    desc: "Uma troca de qualidade deve sempre buscar o ganho de peças (PA) e o faturamento adicional (Upsell)."
-  },
-  transacoes: {
-    title: "Rastreabilidade Total",
-    desc: "Busca rápida e geração de 2ª via térmica para garantir agilidade e controle fiscal no atendimento."
-  },
-  whatsapp: {
-    title: "Engajamento do Time",
-    desc: "Formate os resultados em metas claras e envie destaques diários para o grupo da loja."
-  }
-};
-
 export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
   const [activeTab, setActiveTab] = useState("geral");
-  const [showWelcome, setShowWelcome] = useState(true);
   const { setOpenMobile, state } = useSidebar();
   const isCollapsed = state === "collapsed";
 
@@ -198,8 +98,6 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
   const toggleChannel = (channel: keyof typeof selectedChannels) => {
     setSelectedChannels(prev => ({ ...prev, [channel]: !prev[channel] }));
   };
-
-  const currentInsight = TAB_INSIGHTS[activeTab] || TAB_INSIGHTS.geral;
 
   const metricsByChannel = useMemo(() => {
     const saidas = data.filter(r => r.tpNF === 1 && !r.is_devolucao && !r.is_cancelada);
@@ -436,22 +334,6 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
         "flex-1 overflow-y-auto bg-amber-50/20 p-4 md:p-6 flex flex-col gap-6 scrollbar-hide print:p-0 print:bg-white transition-all duration-300",
         isCollapsed ? "text-mode-large" : ""
       )}>
-        {showWelcome && (
-          <section className="bg-gradient-to-br from-orange-500 to-[#F37021] rounded-2xl p-4 md:p-6 text-white shadow-xl flex items-center gap-4 relative shrink-0 overflow-hidden group border-4 border-orange-400 print:hidden">
-            <div className="flex-1 space-y-1 text-center md:text-left">
-              <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 mb-1 justify-center md:justify-start">
-                <h2 className="text-lg md:text-xl font-black uppercase tracking-tight leading-none italic">{currentInsight.title}</h2>
-              </div>
-              <p className="text-orange-50 font-medium text-xs md:sm opacity-90 leading-relaxed max-w-2xl mx-auto md:mx-0">
-                {currentInsight.desc}
-              </p>
-            </div>
-            <Button variant="ghost" size="icon" onClick={() => setShowWelcome(false)} className="text-white hover:bg-white/20 rounded-full h-8 w-8">
-              <X className="w-4 h-4" />
-            </Button>
-          </section>
-        )}
-
         <div className="flex-1 min-h-0">
           {renderActiveTab()}
         </div>

@@ -225,28 +225,28 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
             </div>
 
             <Card className="ri-card border-orange-400 border-2 bg-orange-50/30 overflow-hidden shadow-xl">
-              <div className="p-3 md:p-4 bg-orange-50 border-b border-orange-200 flex items-center justify-between">
+              <div className="p-2 md:p-3 bg-orange-50 border-b border-orange-200 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Target className="w-5 h-5 text-orange-600" />
-                  <h3 className="text-sm font-bold text-orange-800 uppercase tracking-tight">Consolidado</h3>
+                  <Target className="w-4 h-4 text-orange-600" />
+                  <h3 className="text-xs font-bold text-orange-800 uppercase tracking-tight">Consolidado</h3>
                 </div>
-                <div className="flex items-center gap-2 bg-white px-4 py-1.5 rounded-full border border-orange-200 shadow-sm">
-                   <UserCheck className="w-4 h-4 text-emerald-500" />
-                   <span className="text-xs font-bold text-emerald-600">{consolidado.cadastros.toFixed(1)}% IDENT.</span>
+                <div className="flex items-center gap-2 bg-white px-3 py-1 rounded-full border border-orange-200 shadow-sm">
+                   <UserCheck className="w-3.5 h-3.5 text-emerald-500" />
+                   <span className="text-[10px] font-bold text-emerald-600">{consolidado.cadastros.toFixed(1)}% IDENT.</span>
                 </div>
               </div>
-              <CardContent className="p-5 md:p-6 space-y-10 flex flex-col items-center justify-center text-center">
-                <div className="space-y-2">
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest leading-none mb-4">Faturamento Consolidado</p>
+              <CardContent className="p-4 md:p-5 space-y-6 flex flex-col items-center justify-center text-center">
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-2">Faturamento Consolidado</p>
                   <p className={cn(
                     "font-black text-slate-800 tracking-tighter leading-none transition-all duration-300",
-                    isCollapsed ? "text-5xl sm:text-8xl" : "text-4xl sm:text-6xl"
+                    isCollapsed ? "text-5xl sm:text-7xl" : "text-4xl sm:text-5xl"
                   )}>
                     {formatCurrency(consolidado.venda)}
                   </p>
                 </div>
 
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-10 w-full px-4 md:px-10">
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 w-full px-4 md:px-10">
                   <QuickMetric label="Cupons" value={consolidado.cupons} large={isCollapsed} />
                   <QuickMetric label="Peças" value={consolidado.itens} large={isCollapsed} />
                   <QuickMetric label="Ticket Médio" value={formatCurrency(consolidado.tkm, true)} color="text-orange-600" large={isCollapsed} />
@@ -344,12 +344,12 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
 
 function QuickMetric({ label, value, color, large }: any) {
   return (
-    <div className="space-y-4 text-center flex flex-col items-center justify-center">
-      <p className={cn("font-bold text-slate-400 uppercase tracking-widest leading-none mb-4", large ? "text-[12px]" : "text-[10px]")}>{label}</p>
+    <div className="space-y-2 text-center flex flex-col items-center justify-center">
+      <p className={cn("font-bold text-slate-400 uppercase tracking-widest leading-none mb-1", large ? "text-[12px]" : "text-[10px]")}>{label}</p>
       <p className={cn(
         "font-black leading-none transition-all duration-300", 
         color || "text-slate-700",
-        large ? "text-3xl md:text-5xl" : "text-xl md:text-3xl"
+        large ? "text-2xl md:text-4xl" : "text-lg md:text-2xl"
       )}>{value}</p>
     </div>
   );

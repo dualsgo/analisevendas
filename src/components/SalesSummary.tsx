@@ -34,7 +34,8 @@ import {
   History,
   ShoppingBag,
   Sword,
-  ClipboardList
+  ClipboardList,
+  Flame
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -67,6 +68,7 @@ import { YoYAnalysis } from "./YoYAnalysis";
 import { AdditionalItemsAnalysis } from "./AdditionalItemsAnalysis";
 import { CollaboratorGamification } from "./CollaboratorGamification";
 import { ConsolidatedReport } from "./ConsolidatedReport";
+import { HeatmapAnalysis } from "./HeatmapAnalysis";
 
 interface SalesSummaryProps {
   data: DetailedSaleRow[];
@@ -85,6 +87,10 @@ const TAB_INSIGHTS: Record<string, { title: string; desc: string }> = {
   geral: {
     title: "Visão Macro da Unidade",
     desc: "O faturamento consolidado é a base, mas o lucro real mora na gestão fina de cada canal de venda."
+  },
+  heatmap: {
+    title: "Mapa de Calor Operacional",
+    desc: "Visualize os picos de faturamento e volume por hora. Otimize sua escala para os momentos de 'fogo' no caixa."
   },
   consolidado: {
     title: "Relatório Final Consolidado",
@@ -275,6 +281,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
 
   const navItems = [
     { id: "geral", label: "Visão Geral", icon: LayoutDashboard },
+    { id: "heatmap", label: "Mapa de Calor", icon: Flame, color: "text-orange-500 font-black" },
     { id: "consolidado", label: "Relatório Consolidado", icon: ClipboardList, color: "text-emerald-600 font-black" },
     { id: "gamification", label: "Arena de Talentos", icon: Sword, color: "text-yellow-500 font-black" },
     { id: "venda_sugestiva", label: "SLP & Social", icon: ShoppingBag, color: "text-orange-600 font-black" },
@@ -321,7 +328,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
               </div>
               <CardContent className="p-5 md:p-6 space-y-10 flex flex-col items-center justify-center text-center">
                 <div className="space-y-2">
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest leading-none">Faturamento Consolidado</p>
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest leading-none mb-4">Faturamento Consolidado</p>
                   <p className="text-4xl sm:text-6xl font-black text-slate-800 tracking-tighter leading-none">
                     {formatCurrency(consolidado.venda)}
                   </p>
@@ -344,6 +351,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
             </div>
           </div>
         );
+      case "heatmap": return <HeatmapAnalysis data={data} vinculos={vinculos} />;
       case "consolidado": return <ConsolidatedReport data={data} vinculos={vinculos} />;
       case "gamification": return <CollaboratorGamification data={data} vinculos={vinculos} />;
       case "venda_sugestiva": return <AdditionalItemsAnalysis data={data} />;
@@ -426,7 +434,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
 
 function QuickMetric({ label, value, color }: any) {
   return (
-    <div className="space-y-2 text-center">
+    <div className="space-y-4 text-center flex flex-col items-center justify-center">
       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">{label}</p>
       <p className={cn("text-xl md:text-3xl font-black leading-none", color || "text-slate-700")}>{value}</p>
     </div>

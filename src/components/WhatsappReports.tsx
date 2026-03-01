@@ -58,7 +58,8 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
     
     // Filtros Disjuntos
     const online = saidas.filter(r => r.canal === "RETIRADA_ONLINE");
-    const fisicaEAdicional = saidas.filter(r => r.canal !== "RETIRADA_ONLINE"); // O que não é site é esforço de loja
+    // Fisica + Adicional: excluir online E trocas (trocas não são venda nova)
+    const fisicaEAdicional = saidas.filter(r => r.canal !== "RETIRADA_ONLINE" && r.canal !== "TROCA" && !r.is_troca);
     
     // Cálculo Base Unidade (Apenas Loja Física para auditoria de esforço)
     const vLoja = fisicaEAdicional.reduce((acc, r) => acc + parseFloat(r.vNF), 0);
@@ -67,7 +68,7 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
     const idenLoja = fisicaEAdicional.filter(r => r.cpf_cnpj_dest && r.cpf_cnpj_dest.trim() !== "").length;
 
     // Métricas de Adicional para Conversão
-    const adicionaisTotal = fisicaEAdicional.filter(r => r.canal === "RETIRADA_ADICIONAL" || r.is_adicional || r.is_adicional_suspeito);
+    const adicionaisTotal = fisicaEAdicional.filter(r => r.canal === "RETIRADA_ADICIONAL");
     const cAdicional = adicionaisTotal.length;
 
     // Pickup

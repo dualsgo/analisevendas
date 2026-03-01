@@ -112,9 +112,10 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
   const metricsByChannel = useMemo(() => {
     const saidas = data.filter(r => r.tpNF === 1 && !r.is_devolucao && !r.is_cancelada);
     
-    const fisica = saidas.filter(r => r.canal === "LOJA_FISICA");
-    const online = saidas.filter(r => r.canal === "RETIRADA_ONLINE");
-    const adicional = saidas.filter(r => r.canal === "RETIRADA_ADICIONAL" || r.is_adicional || r.is_adicional_suspeito);
+    const fisica    = saidas.filter(r => r.canal === "LOJA_FISICA" && !r.is_troca);
+    const online    = saidas.filter(r => r.canal === "RETIRADA_ONLINE");
+    // adicional: canal já é definido como RETIRADA_ADICIONAL pelo parser quando is_adicional/suspeito
+    const adicional = saidas.filter(r => r.canal === "RETIRADA_ADICIONAL");
     
     const calcMetrics = (rows: DetailedSaleRow[]) => {
       const v = rows.reduce((acc, r) => acc + parseFloat(r.vNF), 0);

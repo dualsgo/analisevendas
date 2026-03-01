@@ -48,7 +48,7 @@ export function OperationalRhythm({ data }: OperationalRhythmProps) {
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
 
   const sales = useMemo(() =>
-    data.filter(r => !r.is_cancelada && r.tpNF === 1 && r.dhEmi),
+    data.filter(r => !r.is_cancelada && r.tpNF === 1 && !r.is_devolucao && r.dhEmi),
     [data]
   );
 

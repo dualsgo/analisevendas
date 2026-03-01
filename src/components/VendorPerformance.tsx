@@ -74,13 +74,15 @@ export function VendorPerformance({ data }: VendorPerformanceProps) {
   });
 
   const baseData = useMemo(() => {
-    return data.filter(r => !r.is_cancelada);
+    // Apenas notas de saída válidas — exclui canceladas, devoluções (tpNF=0) e trocas
+    // (notas com pagamento Crédito Loja são conversão de crédito, não venda nova)
+    return data.filter(r => !r.is_cancelada && r.tpNF === 1 && !r.is_devolucao && !r.is_troca);
   }, [data]);
 
   const metricsByVendor = useMemo(() => {
     const collaborators: Record<string, DetailedSaleRow[]> = {};
     const onlinePickups = baseData.filter(r => r.canal === "RETIRADA_ONLINE");
-    const physicalSales = baseData.filter(r => r.tpNF === 1 && (r.canal === "LOJA_FISICA" || r.canal === "RETIRADA_ADICIONAL" || r.is_adicional || r.is_adicional_suspeito));
+    const physicalSales = baseData.filter(r => r.canal === "LOJA_FISICA" || r.canal === "RETIRADA_ADICIONAL" || r.is_adicional || r.is_adicional_suspeito);
 
     physicalSales.forEach(r => {
       const name = r.vendedor || "COLABORADOR NÃO IDENTIFICADO";

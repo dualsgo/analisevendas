@@ -10,7 +10,8 @@ import {
 } from "recharts";
 import {
   Users, Info, ChevronDown, ChevronUp, Star, UserCheck,
-  BarChart2, X, ShoppingBag, ArrowRightLeft, Smartphone, Zap, Store
+  BarChart2, X, ShoppingBag, ArrowRightLeft, Smartphone, Zap, Store,
+  RefreshCw, Package, TrendingUp
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { parseISO, differenceInDays, format } from "date-fns";
@@ -48,7 +49,7 @@ const CANAL_LABELS: Record<string, { label: string; icon: React.ElementType; col
   TROCA:              { label: "Troca",           icon: ArrowRightLeft, color: "text-purple-600" },
 };
 
-type SectionId = "piramide" | "top" | "colaboradores" | "retorno";
+type SectionId = "piramide" | "top" | "colaboradores" | "retorno" | "segmentos";
 
 interface ClienteInfo {
   cpf: string;
@@ -166,14 +167,70 @@ export function CustomerLoyalty({ data, vinculos = [] }: CustomerLoyaltyProps) {
     return Object.entries(bins).map(([label, count]) => ({ label, count }));
   }, [clientesByCpf]);
 
+  // ── Segmentos de comportamento ───────────────────────────────────────────
+
+  // 1. Top Trocadores — clientes com mais trocas vinculadas
+  const topTrocadores = useMemo(() =>
+    [...clientesByCpf]
+      .filter(c => c.trocas.length > 0)
+      .sort((a, b) => b.trocas.length - a.trocas.length)
+      .slice(0, 15)
+      .map(c => ({
+        ...c,
+        totalDevolvido: c.trocas.reduce((s, t) => s + t.valor_devolvido, 0),
+        totalAdquirido: c.trocas.reduce((s, t) => s + t.valor_trocado, 0),
+        saldo: c.trocas.reduce((s, t) => s + t.valor_diferenca, 0),
+      })),
+    [clientesByCpf]
+  );
+
+  // 2. Pickup Recorrente — clientes com 2+ retiradas online
+  const pickupRecorrente = useMemo(() =>
+    [...clientesByCpf]
+      .filter(c => (c.canais["RETIRADA_ONLINE"] || 0) >= 2)
+      .sort((a, b) => (b.canais["RETIRADA_ONLINE"] || 0) - (a.canais["RETIRADA_ONLINE"] || 0))
+      .slice(0, 15),
+    [clientesByCpf]
+  );
+
+  // 3. Adicional Frequente — clientes com 1+ adicional
+  const adicionalFrequente = useMemo(() =>
+    [...clientesByCpf]
+      .filter(c => (c.canais["RETIRADA_ADICIONAL"] || 0) >= 1)
+      .sort((a, b) => (b.canais["RETIRADA_ADICIONAL"] || 0) - (a.canais["RETIRADA_ADICIONAL"] || 0))
+      .slice(0, 15),
+    [clientesByCpf]
+  );
+
+  // 4. Pós-Troca — clientes que trocaram e ainda assim compraram novamente (comp. convencional após troca)
+  const posTroca = useMemo(() => {
+    return clientesByCpf
+      .filter(c => {
+        if (c.trocas.length === 0) return false;
+        // tem ao menos uma compra convencional DEPOIS da última troca
+        const ultimaTroca = Math.max(...c.trocas.map(t => { try { return parseISO(t.data_saida).getTime(); } catch { return 0; } }));
+        return c.notas.some(n => {
+          try { return parseISO(n.dhEmi).getTime() > ultimaTroca && !n.is_troca; } catch { return false; }
+        });
+      })
+      .map(c => {
+        const ultimaTroca = Math.max(...c.trocas.map(t => { try { return parseISO(t.data_saida).getTime(); } catch { return 0; } }));
+        const comprasPosTroca = c.notas.filter(n => { try { return parseISO(n.dhEmi).getTime() > ultimaTroca && !n.is_troca; } catch { return false; } });
+        return { ...c, comprasPosTroca: comprasPosTroca.length, gastoPosTroca: comprasPosTroca.reduce((s, n) => s + (parseFloat(n.vNF) || 0), 0) };
+      })
+      .sort((a, b) => b.comprasPosTroca - a.comprasPosTroca)
+      .slice(0, 15);
+  }, [clientesByCpf]);
+
   const fmtBRL = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   const fmtDate = (s: string) => { try { return format(parseISO(s), "dd/MM/yy HH:mm", { locale: ptBR }); } catch { return s; } };
 
   const sections = [
-    { id: "piramide" as SectionId,      label: "Pirâmide de Clientes",        icon: BarChart2 },
-    { id: "top" as SectionId,           label: "Top 20 Clientes",             icon: Star },
+    { id: "piramide" as SectionId,   label: "Pirâmide de Clientes",        icon: BarChart2 },
+    { id: "top" as SectionId,        label: "Top 20 Clientes",             icon: Star },
+    { id: "segmentos" as SectionId,  label: "Segmentos de Comportamento",  icon: TrendingUp },
     { id: "colaboradores" as SectionId, label: "Fidelização por Colaborador", icon: UserCheck },
-    { id: "retorno" as SectionId,       label: "Intervalo de Retorno",        icon: Users },
+    { id: "retorno" as SectionId,    label: "Intervalo de Retorno",        icon: Users },
   ];
 
   if (sales.length === 0) {
@@ -478,6 +535,151 @@ export function CustomerLoyalty({ data, vinculos = [] }: CustomerLoyaltyProps) {
                       <ChevronDown className="w-4 h-4 text-slate-300 group-hover:text-emerald-500 -rotate-90 transition-colors" />
                     </button>
                   ))}
+                </div>
+              )}
+
+              {/* Segmentos de Comportamento */}
+              {id === "segmentos" && (
+                <div className="space-y-4">
+                  <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-xl flex items-start gap-2">
+                    <Info className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
+                    <p className="text-xs text-emerald-700 font-medium">
+                      Clientes agrupados por comportamento de compra. Clique em qualquer cliente para ver o histórico completo.
+                    </p>
+                  </div>
+
+                  {/* Top Trocadores */}
+                  <div className="bg-purple-50 border border-purple-100 rounded-2xl overflow-hidden">
+                    <div className="flex items-center gap-2 p-4 pb-2">
+                      <RefreshCw className="w-4 h-4 text-purple-600" />
+                      <span className="text-sm font-black text-purple-700 uppercase tracking-tight">Top Trocadores</span>
+                      <Badge className="bg-purple-100 text-purple-700 border-none text-[10px] font-black ml-auto">{topTrocadores.length} clientes</Badge>
+                    </div>
+                    {topTrocadores.length === 0 ? (
+                      <p className="text-xs text-slate-400 text-center py-4">Nenhuma troca identificada com CPF</p>
+                    ) : (
+                      <div className="px-4 pb-4 space-y-2">
+                        {topTrocadores.map((c, i) => (
+                          <button key={i} onClick={() => setSelectedCliente(c)}
+                            className="w-full flex items-center gap-3 p-3 bg-white rounded-xl border border-purple-100 hover:border-purple-300 transition-all text-left group">
+                            <span className="text-xs font-black text-purple-300 w-4">{i + 1}</span>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-black text-slate-700 truncate group-hover:text-purple-700">
+                                {c.nome ? c.nome.split(" ").slice(0, 2).join(" ") : maskCpf(c.cpf)}
+                              </p>
+                              <p className="text-[10px] text-slate-400">
+                                Saldo trocas: <span className={c.saldo >= 0 ? "text-emerald-600 font-black" : "text-rose-600 font-black"}>{fmtBRL(c.saldo)}</span>
+                              </p>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <p className="text-sm font-black text-purple-700">{c.trocas.length} troca{c.trocas.length > 1 ? "s" : ""}</p>
+                              <p className="text-[10px] text-slate-400">{fmtBRL(c.totalDevolvido)} → {fmtBRL(c.totalAdquirido)}</p>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Pickup Recorrente */}
+                  <div className="bg-sky-50 border border-sky-100 rounded-2xl overflow-hidden">
+                    <div className="flex items-center gap-2 p-4 pb-2">
+                      <Smartphone className="w-4 h-4 text-sky-600" />
+                      <span className="text-sm font-black text-sky-700 uppercase tracking-tight">Pickup Recorrente</span>
+                      <Badge className="bg-sky-100 text-sky-700 border-none text-[10px] font-black ml-auto">{pickupRecorrente.length} clientes</Badge>
+                    </div>
+                    {pickupRecorrente.length === 0 ? (
+                      <p className="text-xs text-slate-400 text-center py-4">Nenhum cliente com 2+ retiradas online identificadas</p>
+                    ) : (
+                      <div className="px-4 pb-4 space-y-2">
+                        {pickupRecorrente.map((c, i) => (
+                          <button key={i} onClick={() => setSelectedCliente(c)}
+                            className="w-full flex items-center gap-3 p-3 bg-white rounded-xl border border-sky-100 hover:border-sky-300 transition-all text-left group">
+                            <span className="text-xs font-black text-sky-300 w-4">{i + 1}</span>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-black text-slate-700 truncate group-hover:text-sky-700">
+                                {c.nome ? c.nome.split(" ").slice(0, 2).join(" ") : maskCpf(c.cpf)}
+                              </p>
+                              <p className="text-[10px] text-slate-400">{c.visitas} visita{c.visitas > 1 ? "s" : ""} no total</p>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <p className="text-sm font-black text-sky-700">{c.canais["RETIRADA_ONLINE"]}× online</p>
+                              {(c.canais["RETIRADA_ADICIONAL"] || 0) > 0 && (
+                                <p className="text-[10px] text-emerald-600 font-bold">{c.canais["RETIRADA_ADICIONAL"]}× adicional</p>
+                              )}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Adicional Frequente */}
+                  <div className="bg-emerald-50 border border-emerald-100 rounded-2xl overflow-hidden">
+                    <div className="flex items-center gap-2 p-4 pb-2">
+                      <Zap className="w-4 h-4 text-emerald-600" />
+                      <span className="text-sm font-black text-emerald-700 uppercase tracking-tight">Adicional Frequente</span>
+                      <Badge className="bg-emerald-100 text-emerald-700 border-none text-[10px] font-black ml-auto">{adicionalFrequente.length} clientes</Badge>
+                    </div>
+                    {adicionalFrequente.length === 0 ? (
+                      <p className="text-xs text-slate-400 text-center py-4">Nenhum cliente com adicional identificado com CPF</p>
+                    ) : (
+                      <div className="px-4 pb-4 space-y-2">
+                        {adicionalFrequente.map((c, i) => (
+                          <button key={i} onClick={() => setSelectedCliente(c)}
+                            className="w-full flex items-center gap-3 p-3 bg-white rounded-xl border border-emerald-100 hover:border-emerald-300 transition-all text-left group">
+                            <span className="text-xs font-black text-emerald-300 w-4">{i + 1}</span>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-black text-slate-700 truncate group-hover:text-emerald-700">
+                                {c.nome ? c.nome.split(" ").slice(0, 2).join(" ") : maskCpf(c.cpf)}
+                              </p>
+                              <p className="text-[10px] text-slate-400">{fmtBRL(c.totalGasto)} total gasto</p>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <p className="text-sm font-black text-emerald-700">{c.canais["RETIRADA_ADICIONAL"]}× adicional</p>
+                              <p className="text-[10px] text-slate-400">{(c.canais["RETIRADA_ONLINE"] || 0)} pickup{(c.canais["RETIRADA_ONLINE"] || 0) !== 1 ? "s" : ""}</p>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Pós-Troca */}
+                  <div className="bg-amber-50 border border-amber-100 rounded-2xl overflow-hidden">
+                    <div className="flex items-center gap-2 p-4 pb-2">
+                      <Package className="w-4 h-4 text-amber-600" />
+                      <span className="text-sm font-black text-amber-700 uppercase tracking-tight">Pós-Troca — Voltaram a Comprar</span>
+                      <Badge className="bg-amber-100 text-amber-700 border-none text-[10px] font-black ml-auto">{posTroca.length} clientes</Badge>
+                    </div>
+                    <div className="px-4 pb-2">
+                      <p className="text-[10px] text-amber-600 font-medium">
+                        Clientes que realizaram trocas e compraram novamente após a última troca — sinal positivo de retenção.
+                      </p>
+                    </div>
+                    {posTroca.length === 0 ? (
+                      <p className="text-xs text-slate-400 text-center py-4">Nenhum cliente neste perfil identificado</p>
+                    ) : (
+                      <div className="px-4 pb-4 space-y-2">
+                        {posTroca.map((c, i) => (
+                          <button key={i} onClick={() => setSelectedCliente(c)}
+                            className="w-full flex items-center gap-3 p-3 bg-white rounded-xl border border-amber-100 hover:border-amber-300 transition-all text-left group">
+                            <span className="text-xs font-black text-amber-300 w-4">{i + 1}</span>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-black text-slate-700 truncate group-hover:text-amber-700">
+                                {c.nome ? c.nome.split(" ").slice(0, 2).join(" ") : maskCpf(c.cpf)}
+                              </p>
+                              <p className="text-[10px] text-slate-400">{c.trocas.length} troca{c.trocas.length > 1 ? "s" : ""}</p>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <p className="text-sm font-black text-amber-700">{c.comprasPosTroca} compra{c.comprasPosTroca > 1 ? "s" : ""} pós-troca</p>
+                              <p className="text-[10px] text-emerald-600 font-bold">{fmtBRL(c.gastoPosTroca)}</p>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 

@@ -95,6 +95,10 @@ export function ExchangeManagement({ data, vinculos }: ExchangeManagementProps) 
 
   const getSaleData = (chave: string) => data.find(d => d.chave === chave);
 
+  // Exibe nome/cpf do veínculo mesmo quando o XML de entrada não foi importado
+  const getClienteLabel = (vinc: VinculoTroca) =>
+    vinc.nome_cliente?.trim() || (vinc.cpf_cliente ? `CPF: ${vinc.cpf_cliente}` : "Final Consumidor");
+
   return (
     <div className="space-y-6 md:space-y-8 animate-in fade-in duration-500 pb-20">
       {/* KPIs Estratégicos de Troca */}
@@ -172,7 +176,7 @@ export function ExchangeManagement({ data, vinculos }: ExchangeManagementProps) 
                 <AccordionTrigger className="hover:no-underline px-4 md:px-6 py-4">
                   <div className="flex-1 grid grid-cols-2 md:grid-cols-5 gap-4 items-center text-left">
                     <div className="col-span-2 md:col-span-1">
-                      <p className="text-xs font-black text-slate-800 uppercase truncate">{vinc.nome_cliente || "Final Consumidor"}</p>
+                      <p className="text-xs font-black text-slate-800 uppercase truncate">{getClienteLabel(vinc)}</p>
                       <p className="text-[9px] text-slate-400 font-bold uppercase">{vinc.vendedor}</p>
                     </div>
                     
@@ -207,7 +211,7 @@ export function ExchangeManagement({ data, vinculos }: ExchangeManagementProps) 
                     <div className="col-span-1 md:text-right">
                       <Badge className={cn(
                         "text-[8px] font-black uppercase border-none",
-                        isGood ? "bg-emerald-50 text-white" : (isCritical ? "bg-rose-50 text-white" : "bg-orange-50 text-white")
+                        isGood ? "bg-emerald-500 text-white" : (isCritical ? "bg-rose-500 text-white" : "bg-orange-400 text-white")
                       )}>
                         {vinc.diagnostico.split(' ')[0]}
                       </Badge>
@@ -271,7 +275,7 @@ export function ExchangeManagement({ data, vinculos }: ExchangeManagementProps) 
                     {/* Detalhe da Devolução */}
                     <div className="space-y-4">
                       <h4 className="text-[10px] font-black uppercase text-rose-500 flex items-center gap-2">
-                        <ArrowDownCircle className="w-3 h-3" /> Itens Devolvidos (Entrada) - NF {entryNote?.nf}
+                        <ArrowDownCircle className="w-3 h-3" /> Itens Devolvidos (Entrada){entryNote ? ` - NF ${entryNote.nf}` : " — XML de entrada não carregado"}
                       </h4>
                       <div className="space-y-2">
                         {entryNote?.itens.map((it, i) => (
@@ -283,6 +287,14 @@ export function ExchangeManagement({ data, vinculos }: ExchangeManagementProps) 
                             <span className="text-[10px] font-black text-slate-600 whitespace-nowrap">{formatBRL(it.vProd)}</span>
                           </div>
                         ))}
+                        {!entryNote && (
+                          <div className="p-3 bg-rose-50 border border-rose-100 rounded-xl">
+                            <p className="text-[10px] text-rose-600 font-bold">
+                              Valor devolvido: <strong>{formatBRL(vinc.valor_devolvido)}</strong> · {vinc.itens_devolvidos} ite{vinc.itens_devolvidos !== 1 ? "ns" : "m"}
+                            </p>
+                            <p className="text-[9px] text-rose-400 mt-0.5">Importe o XML de entrada (devolução) para ver os itens.</p>
+                          </div>
+                        )}
                       </div>
                     </div>
 

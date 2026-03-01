@@ -81,7 +81,7 @@ export function useSalesProcessor() {
         } catch (e) {
             // Fallback: Save only metadata for older items if quota is exceeded
             try {
-                const lightHistory = list.map((item, idx) => 
+                const lightHistory = list.map((item, idx) =>
                     idx === 0 ? item : { ...item, data: [] }
                 );
                 localStorage.setItem("ri_happy_upload_history", JSON.stringify(lightHistory));
@@ -167,7 +167,7 @@ export function useSalesProcessor() {
             });
             return;
         }
-        
+
         // Re-normalizar vendedores ao reabrir histórico antigo (Migration Clean)
         const normalizedData = item.data.map(r => ({
             ...r,
@@ -175,7 +175,7 @@ export function useSalesProcessor() {
         }));
 
         const processedRows = detectarAdicionaisSuspeitos(normalizedData);
-        setParsedRows(normalizedData);
+        setParsedRows(processedRows);  // ← usa processedRows com flags de adicionais corretamente aplicadas
         setVinculos(vincularTrocasUtils(processedRows));
         setStatus("success");
     }, [toast]);

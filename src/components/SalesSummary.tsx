@@ -303,7 +303,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
       case "yoy_analise": return <YoYAnalysis data={data} />;
       case "ritmo_operacional": return <OperationalRhythm data={data} />;
       case "payment_map": return <PaymentMap data={data} />;
-      case "customer_loyalty": return <CustomerLoyalty data={data} />;
+      case "customer_loyalty": return <CustomerLoyalty data={data} vinculos={vinculos} />;
       case "price_profile": return <PriceProfile data={data} />;
       case "item_ranking": return <ItemRanking data={data} />;
       default: return null;

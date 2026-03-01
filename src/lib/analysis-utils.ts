@@ -21,7 +21,7 @@ export function detectarFragmentacao(rows: DetailedSaleRow[]): DetailedSaleRow[]
     if (diffMin <= 3) {
       const mesmoCpf = atual.cpf_cnpj_dest && atual.cpf_cnpj_dest === anterior.cpf_cnpj_dest;
       const mesmoVendedor = atual.vendedor === anterior.vendedor;
-      
+
       if (mesmoCpf || (mesmoVendedor && parseInt(atual.itens_qtd) === 1 && parseInt(anterior.itens_qtd) === 1)) {
         atual.is_fragmentada = true;
         anterior.is_fragmentada = true;
@@ -34,12 +34,12 @@ export function detectarFragmentacao(rows: DetailedSaleRow[]): DetailedSaleRow[]
 export function detectarAdicionaisSuspeitos(rows: DetailedSaleRow[]): DetailedSaleRow[] {
   // Primeiro detecta fragmentação para não confundir com adicional legítimo
   const withFragmented = detectarFragmentacao(rows);
-  
+
   const retiradas = withFragmented.filter(r => r.canal === "RETIRADA_ONLINE" && !r.is_cancelada);
-  const candidatos = withFragmented.filter(r => 
-    r.tpNF === 1 && 
-    r.canal !== "RETIRADA_ONLINE" && 
-    !r.is_cancelada && 
+  const candidatos = withFragmented.filter(r =>
+    r.tpNF === 1 &&
+    r.canal !== "RETIRADA_ONLINE" &&
+    !r.is_cancelada &&
     !r.is_troca &&
     !r.tem_suspeita_preco_errado &&
     !r.is_fragmentada // Fragmentado não é adicional seguro
@@ -59,7 +59,7 @@ export function detectarAdicionaisSuspeitos(rows: DetailedSaleRow[]): DetailedSa
 
     const pickupsDoCliente = pickupsPorCpf.get(cpf) || [];
     const timeNota = new Date(nota.dhEmi).getTime();
-    
+
     const pickupVinculada = pickupsDoCliente.find(p => {
       const timePickup = new Date(p.dhEmi).getTime();
       const diffMinutes = Math.abs(timeNota - timePickup) / (1000 * 60);
@@ -92,7 +92,7 @@ export function detectarAdicionaisSuspeitos(rows: DetailedSaleRow[]): DetailedSa
 export function vincularTrocas(rows: DetailedSaleRow[]): VinculoTroca[] {
   const entradas = rows.filter(r => r.tpNF === 0 || r.is_devolucao);
   const saidasDeTroca = rows.filter(r => r.tpNF === 1 && r.is_troca && !r.is_cancelada);
-  
+
   const vinculos: VinculoTroca[] = [];
   const saidasVinculadas = new Set<string>();
   const entradasVinculadas = new Set<string>();
@@ -123,6 +123,33 @@ export function vincularTrocas(rows: DetailedSaleRow[]): VinculoTroca[] {
         saidasVinculadas.add(match.chave);
         entradasVinculadas.add(entrada.chave);
       }
+    }
+  });
+
+  // ── Método 3: CPF igual + proximidade temporal (72h) ─────────────────────
+  // Captura trocas onde o valor mudou (cliente comprou algo diferente) mas o
+  // CPF bate e a devolução ocorreu próximo da saída com Crédito Loja.
+  entradas.forEach(entrada => {
+    if (entradasVinculadas.has(entrada.chave)) return;
+    const cpfEntrada = entrada.cpf_cnpj_dest?.trim();
+    if (!cpfEntrada) return;
+    const tEntrada = new Date(entrada.dhEmi).getTime();
+
+    // Candidatas: saídas com is_troca, mesmo CPF, ainda não vinculadas
+    const candidatas = saidasDeTroca
+      .filter(s =>
+        !saidasVinculadas.has(s.chave) &&
+        s.cpf_cnpj_dest?.trim() === cpfEntrada
+      )
+      .map(s => ({ s, diff: Math.abs(new Date(s.dhEmi).getTime() - tEntrada) }))
+      .filter(({ diff }) => diff <= 72 * 60 * 60 * 1000) // janela de 72h
+      .sort((a, b) => a.diff - b.diff); // mais próxima temporal primeiro
+
+    if (candidatas.length > 0) {
+      const { s: match } = candidatas[0];
+      vinculos.push(criarVinculo(entrada, match, "CPF + Proximidade Temporal"));
+      saidasVinculadas.add(match.chave);
+      entradasVinculadas.add(entrada.chave);
     }
   });
 
@@ -162,7 +189,7 @@ function criarVinculo(entrada: DetailedSaleRow, saida: DetailedSaleRow, metodo: 
     valor_credito: parseFloat(saida.vTroca),
     valor_diferenca: vDiferenca,
     metodo_vinculo: metodo,
-    confianca: metodo.includes("Fiscal") ? 1.0 : (metodo.includes("CPF") ? 0.9 : 0.7),
+    confianca: metodo.includes("Fiscal") ? 1.0 : metodo.includes("CPF + Valor") ? 0.9 : metodo.includes("Proximidade") ? 0.75 : 0.7,
     score_qualidade: Math.max(0, Math.min(100, score)),
     diagnostico: diag
   };

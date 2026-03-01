@@ -1,3 +1,4 @@
+"use client";
 
 import { DetailedSaleRow, Item } from "./types";
 
@@ -14,8 +15,6 @@ const SLP_CODES = [
 const NEAR_FREE_MAX = 0.10;
 const RESIDUAL_MAX = 0.10;
 const UNIT_BRUTO_MIN = 1.00;
-const MIN_DESC_CENTS_MATERIAL = 100;
-const STANDARD_PERCENTS = [0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.40, 0.50];
 
 function dec(s: string | null | undefined): number {
   if (!s) return 0;
@@ -39,11 +38,8 @@ function extractVendedor(infCpl: string): string {
     const dIdx = candidate.toUpperCase().indexOf(d.toUpperCase());
     if (dIdx !== -1 && dIdx < endIdx) endIdx = dIdx;
   }
-  const multiSpace = candidate.match(/\s{2,}/);
-  if (multiSpace && multiSpace.index !== undefined && multiSpace.index < endIdx) endIdx = multiSpace.index;
-
-  let result = candidate.substring(0, endIdx).trim().toUpperCase();
   
+  let result = candidate.substring(0, endIdx).trim().toUpperCase();
   const trailingIdMatch = result.match(/\s+\d+$/);
   if (trailingIdMatch && trailingIdMatch.index) {
     result = result.substring(0, trailingIdMatch.index).trim();
@@ -67,10 +63,29 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     const parser = new DOMParser();
     const xmlDoc = parser.parseFromString(xmlString, "text/xml");
 
-    if (xmlDoc.getElementsByTagName("procEventoNFe").length > 0 || xmlDoc.getElementsByTagName("retCancNFe").length > 0) {
+    // FUNÇÕES AUXILIARES DE BUSCA UNIVERSAL (Ignoram Namespaces)
+    const findByLocalName = (parent: Element | Document, name: string): Element | null => {
+      const all = parent.getElementsByTagName("*");
+      for (let i = 0; i < all.length; i++) {
+        if (all[i].localName === name) return all[i];
+      }
+      return null;
+    };
+
+    const findAllByLocalName = (parent: Element | Document, name: string): Element[] => {
+      const results: Element[] = [];
+      const all = parent.getElementsByTagName("*");
+      for (let i = 0; i < all.length; i++) {
+        if (all[i].localName === name) results.push(all[i]);
+      }
+      return results;
+    };
+
+    // Detecção de cancelamento
+    if (findByLocalName(xmlDoc, "procEventoNFe") || findByLocalName(xmlDoc, "retCancNFe")) {
       return {
         is_cancelada: true,
-        chave: (xmlDoc.getElementsByTagName("chNFe")[0]?.textContent || "DESC"),
+        chave: findByLocalName(xmlDoc, "chNFe")?.textContent || "DESC",
         nf: "CANCELADA",
         dhEmi: "", vendedor: "", tpNF: 1, finNFe: 1, natOp: "CANCELAMENTO", indPres: 0,
         canal: "CANCELADA", subcanal: "", canal_consolidado: "CANCELADA",
@@ -85,165 +100,105 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
       };
     }
 
-    if (!xmlDoc.documentElement || xmlDoc.getElementsByTagName("parsererror").length > 0) return null;
-
-    const root = xmlDoc.documentElement;
-    const ns = root.getAttribute("xmlns") || "";
-    const getElement = (p: Element | Document | null, n: string): Element | null => {
-      if (!p) return null;
-      const parent = p instanceof Document ? p.documentElement : p;
-      return (ns ? parent.getElementsByTagNameNS(ns, n) : parent.getElementsByTagName(n))[0] || null;
-    };
-    const getElements = (p: Element | Document | null, n: string): Element[] => {
-      if (!p) return [];
-      const parent = p instanceof Document ? p.documentElement : p;
-      return Array.from(ns ? parent.getElementsByTagNameNS(ns, n) : parent.getElementsByTagName(n));
-    };
-
-    const infNFe = getElement(xmlDoc, "infNFe");
+    const infNFe = findByLocalName(xmlDoc, "infNFe");
     if (!infNFe) return null;
-    const ide = getElement(infNFe, "ide");
+    
+    const ide = findByLocalName(infNFe, "ide");
     if (!ide) return null;
 
     const chave = infNFe.getAttribute("Id")?.replace("NFe", "") || "";
-    const nf = getElement(ide, "nNF")?.textContent || "";
-    const tpNF = parseInt(getElement(ide, "tpNF")?.textContent || "1");
-    const finNFe = parseInt(getElement(ide, "finNFe")?.textContent || "1");
-    const natOp = getElement(ide, "natOp")?.textContent || "";
-    const dhEmi = getElement(ide, "dhEmi")?.textContent || "";
-    const indPres = parseInt(getElement(ide, "indPres")?.textContent || "0");
+    const nf = findByLocalName(ide, "nNF")?.textContent || "";
+    const tpNF = parseInt(findByLocalName(ide, "tpNF")?.textContent || "1");
+    const finNFe = parseInt(findByLocalName(ide, "finNFe")?.textContent || "1");
+    const natOp = findByLocalName(ide, "natOp")?.textContent || "";
+    const dhEmi = findByLocalName(ide, "dhEmi")?.textContent || findByLocalName(ide, "dEmi")?.textContent || "";
+    const indPres = parseInt(findByLocalName(ide, "indPres")?.textContent || "0");
 
-    const dest = getElement(infNFe, "dest");
-    const cpf_cnpj = dest ? (getElement(dest, "CPF")?.textContent || getElement(dest, "CNPJ")?.textContent || "") : "";
-    const nome_dest = dest ? (getElement(dest, "xNome")?.textContent || "") : "";
-    const enderDest = dest ? getElement(dest, "enderDest") : null;
-    const cep_dest = enderDest ? (getElement(enderDest, "CEP")?.textContent || "").replace(/\D/g, "") : "";
-    const xLgr_dest = enderDest ? (getElement(enderDest, "xLgr")?.textContent || "") : "";
-    const nro_dest = enderDest ? (getElement(enderDest, "nro")?.textContent || "") : "";
-    const uf_dest = enderDest ? (getElement(enderDest, "UF")?.textContent || "") : "";
+    const dest = findByLocalName(infNFe, "dest");
+    const cpf_cnpj = dest ? (findByLocalName(dest, "CPF")?.textContent || findByLocalName(dest, "CNPJ")?.textContent || "") : "";
+    const nome_dest = dest ? (findByLocalName(dest, "xNome")?.textContent || "") : "";
+    
+    const enderDest = dest ? findByLocalName(dest, "enderDest") : null;
+    const cep_dest = enderDest ? (findByLocalName(enderDest, "CEP")?.textContent || "").replace(/\D/g, "") : "";
+    const nro_dest = enderDest ? (findByLocalName(enderDest, "nro")?.textContent || "") : "";
 
-    const emit = getElement(infNFe, "emit");
-    const enderEmit = emit ? getElement(emit, "enderEmit") : null;
-    const xNomeEmit = emit ? getElement(emit, "xNome")?.textContent || "" : "";
-    const cnpjEmit = emit ? getElement(emit, "CNPJ")?.textContent || "" : "";
-    const ieEmit = emit ? getElement(emit, "IE")?.textContent || "" : "";
-    const enderEmitFull = enderEmit ? `${getElement(enderEmit, "xLgr")?.textContent}, ${getElement(enderEmit, "nro")?.textContent} - ${getElement(enderEmit, "xBairro")?.textContent}` : "";
-
-    const total = getElement(infNFe, "total");
-    const icmsTot = total ? getElement(total, "ICMSTot") : null;
-    const vNFValue = icmsTot ? dec(getElement(icmsTot, "vNF")?.textContent) : 0;
+    const total = findByLocalName(infNFe, "total");
+    const icmsTot = total ? findByLocalName(total, "ICMSTot") : null;
+    const vNFValue = icmsTot ? dec(findByLocalName(icmsTot, "vNF")?.textContent) : 0;
 
     const itemsList: Item[] = [];
     let nearFreeCount = 0;
     let residualCount = 0;
     const unitPricesBruto: number[] = [];
     let totalDescontoNota = 0;
-    let hasSymbolicItem = false;
 
-    getElements(infNFe, "det").forEach(det => {
-      const prod = getElement(det, "prod");
+    findAllByLocalName(infNFe, "det").forEach(det => {
+      const prod = findByLocalName(det, "prod");
       if (prod) {
-        const cProd = getElement(prod, "cProd")?.textContent || "";
-        const vProd = dec(getElement(prod, "vProd")?.textContent);
-        const vDesc = dec(getElement(prod, "vDesc")?.textContent);
-        const qCom = dec(getElement(prod, "qCom")?.textContent);
+        const cProd = findByLocalName(prod, "cProd")?.textContent || "";
+        const vProd = dec(findByLocalName(prod, "vProd")?.textContent);
+        const vDesc = dec(findByLocalName(prod, "vDesc")?.textContent);
+        const qCom = dec(findByLocalName(prod, "qCom")?.textContent);
         
         const unitBruto = vProd / qCom;
         const unitFinal = (vProd - vDesc) / qCom;
         const unitDesc = vDesc / qCom;
 
-        if (unitBruto <= 0.10 && vDesc === 0) hasSymbolicItem = true;
-
         if (unitBruto >= UNIT_BRUTO_MIN) {
           unitPricesBruto.push(unitBruto);
           totalDescontoNota += vDesc;
-
           if (unitFinal > 0 && unitFinal <= NEAR_FREE_MAX) nearFreeCount++;
           if (unitDesc > 0 && unitDesc <= RESIDUAL_MAX) residualCount++;
         }
 
         itemsList.push({
           cProd,
-          xProd: getElement(prod, "xProd")?.textContent || "",
-          qCom,
-          vProd,
-          vDesc,
-          is_campanha: false
+          xProd: findByLocalName(prod, "xProd")?.textContent || "",
+          qCom, vProd, vDesc, is_campanha: false
         });
       }
     });
 
     const precoBase = getMedian(unitPricesBruto);
-    let isCampanhaNota = false;
-
-    if (precoBase > 0) {
-      const isCampanhaCandidato = (nearFreeCount >= 1) && (residualCount >= 1 || nearFreeCount >= 2);
-      const k = Math.round(totalDescontoNota / precoBase);
-      const coerente = k >= 1 && Math.abs(totalDescontoNota - k * precoBase) <= Math.max(0.05, 0.10 * k);
-      isCampanhaNota = isCampanhaCandidato && coerente;
-    }
+    let isCampanhaNota = precoBase > 0 && (nearFreeCount >= 1) && (residualCount >= 1 || nearFreeCount >= 2);
 
     if (isCampanhaNota) {
       itemsList.forEach(item => { item.is_campanha = true; });
     }
 
-    let temSuspeitaPrecoErrado = false;
-    itemsList.forEach(item => {
-      if (item.vDesc <= 0) return;
-      const unitLiq = (item.vProd - item.vDesc) / item.qCom;
-      const unitLiqCents = Math.round(unitLiq * 100);
-      const lastDigit = unitLiqCents % 10;
-      // Detecção de preços psicológicos (final 1, 5 ou 9) cruzados com descontos manuais
-      const isPsychEnding = [1, 5, 9].includes(lastDigit);
-      const percDesc = item.vProd > 0 ? item.vDesc / item.vProd : 0;
-      const isRiHappyStandard = (percDesc >= 0.08 && percDesc <= 0.12) || (percDesc >= 0.045 && percDesc <= 0.055);
-
-      if (isPsychEnding && !isRiHappyStandard && !isCampanhaNota) {
-        item.is_preco_errado = true;
-        item.evidencia_preco_errado = `Final ${lastDigit} com desconto manual`;
-        temSuspeitaPrecoErrado = true;
-      }
-    });
-
     const pagamentosDet: Array<{ tPag: string, vPag: number, tpIntegra?: string }> = [];
     let vTrocoPag = 0;
     let tpIntegraValue = "";
-    const pag = getElement(infNFe, "pag");
+    const pag = findByLocalName(infNFe, "pag");
     if (pag) {
-      vTrocoPag = dec(getElement(pag, "vTroco")?.textContent);
-      getElements(pag, "detPag").forEach(detPag => {
-        const tPag = getElement(detPag, "tPag")?.textContent || "";
-        const vPag = dec(getElement(detPag, "vPag")?.textContent);
-        const card = getElement(detPag, "card");
-        const tpInt = card ? getElement(card, "tpIntegra")?.textContent || "" : undefined;
+      vTrocoPag = dec(findByLocalName(pag, "vTroco")?.textContent);
+      findAllByLocalName(pag, "detPag").forEach(detPag => {
+        const tPag = findByLocalName(detPag, "tPag")?.textContent || "";
+        const vPag = dec(findByLocalName(detPag, "vPag")?.textContent);
+        const card = findByLocalName(detPag, "card");
+        const tpInt = card ? findByLocalName(card, "tpIntegra")?.textContent || "" : undefined;
         pagamentosDet.push({ tPag, vPag, tpIntegra: tpInt });
         if (tpInt) tpIntegraValue = tpInt;
       });
     }
 
-    const protNFe = getElement(xmlDoc, "protNFe");
-    const infProt = protNFe ? getElement(protNFe, "infProt") : null;
+    const protNFe = findByLocalName(xmlDoc, "protNFe");
+    const infProt = protNFe ? findByLocalName(protNFe, "infProt") : null;
     const protocoloData = infProt ? {
-      nProt: getElement(infProt, "nProt")?.textContent || "",
-      dhRecbto: getElement(infProt, "dhRecbto")?.textContent || "",
-      cStat: getElement(infProt, "cStat")?.textContent || "",
-      xMotivo: getElement(infProt, "xMotivo")?.textContent || ""
+      nProt: findByLocalName(infProt, "nProt")?.textContent || "",
+      dhRecbto: findByLocalName(infProt, "dhRecbto")?.textContent || "",
+      cStat: findByLocalName(infProt, "cStat")?.textContent || "",
+      xMotivo: findByLocalName(infProt, "xMotivo")?.textContent || ""
     } : undefined;
 
-    const refNFes: string[] = [];
-    getElements(ide, "NFref").forEach(ref => {
-      const r = getElement(ref, "refNFe")?.textContent;
-      if (r) refNFes.push(r);
-    });
-
-    const infAdic = getElement(infNFe, "infAdic");
-    const infCpl = infAdic ? (getElement(infAdic, "infCpl")?.textContent || "") : "";
+    const infAdic = findByLocalName(infNFe, "infAdic");
+    const infCpl = findByLocalName(infAdic || xmlDoc, "infCpl")?.textContent || "";
     const vendedorRaw = extractVendedor(infCpl);
 
-    const isEnderecoLoja = cep_dest === "21211007" && nro_dest === "909";
-    const temDinheiro = pagamentosDet.some(p => p.tPag === "01");
+    // Lógica de Retirada Online (Carioca Shopping / Padrão Ri Happy)
+    const isEnderecoLoja = (cep_dest === "21210623" || cep_dest === "21211007") && nro_dest === "909";
     const hasTextualPickupEvidence = /RETIRADA|PICKUP|SITE|ECOMM/i.test(infCpl);
-    const isRetiradaOnline = isEnderecoLoja && !temDinheiro && vTrocoPag === 0 && (tpIntegraValue === "2" || hasTextualPickupEvidence);
+    const isRetiradaOnline = isEnderecoLoja && tpIntegraValue === "2" || (isEnderecoLoja && hasTextualPickupEvidence);
 
     const vTrocaCredito = pagamentosDet.filter(p => p.tPag === "05").reduce((acc, p) => acc + p.vPag, 0);
     const isTroca = vTrocaCredito > 0;
@@ -256,13 +211,12 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     let tipoDescontoFinal = "PADRÃO";
     if (hasSlpDiscount) tipoDescontoFinal = itemsList.some(it => !SLP_CODES.includes(it.cProd) && it.vDesc > 0) ? "CAMPANHA + ALERTA" : "CAMPANHA";
     else if (isCampanhaNota) tipoDescontoFinal = "CAMPANHA";
-    else if (temSuspeitaPrecoErrado) tipoDescontoFinal = "AJUSTE DE PREÇO";
     else if (percentualDesconto >= 0.08 && percentualDesconto <= 0.12) tipoDescontoFinal = "ADICIONAL";
 
     return {
       chave, nf, dhEmi, vendedor: vendedorRaw, tpNF, finNFe, natOp, indPres,
-      serie: getElement(ide, "serie")?.textContent || "",
-      modelo: getElement(ide, "mod")?.textContent || "",
+      serie: findByLocalName(ide, "serie")?.textContent || "",
+      modelo: findByLocalName(ide, "mod")?.textContent || "",
       canal: isTroca ? "TROCA" : (isRetiradaOnline ? "RETIRADA_ONLINE" : "LOJA_FISICA"),
       canal_consolidado: isTroca ? "TROCA" : (isRetiradaOnline ? "RETIRADA_ONLINE" : "VENDA_LOJA"),
       subcanal: "", is_adicional: false, is_adicional_suspeito: false, motivo_adicional: "",
@@ -270,15 +224,14 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
       desconto_total: descontoTotal.toFixed(2), percentual_desconto: percentualDesconto.toFixed(4),
       is_troca, vTroca: vTrocaCredito.toFixed(2), dif_troca: (vNFValue - vTrocaCredito).toFixed(2),
       is_devolucao: tpNF === 0 && (finNFe === 4 || natOp.toLowerCase().includes("devolucao")),
-      refNFe: refNFes, refNFe_normalizadas: refNFes.map(r => r.replace(/\D/g, "")),
+      refNFe: findAllByLocalName(ide, "NFref").map(r => findByLocalName(r, "refNFe")?.textContent || ""),
+      refNFe_normalizadas: findAllByLocalName(ide, "NFref").map(r => (findByLocalName(r, "refNFe")?.textContent || "").replace(/\D/g, "")),
       is_retirada_online: isRetiradaOnline, vTroco: vTrocoPag.toFixed(2), is_presencial_por_troco: !isRetiradaOnline,
       tpIntegra: tpIntegraValue, tem_desconto: descontoTotal > 0, tipo_desconto: tipoDescontoFinal,
-      status_auditoria: temSuspeitaPrecoErrado ? "SUSPEITA AJUSTE" : (descontoTotal > 0 ? "DESCONTO" : "LIMPO"),
+      status_auditoria: descontoTotal > 0 ? "DESCONTO" : "LIMPO",
       cep_dest, cep_loja: "", is_cep_diferente_da_loja: false, is_endereco_real: !!cep_dest,
       cpf_cnpj_dest: cpf_cnpj, nome_dest, endereco_dest: "", tem_destinatario: !!cpf_cnpj,
       itens: itemsList, is_cancelada: false, pickup_match_fields: isEnderecoLoja ? 5 : 0,
-      tem_suspeita_preco_errado: temSuspeitaPrecoErrado,
-      emitente: { xNome: xNomeEmit, cnpj: cnpjEmit, ie: ieEmit, endereco: enderEmitFull },
       protocolo: protocoloData, pagamentos_detalhe: pagamentosDet, infCpl
     };
   } catch (e) { return null; }

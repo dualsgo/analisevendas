@@ -35,7 +35,12 @@ import {
   Sword,
   ClipboardList,
   Flame,
-  MousePointer2
+  MousePointer2,
+  Radio,
+  CreditCard,
+  Users2,
+  DollarSign,
+  ShoppingCart
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -72,6 +77,11 @@ import { HeatmapAnalysis } from "./HeatmapAnalysis";
 import { BasketBehavior } from "./BasketBehavior";
 import { SalesEnergy } from "./SalesEnergy";
 import { ProductRisk } from "./ProductRisk";
+import { OperationalRhythm } from "./OperationalRhythm";
+import { PaymentMap } from "./PaymentMap";
+import { CustomerLoyalty } from "./CustomerLoyalty";
+import { PriceProfile } from "./PriceProfile";
+import { ItemRanking } from "./ItemRanking";
 
 interface SalesSummaryProps {
   data: DetailedSaleRow[];
@@ -187,6 +197,11 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
 
   const navItems = [
     { id: "geral", label: "Visão Geral", icon: LayoutDashboard },
+    { id: "ritmo_operacional", label: "Ritmo Operacional", icon: Radio, color: "text-slate-600 font-black" },
+    { id: "payment_map", label: "Formas de Pagamento", icon: CreditCard, color: "text-indigo-600 font-black" },
+    { id: "customer_loyalty", label: "Fidelidade & Recorrência", icon: Users2, color: "text-emerald-600 font-black" },
+    { id: "price_profile", label: "Perfil de Preço", icon: DollarSign, color: "text-rose-600 font-black" },
+    { id: "item_ranking", label: "Ranking de Itens", icon: ShoppingCart, color: "text-orange-600 font-black" },
     { id: "heatmap", label: "Mapa de Calor", icon: Flame, color: "text-orange-500 font-black" },
     { id: "energy", label: "Curva de Energia", icon: Activity, color: "text-sky-500 font-bold" },
     { id: "basket", label: "Anatomia da Cesta", icon: ShoppingBag, color: "text-emerald-600 font-bold" },
@@ -286,6 +301,11 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
       case "deep_dive": return <AdvancedAnalytics data={data} />;
       case "qualidade_avancada": return <QualityAnalysis data={data} vinculos={vinculos} />;
       case "yoy_analise": return <YoYAnalysis data={data} />;
+      case "ritmo_operacional": return <OperationalRhythm data={data} />;
+      case "payment_map": return <PaymentMap data={data} />;
+      case "customer_loyalty": return <CustomerLoyalty data={data} />;
+      case "price_profile": return <PriceProfile data={data} />;
+      case "item_ranking": return <ItemRanking data={data} />;
       default: return null;
     }
   };

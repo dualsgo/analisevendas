@@ -115,7 +115,7 @@ export function ExchangeManagement({ data, vinculos }: ExchangeManagementProps) 
         />
       </div>
 
-      <Card className="ri-card border-none shadow-sm overflow-hidden">
+      <Card className="ri-card shadow-sm overflow-hidden">
         <div className="p-4 bg-white space-y-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -172,7 +172,7 @@ export function ExchangeManagement({ data, vinculos }: ExchangeManagementProps) 
             const isCritical = vinc.score_qualidade < 40;
 
             return (
-              <AccordionItem key={idx} value={`troca-${idx}`} className="ri-card border-none bg-white overflow-hidden shadow-sm">
+              <AccordionItem key={idx} value={`troca-${idx}`} className="ri-card overflow-hidden shadow-sm">
                 <AccordionTrigger className="hover:no-underline px-4 md:px-6 py-4">
                   <div className="flex-1 grid grid-cols-2 md:grid-cols-5 gap-4 items-center text-left">
                     <div className="col-span-2 md:col-span-1">
@@ -328,7 +328,7 @@ export function ExchangeManagement({ data, vinculos }: ExchangeManagementProps) 
 
 function KPIStat({ label, value, icon: Icon, color, subLabel }: { label: string, value: string | number, icon: any, color: string, subLabel?: string }) {
   return (
-    <Card className="ri-card border-none bg-white p-4 md:p-5 flex flex-col items-center justify-center text-center gap-3 shadow-sm min-h-[110px]">
+    <Card className="ri-card p-4 md:p-5 flex flex-col items-center justify-center text-center gap-3 shadow-sm min-h-[110px]">
       <div className="flex items-center justify-center">
         <div className={cn("p-2 rounded-xl bg-slate-50", color)}>
           <Icon className="w-5 h-5" />

@@ -155,7 +155,7 @@ export function ComplianceAudit({ data }: ComplianceAuditProps) {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Ranking de Vendedores */}
-        <Card className="ri-card border-none shadow-sm lg:col-span-1">
+        <Card className="ri-card shadow-sm lg:col-span-1">
           <CardHeader className="bg-slate-50/50 border-b p-4 text-center">
             <CardTitle className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Ranking por Colaborador</CardTitle>
           </CardHeader>
@@ -188,7 +188,7 @@ export function ComplianceAudit({ data }: ComplianceAuditProps) {
 
         {/* Relatório Detalhado */}
         <div className="lg:col-span-2 space-y-4">
-          <Card className="ri-card border-none shadow-sm overflow-hidden">
+          <Card className="ri-card shadow-sm overflow-hidden">
             <div className="p-4 bg-white flex flex-col md:flex-row gap-4 items-end">
               <div className="flex-1 space-y-1.5">
                 <label className="text-[9px] font-black text-slate-400 uppercase px-1">Busca Geral</label>
@@ -274,7 +274,7 @@ export function ComplianceAudit({ data }: ComplianceAuditProps) {
 
 function ComplianceStat({ label, value, icon: Icon, color, subLabel }: any) {
   return (
-    <Card className="ri-card border-none bg-white p-4 md:p-5 flex flex-col items-center justify-center text-center gap-3 shadow-sm min-h-[110px]">
+    <Card className="ri-card p-4 md:p-5 flex flex-col items-center justify-center text-center gap-3 shadow-sm min-h-[110px]">
       <div className="flex items-center justify-center">
         <div className={cn("p-2 rounded-xl bg-slate-50", color)}>
           <Icon className="w-5 h-5" />

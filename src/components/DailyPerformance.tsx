@@ -250,7 +250,7 @@ export function DailyPerformance({ data }: DailyPerformanceProps) {
         <QuickStat label="Peças" value={consolidatedTotal.itens} icon={BarChart3} color="text-emerald-500" />
       </div>
 
-      <Card className="ri-card overflow-hidden shadow-md border-none">
+      <Card className="ri-card overflow-hidden shadow-md">
         <CardHeader className="bg-slate-50/50 border-b p-4 flex flex-row items-center justify-between">
           <CardTitle className="text-[10px] font-black uppercase tracking-widest text-slate-500">{metricLabels[selectedMetric]}</CardTitle>
           <Badge variant="outline" className="bg-white text-[10px] font-black">AVG: {formatValue(averageValue, selectedMetric)}</Badge>
@@ -314,7 +314,7 @@ export function DailyPerformance({ data }: DailyPerformanceProps) {
 
 function QuickStat({ label, value, icon: Icon, color }: any) {
   return (
-    <Card className="ri-card border-none bg-white p-4 flex flex-col items-center justify-center text-center gap-3 shadow-sm min-h-[100px]">
+    <Card className="ri-card p-4 flex flex-col items-center justify-center text-center gap-3 shadow-sm min-h-[100px]">
       <div className={cn("p-2 rounded-lg bg-slate-50", color)}>
         <Icon className="w-5 h-5" />
       </div>

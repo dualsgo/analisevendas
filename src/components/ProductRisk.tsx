@@ -50,7 +50,7 @@ export function ProductRisk({ data }: ProductRiskProps) {
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-20">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="ri-card border-none bg-white shadow-xl flex flex-col overflow-hidden">
+        <Card className="ri-card flex flex-col overflow-hidden">
           <CardHeader className="bg-rose-50/50 border-b p-6">
             <CardTitle className="text-xs font-black uppercase text-rose-700 flex items-center justify-between">
               <span>Vulnerabilidade de Mix</span>
@@ -78,7 +78,7 @@ export function ProductRisk({ data }: ProductRiskProps) {
           </CardContent>
         </Card>
 
-        <Card className="ri-card border-none bg-white shadow-xl lg:col-span-2 flex flex-col">
+        <Card className="ri-card lg:col-span-2 flex flex-col">
           <CardHeader className="bg-slate-900 text-white p-6">
             <CardTitle className="text-xs font-black uppercase tracking-widest flex items-center gap-2">
               <Boxes className="w-4 h-4 text-rose-400" /> Ranking de Exposição (Top SKUs)

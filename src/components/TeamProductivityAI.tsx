@@ -188,7 +188,7 @@ export function TeamProductivityAI({ data, vinculos, activeTab }: TeamProductivi
                     <TrendingUp className="w-5 h-5" />
                     <h3 className="text-xs font-black uppercase tracking-widest">Diagnóstico Estratégico</h3>
                   </div>
-                  <Card className="ri-card border-none bg-orange-50/50 p-6 shadow-sm">
+                  <Card className="ri-card p-6 shadow-sm">
                     <p className="text-sm font-medium text-slate-700 leading-relaxed italic">
                       "{result.globalAnalysis}"
                     </p>
@@ -203,7 +203,7 @@ export function TeamProductivityAI({ data, vinculos, activeTab }: TeamProductivi
                   </div>
                   <div className="grid grid-cols-1 gap-4">
                     {result.individualHighlights.map((vendor: any, idx: number) => (
-                      <Card key={idx} className="ri-card border-none bg-white p-5 shadow-sm space-y-4 border-l-4 border-l-slate-100 hover:border-l-orange-400 transition-all">
+                      <Card key={idx} className="ri-card p-5 shadow-sm space-y-4 border-l-4 border-l-slate-100 hover:border-l-orange-400 transition-all">
                         <div className="flex justify-between items-start">
                           <div>
                             <h4 className="text-sm font-black text-slate-800 uppercase">{vendor.name}</h4>

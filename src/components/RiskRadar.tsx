@@ -202,7 +202,7 @@ export function RiskRadar({ data }: RiskRadarProps) {
             <Card 
               key={alert.id} 
               onClick={() => setSelectedAlert(alert)}
-              className="ri-card border-none bg-white p-5 space-y-5 relative overflow-hidden group hover:shadow-xl hover:border-orange-200 transition-all cursor-pointer"
+              className="ri-card p-5 space-y-5 relative overflow-hidden group hover: hover: transition-all cursor-pointer"
             >
               <div className={cn("absolute top-0 left-0 w-1.5 h-full", alert.level === 'high' ? "bg-rose-500" : "bg-orange-400")} />
               
@@ -301,7 +301,7 @@ export function RiskRadar({ data }: RiskRadarProps) {
                     <TrendingDown className="w-5 h-5 text-rose-500" />
                     <h4 className="text-xs font-black uppercase tracking-widest">Qual o impacto real?</h4>
                   </div>
-                  <Card className="ri-card border-none bg-rose-50/50 p-6 shadow-sm">
+                  <Card className="ri-card bg-rose-50/50 p-6 shadow-sm">
                     <p className="text-sm font-medium text-rose-900 leading-relaxed">
                       {selectedAlert.impact}
                     </p>

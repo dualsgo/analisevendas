@@ -130,7 +130,7 @@ export function HeatmapAnalysis({ data, vinculos }: HeatmapAnalysisProps) {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        <Card className="ri-card border-none shadow-sm lg:col-span-1 h-fit">
+        <Card className="ri-card shadow-sm lg:col-span-1 h-fit">
           <CardHeader className="bg-slate-50/50 border-b p-4">
             <CardTitle className="text-[10px] font-black uppercase text-slate-500 tracking-widest flex items-center gap-2">
               <TrendingUp className="w-3.5 h-3.5" /> Configurar Visão
@@ -197,7 +197,7 @@ export function HeatmapAnalysis({ data, vinculos }: HeatmapAnalysisProps) {
           </CardContent>
         </Card>
 
-        <Card className="ri-card border-none shadow-xl lg:col-span-3 overflow-hidden flex flex-col bg-white">
+        <Card className="ri-card lg:col-span-3 overflow-hidden flex flex-col">
           <CardHeader className="bg-slate-900 text-white p-6 shrink-0">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">

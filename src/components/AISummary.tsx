@@ -180,7 +180,7 @@ export function AISummary({ data, vinculos }: AISummaryProps) {
       {report && (
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 animate-in slide-in-from-bottom-4 duration-700">
           <div className="lg:col-span-3 space-y-6">
-            <Card className="ri-card border-none shadow-xl overflow-hidden bg-white">
+            <Card className="ri-card overflow-hidden">
               <CardHeader className="bg-slate-50/50 border-b p-6 flex flex-row items-center justify-between">
                 <div className="flex items-center gap-3">
                   <Sparkles className="w-5 h-5 text-orange-500" />
@@ -208,7 +208,7 @@ export function AISummary({ data, vinculos }: AISummaryProps) {
             <SidebarInsight icon={AlertTriangle} label="Riscos" desc="Detecção de anomalias em PA e Descontos." color="text-rose-500" />
             <SidebarInsight icon={Lightbulb} label="Ações" desc="Sugestões práticas para o time." color="text-orange-500" />
             
-            <Card className="ri-card border-none bg-orange-50 p-6 mt-6">
+            <Card className="ri-card p-6 mt-6">
               <p className="text-[10px] font-black text-orange-800 uppercase mb-2">Dica Pro</p>
               <p className="text-xs font-medium text-orange-700 leading-relaxed italic">
                 "Use este relatório para pautar a sua reunião matinal com o time de vendas."
@@ -223,7 +223,7 @@ export function AISummary({ data, vinculos }: AISummaryProps) {
 
 function SidebarInsight({ icon: Icon, label, desc, color }: any) {
   return (
-    <Card className="ri-card border-none bg-white p-4 shadow-sm">
+    <Card className="ri-card p-4 shadow-sm">
       <div className="flex items-start gap-3">
         <div className={cn("p-2 rounded-xl bg-slate-50 shrink-0", color)}>
           <Icon className="w-4 h-4" />

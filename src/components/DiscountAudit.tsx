@@ -199,7 +199,7 @@ export function DiscountAudit({ data }: DiscountAuditProps) {
         </TabsList>
 
         <div className="mt-6 space-y-6">
-          <Card className="ri-card border-none shadow-sm overflow-hidden">
+          <Card className="ri-card shadow-sm overflow-hidden">
             <div className="p-4 bg-white space-y-4">
               <div className="flex flex-col md:flex-row gap-4">
                 <div className="relative flex-1">

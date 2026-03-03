@@ -130,7 +130,7 @@ export function SalesComposition({ data, vinculos }: SalesCompositionProps) {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Card: Participação */}
-          <Card className="ri-card border-none bg-white overflow-hidden shadow-xl">
+          <Card className="ri-card overflow-hidden">
             <CardHeader className="bg-rose-50/50 border-b border-rose-100 p-5">
               <CardTitle className="text-xs font-black uppercase text-rose-700 flex items-center justify-between">
                 <span>Dependência do Desconto</span>
@@ -178,7 +178,7 @@ export function SalesComposition({ data, vinculos }: SalesCompositionProps) {
           </Card>
 
           {/* Card: Comparativo de Eficiência */}
-          <Card className="ri-card border-none bg-white overflow-hidden shadow-xl">
+          <Card className="ri-card overflow-hidden">
             <CardHeader className="bg-slate-50 border-b border-slate-100 p-5">
               <CardTitle className="text-xs font-black uppercase text-slate-600">Eficiência de Conversão: Valeu a pena?</CardTitle>
             </CardHeader>
@@ -229,7 +229,7 @@ export function SalesComposition({ data, vinculos }: SalesCompositionProps) {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Card: Participação e Adoção */}
-          <Card className="ri-card border-none bg-white overflow-hidden shadow-xl">
+          <Card className="ri-card overflow-hidden">
             <CardHeader className="bg-emerald-50/50 border-b border-emerald-100 p-5">
               <CardTitle className="text-xs font-black uppercase text-emerald-700 flex items-center justify-between">
                 <span>Participação e Crescimento</span>
@@ -280,7 +280,7 @@ export function SalesComposition({ data, vinculos }: SalesCompositionProps) {
           </Card>
 
           {/* Card: Alavancagem */}
-          <Card className="ri-card border-none bg-white overflow-hidden shadow-xl">
+          <Card className="ri-card overflow-hidden">
             <CardHeader className="bg-slate-50 border-b border-slate-100 p-5">
               <CardTitle className="text-xs font-black uppercase text-slate-600">Alavancagem de Venda: O poder do 1+1</CardTitle>
             </CardHeader>

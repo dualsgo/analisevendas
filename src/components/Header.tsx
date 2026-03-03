@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { TopBarStats } from "./TopBarStats";
 
+import { motion } from "framer-motion";
+
 interface HeaderProps {
   status: "idle" | "processing" | "analyzed" | "success";
   fileStats?: {
@@ -16,46 +18,65 @@ interface HeaderProps {
 
 export function Header({ status, fileStats, onReset }: HeaderProps) {
   return (
-    <header className="bg-[#FFD100] border-b-4 border-orange-500 text-orange-900 shadow-md h-16 md:h-20 flex items-center sticky top-0 z-[60] shrink-0 print:hidden">
+    <motion.header 
+      initial={{ y: -20, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      transition={{ duration: 0.4, ease: "easeOut" }}
+      className="bg-white border-b border-slate-200 text-slate-800 shadow-sm h-16 md:h-16 flex items-center sticky top-0 z-[60] shrink-0 print:hidden"
+    >
       <div className="container mx-auto px-4 flex items-center justify-between gap-4">
         <div className="flex items-center gap-2 md:gap-3 shrink-0">
           {status === "success" && (
-            <SidebarTrigger className="bg-white/20 hover:bg-white/40 border-0 text-orange-900" title="Expandir/Recolher Menu" />
+            <SidebarTrigger className="hover:bg-slate-100 border-0 text-slate-500" title="Expandir/Recolher Menu" />
           )}
-          <div className="bg-white p-1 rounded-xl md:rounded-2xl shadow-sm rotate-3 border-2 border-orange-400">
-            <Sparkles className="w-5 h-5 md:w-7 h-7 text-orange-500" />
+          <div className="bg-indigo-600 p-1.5 rounded-lg shadow-sm flex items-center justify-center">
+            <Sparkles className="w-5 h-5 text-white" />
           </div>
-          <div className="overflow-hidden">
-            <h1 className="text-xl md:text-2xl font-black tracking-tighter leading-none flex gap-0.5">
-              <span className="text-[#E4007C]">Ri</span>
-              <span className="text-[#36B7E1]">H</span>
-              <span className="text-[#F37021]">a</span>
-              <span className="text-[#662D91]">p</span>
-              <span className="text-[#39B54A]">p</span>
-              <span className="text-[#ED1C24]">y</span>
+          <div className="flex items-center gap-2">
+            <h1 className="text-lg md:text-xl font-bold tracking-tight text-slate-800">
+              Ri Happy
             </h1>
-            <p className="hidden md:block text-[9px] font-bold uppercase tracking-widest text-orange-700 opacity-80 mt-0.5">Analisador de Performance</p>
+            <span className="hidden md:inline-block text-sm font-medium text-slate-500 border-l border-slate-200 pl-2">
+              Strategic Performance Analyzer
+            </span>
           </div>
         </div>
 
         {/* Top Bar Stats */}
         {status === "success" && fileStats && (
-          <TopBarStats stats={fileStats} />
+          <div className="hidden lg:block">
+            <TopBarStats stats={fileStats} />
+          </div>
         )}
         
-        {(status === "success" || status === "analyzed") && (
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={onReset}
-            className="bg-white border-orange-500 text-orange-600 hover:bg-orange-50 gap-1.5 font-black rounded-full shadow-sm text-[10px] md:text-xs h-9 md:h-10 px-4 md:px-6"
-          >
-            <RefreshCcw className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">NOVO UPLOAD</span>
-            <span className="sm:hidden uppercase">Novo</span>
-          </Button>
-        )}
+        <div className="flex items-center gap-3">
+          {(status === "success" || status === "analyzed") && (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={onReset}
+              className="bg-white border-slate-200 text-slate-600 hover:bg-slate-50 gap-1.5 font-medium rounded-full shadow-sm text-xs h-9 px-4"
+            >
+              <RefreshCcw className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Refresh Data</span>
+              <span className="sm:hidden">Novo</span>
+            </Button>
+          )}
+          
+          <div className="flex items-center gap-3 border-l border-slate-200 pl-3">
+            <button className="text-slate-400 hover:text-slate-600 transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+            </button>
+            <div className="hidden md:flex flex-col items-end mr-1">
+              <span className="text-xs font-bold text-slate-800">Admin Store</span>
+              <span className="text-[10px] text-slate-500">Loja 042 - Metrô</span>
+            </div>
+            <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center text-orange-700 font-bold text-xs ring-2 ring-white">
+              A
+            </div>
+          </div>
+        </div>
       </div>
-    </header>
+    </motion.header>
   );
 }

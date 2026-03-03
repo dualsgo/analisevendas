@@ -268,7 +268,7 @@ export function OperationalProductivity({ data }: OperationalProductivityProps) 
 
 function OpStat({ label, value, icon: Icon, color }: { label: string, value: string | number, icon: any, color: string }) {
   return (
-    <Card className="ri-card border-none bg-white p-4 md:p-5 flex flex-col items-center justify-center text-center gap-3 shadow-sm min-h-[110px]">
+    <Card className="ri-card p-4 md:p-5 flex flex-col items-center justify-center text-center gap-3 shadow-sm min-h-[110px]">
       <div className={cn("p-2 rounded-xl bg-slate-50 w-fit", color)}>
         <Icon className="w-5 h-5" />
       </div>

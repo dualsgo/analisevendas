@@ -112,7 +112,7 @@ export function BottleneckDiagnosis({ data }: BottleneckDiagnosisProps) {
 
       {result && (
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6 animate-in slide-in-from-bottom-4 duration-700">
-          <Card className="md:col-span-8 ri-card border-none shadow-xl bg-white overflow-hidden">
+          <Card className="md:col-span-8 ri-card overflow-hidden">
             <div className="bg-rose-50 p-6 border-b border-rose-100 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <CircleAlert className="w-5 h-5 text-rose-600" />
@@ -147,7 +147,7 @@ export function BottleneckDiagnosis({ data }: BottleneckDiagnosisProps) {
               <p className="text-4xl font-black">{result.riskLevel}</p>
             </Card>
             
-            <Card className="ri-card border-none bg-white p-6 shadow-sm space-y-4">
+            <Card className="ri-card p-6 shadow-sm space-y-4">
                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Visão do Solzinho</p>
                <p className="text-[11px] text-slate-500 leading-relaxed italic">
                  "Ao analisar os dados, identifiquei que este fator está canibalizando o esforço da equipe nos outros indicadores. Resolvendo este ponto, o PA deve subir naturalmente."

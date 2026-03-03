@@ -110,7 +110,7 @@ export function UploadDiagnosis({ data, vinculos, onConfirm }: UploadDiagnosisPr
         </div>
 
         <div className="md:col-span-8 flex flex-col gap-6">
-          <Card className="ri-card border-none shadow-xl bg-white overflow-hidden flex-1 flex flex-col">
+          <Card className="ri-card overflow-hidden flex-1 flex flex-col">
             <div className="bg-slate-50/80 p-4 border-b border-slate-100 flex items-center justify-between">
               <h3 className="text-xs font-bold uppercase text-slate-500 tracking-widest">Composição</h3>
               <Badge variant="outline" className="bg-white text-slate-400 font-bold px-2 py-0.5 text-[10px] uppercase">{data.length} notas</Badge>
@@ -156,7 +156,7 @@ export function UploadDiagnosis({ data, vinculos, onConfirm }: UploadDiagnosisPr
 
 function SummaryCard({ label, value, subValue, icon: Icon, color }: any) {
   return (
-    <Card className="ri-card border-none bg-white p-4 md:p-5 flex items-center gap-4 shadow-sm hover:shadow-md transition-shadow">
+    <Card className="ri-card p-4 md:p-5 flex items-center gap-4 shadow-sm hover:shadow-md transition-shadow">
       <div className={cn("p-2.5 rounded-xl bg-slate-50 shrink-0", color)}>
         <Icon className="w-6 h-6" />
       </div>

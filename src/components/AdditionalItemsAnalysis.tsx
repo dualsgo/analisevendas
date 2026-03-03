@@ -164,7 +164,7 @@ export function AdditionalItemsAnalysis({ data }: AdditionalItemsAnalysisProps) 
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* Gráfico de Tendência */}
-            <Card className="ri-card border-none lg:col-span-8 overflow-hidden shadow-xl bg-white">
+            <Card className="ri-card lg:col-span-8 overflow-hidden">
               <CardHeader className="bg-slate-50/50 border-b p-6 flex flex-row items-center justify-between">
                 <CardTitle className="text-xs font-black uppercase text-slate-500 tracking-widest flex items-center gap-2">
                   <Calendar className="w-4 h-4" /> Evolução de Vendas Diária
@@ -197,7 +197,7 @@ export function AdditionalItemsAnalysis({ data }: AdditionalItemsAnalysisProps) 
               <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-2 text-center">Engajamento por Equipe</h3>
               <div className="space-y-3">
                 {currentData.vendorRanking.slice(0, 6).map((v, i) => (
-                  <Card key={i} className="ri-card border-none bg-white p-4 shadow-sm hover:shadow-md transition-all">
+                  <Card key={i} className="ri-card p-4 shadow-sm hover:shadow-md transition-all">
                     <div className="flex justify-between items-start mb-3">
                       <div>
                         <p className="text-xs font-black text-slate-800 uppercase leading-none">{v.name}</p>
@@ -219,7 +219,7 @@ export function AdditionalItemsAnalysis({ data }: AdditionalItemsAnalysisProps) 
           </div>
 
           {/* Tabela Detalhada */}
-          <Card className="ri-card border-none overflow-hidden shadow-sm bg-white">
+          <Card className="ri-card overflow-hidden shadow-sm">
             <div className="p-6 bg-slate-50/50 border-b flex items-center justify-between">
               <h3 className="text-xs font-black uppercase text-slate-500 tracking-widest">Relatório Analítico de Colaboradores</h3>
               <div className="flex items-center gap-2">
@@ -271,7 +271,7 @@ export function AdditionalItemsAnalysis({ data }: AdditionalItemsAnalysisProps) 
 
 function KPIItem({ label, value, subValue, icon: Icon, color }: any) {
   return (
-    <Card className="ri-card border-none bg-white p-5 flex flex-col items-center justify-center text-center gap-4 shadow-sm min-h-[120px]">
+    <Card className="ri-card p-5 flex flex-col items-center justify-center text-center gap-4 shadow-sm min-h-[120px]">
       <div className={cn("p-3 rounded-2xl bg-slate-50 shadow-inner", color)}>
         <Icon className="w-6 h-6" />
       </div>

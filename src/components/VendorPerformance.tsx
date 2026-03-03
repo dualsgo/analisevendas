@@ -177,7 +177,7 @@ export function VendorPerformance({ data }: VendorPerformanceProps) {
         <SummaryCard label="Conv. Online" value={storeAverage ? `${storeAverage.taxaConversaoOnline.toFixed(1)}%` : "0%"} icon={Smartphone} color="text-pink-500" />
       </div>
 
-      <Card className="ri-card overflow-hidden border-none shadow-xl bg-white">
+      <Card className="ri-card overflow-hidden">
         <CardHeader className="bg-white border-b border-slate-100 flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-6 md:p-8">
           <div className="space-y-1">
             <CardTitle className="text-sm md:text-base font-black uppercase tracking-tight text-slate-600 flex items-center gap-3">
@@ -315,7 +315,7 @@ export function VendorPerformance({ data }: VendorPerformanceProps) {
 
 function SummaryCard({ label, value, icon: Icon, color }: { label: string, value: string, icon: any, color: string }) {
   return (
-    <Card className="ri-card border-none bg-white p-4 md:p-5 flex flex-col items-center justify-center text-center space-y-3 shadow-sm hover:shadow-md transition-shadow min-h-[110px]">
+    <Card className="ri-card p-4 md:p-5 flex flex-col items-center justify-center text-center space-y-3 shadow-sm hover:shadow-md transition-shadow min-h-[110px]">
       <div className={cn("p-2 rounded-xl bg-slate-50 shadow-inner", color)}>
         <Icon className="w-5 h-5 md:w-6 md:h-6" />
       </div>

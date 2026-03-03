@@ -187,7 +187,7 @@ export function TransactionList({ data }: TransactionListProps) {
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20">
       {/* Upload Rápido para 2ª Via */}
-      <Card className="ri-card border-2 border-dashed border-orange-200 bg-orange-50/20 p-6 flex flex-col md:flex-row items-center gap-4 group transition-all hover:border-orange-400">
+      <Card className="ri-card border-dashed p-6 flex flex-col md:flex-row items-center gap-4 group transition-all hover:">
         <div className="bg-orange-100 p-4 rounded-full group-hover:scale-110 transition-transform">
           <Upload className="w-6 h-6 text-orange-600" />
         </div>
@@ -209,7 +209,7 @@ export function TransactionList({ data }: TransactionListProps) {
       </Card>
 
       {/* Filtros */}
-      <Card className="ri-card border-none shadow-sm overflow-hidden">
+      <Card className="ri-card shadow-sm overflow-hidden">
         <div className="p-4 bg-white space-y-4">
           <div className="flex flex-col md:flex-row gap-4">
             <div className="relative flex-1">

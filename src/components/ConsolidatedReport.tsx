@@ -306,7 +306,7 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
       </div>
 
       {/* TABELA CONSOLIDADA */}
-      <Card className="ri-card border-none overflow-hidden shadow-xl bg-white print:shadow-none print:border print:border-black print:w-full print:rounded-none">
+      <Card className="ri-card overflow-hidden print:shadow-none print:border print:border-black print:w-full print:rounded-none">
         <Table className="print:table-fixed print:border-collapse">
           <TableHeader className="bg-slate-900 print:bg-slate-200">
             <TableRow className="hover:bg-slate-900 border-none h-10 md:h-12 print:h-7 print:border-b print:border-black">

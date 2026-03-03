@@ -111,7 +111,7 @@ export function LostOpportunities({ data, vinculos }: LostOpportunitiesProps) {
         <OpportunityCard label="Sem Identif" value={stats.noRegSales.length} percent={`${stats.noRegPercent.toFixed(0)}%`} icon={UserX} color="text-rose-500" isActive={activeFilter === 'no_registration'} onClick={() => setActiveFilter(activeFilter === 'no_registration' ? 'all' : 'no_registration')} />
         <OpportunityCard label="PA Baixo" value={stats.highValueLowPA.length} icon={TrendingDown} color="text-purple-500" isActive={activeFilter === 'high_value_low_pa'} onClick={() => setActiveFilter(activeFilter === 'high_value_low_pa' ? 'all' : 'high_value_low_pa')} />
         <OpportunityCard label="Troca c/ Perda" value={stats.exchangeLoss.length} icon={ArrowRightLeft} color="text-slate-500" isActive={activeFilter === 'exchange_loss'} onClick={() => setActiveFilter(activeFilter === 'exchange_loss' ? 'all' : 'exchange_loss')} />
-        <Card className="ri-card border-none bg-emerald-50/50 p-3 flex flex-col items-center justify-center text-center gap-1">
+        <Card className="ri-card bg-emerald-50/50 p-3 flex flex-col items-center justify-center text-center gap-1">
            <p className="text-[8px] font-black text-slate-400 uppercase leading-none">Impacto PA Global</p>
            <p className="text-xl font-black text-emerald-700 leading-none">{stats.avgPA.toFixed(2)}</p>
         </Card>

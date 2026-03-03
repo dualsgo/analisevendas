@@ -105,7 +105,7 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
         <div className="mt-6">
           <TabsContent value="colaborador" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {statsByVendor.map((v, i) => (
-              <Card key={i} className="ri-card border-none bg-white overflow-hidden shadow-md">
+              <Card key={i} className="ri-card overflow-hidden shadow-md">
                 <div className="p-5 flex justify-between items-start">
                   <div className="space-y-1">
                     <p className="text-xs font-black uppercase text-slate-800">{v.name}</p>
@@ -133,7 +133,7 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
           </TabsContent>
 
           <TabsContent value="diagnostico" className="space-y-6">
-            <Card className="ri-card border-none bg-slate-900 text-white p-8 md:p-12 shadow-2xl relative overflow-hidden">
+            <Card className="ri-card bg-slate-900 text-white p-8 md:p-12 relative overflow-hidden">
                <div className="absolute top-0 right-0 w-64 h-64 bg-orange-500/10 blur-3xl" />
                <div className="relative z-10 flex items-start gap-6">
                   <div className="p-4 bg-white/10 rounded-3xl backdrop-blur-md">

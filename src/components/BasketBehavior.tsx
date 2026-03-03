@@ -94,7 +94,7 @@ export function BasketBehavior({ data }: BasketBehaviorProps) {
     <div className="space-y-8 animate-in fade-in duration-500 pb-20">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Composição Global */}
-        <Card className="ri-card border-none bg-white shadow-xl flex flex-col">
+        <Card className="ri-card flex flex-col">
           <CardHeader className="bg-slate-50/50 border-b p-6">
             <CardTitle className="text-xs font-black uppercase text-slate-500 flex items-center justify-center gap-2">
               <ShoppingBag className="w-4 h-4" /> Composição de Atendimento
@@ -120,7 +120,7 @@ export function BasketBehavior({ data }: BasketBehaviorProps) {
         </Card>
 
         {/* Aceleradores de PA (Produtos) */}
-        <Card className="ri-card border-none bg-white shadow-xl lg:col-span-2">
+        <Card className="ri-card lg:col-span-2">
           <CardHeader className="bg-slate-900 text-white p-6">
             <div className="flex items-center justify-between">
               <CardTitle className="text-xs font-black uppercase flex items-center gap-2">

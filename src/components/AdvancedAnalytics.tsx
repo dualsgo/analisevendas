@@ -121,7 +121,7 @@ export function AdvancedAnalytics({ data }: AdvancedAnalyticsProps) {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Curva de Pareto - Concentração */}
-        <Card className="ri-card border-none overflow-hidden shadow-xl lg:col-span-7 bg-white">
+        <Card className="ri-card overflow-hidden lg:col-span-7">
           <CardHeader className="bg-indigo-50/50 border-b p-6 flex flex-row items-center justify-between">
             <div className="flex items-center gap-3">
               <Award className="w-5 h-5 text-indigo-600" />
@@ -163,7 +163,7 @@ export function AdvancedAnalytics({ data }: AdvancedAnalyticsProps) {
         </Card>
 
         {/* Simulador de Ausência */}
-        <Card className="ri-card border-none bg-slate-900 text-white lg:col-span-5 shadow-2xl flex flex-col overflow-hidden">
+        <Card className="ri-card bg-slate-900 text-white lg:col-span-5 flex flex-col overflow-hidden">
           <CardHeader className="bg-white/5 border-b border-white/10 p-6">
             <div className="flex items-center gap-3">
               <UserX className="w-5 h-5 text-rose-400" />

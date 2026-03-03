@@ -156,7 +156,7 @@ export function SalesEnergy({ data }: SalesEnergyProps) {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Gráfico de Aceleração */}
-        <Card className="ri-card border-none bg-white overflow-hidden shadow-xl lg:col-span-8">
+        <Card className="ri-card overflow-hidden lg:col-span-8">
           <CardHeader className="bg-slate-50 border-b p-6 flex flex-row items-center justify-between">
             <CardTitle className="text-[10px] font-black uppercase text-slate-500 tracking-widest flex items-center gap-2">
               <Activity className="w-4 h-4" /> Curva de Aceleração e Escala
@@ -238,7 +238,7 @@ export function SalesEnergy({ data }: SalesEnergyProps) {
           <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-2 text-center">Motores de Volume (Top 5)</h3>
           <div className="space-y-3">
             {metrics.vendorRanking.map((v, i) => (
-              <Card key={i} className="ri-card border-none bg-white p-4 shadow-md">
+              <Card key={i} className="ri-card p-4 shadow-md">
                 <div className="flex justify-between items-start mb-3">
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center font-black text-slate-400 text-xs">#{i+1}</div>
@@ -267,7 +267,7 @@ export function SalesEnergy({ data }: SalesEnergyProps) {
             ))}
           </div>
 
-          <Card className="ri-card border-none bg-slate-900 text-white p-6 shadow-xl space-y-4">
+          <Card className="ri-card bg-slate-900 text-white p-6 space-y-4">
              <div className="flex items-center gap-2 text-orange-400">
                 <AlertTriangle className="w-4 h-4" />
                 <span className="text-[10px] font-black uppercase">Nota Técnica</span>

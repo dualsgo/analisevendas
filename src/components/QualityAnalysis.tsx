@@ -80,7 +80,7 @@ export function QualityAnalysis({ data, vinculos }: QualityAnalysisProps) {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {vendorQuality.map((v, i) => (
-              <Card key={i} className="ri-card border-none bg-white p-5 shadow-sm">
+              <Card key={i} className="ri-card p-5 shadow-sm">
                 <div className="flex justify-between items-start mb-4">
                   <div>
                     <p className="text-xs font-black text-slate-800 uppercase">{v.name}</p>
@@ -108,7 +108,7 @@ export function QualityAnalysis({ data, vinculos }: QualityAnalysisProps) {
             <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Como o cliente compra?</h3>
             <HelpCircle className="w-3 h-3 text-slate-300" />
           </div>
-          <Card className="ri-card border-none bg-white overflow-hidden shadow-xl">
+          <Card className="ri-card overflow-hidden">
             <CardHeader className="bg-emerald-50/50 border-b p-5">
               <CardTitle className="text-xs font-black uppercase text-emerald-700 flex items-center gap-2">
                 <ShoppingBag className="w-4 h-4" /> Anatomia do Ticket

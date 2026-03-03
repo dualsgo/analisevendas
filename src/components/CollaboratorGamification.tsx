@@ -195,7 +195,7 @@ export function CollaboratorGamification({ data, vinculos }: CollaboratorGamific
         {/* FICHA DO PERSONAGEM (DETALHES) */}
         <div className="lg:col-span-7 space-y-6">
           {currentPlayer && (
-            <Card className="ri-card border-none bg-white shadow-2xl overflow-hidden animate-in slide-in-from-right-4 duration-500">
+            <Card className="ri-card overflow-hidden animate-in slide-in-from-right-4 duration-500">
               <div className="p-8 bg-slate-50 border-b flex flex-col md:flex-row items-center gap-8">
                 <div className="relative">
                   <div className="w-24 h-24 rounded-3xl bg-slate-900 flex items-center justify-center border-4 border-white shadow-xl">

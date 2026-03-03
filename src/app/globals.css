@@ -4,48 +4,48 @@
 
 @layer base {
   :root {
-    --background: 48 100% 98%;
+    --background: 210 40% 98%; /* slate-50-ish */
     --foreground: 222 47% 11%;
     --card: 0 0% 100%;
     --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
-    --primary: 24 100% 50%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 327 100% 45%;
-    --secondary-foreground: 0 0% 100%;
-    --muted: 210 40% 96%;
-    --muted-foreground: 215 16% 47%;
-    --accent: 48 100% 50%;
-    --accent-foreground: 222 47% 11%;
-    --destructive: 0 84% 60%;
+    --primary: 221.2 83.2% 53.3%; /* A nice standard blue/indigo for primary or we can stick closer to Ri Happy blue. Let's use blue-600 */
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%; /* slate-500 */
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 24 100% 50%;
-    --radius: 1.5rem;
+    --border: 214.3 31.8% 91.4%; /* slate-200 */
+    --input: 214.3 31.8% 91.4%;
+    --ring: 221.2 83.2% 53.3%;
+    --radius: 0.75rem;
     
     --sidebar-background: 0 0% 100%;
     --sidebar-foreground: 222 47% 11%;
-    --sidebar-primary: 24 100% 50%;
+    --sidebar-primary: 221.2 83.2% 53.3%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 48 100% 96%;
-    --sidebar-accent-foreground: 24 100% 50%;
-    --sidebar-border: 48 100% 90%;
-    --sidebar-ring: 24 100% 50%;
+    --sidebar-accent: 210 40% 96.1%;
+    --sidebar-accent-foreground: 221.2 83.2% 53.3%;
+    --sidebar-border: 214.3 31.8% 91.4%;
+    --sidebar-ring: 221.2 83.2% 53.3%;
   }
 }
 
 @layer components {
   .tab-trigger-custom {
-    @apply py-4 px-2 text-sm font-bold transition-all text-slate-500 border-b-4 border-transparent hover:text-orange-500 rounded-none;
+    @apply py-3 px-4 text-sm font-medium transition-all text-slate-500 border-b-2 border-transparent hover:text-slate-900 rounded-none;
   }
   .tab-trigger-custom[data-state="active"] {
-    @apply border-orange-500 text-orange-600 bg-transparent shadow-none;
+    @apply border-indigo-600 text-indigo-700 bg-transparent shadow-none font-semibold;
   }
   
   .ri-card {
-    @apply bg-white rounded-2xl shadow-sm border-2 border-slate-100 hover:border-orange-200 transition-all duration-300;
+    @apply bg-white rounded-2xl shadow-sm border border-slate-200 transition-all duration-300;
   }
 
   .scrollbar-hide::-webkit-scrollbar {
@@ -57,19 +57,16 @@
   }
 
   /* Modo de Acessibilidade (Menu Minimizado) */
-  /* Uso de seletores escapados e valores puros para evitar erros de parser */
   .text-mode-large .text-xs { font-size: 0.875rem !important; line-height: 1.25rem !important; }
   .text-mode-large .text-\[10px\] { font-size: 0.75rem !important; line-height: 1rem !important; }
   .text-mode-large .text-\[9px\] { font-size: 0.6875rem !important; }
   .text-mode-large .text-\[8px\] { font-size: 0.625rem !important; }
-  .text-mode-large .font-black { font-weight: 900 !important; letter-spacing: -0.025em !important; }
   .text-mode-large .text-sm { font-size: 1rem !important; }
 }
 
 @layer base {
   * { @apply border-border; }
   body { 
-    @apply bg-background text-foreground antialiased selection:bg-orange-200 selection:text-orange-900 overflow-x-hidden; 
+    @apply bg-background text-foreground antialiased selection:bg-indigo-100 selection:text-indigo-900 overflow-x-hidden; 
   }
-  h1, h2, h3, h4, h5, h6 { @apply font-black tracking-tight; }
 }

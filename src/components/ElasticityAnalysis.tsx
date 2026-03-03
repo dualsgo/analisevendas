@@ -63,7 +63,7 @@ export function ElasticityAnalysis({ data }: ElasticityAnalysisProps) {
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="ri-card border-none lg:col-span-2 overflow-hidden shadow-xl bg-white">
+        <Card className="ri-card lg:col-span-2 overflow-hidden">
           <CardHeader className="bg-slate-50/50 border-b p-6">
             <CardTitle className="text-xs font-black uppercase text-slate-500 tracking-widest flex items-center gap-2">
               <Info className="w-4 h-4" /> Mapa de Elasticidade: Desconto vs Retorno em PA
@@ -90,7 +90,7 @@ export function ElasticityAnalysis({ data }: ElasticityAnalysisProps) {
         </Card>
 
         <div className="space-y-4">
-          <Card className="ri-card border-none bg-slate-900 text-white p-6 space-y-6 shadow-xl relative overflow-hidden">
+          <Card className="ri-card bg-slate-900 text-white p-6 space-y-6 relative overflow-hidden">
              <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/10 blur-3xl" />
              <div className="flex items-center gap-3 text-orange-400">
                 <AlertTriangle className="w-5 h-5" />
@@ -111,7 +111,7 @@ export function ElasticityAnalysis({ data }: ElasticityAnalysisProps) {
 
           <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-2 mt-6">Resumo de Retorno</h3>
           {stats.map((s, i) => (
-            <Card key={i} className="ri-card border-none bg-white p-4 shadow-sm">
+            <Card key={i} className="ri-card p-4 shadow-sm">
               <div className="flex justify-between items-center mb-2">
                 <Badge variant="outline" className={cn("font-black border-none px-2 h-5", s.min >= 7 && s.min < 12 ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600")}>{s.label}</Badge>
                 <span className="text-[10px] font-bold text-slate-400 uppercase">{s.count} vds</span>

@@ -2,6 +2,8 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { fadeIn, staggerContainer, childItem, slideUp } from "@/lib/animations";
 import { 
   DetailedSaleRow, 
   VinculoTroca
@@ -232,52 +234,59 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
     switch(activeTab) {
       case "geral":
         return (
-          <div className="space-y-6 md:space-y-8 animate-in fade-in duration-500">
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 bg-white p-3 md:p-4 rounded-2xl border-2 border-orange-100 shadow-sm">
+          <motion.div 
+            variants={staggerContainer}
+            initial="hidden"
+            animate="visible"
+            className="space-y-6 md:space-y-8"
+          >
+            <motion.div variants={childItem} className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 bg-white p-3 md:p-4 rounded-2xl border border-slate-200 shadow-sm">
               <ChannelSelector label="Loja Física" icon={Store} active={selectedChannels.fisica} color="text-slate-600" onToggle={() => toggleChannel('fisica')} />
               <ChannelSelector label="Pickup" icon={Smartphone} active={selectedChannels.online} color="text-sky-500" onToggle={() => toggleChannel('online')} />
               <ChannelSelector label="Adicional" icon={Zap} active={selectedChannels.adicional} color="text-emerald-500" onToggle={() => toggleChannel('adicional')} />
               <ChannelSelector label="Trocas" icon={ArrowRightLeft} active={selectedChannels.troca} color="text-purple-500" onToggle={() => toggleChannel('troca')} />
-            </div>
+            </motion.div>
 
-            <Card className="ri-card border-orange-400 border-2 bg-orange-50/30 overflow-hidden shadow-xl">
-              <div className="p-2 md:p-3 bg-orange-50 border-b border-orange-200 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Target className="w-4 h-4 text-orange-600" />
-                  <h3 className="text-xs font-bold text-orange-800 uppercase tracking-tight">Consolidado</h3>
+            <motion.div variants={childItem}>
+              <Card className="ri-card border-slate-200 border overflow-hidden shadow-sm">
+                <div className="p-3 md:p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Target className="w-4 h-4 text-indigo-600" />
+                    <h3 className="text-xs font-bold text-slate-800 uppercase tracking-tight">Consolidado</h3>
+                  </div>
+                  <div className="flex items-center gap-2 bg-white px-3 py-1 rounded-full border border-slate-200 shadow-sm">
+                     <UserCheck className="w-3.5 h-3.5 text-emerald-500" />
+                     <span className="text-[10px] font-bold text-slate-600">{consolidado.cadastros.toFixed(1)}% IDENT.</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 bg-white px-3 py-1 rounded-full border border-orange-200 shadow-sm">
-                   <UserCheck className="w-3.5 h-3.5 text-emerald-500" />
-                   <span className="text-[10px] font-bold text-emerald-600">{consolidado.cadastros.toFixed(1)}% IDENT.</span>
-                </div>
-              </div>
-              <CardContent className="p-4 md:p-5 space-y-6 flex flex-col items-center justify-center text-center">
-                <div className="space-y-1">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-2">Faturamento Consolidado</p>
-                  <p className={cn(
-                    "font-black text-slate-800 tracking-tighter leading-none transition-all duration-300",
-                    isCollapsed ? "text-5xl sm:text-7xl" : "text-4xl sm:text-5xl"
-                  )}>
-                    {formatCurrency(consolidado.venda)}
-                  </p>
-                </div>
+                <CardContent className="p-4 md:p-5 space-y-6 flex flex-col items-center justify-center text-center">
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-2">Faturamento Consolidado</p>
+                    <p className={cn(
+                      "font-black text-slate-800 tracking-tighter leading-none transition-all duration-300",
+                      isCollapsed ? "text-5xl sm:text-7xl" : "text-4xl sm:text-5xl"
+                    )}>
+                      {formatCurrency(consolidado.venda)}
+                    </p>
+                  </div>
 
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 w-full px-4 md:px-10">
-                  <QuickMetric label="Cupons" value={consolidado.cupons} large={isCollapsed} />
-                  <QuickMetric label="Peças" value={consolidado.itens} large={isCollapsed} />
-                  <QuickMetric label="Ticket Médio" value={formatCurrency(consolidado.tkm, true)} color="text-orange-600" large={isCollapsed} />
-                  <QuickMetric label="P.A. Geral" value={consolidado.pa.toFixed(2)} color="text-sky-600" large={isCollapsed} />
-                </div>
-              </CardContent>
-            </Card>
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 w-full px-4 md:px-10">
+                    <QuickMetric label="Cupons" value={consolidado.cupons} large={isCollapsed} />
+                    <QuickMetric label="Peças" value={consolidado.itens} large={isCollapsed} />
+                    <QuickMetric label="Ticket Médio" value={formatCurrency(consolidado.tkm, true)} color="text-indigo-600" large={isCollapsed} />
+                    <QuickMetric label="P.A. Geral" value={consolidado.pa.toFixed(2)} color="text-sky-600" large={isCollapsed} />
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <motion.div variants={childItem} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <FixedChannelCard title="Físico" icon={Store} metrics={metricsByChannel.fisica} color="border-slate-200" large={isCollapsed} />
               <FixedChannelCard title="Pickup" icon={Smartphone} metrics={metricsByChannel.online} color="border-sky-200" large={isCollapsed} />
               <FixedChannelCard title="Adicional" icon={Zap} metrics={metricsByChannel.adicional} color="border-emerald-200" large={isCollapsed} />
               <FixedChannelCard title="Trocas" icon={ArrowRightLeft} metrics={metricsByChannel.troca} color="border-purple-200" large={isCollapsed} />
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
         );
       case "heatmap": return <HeatmapAnalysis data={data} vinculos={vinculos} />;
       case "energy": return <SalesEnergy data={data} />;
@@ -321,7 +330,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
 
   return (
     <div className="flex-1 flex flex-col md:flex-row h-full overflow-hidden">
-      <Sidebar className="border-r border-orange-100 bg-white print:hidden" collapsible="icon">
+      <Sidebar className="border-r border-slate-200 bg-slate-50 print:hidden" collapsible="icon">
         <SidebarContent className="p-3 md:p-4">
           <SidebarGroup>
             <SidebarGroupLabel className="text-xs font-bold uppercase text-slate-400 tracking-widest mb-4 px-2 group-data-[collapsible=icon]:hidden">Menu Estratégico</SidebarGroupLabel>
@@ -336,12 +345,12 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
                       className={cn(
                         "rounded-xl py-5 px-4 transition-all duration-200 h-auto",
                         activeTab === item.id 
-                          ? "bg-orange-500 text-white shadow-lg font-black" 
-                          : "hover:bg-orange-50 text-slate-500 font-bold"
+                          ? "bg-white text-indigo-700 shadow-sm border border-slate-200 font-bold" 
+                          : "hover:bg-white text-slate-600 font-medium border border-transparent"
                       )}
                     >
                       <item.icon className={cn("w-4 h-4 mr-3 shrink-0", activeTab !== item.id && (item.color || "text-slate-400"))} />
-                      <span className="text-sm font-medium tracking-tight group-data-[collapsible=icon]:hidden">{item.label}</span>
+                      <span className="text-sm tracking-tight group-data-[collapsible=icon]:hidden">{item.label}</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}
@@ -352,11 +361,22 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
       </Sidebar>
 
       <div className={cn(
-        "flex-1 overflow-y-auto bg-amber-50/20 p-4 md:p-6 flex flex-col gap-6 scrollbar-hide print:p-0 print:bg-white transition-all duration-300",
+        "flex-1 overflow-y-auto bg-slate-50 p-4 md:p-6 flex flex-col gap-6 scrollbar-hide print:p-0 print:bg-white transition-all duration-300",
         isCollapsed ? "text-mode-large" : ""
       )}>
-        <div className="flex-1 min-h-0">
-          {renderActiveTab()}
+        <div className="flex-1 min-h-0 relative">
+          <AnimatePresence mode="popLayout">
+            <motion.div 
+              key={activeTab}
+              initial={{ opacity: 0, scale: 0.98, y: 5 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.98 }}
+              transition={{ duration: 0.3, ease: "easeInOut" }}
+              className="h-full"
+            >
+              {renderActiveTab()}
+            </motion.div>
+          </AnimatePresence>
         </div>
       </div>
     </div>
@@ -378,16 +398,18 @@ function QuickMetric({ label, value, color, large }: any) {
 
 function ChannelSelector({ label, icon: Icon, active, color, onToggle }: any) {
   return (
-    <div 
+    <motion.div 
+      whileHover={{ scale: 1.02 }}
+      whileTap={{ scale: 0.95 }}
       onClick={onToggle}
       className={cn(
-        "flex flex-col items-center justify-center p-3 md:p-4 rounded-xl cursor-pointer transition-all border-2 gap-2 h-full select-none text-center",
-        active ? "bg-white border-orange-400 shadow-md scale-[1.02]" : "bg-slate-50 border-transparent opacity-50 hover:opacity-80"
+        "flex flex-col items-center justify-center p-3 md:p-4 rounded-xl cursor-pointer transition-all border gap-2 h-full select-none text-center",
+        active ? "bg-white border-indigo-200 shadow-sm scale-[1.02]" : "bg-slate-50 border-transparent opacity-60 hover:opacity-100 hover:bg-white hover:border-slate-200"
       )}
     >
       <Icon className={cn("w-5 h-5", active ? color : "text-slate-400")} />
       <span className={cn("text-xs font-bold uppercase text-center leading-none", active ? "text-slate-800" : "text-slate-400")}>{label}</span>
-    </div>
+    </motion.div>
   );
 }
 
@@ -401,15 +423,15 @@ function FixedChannelCard({ title, metrics, color, large }: any) {
   };
 
   return (
-    <Card className={cn("ri-card border-2 overflow-hidden bg-white shadow-sm flex flex-col h-full", color)}>
-      <div className="p-3 bg-slate-50/50 border-b flex flex-col items-center justify-center text-center gap-1">
+    <Card className={cn("ri-card border overflow-hidden bg-white shadow-sm flex flex-col h-full", color)}>
+      <div className="p-3 bg-slate-50 border-b border-slate-100 flex flex-col items-center justify-center text-center gap-1">
         <h4 className={cn("font-bold uppercase tracking-widest text-slate-600 leading-none", large ? "text-[11px]" : "text-[10px]")}>{title}</h4>
         <p className={cn("font-black text-slate-800 leading-none", large ? "text-xl" : "text-lg")}>{formatCurrency(metrics.venda, true)}</p>
       </div>
       <CardContent className="p-4 grid grid-cols-2 gap-3 text-center items-center justify-center flex-1">
         <div className="space-y-1">
           <p className={cn("font-bold text-slate-400 uppercase leading-none", large ? "text-[10px]" : "text-[9px]")}>TKM</p>
-          <p className={cn("font-bold text-orange-600 leading-none", large ? "text-base" : "text-sm")}>{formatCurrency(metrics.tkm, true)}</p>
+          <p className={cn("font-bold text-indigo-600 leading-none", large ? "text-base" : "text-sm")}>{formatCurrency(metrics.tkm, true)}</p>
         </div>
         <div className="space-y-1">
           <p className={cn("font-bold text-slate-400 uppercase leading-none", large ? "text-[10px]" : "text-[9px]")}>P.A.</p>

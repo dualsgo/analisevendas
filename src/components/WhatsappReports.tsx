@@ -247,7 +247,7 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
     <div className="space-y-6 md:space-y-8 animate-in fade-in duration-500 pb-20">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-1 space-y-6">
-          <Card className="ri-card border-none shadow-sm overflow-hidden">
+          <Card className="ri-card shadow-sm overflow-hidden">
             <CardHeader className="bg-emerald-50 border-b border-emerald-100">
               <CardTitle className="text-sm font-black text-emerald-700 uppercase flex items-center gap-2">
                 <MessageCircle className="w-5 h-5" /> Configurar Relatório
@@ -290,7 +290,7 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
             </CardContent>
           </Card>
 
-          <Card className="ri-card border-none bg-orange-50/50 p-6 border-2 border-orange-100">
+          <Card className="ri-card p-6">
              <div className="flex gap-4">
                 <Zap className="w-6 h-6 text-orange-500 shrink-0" />
                 <div className="space-y-1">

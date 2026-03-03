@@ -158,7 +158,7 @@ export function YoYAnalysis({ data }: YoYAnalysisProps) {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            <Card className="ri-card border-none bg-white overflow-hidden shadow-xl lg:col-span-8">
+            <Card className="ri-card overflow-hidden lg:col-span-8">
               <CardHeader className="bg-slate-900 text-white p-6">
                 <CardTitle className="text-xs font-black uppercase tracking-widest flex items-center gap-3">
                   <Calculator className="w-5 h-5 text-indigo-400" /> Engenharia de Resultado (Impacto R$)
@@ -186,7 +186,7 @@ export function YoYAnalysis({ data }: YoYAnalysisProps) {
             </Card>
 
             <div className="lg:col-span-4 space-y-4">
-              <Card className="ri-card border-none bg-orange-50/50 p-6 space-y-4">
+              <Card className="ri-card p-6 space-y-4">
                  <div className="flex items-center gap-2 text-orange-600">
                     <Info className="w-4 h-4" />
                     <span className="text-[10px] font-black uppercase tracking-widest">Gargalo Estratégico</span>
@@ -210,7 +210,7 @@ function PeriodFormCard({ title, input, setInput, accent }: any) {
     setInput((prev: any) => ({ ...prev, [field]: value }));
   };
   return (
-    <Card className="ri-card border-2 border-slate-100 overflow-hidden shadow-sm">
+    <Card className="ri-card border-slate-100 overflow-hidden shadow-sm">
       <CardHeader className="bg-slate-50 border-b p-4">
         <CardTitle className="text-[10px] font-black uppercase text-slate-500 tracking-tight">{title}</CardTitle>
       </CardHeader>
@@ -240,7 +240,7 @@ function YoYCard({ label, ty, ly, isCurrency = false, icon: Icon, color, precisi
   const perc = ly > 0 ? (ty / ly - 1) * 100 : 0;
   const isPositive = ty > ly;
   return (
-    <Card className="ri-card border-none bg-white p-4 shadow-sm text-center items-center flex flex-col justify-center gap-3">
+    <Card className="ri-card p-4 shadow-sm text-center items-center flex flex-col justify-center gap-3">
       <div className={cn("p-2 rounded-xl bg-slate-50", color)}><Icon className="w-5 h-5" /></div>
       <div>
         <p className="text-[8px] font-black text-slate-400 uppercase mb-1">{label}</p>

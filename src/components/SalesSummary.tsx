@@ -305,7 +305,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
       case "conversao": return <ConversionAudit data={data} />;
       case "auditoria": return <DiscountAudit data={data} />;
       case "trocas": return <ExchangeManagement data={data} vinculos={vinculos} />;
-      case "transacoes": return <TransactionList data={data} vinculos={vinculos} />;
+      case "transacoes": return <TransactionList data={data} />;
       case "whatsapp": return <WhatsappReports data={data} vinculos={vinculos} />;
       case "elasticidade": return <ElasticityAnalysis data={data} />;
       case "deep_dive": return <AdvancedAnalytics data={data} />;

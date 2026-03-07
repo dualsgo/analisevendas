@@ -90,57 +90,66 @@ export function detectarAdicionaisSuspeitos(rows: DetailedSaleRow[]): DetailedSa
 }
 
 export function vincularTrocas(rows: DetailedSaleRow[]): VinculoTroca[] {
-  // Limpando possível marcação prévia incorreta de 'is_troca' setada pelo parse inicial
-  rows.forEach(r => {
-    if (r.tpNF === 1 && r.canal_consolidado === "TROCA") {
-      r.is_troca = false;
-      r.canal = "LOJA_FISICA";
-      r.canal_consolidado = "VENDA_LOJA";
-    }
-    if (r.tpNF === 0) {
-      r.is_troca = false;
-      r.canal = "LOJA_FISICA";
-      r.canal_consolidado = "VENDA_LOJA";
-    }
-  });
-
   const entradas = rows.filter(r => r.tpNF === 0 || r.is_devolucao);
-  const saidasDeTrocaCand = rows.filter(r => r.tpNF === 1 && r.vTroca && parseFloat(r.vTroca) > 0 && !r.is_cancelada);
+  const saidasDeTroca = rows.filter(r => r.tpNF === 1 && r.is_troca && !r.is_cancelada);
 
   const vinculos: VinculoTroca[] = [];
   const saidasVinculadas = new Set<string>();
   const entradasVinculadas = new Set<string>();
 
+  const saidasPorChaveNorm = new Map(saidasDeTroca.map(s => [s.chave.replace(/\D/g, ""), s]));
+
   entradas.forEach(entrada => {
-    const cpfEntrada = entrada.cpf_cnpj_dest?.trim();
-    if (!cpfEntrada) return; // Exigência: deve ter o mesmo CPF, então CPF precisa existir
+    const refs = (entrada.refNFe_normalizadas || []);
+    for (const ref of refs) {
+      const saida = saidasPorChaveNorm.get(ref);
+      if (saida && !saidasVinculadas.has(saida.chave)) {
+        vinculos.push(criarVinculo(entrada, saida, "Referência Fiscal (NFref)"));
+        saidasVinculadas.add(saida.chave);
+        entradasVinculadas.add(entrada.chave);
+        break;
+      }
+    }
+  });
 
+  entradas.forEach(entrada => {
+    if (entradasVinculadas.has(entrada.chave)) return;
     const valorEntrada = parseFloat(entrada.vNF).toFixed(2);
+    const cpfEntrada = entrada.cpf_cnpj_dest;
+    if (cpfEntrada) {
+      const match = saidasDeTroca.find(s => !saidasVinculadas.has(s.chave) && s.cpf_cnpj_dest === cpfEntrada && parseFloat(s.vTroca).toFixed(2) === valorEntrada);
+      if (match) {
+        vinculos.push(criarVinculo(entrada, match, "CPF + Valor de Crédito"));
+        saidasVinculadas.add(match.chave);
+        entradasVinculadas.add(entrada.chave);
+      }
+    }
+  });
 
-    const match = saidasDeTrocaCand.find(s => {
-      if (saidasVinculadas.has(s.chave)) return false;
-      const cpfSaida = s.cpf_cnpj_dest?.trim();
-      if (cpfSaida !== cpfEntrada) return false;
+  // ── Método 3: CPF igual + proximidade temporal (72h) ─────────────────────
+  // Captura trocas onde o valor mudou (cliente comprou algo diferente) mas o
+  // CPF bate e a devolução ocorreu próximo da saída com Crédito Loja.
+  entradas.forEach(entrada => {
+    if (entradasVinculadas.has(entrada.chave)) return;
+    const cpfEntrada = entrada.cpf_cnpj_dest?.trim();
+    if (!cpfEntrada) return;
+    const tEntrada = new Date(entrada.dhEmi).getTime();
 
-      const valorCreditoLoja = parseFloat(s.vTroca).toFixed(2);
-      if (valorCreditoLoja !== valorEntrada) return false;
+    // Candidatas: saídas com is_troca, mesmo CPF, ainda não vinculadas
+    const candidatas = saidasDeTroca
+      .filter(s =>
+        !saidasVinculadas.has(s.chave) &&
+        s.cpf_cnpj_dest?.trim() === cpfEntrada
+      )
+      .map(s => ({ s, diff: Math.abs(new Date(s.dhEmi).getTime() - tEntrada) }))
+      .filter(({ diff }) => diff <= 72 * 60 * 60 * 1000) // janela de 72h
+      .sort((a, b) => a.diff - b.diff); // mais próxima temporal primeiro
 
-      return true;
-    });
-
-    if (match) {
-      vinculos.push(criarVinculo(entrada, match, "CPF + Crédito de Loja Exato"));
+    if (candidatas.length > 0) {
+      const { s: match } = candidatas[0];
+      vinculos.push(criarVinculo(entrada, match, "CPF + Proximidade Temporal"));
       saidasVinculadas.add(match.chave);
       entradasVinculadas.add(entrada.chave);
-
-      // Atualiza os registros para refletir que são oficialmente parte de uma troca validada
-      entrada.is_troca = true;
-      entrada.canal = "TROCA";
-      entrada.canal_consolidado = "TROCA";
-
-      match.is_troca = true;
-      match.canal = "TROCA";
-      match.canal_consolidado = "TROCA";
     }
   });
 

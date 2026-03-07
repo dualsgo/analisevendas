@@ -153,6 +153,45 @@ export function vincularTrocas(rows: DetailedSaleRow[]): VinculoTroca[] {
     }
   });
 
+  // ── Método 4: Trocas Órfãs (Sem XML de Entrada) ──────────────────────────
+  saidasDeTroca.forEach(saida => {
+    if (!saidasVinculadas.has(saida.chave)) {
+      const vDiferenca = parseFloat(saida.dif_troca);
+      const valorDevolvido = parseFloat(saida.vTroca) || 0; // Crédito gerado pela troca
+
+      let score = 50;
+      if (vDiferenca > 0.1) score += 20;
+      if (vDiferenca > 100) score += 15;
+      if (vDiferenca < -0.1) score -= 30;
+      if (saida.cpf_cnpj_dest) score += 10;
+
+      let diag = "Troca Sem XML";
+      if (score >= 80) diag = "Ótima (Sem XML Entrada)";
+      else if (score < 40) diag = "Baixa Eficiência (Sem XML)";
+
+      vinculos.push({
+        chave_entrada: "SEM_XML_" + saida.chave,
+        chave_saida: saida.chave,
+        cpf_cliente: saida.cpf_cnpj_dest || "",
+        nome_cliente: saida.nome_dest || "",
+        vendedor: saida.vendedor,
+        data_entrada: saida.dhEmi,
+        data_saida: saida.dhEmi,
+        itens_devolvidos: 0,
+        itens_trocados: parseInt(saida.itens_qtd),
+        diferenca_itens: parseInt(saida.itens_qtd),
+        valor_devolvido: valorDevolvido,
+        valor_trocado: parseFloat(saida.vNF),
+        valor_credito: parseFloat(saida.vTroca) || valorDevolvido,
+        valor_diferenca: vDiferenca,
+        metodo_vinculo: "Órfã (Apenas Saída)",
+        confianca: 0.5,
+        score_qualidade: Math.max(0, Math.min(100, score)),
+        diagnostico: diag
+      });
+    }
+  });
+
   return vinculos;
 }
 

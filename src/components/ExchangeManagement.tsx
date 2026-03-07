@@ -61,11 +61,16 @@ export function ExchangeManagement({ data, vinculos }: ExchangeManagementProps) 
 
   const filteredVinculos = useMemo(() => {
     return vinculos.filter(v => {
+      const name = v.nome_cliente || "";
+      const cpf = v.cpf_cliente || "";
+      const ce = v.chave_entrada || "";
+      const cs = v.chave_saida || "";
+
       const matchesSearch = 
-        v.nome_cliente.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        v.cpf_cliente.includes(searchTerm) ||
-        v.chave_entrada.includes(searchTerm) ||
-        v.chave_saida.includes(searchTerm);
+        name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        cpf.includes(searchTerm) ||
+        ce.includes(searchTerm) ||
+        cs.includes(searchTerm);
       
       const matchesVendor = vendorFilter === "all" || v.vendedor === vendorFilter;
       

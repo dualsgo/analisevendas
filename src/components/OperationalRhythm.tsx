@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { parseISO, getDay, getHours, getMinutes, format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 interface OperationalRhythmProps {
   data: DetailedSaleRow[];
@@ -40,12 +41,13 @@ function toDayKey(dhEmi: string): string | null {
   try { return format(parseISO(dhEmi), "yyyy-MM-dd"); } catch { return null; }
 }
 
-const SECTION_IDS = ["concorrencia", "ritmo", "ondas", "morto", "qualidade"] as const;
+const SECTION_IDS = ["concorrencia", "turnos", "almoco", "ritmo", "ondas", "morto", "qualidade"] as const;
 type SectionId = typeof SECTION_IDS[number];
 
 export function OperationalRhythm({ data }: OperationalRhythmProps) {
   const [openSection, setOpenSection] = useState<SectionId>("concorrencia");
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
+  const [expandedSlot, setExpandedSlot] = useState<string | null>(null);
 
   const sales = useMemo(() =>
     data.filter(r => !r.is_cancelada && r.tpNF === 1 && !r.is_devolucao && r.dhEmi),
@@ -54,10 +56,11 @@ export function OperationalRhythm({ data }: OperationalRhythmProps) {
 
   // ── Core: slot data ──────────────────────────────────────────────────────────
   const slotData = useMemo(() => {
-    // Map: dayKey → slotKey → { cupons, vendedores, vNF, desconto, cpf }
+    // Map: dayKey → slotKey → { cupons, vendedores, vNF, desconto, cpf, sales }
     const byDaySlot: Record<string, Record<string, {
       cupons: number; vendedores: Set<string>; vNF: number;
       comDesconto: number; comCpf: number;
+      vendas: DetailedSaleRow[];
     }>> = {};
 
     for (const s of sales) {
@@ -65,13 +68,21 @@ export function OperationalRhythm({ data }: OperationalRhythmProps) {
       const slot = toSlotKey(s.dhEmi);
       if (!day || !slot) continue;
       if (!byDaySlot[day]) byDaySlot[day] = {};
-      if (!byDaySlot[day][slot]) byDaySlot[day][slot] = { cupons: 0, vendedores: new Set(), vNF: 0, comDesconto: 0, comCpf: 0 };
+      if (!byDaySlot[day][slot]) byDaySlot[day][slot] = { 
+        cupons: 0, 
+        vendedores: new Set(), 
+        vNF: 0, 
+        comDesconto: 0, 
+        comCpf: 0,
+        vendas: [] 
+      };
       const cell = byDaySlot[day][slot];
       cell.cupons++;
       cell.vendedores.add(s.vendedor || "DESCONHECIDO");
       cell.vNF += parseFloat(s.vNF) || 0;
       if (parseFloat(s.desconto_total) > 0) cell.comDesconto++;
       if (s.cpf_cnpj_dest) cell.comCpf++;
+      cell.vendas.push(s);
     }
     return byDaySlot;
   }, [sales]);
@@ -157,6 +168,23 @@ export function OperationalRhythm({ data }: OperationalRhythmProps) {
     const s = vals.slice().sort((a, b) => a - b);
     return s[Math.floor(s.length / 2)];
   }, [ritmoColaboradores]);
+
+  const expandedSlotDetails = useMemo(() => {
+    if (!expandedSlot) return null;
+    
+    const filtDays = selectedDay !== null
+      ? days.filter(d => getDay(parseISO(d)) === selectedDay)
+      : days;
+      
+    const details: { day: string, sales: DetailedSaleRow[] }[] = [];
+    for (const day of filtDays) {
+      const slotInfo = slotData[day]?.[expandedSlot];
+      if (slotInfo && slotInfo.vendas.length > 0) {
+        details.push({ day, sales: slotInfo.vendas });
+      }
+    }
+    return details.sort((a, b) => b.day.localeCompare(a.day));
+  }, [expandedSlot, slotData, days, selectedDay]);
 
   // ── 3. Ondas recorrentes: heatmap dia-semana × hora ────────────────────────
   const ondasHeatmap = useMemo(() => {
@@ -245,6 +273,114 @@ export function OperationalRhythm({ data }: OperationalRhythmProps) {
     };
   }, [sales, slotData, limiarGargalo]);
 
+  const SLP_CODES = ['5135238', '5135269', '5135270', '5135273', '5146458', '5146469', '5146470', '5146471', '5146472', '5146473', '5146474', '5146475', '5146476', '5146501', '5146504', '5146505', '5141894', '5141895', '5141896', '5141897', '5141898', '5141899', '5141900', '5141902', '5141903', '5141904', '5141905', '5141907', '5141909', '5141910', '5141911', '5141912', '5141913', '5141914', '5141915', '5141916', '5141917', '5141920', '5141949', '5141978', '5140469', '5140475', '5140476', '5140477', '5140478', '5140479', '5146477', '5146478', '5146502', '5146503'];
+  const SOCIAL_CODES = ['5057181', '5055875', '5135601', '5129270', '5129271', '5129247', '5129262', '5122642', '5122641', '5135612', '5122639', '5122638', '5133676', '5113644', '5113641', '5113642', '5113643', '5129267', '5129255', '5143422', '5139528', '5143423', '5145833', '5139527', '5147797', '5147796', '5145834', '5079753', '5079752', '5106673', '5106671', '5106674', '5106672', '5088519', '5097336', '5097335', '5011918', '5136558'];
+
+  // ── 6. Comparação de Turnos ───────────────────────────────────────────────
+  const turnosComparacao = useMemo(() => {
+    const turnos = {
+      manha: { id: "manha", nome: "Manhã (10h às 13h40)", cupons: 0, vNF: 0, desconto: 0, cpf: 0, vendedores: new Set<string>(), itens: 0, isAdicional: 0, isRetirada: 0, SLP: 0 },
+      tarde: { id: "tarde", nome: "Tarde (13h40 às 18h20)", cupons: 0, vNF: 0, desconto: 0, cpf: 0, vendedores: new Set<string>(), itens: 0, isAdicional: 0, isRetirada: 0, SLP: 0 },
+      noite: { id: "noite", nome: "Noite (18h20 às 22h)", cupons: 0, vNF: 0, desconto: 0, cpf: 0, vendedores: new Set<string>(), itens: 0, isAdicional: 0, isRetirada: 0, SLP: 0 }
+    };
+    
+    for (const s of sales) {
+      if (!s.dhEmi) continue;
+      const d = parseISO(s.dhEmi);
+      const h = getHours(d);
+      const m = getMinutes(d);
+      
+      let turno: keyof typeof turnos;
+      if (h < 13 || (h === 13 && m < 40)) {
+        turno = "manha";
+      } else if (h < 18 || (h === 18 && m < 20)) {
+        turno = "tarde";
+      } else {
+        turno = "noite";
+      }
+      
+      const bucket = turnos[turno];
+      bucket.cupons++;
+      bucket.vNF += parseFloat(s.vNF) || 0;
+      if (parseFloat(s.desconto_total) > 0) bucket.desconto++;
+      if (s.cpf_cnpj_dest) bucket.cpf++;
+      if (s.vendedor && s.vendedor !== "COLABORADOR NÃO IDENTIFICADO") bucket.vendedores.add(s.vendedor);
+      
+      const qItens = parseFloat(s.itens_qtd) || 0;
+      bucket.itens += qItens;
+      if (s.is_adicional) bucket.isAdicional++;
+      if (s.is_retirada_online || Object.values(s.itens).some(i => i.xProd.toLowerCase().includes("sacola"))) bucket.isRetirada++;
+      
+      // Contabiliza SLP e Social usando os códigos oficiais
+      Object.values(s.itens).forEach(item => {
+        if (SLP_CODES.includes(item.cProd) || SOCIAL_CODES.includes(item.cProd)) {
+           bucket.SLP += item.qCom;
+        }
+      });
+    }
+    
+    const fmt = (t: typeof turnos.manha) => ({
+      ...t,
+      tkm: t.cupons > 0 ? t.vNF / t.cupons : 0,
+      pa: t.cupons > 0 ? t.itens / t.cupons : 0, // Peças por Atendimento
+      pDesconto: t.cupons > 0 ? (t.desconto / t.cupons) * 100 : 0,
+      pCpf: t.cupons > 0 ? (t.cpf / t.cupons) * 100 : 0,
+      tamanhoEq: t.vendedores.size
+    });
+    
+    return [fmt(turnos.manha), fmt(turnos.tarde), fmt(turnos.noite)];
+  }, [sales]);
+
+  // ── 7. Sugestão de Almoço (12h30 às 17h) ──────────────────────────────────
+  const sugestoesAlmoco = useMemo(() => {
+    const janelas: { slotInicio: string, slotFim: string, pressaoMedia: number, avgCupons: number }[] = [];
+    const tlMap = new Map(concorrenciaTimeline.map(s => [s.slot, s]));
+    
+    const possibleStarts = [
+      "12:30", "12:45", "13:00", "13:15", "13:30", "13:45", 
+      "14:00", "14:15", "14:30", "14:45", "15:00", "15:15", 
+      "15:30", "15:45", "16:00"
+    ];
+    
+    for (const start of possibleStarts) {
+      const parts = start.split(":");
+      const h = parseInt(parts[0]);
+      const m = parseInt(parts[1]);
+      
+      const endH = h + 1;
+      const endStr = `${String(endH).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+      
+      let totalPressao = 0;
+      let totalCupons = 0;
+      let validSlots = 0;
+      
+      for(let step=0; step<4; step++) {
+        let curM = m + (step * 15);
+        let curH = h + Math.floor(curM / 60);
+        curM = curM % 60;
+        const curSlot = `${String(curH).padStart(2, '0')}:${String(curM).padStart(2, '0')}`;
+        
+        const cell = tlMap.get(curSlot);
+        if (cell) {
+          totalPressao += cell.pressao;
+          totalCupons += cell.cupons;
+          validSlots++;
+        }
+      }
+      
+      if (validSlots === 4) {
+        janelas.push({
+          slotInicio: start,
+          slotFim: endStr,
+          pressaoMedia: +(totalPressao / 4).toFixed(2),
+          avgCupons: +(totalCupons / 4).toFixed(1)
+        });
+      }
+    }
+    
+    return janelas.sort((a, b) => a.pressaoMedia - b.pressaoMedia).slice(0, 5);
+  }, [concorrenciaTimeline]);
+
   const fmtBRL = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
   const getBarColor = (pressao: number) => {
@@ -255,6 +391,8 @@ export function OperationalRhythm({ data }: OperationalRhythmProps) {
 
   const sections: { id: SectionId; label: string; icon: React.ElementType; color: string }[] = [
     { id: "concorrencia", label: "Concorrência de Atendimentos", icon: Users, color: "text-blue-600" },
+    { id: "turnos", label: "Comparativo de Desempenho por Turno", icon: Activity, color: "text-indigo-600" },
+    { id: "almoco", label: "Sugestão de Horários de Almoço", icon: Timer, color: "text-emerald-600" },
     { id: "ritmo", label: "Ritmo Individual por Colaborador", icon: Timer, color: "text-purple-600" },
     { id: "ondas", label: "Ondas de Demanda Recorrentes", icon: Flame, color: "text-orange-500" },
     { id: "morto", label: "Ausências em Horário de Pico", icon: UserX, color: "text-rose-600" },
@@ -353,24 +491,173 @@ export function OperationalRhythm({ data }: OperationalRhythmProps) {
 
                   {topSlots.length > 0 && (
                     <div>
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">⚠️ Slots mais críticos</p>
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">⚠️ Slots mais críticos</p>
+                        <p className="text-[10px] text-slate-400 font-bold italic">Clique para ver detalhes por colaborador</p>
+                      </div>
                       <div className="space-y-2">
                         {topSlots.map((s, i) => (
-                          <div key={i} className="flex items-center gap-3 p-3 bg-rose-50 rounded-xl border border-rose-100">
-                            <span className="text-sm font-black text-rose-700 w-12">{s.slot}</span>
-                            <div className="flex-1">
-                              <Progress value={Math.min((s.pressao / (limiarGargalo * 2)) * 100, 100)} className="h-2 bg-rose-100" />
-                            </div>
-                            <div className="text-right">
-                              <span className="text-xs font-black text-rose-700">{s.pressao.toFixed(1)}x</span>
-                              <span className="text-[10px] text-rose-400 ml-1">pressão</span>
-                            </div>
-                            <Badge className={cn("text-[10px] font-black border-none", s.pressao > limiarGargalo * 1.3 ? "bg-red-600 text-white" : "bg-orange-500 text-white")}>
-                              {s.pressao > limiarGargalo * 1.3 ? "CRÍTICO" : "ALTO"}
-                            </Badge>
+                          <div key={i} className="flex flex-col gap-2">
+                            <button 
+                              onClick={() => setExpandedSlot(prev => prev === s.slot ? null : s.slot)}
+                              className={cn(
+                                "flex items-center gap-3 p-3 rounded-xl border transition-all text-left",
+                                expandedSlot === s.slot 
+                                  ? "bg-rose-100 border-rose-300 ring-2 ring-rose-200" 
+                                  : "bg-rose-50 border-rose-100 hover:bg-rose-100/50"
+                              )}
+                            >
+                              <span className="text-sm font-black text-rose-700 w-12">{s.slot}</span>
+                              <div className="flex-1">
+                                <Progress value={Math.min((s.pressao / (limiarGargalo * 2)) * 100, 100)} className="h-2 bg-rose-100" />
+                              </div>
+                              <div className="text-right">
+                                <span className="text-xs font-black text-rose-700">{s.pressao.toFixed(1)}x</span>
+                                <span className="text-[10px] text-rose-400 ml-1">pressão</span>
+                              </div>
+                              <Badge className={cn("text-[10px] font-black border-none", s.pressao > limiarGargalo * 1.3 ? "bg-red-600 text-white" : "bg-orange-500 text-white")}>
+                                {s.pressao > limiarGargalo * 1.3 ? "CRÍTICO" : "ALTO"}
+                              </Badge>
+                              {expandedSlot === s.slot ? <ChevronUp className="w-4 h-4 text-rose-400" /> : <ChevronDown className="w-4 h-4 text-rose-400" />}
+                            </button>
+
+                            {/* Details forexpanded slot */}
+                            {expandedSlot === s.slot && expandedSlotDetails && (
+                              <div className="mx-2 p-4 bg-white rounded-xl border border-rose-200 shadow-inner space-y-4 animate-in slide-in-from-top-2 duration-300">
+                                {expandedSlotDetails.map((dayGroup, idx) => (
+                                  <div key={idx} className="space-y-2">
+                                    <div className="flex items-center gap-2 border-b border-slate-100 pb-1">
+                                      <div className="w-2 h-2 rounded-full bg-rose-400" />
+                                      <span className="text-[10px] font-black text-slate-500 uppercase">
+                                        {format(parseISO(dayGroup.day), "dd/MM (EEEE)", { locale: ptBR })}
+                                      </span>
+                                    </div>
+                                    <div className="grid grid-cols-1 gap-1">
+                                      {dayGroup.sales.sort((a, b) => a.dhEmi.localeCompare(b.dhEmi)).map((sale, sIdx) => (
+                                        <div key={sIdx} className="flex items-center justify-between py-1 px-2 hover:bg-slate-50 rounded-lg text-[11px]">
+                                          <div className="flex items-center gap-3">
+                                            <span className="font-bold text-slate-400">{format(parseISO(sale.dhEmi), "HH:mm:ss")}</span>
+                                            <span className="font-black text-slate-700 uppercase">{sale.vendedor || "DESCONHECIDO"}</span>
+                                          </div>
+                                          <span className="font-bold text-emerald-600">{fmtBRL(parseFloat(sale.vNF))}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ── 1.5. Comparativo de Turnos ── */}
+              {id === "turnos" && (
+                <div className="space-y-4">
+                  <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-xl flex items-start gap-2">
+                    <Info className="w-4 h-4 text-indigo-500 mt-0.5 shrink-0" />
+                    <p className="text-xs text-indigo-700 font-medium">
+                      O desempenho de cada turno revela onde a loja converte melhor, ajudando a ajustar metas ou alocar os vendedores mais ágeis no momento certo.
+                    </p>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {turnosComparacao.map((turno) => (
+                      <div key={turno.id} className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col gap-3 relative overflow-hidden">
+                        <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                          <h3 className="font-black text-slate-700 text-sm uppercase">{turno.nome}</h3>
+                          <Badge className="bg-white text-slate-600 border-slate-200 shadow-sm text-[9px]">{turno.tamanhoEq} Vends.</Badge>
+                        </div>
+                        
+                        <div className="flex justify-between items-end">
+                          <div>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Faturamento</p>
+                            <p className="text-xl font-black text-indigo-600">{fmtBRL(turno.vNF)}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Cupons</p>
+                            <p className="text-lg font-black text-slate-700">{turno.cupons}</p>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 mt-1">
+                          <div className="bg-white p-2 border border-slate-100 rounded-lg shadow-sm">
+                            <p className="text-[9px] font-bold text-slate-400 uppercase">Ticket M. (TKM)</p>
+                            <p className="text-sm font-black text-slate-700">{fmtBRL(turno.tkm)}</p>
+                          </div>
+                          <div className="bg-white p-2 border border-slate-100 rounded-lg shadow-sm">
+                             <p className="text-[9px] font-bold text-slate-400 uppercase">Peças/Atend. (PA)</p>
+                            <p className="text-sm font-black text-slate-700">{turno.pa.toFixed(1)} itens</p>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-2 mt-2 pt-3 border-t border-slate-100">
+                          <div>
+                            <p className="text-[9px] font-bold text-emerald-500 uppercase">Adicionais</p>
+                            <p className="text-xs font-black text-slate-700">{turno.isAdicional}</p>
+                          </div>
+                          <div>
+                            <p className="text-[9px] font-bold text-indigo-400 uppercase">Retiradas</p>
+                            <p className="text-xs font-black text-slate-700">{turno.isRetirada}</p>
+                          </div>
+                           <div>
+                            <p className="text-[9px] font-bold text-rose-400 uppercase">SLP/Social</p>
+                            <p className="text-xs font-black text-slate-700">{turno.SLP}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* ── 1.6. Sugestão de Almoço ── */}
+              {id === "almoco" && (
+                <div className="space-y-4">
+                  <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-xl flex items-start gap-2">
+                    <Info className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
+                    <p className="text-xs text-emerald-800 font-medium">
+                      Os horários abaixo representam os momentos de menor pressão por atendimento entre 12h30 e 17h, ideais para janelas de almoço de 1 hora sem comprometer as vendas.
+                    </p>
+                  </div>
+                  
+                  {sugestoesAlmoco.length === 0 ? (
+                    <div className="py-6 text-center text-slate-400 text-sm font-bold">Sem dados suficientes para horários neste período.</div>
+                  ) : (
+                    <div className="space-y-3">
+                      {sugestoesAlmoco.map((s, idx) => (
+                        <div key={idx} className="flex items-center gap-4 bg-white border border-emerald-100 p-4 rounded-xl shadow-sm relative overflow-hidden">
+                          {idx === 0 && <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500" />}
+                          <div className="flex flex-col items-center justify-center bg-emerald-50 text-emerald-700 rounded-lg p-3 w-24 shrink-0">
+                            <span className="text-[10px] font-bold uppercase tracking-widest opacity-70">Melhor</span>
+                            <span className="text-lg font-black">{idx + 1}º</span>
+                          </div>
+                          
+                          <div className="flex-1">
+                            <h3 className="text-lg font-black text-slate-800 tracking-tight">
+                              {s.slotInicio} às {s.slotFim}
+                            </h3>
+                            <div className="flex items-center gap-4 mt-1">
+                              <span className="text-xs font-bold text-slate-500 flex items-center gap-1">
+                                <Users className="w-3.5 h-3.5" /> 
+                                Pressão: <span className={s.pressaoMedia < 1.0 ? "text-emerald-600" : "text-amber-600"}>{s.pressaoMedia}x</span>
+                              </span>
+                              <span className="text-xs font-bold text-slate-500 flex items-center gap-1">
+                                <Activity className="w-3.5 h-3.5" /> 
+                                Fluxo médio: <span className="text-slate-700">{s.avgCupons} cupons</span>
+                              </span>
+                            </div>
+                          </div>
+                          
+                          {idx === 0 && (
+                            <Badge className="bg-emerald-500 hover:bg-emerald-600 text-white font-black shadow-sm shrink-0">RECOMENDADO</Badge>
+                          )}
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>

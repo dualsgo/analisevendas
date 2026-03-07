@@ -62,19 +62,6 @@ export function Header({ status, fileStats, onReset }: HeaderProps) {
               <span className="sm:hidden">Novo</span>
             </Button>
           )}
-          
-          <div className="flex items-center gap-3 border-l border-slate-200 pl-3">
-            <button className="text-slate-400 hover:text-slate-600 transition-colors">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
-            </button>
-            <div className="hidden md:flex flex-col items-end mr-1">
-              <span className="text-xs font-bold text-slate-800">Admin Store</span>
-              <span className="text-[10px] text-slate-500">Loja 042 - Metrô</span>
-            </div>
-            <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center text-orange-700 font-bold text-xs ring-2 ring-white">
-              A
-            </div>
-          </div>
         </div>
       </div>
     </motion.header>

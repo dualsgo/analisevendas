@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
-import { DetailedSaleRow } from "@/lib/types";
+import { DetailedSaleRow, VinculoTroca } from "@/lib/types";
 import {
   Table,
   TableBody,
@@ -44,7 +44,8 @@ import {
   X,
   ChevronRight,
   Zap,
-  Package
+  Package,
+  TrendingUp
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, parseISO } from "date-fns";
@@ -54,6 +55,7 @@ import { useToast } from "@/hooks/use-toast";
 
 interface TransactionListProps {
   data: DetailedSaleRow[];
+  vinculos: VinculoTroca[];
 }
 
 type SortConfig = {
@@ -82,7 +84,7 @@ function SortableHeader({ label, sortKey, currentSort, onSort, className }: any)
   );
 }
 
-export function TransactionList({ data }: TransactionListProps) {
+export function TransactionList({ data, vinculos }: TransactionListProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [itemCodeSearch, setItemCodeSearch] = useState("");
   const [selectedChannel, setSelectedChannel] = useState("all");
@@ -451,6 +453,49 @@ export function TransactionList({ data }: TransactionListProps) {
                         ))}
                       </div>
                     </div>
+
+                    {/* Vínculo de Troca */}
+                    {vinculos.find(v => v.chave_entrada === selectedTransaction.chave || v.chave_saida === selectedTransaction.chave) && (() => {
+                      const link = vinculos.find(v => v.chave_entrada === selectedTransaction.chave || v.chave_saida === selectedTransaction.chave)!;
+                      const isEntry = link.chave_entrada === selectedTransaction.chave;
+                      return (
+                        <div className="space-y-4">
+                          <h4 className="text-[10px] font-black uppercase text-purple-500 tracking-widest flex items-center gap-2">
+                            <ArrowRightLeft className="w-3 h-3" /> Analise de Troca
+                          </h4>
+                          <div className="bg-purple-50 p-5 rounded-2xl border border-purple-100 space-y-4">
+                             <div className="flex justify-between items-center pb-3 border-b border-purple-100/50">
+                                <div>
+                                   <p className="text-[8px] font-black text-purple-400 uppercase">Diagnóstico</p>
+                                   <p className="text-xs font-black text-purple-700 uppercase">{link.diagnostico}</p>
+                                </div>
+                                <div className="text-right">
+                                   <p className="text-[8px] font-black text-purple-400 uppercase">Score</p>
+                                   <p className="text-lg font-black text-purple-700">{link.score_qualidade}/100</p>
+                                </div>
+                             </div>
+                             <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                   <p className="text-[8px] font-black text-purple-400 uppercase">Valores Envolvidos</p>
+                                   <p className="text-[10px] font-bold text-purple-700">Devolvido: {formatBRL(link.valor_devolvido)}</p>
+                                   <p className="text-[10px] font-bold text-purple-700">Comprado: {formatBRL(link.valor_trocado)}</p>
+                                </div>
+                                <div className="text-right">
+                                   <p className="text-[8px] font-black text-purple-400 uppercase">Resultado Financeiro</p>
+                                   <p className={cn("text-xs font-black uppercase", link.valor_diferenca > 0 ? "text-emerald-600" : (link.valor_diferenca < 0 ? "text-rose-600" : "text-purple-600"))}>
+                                      {link.valor_diferenca > 0 ? `Ganho de ${formatBRL(link.valor_diferenca)}` : (link.valor_diferenca < 0 ? `Perda de ${formatBRL(Math.abs(link.valor_diferenca))}` : "Saldo Zero")}
+                                   </p>
+                                </div>
+                             </div>
+                             <div className="pt-3 border-t border-purple-100/50">
+                                <p className="text-[9px] font-black text-purple-500 uppercase">
+                                   Esta nota é a {isEntry ? "Entrada (Devolução)" : "Saída (Nova Compra)"}.
+                                </p>
+                             </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
 
                     {/* Emitter / Dest */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t">

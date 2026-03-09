@@ -84,6 +84,12 @@ import { PaymentMap } from "./PaymentMap";
 import { CustomerLoyalty } from "./CustomerLoyalty";
 import { PriceProfile } from "./PriceProfile";
 import { ItemRanking } from "./ItemRanking";
+import { TermometroTracao } from "./TermometroTracao";
+import { MatrizAfinidade } from "./MatrizAfinidade";
+import { RiscoTrocas } from "./RiscoTrocas";
+import { SimuladorCenarios } from "./SimuladorCenarios";
+import { GeographicAnalysis } from "./GeographicAnalysis";
+import { Calculator, Map } from "lucide-react";
 
 interface SalesSummaryProps {
   data: DetailedSaleRow[];
@@ -199,35 +205,44 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
   }, [selectedChannels, metricsByChannel]);
 
   const navItems = [
-    { id: "geral", label: "Visão Geral", icon: LayoutDashboard },
-    { id: "ritmo_operacional", label: "Ritmo Operacional", icon: Radio, color: "text-slate-600 font-black" },
-    { id: "payment_map", label: "Formas de Pagamento", icon: CreditCard, color: "text-indigo-600 font-black" },
-    { id: "customer_loyalty", label: "Fidelidade & Recorrência", icon: Users2, color: "text-emerald-600 font-black" },
-    { id: "price_profile", label: "Perfil de Preço", icon: DollarSign, color: "text-rose-600 font-black" },
-    { id: "item_ranking", label: "Ranking de Itens", icon: ShoppingCart, color: "text-orange-600 font-black" },
-    { id: "heatmap", label: "Mapa de Calor", icon: Flame, color: "text-orange-500 font-black" },
-    { id: "energy", label: "Curva de Energia", icon: Activity, color: "text-sky-500 font-bold" },
-    { id: "basket", label: "Anatomia da Cesta", icon: ShoppingBag, color: "text-emerald-600 font-bold" },
-    { id: "product_risk", label: "Risco Comercial", icon: ShieldAlert, color: "text-rose-600 font-bold" },
-    { id: "consolidado", label: "Relatório Consolidado", icon: ClipboardList, color: "text-emerald-600 font-black" },
-    { id: "gamification", label: "Arena de Talentos", icon: Sword, color: "text-yellow-500 font-black" },
-    { id: "venda_sugestiva", label: "SLP & Social", icon: ShoppingBag, color: "text-orange-600 font-black" },
-    { id: "yoy_analise", label: "Resultado YoY", icon: History, color: "text-indigo-600 font-bold" },
-    { id: "diario", label: "Performance Diária", icon: CalendarIcon },
-    { id: "performance_vendedores", label: "Performance Colaboradores", icon: Award },
-    { id: "elasticidade", label: "Elasticidade Desconto", icon: LineChart, color: "text-amber-600" },
-    { id: "deep_dive", label: "Fluxo & Pareto", icon: TrendingUp, color: "text-indigo-600" },
-    { id: "qualidade_avancada", label: "Qualidade de Venda", icon: UserCheck, color: "text-emerald-600" },
-    { id: "composicao", label: "Composição", icon: Layers, color: "text-indigo-500" },
-    { id: "produtividade", label: "Produtividade", icon: Activity, color: "text-cyan-500" },
-    { id: "compliance", label: "Auditoria PA", icon: ShieldCheck, color: "text-red-600" },
-    { id: "radar", label: "Radar de Alertas", icon: ShieldAlert, color: "text-rose-600" },
-    { id: "oportunidades", label: "Oportunidades", icon: CircleAlert, color: "text-orange-600" },
-    { id: "conversao", label: "Audit. Conversão", icon: Smartphone, color: "text-sky-500" },
-    { id: "auditoria", label: "Audit. Descontos", icon: Percent, color: "text-rose-500" },
-    { id: "trocas", label: "Audit. Trocas", icon: ArrowRightLeft, color: "text-purple-500" },
-    { id: "transacoes", label: "Transações", icon: FileText },
-    { id: "whatsapp", label: "WhatsApp", icon: MessageCircle, color: "text-emerald-500" },
+    { id: "geral", label: "Visão Geral", icon: LayoutDashboard, category: "Resultados" },
+    { id: "pacing", label: "Termômetro de Tração", icon: TrendingUp, category: "Resultados", color: "text-indigo-600 font-black" },
+    { id: "what_if", label: "Simulador What-If", icon: Calculator, category: "Resultados", color: "text-indigo-500 font-bold" },
+    { id: "consolidado", label: "Relatório Consolidado", icon: ClipboardList, category: "Resultados", color: "text-emerald-600 font-black" },
+    { id: "yoy_analise", label: "Resultado YoY", icon: History, category: "Resultados", color: "text-indigo-600 font-bold" },
+    { id: "diario", label: "Performance Diária", icon: CalendarIcon, category: "Resultados" },
+    { id: "composicao", label: "Composição", icon: Layers, category: "Resultados", color: "text-indigo-500" },
+    { id: "deep_dive", label: "Fluxo & Pareto", icon: TrendingUp, category: "Resultados", color: "text-indigo-600" },
+
+    { id: "performance_vendedores", label: "Performance Colaboradores", icon: Award, category: "Pessoas" },
+    { id: "gamification", label: "Arena de Talentos", icon: Sword, category: "Pessoas", color: "text-yellow-500 font-black" },
+    { id: "produtividade", label: "Produtividade", icon: Activity, category: "Pessoas", color: "text-cyan-500" },
+    { id: "whatsapp", label: "WhatsApp", icon: MessageCircle, category: "Pessoas", color: "text-emerald-500" },
+
+    { id: "item_ranking", label: "Ranking de Itens", icon: ShoppingCart, category: "Produtos", color: "text-orange-600 font-black" },
+    { id: "market_basket", label: "Matriz de Afinidade", icon: Boxes, category: "Produtos", color: "text-indigo-600 font-black" },
+    { id: "basket", label: "Anatomia da Cesta", icon: ShoppingBag, category: "Produtos", color: "text-emerald-600 font-bold" },
+    { id: "venda_sugestiva", label: "SLP & Social", icon: ShoppingBag, category: "Produtos", color: "text-orange-600 font-black" },
+    { id: "price_profile", label: "Perfil de Preço", icon: DollarSign, category: "Produtos", color: "text-rose-600 font-black" },
+    { id: "elasticidade", label: "Elasticidade Desconto", icon: LineChart, category: "Produtos", color: "text-amber-600" },
+
+    { id: "customer_loyalty", label: "Fidelidade & Recorrência", icon: Users2, category: "Clientes", color: "text-emerald-600 font-black" },
+    { id: "heatmap", label: "Mapa de Calor", icon: Flame, category: "Clientes", color: "text-orange-500 font-black" },
+    { id: "energy", label: "Curva de Energia", icon: Activity, category: "Clientes", color: "text-sky-500 font-bold" },
+    { id: "geodesic", label: "Análise Geográfica", icon: Map, category: "Clientes", color: "text-emerald-600 font-bold" },
+
+    { id: "radar", label: "Radar de Alertas", icon: ShieldAlert, category: "Auditoria", color: "text-rose-600 font-black" },
+    { id: "sangria", label: "Risco de Trocas (Sangria)", icon: ShieldAlert, category: "Auditoria", color: "text-rose-500 font-bold" },
+    { id: "auditoria", label: "Audit. Descontos", icon: Percent, category: "Auditoria", color: "text-rose-500" },
+    { id: "trocas", label: "Audit. Trocas", icon: ArrowRightLeft, category: "Auditoria", color: "text-purple-500" },
+    { id: "compliance", label: "Auditoria PA", icon: ShieldCheck, category: "Auditoria", color: "text-red-600" },
+    { id: "conversao", label: "Audit. Conversão", icon: Smartphone, category: "Auditoria", color: "text-sky-500" },
+    { id: "oportunidades", label: "Oportunidades", icon: CircleAlert, category: "Auditoria", color: "text-orange-600" },
+
+    { id: "ritmo_operacional", label: "Ritmo Operacional", icon: Radio, category: "Operacional", color: "text-slate-600 font-black" },
+    { id: "payment_map", label: "Formas de Pagamento", icon: CreditCard, category: "Operacional", color: "text-indigo-600 font-black" },
+    { id: "transacoes", label: "Transações", icon: FileText, category: "Operacional" },
+    { id: "qualidade_avancada", label: "Qualidade de Venda", icon: UserCheck, category: "Operacional", color: "text-emerald-600" },
   ];
 
   const renderActiveTab = () => {
@@ -316,6 +331,11 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
       case "customer_loyalty": return <CustomerLoyalty data={data} vinculos={vinculos} />;
       case "price_profile": return <PriceProfile data={data} />;
       case "item_ranking": return <ItemRanking data={data} />;
+      case "pacing": return <TermometroTracao data={data} />;
+      case "market_basket": return <MatrizAfinidade data={data} />;
+      case "sangria": return <RiscoTrocas data={data} />;
+      case "what_if": return <SimuladorCenarios data={data} />;
+      case "geodesic": return <GeographicAnalysis data={data} />;
       default: return null;
     }
   };
@@ -332,31 +352,38 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
     <div className="flex-1 flex flex-col md:flex-row h-full overflow-hidden">
       <Sidebar className="border-r border-slate-200 bg-slate-50 print:hidden" collapsible="icon">
         <SidebarContent className="p-3 md:p-4">
-          <SidebarGroup>
-            <SidebarGroupLabel className="text-xs font-bold uppercase text-slate-400 tracking-widest mb-4 px-2 group-data-[collapsible=icon]:hidden">Menu Estratégico</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu className="gap-1.5">
-                {navItems.map((item) => (
-                  <SidebarMenuItem key={item.id}>
-                    <SidebarMenuButton 
-                      isActive={activeTab === item.id} 
-                      onClick={() => handleTabChange(item.id)}
-                      tooltip={item.label}
-                      className={cn(
-                        "rounded-xl py-5 px-4 transition-all duration-200 h-auto",
-                        activeTab === item.id 
-                          ? "bg-white text-indigo-700 shadow-sm border border-slate-200 font-bold" 
-                          : "hover:bg-white text-slate-600 font-medium border border-transparent"
-                      )}
-                    >
-                      <item.icon className={cn("w-4 h-4 mr-3 shrink-0", activeTab !== item.id && (item.color || "text-slate-400"))} />
-                      <span className="text-sm tracking-tight group-data-[collapsible=icon]:hidden">{item.label}</span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
+          {["Resultados", "Pessoas", "Produtos", "Clientes", "Auditoria", "Operacional"].map((cat) => (
+            <SidebarGroup key={cat} className="mb-4">
+              <SidebarGroupLabel className="text-[10px] font-black uppercase text-slate-400 tracking-[0.15em] mb-3 px-2 group-data-[collapsible=icon]:hidden flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-indigo-500/20" />
+                {cat}
+              </SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu className="gap-1">
+                  {navItems
+                    .filter((item) => item.category === cat)
+                    .map((item) => (
+                      <SidebarMenuItem key={item.id}>
+                        <SidebarMenuButton 
+                          isActive={activeTab === item.id} 
+                          onClick={() => handleTabChange(item.id)}
+                          tooltip={item.label}
+                          className={cn(
+                            "rounded-xl py-4 px-3 transition-all duration-200 h-auto",
+                            activeTab === item.id 
+                              ? "bg-white text-indigo-700 shadow-sm border border-slate-200 font-bold" 
+                              : "hover:bg-white text-slate-600 font-medium border border-transparent"
+                          )}
+                        >
+                          <item.icon className={cn("w-4 h-4 mr-2.5 shrink-0", activeTab !== item.id && (item.color || "text-slate-400"))} />
+                          <span className="text-[13px] tracking-tight group-data-[collapsible=icon]:hidden truncate">{item.label}</span>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          ))}
         </SidebarContent>
       </Sidebar>
 

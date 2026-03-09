@@ -7,6 +7,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { 
+  CloudUpload,
+  Loader2,
   Calendar, 
   FileText, 
   TrendingUp, 
@@ -22,6 +24,7 @@ import {
   UserCheck,
   Ban
 } from "lucide-react";
+import { useSalesProcessor } from "@/hooks/useSalesProcessor";
 import { cn } from "@/lib/utils";
 import { format, parseISO, min, max } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -33,6 +36,9 @@ interface UploadDiagnosisProps {
 }
 
 export function UploadDiagnosis({ data, vinculos, onConfirm }: UploadDiagnosisProps) {
+  const { syncToCloud, status } = useSalesProcessor();
+  const isSyncing = status === "syncing";
+
   const stats = useMemo(() => {
     const saidas = data.filter(r => r.tpNF === 1 && !r.is_cancelada);
     const canceladas = data.filter(r => r.is_cancelada);
@@ -140,15 +146,31 @@ export function UploadDiagnosis({ data, vinculos, onConfirm }: UploadDiagnosisPr
       </div>
 
       {/* CTA Final */}
-      <div className="flex flex-col items-center gap-4 pt-4 shrink-0 border-t border-slate-100">
-        <Button 
-          onClick={onConfirm}
-          className="bg-orange-500 hover:bg-orange-600 text-white font-black rounded-2xl h-14 md:h-16 px-12 md:px-20 text-base md:text-lg shadow-xl shadow-orange-200 gap-3 group w-full sm:w-auto transition-all hover:scale-[1.02]"
-        >
-          ACESSAR DASHBOARD COMPLETO
-          <ArrowRight className="w-5 h-5 group-hover:translate-x-2 transition-transform" />
-        </Button>
-        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Dados validados conforme padrão SEFAZ</p>
+      <div className="flex flex-col items-center gap-6 pt-4 shrink-0 border-t border-slate-100">
+        <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
+          <Button 
+            onClick={syncToCloud}
+            disabled={isSyncing}
+            variant="outline"
+            className="border-2 border-indigo-600 text-indigo-600 hover:bg-indigo-50 font-black rounded-2xl h-14 md:h-16 px-8 text-sm md:text-base shadow-sm gap-3 group w-full sm:w-auto transition-all"
+          >
+            {isSyncing ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : (
+              <CloudUpload className="w-5 h-5" />
+            )}
+            {isSyncing ? "SALVANDO..." : "SALVAR NO MOGO ATLAS"}
+          </Button>
+
+          <Button 
+            onClick={onConfirm}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-2xl h-14 md:h-16 px-12 md:px-20 text-base md:text-lg shadow-xl shadow-indigo-200 gap-3 group w-full sm:w-auto transition-all hover:scale-[1.02]"
+          >
+            ACESSAR DASHBOARD COMPLETO
+            <ArrowRight className="w-5 h-5 group-hover:translate-x-2 transition-transform" />
+          </Button>
+        </div>
+        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Dados validados conforme padrão SEFAZ • INTEGRAÇÃO CLOUD ATIVA</p>
       </div>
     </div>
   );

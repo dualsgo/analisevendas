@@ -15,17 +15,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import { fadeIn, zoomIn, slideUp } from "@/lib/animations";
 
 export default function Home() {
-  const {
-    parsedRows,
-    vinculos,
-    status,
-    history,
-    fileStats,
-    processData,
-    confirmDashboard,
     reset,
     reopenHistory,
-    clearHistory
+    clearHistory,
+    loadPeriod,
+    availablePeriods,
+    status: processorStatus
   } = useSalesProcessor();
 
   return (
@@ -85,13 +80,47 @@ export default function Home() {
                     )}
                   </motion.section>
 
-                  {status === "idle" && (
+                  {processorStatus === "idle" && (
                     <motion.div 
                       variants={slideUp}
                       initial="hidden"
                       animate="visible"
-                      className={cn(history.length > 0 ? "lg:col-span-5" : "")}
+                      className={cn(history.length > 0 || availablePeriods.length > 0 ? "lg:col-span-5 flex flex-col gap-6" : "")}
                     >
+                      {availablePeriods.length > 0 && (
+                        <Card className="ri-card bg-white border-2 border-indigo-100 p-6 rounded-[2rem] shadow-sm">
+                          <div className="flex items-center gap-3 mb-4">
+                            <div className="p-2 bg-indigo-50 rounded-xl text-indigo-600">
+                              <History className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <h3 className="text-sm font-black text-slate-800 uppercase tracking-tight">Análises Salvas</h3>
+                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">MongoDB Atlas Cloud</p>
+                            </div>
+                          </div>
+                          <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                            {availablePeriods.map((p, i) => (
+                              <button
+                                key={i}
+                                onClick={() => loadPeriod(p.year, p.month)}
+                                className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 border border-transparent hover:border-slate-100 transition-all group"
+                              >
+                                <div className="flex items-center gap-3">
+                                  <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center font-black text-slate-400 text-xs uppercase group-hover:bg-indigo-100 group-hover:text-indigo-600 transition-colors">
+                                    {p.month}
+                                  </div>
+                                  <div className="text-left">
+                                    <p className="text-sm font-black text-slate-700">{p.year}</p>
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Período Completo</p>
+                                  </div>
+                                </div>
+                                <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-indigo-600 group-hover:translate-x-1 transition-all" />
+                              </button>
+                            ))}
+                          </div>
+                        </Card>
+                      )}
+
                       <UploadHistory 
                         history={history} 
                         onReopen={reopenHistory} 
@@ -101,16 +130,16 @@ export default function Home() {
                   )}
                 </div>
               </motion.div>
-            ) : status === "analyzed" ? (
-              <motion.div 
-                key="home-analyzed"
-                variants={slideUp}
-                initial="hidden"
-                animate="visible"
-                exit="exit"
-                className="flex-1 p-4 md:p-8 absolute inset-0 overflow-y-auto"
               >
-                <UploadDiagnosis data={parsedRows} vinculos={vinculos} onConfirm={confirmDashboard} />
+                <div className="flex flex-col gap-6">
+                  {processorStatus === "loading_db" && (
+                    <div className="bg-indigo-600 text-white p-4 rounded-2xl flex items-center gap-3 animate-pulse">
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <span className="text-xs font-bold uppercase tracking-widest">Buscando dados no MongoDB...</span>
+                    </div>
+                  )}
+                  <UploadDiagnosis data={parsedRows} vinculos={vinculos} onConfirm={confirmDashboard} />
+                </div>
               </motion.div>
             ) : (
               <motion.div 

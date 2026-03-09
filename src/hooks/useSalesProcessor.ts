@@ -5,7 +5,7 @@ import { detectarAdicionaisSuspeitos, vincularTrocas as vincularTrocasUtils } fr
 import { format, parseISO, min, max } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 
-type ProcessingStatus = "idle" | "processing" | "analyzed" | "success";
+type ProcessingStatus = "idle" | "processing" | "analyzed" | "success" | "syncing" | "loading_db";
 
 // Função Central de Normalização de Vendedores (Solzinho Engine)
 function normalizeVendedor(name: string): string {
@@ -20,6 +20,7 @@ export function useSalesProcessor() {
     const [vinculos, setVinculos] = useState<VinculoTroca[]>([]);
     const [status, setStatus] = useState<ProcessingStatus>("idle");
     const [history, setHistory] = useState<UploadHistoryItem[]>([]);
+    const [availablePeriods, setAvailablePeriods] = useState<{ year: string, month: string }[]>([]);
     const { toast } = useToast();
 
     // Load history from localStorage on mount
@@ -188,26 +189,115 @@ export function useSalesProcessor() {
             description: "Todos os registros de uploads recentes foram removidos.",
         });
     }, [toast]);
+    +
+        +    const syncToCloud = useCallback(async () => {
+            +        if (parsedRows.length === 0) return;
+            +
+                +        setStatus("syncing");
+            +        try {
+                +            const response = await fetch("/api/sales/sync", {
++ method: "POST",
+                    +                headers: { "Content-Type": "application/json" },
+                    +                body: JSON.stringify({ sales: parsedRows, links: vinculos })
+                +            });
+    +
+        +            if (!response.ok) throw new Error("Falha na sincronização");
+    +
+        +            toast({
++ title: "Sincronizado com Sucesso",
+            +                description: `${parsedRows.length} registros salvos no MongoDB Atlas.`,
+            +            });
++            fetchPeriods(); // Refresh available periods
++        } catch (error) {
+    +            console.error("Sync error:", error);
+    +            toast({
++ title: "Erro de Sincronização",
+        +                description: "Não foi possível salvar os dados no banco de dados.",
+        +                variant: "destructive"
+    +            });
++        } finally {
+    +            setStatus("success");
+    +        }
++    }, [parsedRows, vinculos, toast]);
++
+    +    const loadPeriod = useCallback(async (year: string, month: string) => {
+        +        setStatus("loading_db");
+        +        try {
+            +            const response = await fetch(`/api/sales/load?year=${year}&month=${month}`);
+            +            if (!response.ok) throw new Error("Falha ao carregar dados");
+            +
+                +            const { sales, links } = await response.json();
+            +
+                +            if (sales && sales.length > 0) {
+                    +                const normalizedRows = sales.map((r: DetailedSaleRow) => ({
++                    ...r,
+                        +                    vendedor: normalizeVendedor(r.vendedor)
+                    +                }));
++                const withSuspects = detectarAdicionaisSuspeitos(normalizedRows);
++                setParsedRows(withSuspects);
++                setVinculos(links || []);
++                setStatus("success");
++                toast({
++ title: "Dados Carregados",
+    +                    description: `Período ${month}/${year} carregado com sucesso.`,
+    +                });
++            } else {
+    +                toast({
++ title: "Nenhum dado encontrado",
+        +                    description: "Não há registros para este período no banco de dados.",
+        +                });
++                setStatus("idle");
++            }
++        } catch (error) {
+    +            console.error("Load error:", error);
+    +            toast({
++ title: "Erro ao carregar",
+        +                description: "Ocorreu um problema ao buscar os dados históricos.",
+        +                variant: "destructive"
+    +            });
++            setStatus("idle");
++        }
++    }, [toast]);
++
+    +    const fetchPeriods = useCallback(async () => {
+        +        try {
+            +            const response = await fetch("/api/sales/periods");
+            +            if (response.ok) {
+                +                const data = await response.json();
+                +                setAvailablePeriods(data.periods || []);
+                +            }
+            +        } catch (error) {
+                +            console.error("Fetch periods error:", error);
+                +        }
+        +    }, []);
++
+    +    useEffect(() => {
+        +        fetchPeriods();
+        +    }, [fetchPeriods]);
++
+     const fileStats = useMemo(() => {
+    const total = parsedRows.length;
+    const entradas = parsedRows.filter(r => (r.tpNF === 0 || r.is_devolucao) && !r.is_cancelada).length;
+    const saidas = parsedRows.filter(r => r.tpNF === 1 && !r.is_devolucao && !r.is_cancelada).length;
+    const canceladas = parsedRows.filter(r => r.is_cancelada).length;
 
-    const fileStats = useMemo(() => {
-        const total = parsedRows.length;
-        const entradas = parsedRows.filter(r => (r.tpNF === 0 || r.is_devolucao) && !r.is_cancelada).length;
-        const saidas = parsedRows.filter(r => r.tpNF === 1 && !r.is_devolucao && !r.is_cancelada).length;
-        const canceladas = parsedRows.filter(r => r.is_cancelada).length;
+    return { total, entradas, saidas, canceladas };
+}, [parsedRows]);
 
-        return { total, entradas, saidas, canceladas };
-    }, [parsedRows]);
-
-    return {
-        parsedRows,
-        vinculos,
-        status,
-        history,
-        fileStats,
-        processData,
-        confirmDashboard,
-        reset,
-        reopenHistory,
-        clearHistory
-    };
+return {
+    parsedRows,
+    vinculos,
+    status,
+    history,
+    fileStats,
+    processData,
+    confirmDashboard,
+    reset,
+    reopenHistory,
+    clearHistory,
+    syncToCloud,
+    loadPeriod,
+    availablePeriods,
+    fetchPeriods
+};
 }

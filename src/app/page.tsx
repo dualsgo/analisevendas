@@ -39,8 +39,8 @@ export default function Home() {
 
   const [loginError, setLoginError] = useState(false);
 
-  const handleLogin = (key: string) => {
-    const success = login(key);
+  const handleLogin = async (key: string) => {
+    const success = await login(key);
     setLoginError(!success);
   };
 

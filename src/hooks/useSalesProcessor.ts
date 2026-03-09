@@ -185,14 +185,27 @@ export function useSalesProcessor() {
         });
     }, [toast]);
 
-    const login = useCallback((key: string) => {
-        const secret = process.env.NEXT_PUBLIC_APP_SECRET_KEY;
-        if (key === secret) {
-            setIsAuthenticated(true);
-            sessionStorage.setItem("ri_happy_auth", "true");
-            return true;
+    const login = useCallback(async (key: string) => {
+        try {
+            const response = await fetch("/api/auth/check", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ key })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                    setIsAuthenticated(true);
+                    sessionStorage.setItem("ri_happy_auth", "true");
+                    return true;
+                }
+            }
+            return false;
+        } catch (error) {
+            console.error("Auth error:", error);
+            return false;
         }
-        return false;
     }, []);
 
     const logout = useCallback(() => {

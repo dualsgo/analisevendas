@@ -34,11 +34,11 @@ interface UploadDiagnosisProps {
   vinculos: VinculoTroca[];
   onConfirm: () => void;
   isSynced?: boolean;
+  onSync: () => void;
+  isSyncing: boolean;
 }
 
-export function UploadDiagnosis({ data, vinculos, onConfirm, isSynced }: UploadDiagnosisProps) {
-  const { syncToCloud, status } = useSalesProcessor();
-  const isSyncing = status === "syncing";
+export function UploadDiagnosis({ data, vinculos, onConfirm, isSynced, onSync, isSyncing }: UploadDiagnosisProps) {
 
   const stats = useMemo(() => {
     const saidas = data.filter(r => r.tpNF === 1 && !r.is_cancelada);
@@ -150,7 +150,7 @@ export function UploadDiagnosis({ data, vinculos, onConfirm, isSynced }: UploadD
       <div className="flex flex-col items-center gap-6 pt-4 shrink-0 border-t border-slate-100">
         <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
           <Button 
-            onClick={syncToCloud}
+            onClick={onSync}
             disabled={isSyncing || isSynced}
             variant="outline"
             className={cn(

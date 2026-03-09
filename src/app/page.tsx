@@ -29,7 +29,7 @@ export default function Home() {
     confirmDashboard,
     reset,
     reopenHistory,
-    clearHistory,
+    syncToCloud,
     loadPeriod,
     availablePeriods,
     isAuthenticated,
@@ -210,6 +210,8 @@ export default function Home() {
                     vinculos={vinculos} 
                     onConfirm={confirmDashboard} 
                     isSynced={lastSyncedKey !== null}
+                    onSync={syncToCloud}
+                    isSyncing={processorStatus === "syncing"}
                   />
                 </div>
               </motion.div>

@@ -236,27 +236,44 @@ export function useSalesProcessor() {
         if (parsedRows.length === 0) return;
         setStatus("syncing");
         try {
-            const response = await fetch("/api/sales/sync", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ sales: parsedRows, links: vinculos })
-            });
-            if (!response.ok) throw new Error("Falha na sincronização");
+            // Dividir em chunks para evitar o limite de 4.5MB da Vercel
+            const chunkSize = 150;
+            const salesChunks = [];
+            for (let i = 0; i < parsedRows.length; i += chunkSize) {
+                salesChunks.push(parsedRows.slice(i, i + chunkSize));
+            }
 
-            // Create a unique key for the current session to mark as synced
+            // Sincronizar em lotes
+            for (let i = 0; i < salesChunks.length; i++) {
+                const response = await fetch("/api/sales/sync", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        sales: salesChunks[i],
+                        // Envia os vínculos apenas no primeiro lote
+                        links: i === 0 ? vinculos : []
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.details || errorData.error || `Erro no lote ${i + 1}`);
+                }
+            }
+
             const syncKey = parsedRows.length > 0 ? parsedRows[0].chave : "synced";
             setLastSyncedKey(syncKey);
 
             toast({
-                title: "Sincronizado com Sucesso",
+                title: "✓ Sincronizado com Sucesso",
                 description: `${parsedRows.length} registros salvos no MongoDB Atlas.`,
             });
             fetchPeriods();
-        } catch (error) {
+        } catch (error: any) {
             console.error("Sync error:", error);
             toast({
-                title: "Erro de Sincronização",
-                description: "Não foi possível salvar os dados no banco de dados.",
+                title: "⚠️ Erro de Sincronização",
+                description: `Falha: ${error.message || "Verifique sua conexão e o MONGODB_URI"}.`,
                 variant: "destructive"
             });
         } finally {

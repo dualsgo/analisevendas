@@ -46,7 +46,14 @@ export async function POST(request: Request) {
 
         return NextResponse.json({ success: true, count: sales.length });
     } catch (error: any) {
-        console.error("Sync Error:", error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        console.error("Critical Sync Error:", {
+            message: error.message,
+            stack: error.stack,
+            code: error.code
+        });
+        return NextResponse.json({
+            error: "Erro no Servidor ao Sincronizar",
+            details: error.message
+        }, { status: 500 });
     }
 }

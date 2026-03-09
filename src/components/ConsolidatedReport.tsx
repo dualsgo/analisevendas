@@ -23,6 +23,13 @@ import {
   SelectTrigger, 
   SelectValue 
 } from "@/components/ui/select";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
 import { 
   Printer, 
   ArrowUpRight, 
@@ -40,7 +47,9 @@ import {
   CheckCircle2,
   XCircle,
   Info,
-  Filter
+  Filter,
+  Search,
+  ChevronRight
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -81,6 +90,12 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
   const [includePickups, setIncludePickups] = useState(false);
   const [includeExchanges, setIncludeExchanges] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<string>("all");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedColab, setSelectedColab] = useState<any>(null);
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({
+    key: 'venda',
+    direction: 'desc'
+  });
   const { state } = useSidebar();
   const isCollapsed = state === "collapsed";
 
@@ -199,12 +214,31 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
     });
 
     return results
-      .filter(r => selectedGroup === "all" || r.group === selectedGroup)
+      .filter(r => 
+        (selectedGroup === "all" || r.group === selectedGroup) &&
+        (searchTerm === "" || r.name.toLowerCase().includes(searchTerm.toLowerCase()))
+      )
       .map(r => ({
         ...r,
         groupAverages: groupStats[r.group]
-      })).sort((a, b) => b.current.venda - a.current.venda);
-  }, [data, vinculos, includePickups, includeExchanges, selectedGroup]);
+      })).sort((a, b) => {
+        let aVal = 0;
+        let bVal = 0;
+        
+        switch(sortConfig.key) {
+          case 'venda': aVal = a.current.venda; bVal = b.current.venda; break;
+          case 'pa': aVal = a.metrics.pa; bVal = b.metrics.pa; break;
+          case 'tkm': aVal = a.metrics.tkm; bVal = b.metrics.tkm; break;
+          case 'ident': aVal = a.metrics.ident; bVal = b.metrics.ident; break;
+          case 'conv': aVal = a.metrics.conv; bVal = b.metrics.conv; break;
+          default: aVal = a.current.venda; bVal = b.current.venda;
+        }
+
+        if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+  }, [data, vinculos, includePickups, includeExchanges, selectedGroup, searchTerm, sortConfig]);
 
   const totals = useMemo(() => {
     const sum = reportData.reduce((acc, v) => ({
@@ -236,13 +270,26 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
       <div className="bg-white rounded-[2rem] p-6 border-2 border-slate-100 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6 print:hidden">
         <div className="flex items-center gap-4">
           <div className="bg-slate-900 p-3 rounded-2xl text-white shadow-lg"><FileText className="w-6 h-6" /></div>
-          <div>
-            <h1 className={cn("font-black uppercase tracking-tight text-slate-800", isCollapsed ? "text-2xl" : "text-xl")}>Relatório Consolidado de Performance</h1>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Visão Técnica e Financeira da Unidade</p>
+          <div className="hidden sm:block">
+            <h1 className={cn("font-black uppercase tracking-tight text-slate-800", isCollapsed ? "text-2xl" : "text-xl")}>Performance Unificada</h1>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Visão Geral e Individual do Time</p>
           </div>
         </div>
         
-        <div className="flex flex-wrap items-center gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+        <div className="flex flex-wrap items-center gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100 flex-1 justify-end">
+          <div className="flex flex-col gap-1.5 mr-auto">
+            <Label className="text-[9px] font-black uppercase text-slate-400 px-1">Buscar</Label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
+              <input 
+                type="text"
+                placeholder="Nome..."
+                className="h-9 w-32 md:w-48 pl-9 rounded-xl border-slate-200 bg-white font-bold text-[10px] uppercase outline-none focus:ring-1 focus:ring-orange-500"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+          </div>;
           {/* Novo Filtro de Grupo */}
           <div className="flex flex-col gap-1.5 mr-4">
             <Label className="text-[9px] font-black uppercase text-slate-400 px-1">Filtrar Perfil</Label>
@@ -311,15 +358,15 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
           <TableHeader className="bg-slate-900 print:bg-slate-200">
             <TableRow className="hover:bg-slate-900 border-none h-10 md:h-12 print:h-7 print:border-b print:border-black">
               <TableHead className="text-white print:text-black font-black uppercase text-[8px] md:text-[9px] pl-4 md:pl-8 print:pl-1 print:w-[15%]">Colaborador</TableHead>
-              <TableHead className="text-white print:text-black font-black uppercase text-[8px] md:text-[9px] text-right print:w-[12%]">Venda Total</TableHead>
-              <TableHead className="text-white print:text-black font-black uppercase text-[8px] md:text-[9px] text-center print:w-[8%]">PA</TableHead>
-              <TableHead className="text-white print:text-black font-black uppercase text-[8px] md:text-[9px] text-right print:w-[10%]">TKM</TableHead>
-              <TableHead className="text-white print:text-black font-black uppercase text-[8px] md:text-[9px] text-center print:w-[8%]">CPF %</TableHead>
+              <SortableHead label="Venda Total" sortKey="venda" currentSort={sortConfig} onSort={setSortConfig} className="text-right print:w-[12%]" />
+              <SortableHead label="PA" sortKey="pa" currentSort={sortConfig} onSort={setSortConfig} className="text-center print:w-[8%]" />
+              <SortableHead label="TKM" sortKey="tkm" currentSort={sortConfig} onSort={setSortConfig} className="text-right print:w-[10%]" />
+              <SortableHead label="CPF %" sortKey="ident" currentSort={sortConfig} onSort={setSortConfig} className="text-center print:w-[8%]" />
               <TableHead className="text-white print:text-black font-black uppercase text-[8px] md:text-[9px] text-center print:w-[7%]">SLP</TableHead>
               <TableHead className="text-white print:text-black font-black uppercase text-[8px] md:text-[9px] text-center print:w-[7%]">Social</TableHead>
               <TableHead className="text-white print:text-black font-black uppercase text-[8px] md:text-[9px] text-center print:w-[8%]">Pks</TableHead>
               <TableHead className="text-white print:text-black font-black uppercase text-[8px] md:text-[9px] text-center print:w-[8%]">Adic</TableHead>
-              <TableHead className="text-white print:text-black font-black uppercase text-[8px] md:text-[9px] text-right pr-4 md:pr-8 print:pr-1 print:w-[10%]">Conv %</TableHead>
+              <SortableHead label="Conv %" sortKey="conv" currentSort={sortConfig} onSort={setSortConfig} className="text-right pr-4 md:pr-8 print:pr-1 print:w-[10%]" />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -330,7 +377,10 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
               const rowColor = GROUP_COLORS[v.group] || "bg-white";
 
               return (
-                <TableRow key={i} className={cn("border-slate-100 hover:bg-slate-100/50 group print:bg-white print:border-b print:border-slate-300 print:h-8", rowColor, isCollapsed ? "h-14 md:h-16" : "h-12 md:h-14")}>
+                <TableRow 
+                  key={i} 
+                  onClick={() => setSelectedColab(v)}
+                  className={cn("border-slate-100 hover:bg-slate-100/50 group cursor-pointer print:bg-white print:border-b print:border-slate-300 print:h-8", rowColor, isCollapsed ? "h-14 md:h-16" : "h-12 md:h-14")}>
                   <TableCell className="pl-4 md:pl-8 print:pl-1">
                     <p className={cn("font-black text-slate-800 uppercase leading-none", isCollapsed ? "text-[12px] md:text-[13px]" : "text-[10px] md:text-[11px]", "print:text-[8px]")}>{v.name}</p>
                   </TableCell>
@@ -430,6 +480,65 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
           </TableBody>
         </Table>
       </Card>
+
+      <Sheet open={!!selectedColab} onOpenChange={(open) => !open && setSelectedColab(null)}>
+        <SheetContent className="w-full sm:max-w-md bg-white border-l-4 border-slate-900 p-0 overflow-y-auto">
+          {selectedColab && (
+            <div className="h-full flex flex-col">
+              <div className="bg-slate-900 p-6 md:p-8 space-y-2 border-b-4 border-indigo-500">
+                <SheetTitle className="text-xl md:text-2xl font-black text-white uppercase tracking-tighter leading-none">{selectedColab.name}</SheetTitle>
+                <SheetDescription className="text-slate-400 font-bold uppercase text-[9px] md:text-[10px] tracking-[0.2em]">{selectedColab.group}</SheetDescription>
+              </div>
+              <div className="p-6 md:p-8 space-y-6 flex-1">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 text-center">
+                    <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Faturamento</p>
+                    <p className="text-lg font-black text-slate-800">{formatBRL(selectedColab.current.venda)}</p>
+                  </div>
+                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 text-center">
+                    <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Tickets</p>
+                    <p className="text-lg font-black text-slate-800">{selectedColab.current.cupons}</p>
+                  </div>
+                </div>
+
+                <div className="space-y-4 pt-4">
+                  <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">Detalhes Operacionais</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                     <div className="flex flex-col gap-0.5">
+                        <span className="text-[9px] font-bold text-slate-400 uppercase">SLP Campanha</span>
+                        <span className="text-sm font-black text-orange-600">{selectedColab.slpQty} ITENS</span>
+                     </div>
+                     <div className="flex flex-col gap-0.5">
+                        <span className="text-[9px] font-bold text-slate-400 uppercase">Vendas Sociais</span>
+                        <span className="text-sm font-black text-rose-500">{selectedColab.socialQty} ITENS</span>
+                     </div>
+                     <div className="flex flex-col gap-0.5">
+                        <span className="text-[9px] font-bold text-slate-400 uppercase">Retiradas</span>
+                        <span className="text-sm font-black text-sky-600">{selectedColab.pickupsAtendidas}</span>
+                     </div>
+                     <div className="flex flex-col gap-0.5">
+                        <span className="text-[9px] font-bold text-slate-400 uppercase">Vendas Adicionais</span>
+                        <span className="text-sm font-black text-emerald-600">{selectedColab.adicionaisFeitos}</span>
+                     </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4 pt-6 border-t border-slate-100">
+                  <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">Performance vs Média Grupo</h4>
+                  <div className="space-y-3">
+                    <PerformanceMetric label="P.A. MÉDIO" value={formatNum(selectedColab.metrics.pa)} average={formatNum(selectedColab.groupAverages.pa)} delta={selectedColab.deltas.pa} />
+                    <PerformanceMetric label="TICKET MÉDIO" value={formatBRL(selectedColab.metrics.tkm)} average={formatBRL(selectedColab.groupAverages.tkm)} delta={selectedColab.deltas.tkm} isCurrency />
+                    <PerformanceMetric label="IDENTIFICAÇÃO" value={`${selectedColab.metrics.ident.toFixed(0)}%`} average={`${selectedColab.groupAverages.ident.toFixed(0)}%`} delta={selectedColab.deltas.ident} isPercent />
+                  </div>
+                </div>
+              </div>
+              <div className="p-6 border-t bg-slate-50">
+                <Button onClick={() => setSelectedColab(null)} className="w-full bg-slate-900 hover:bg-slate-800 text-white font-black rounded-xl h-14 md:h-16 text-sm shadow-lg uppercase tracking-wide">FECHAR DETALHES</Button>
+              </div>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
 
       {/* RODAPÉ TÉCNICO */}
       <div className="flex justify-between items-center text-[8px] font-black text-slate-400 uppercase tracking-widest px-4 border-t pt-4 print:pt-1 print:border-none print:text-slate-600">
@@ -549,5 +658,51 @@ function ReportKPI({ label, value, icon: Icon, color, large }: any) {
         </p>
       </div>
     </Card>
+  );
+}
+
+function SortableHead({ label, sortKey, currentSort, onSort, className }: any) {
+  const isActive = currentSort.key === sortKey;
+  const handleSort = () => {
+    onSort({
+      key: sortKey,
+      direction: isActive && currentSort.direction === 'desc' ? 'asc' : 'desc'
+    });
+  };
+
+  return (
+    <TableHead 
+      onClick={handleSort}
+      className={cn(
+        "text-white print:text-black font-black uppercase text-[8px] md:text-[9px] cursor-pointer hover:bg-slate-800 transition-colors",
+        className
+      )}
+    >
+      <div className={cn("flex items-center gap-1.5", className?.includes("text-right") ? "justify-end" : className?.includes("text-center") ? "justify-center" : "")}>
+        {label}
+        <div className="flex flex-col">
+          <ArrowUpRight className={cn("w-2 h-2 transition-all", isActive && currentSort.direction === 'asc' ? "text-orange-500" : "text-white/20")} />
+        </div>
+      </div>
+    </TableHead>
+  );
+}
+
+function PerformanceMetric({ label, value, average, delta, isCurrency, isPercent }: any) {
+  const isPositive = delta > 0;
+  return (
+    <div className="flex items-center justify-between p-4 bg-white rounded-xl border border-slate-100 shadow-sm">
+      <div>
+        <p className="text-[10px] font-black text-slate-800 uppercase leading-none mb-1">{label}</p>
+        <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Média Grupo: {average}</p>
+      </div>
+      <div className="text-right">
+        <p className="text-sm font-black text-slate-700">{value}</p>
+        <p className={cn("text-[9px] font-bold flex items-center justify-end gap-1", isPositive ? "text-emerald-600" : "text-rose-500")}>
+          {isPositive ? <ArrowUpRight className="w-2.5 h-2.5" /> : <ArrowDownRight className="w-2.5 h-2.5" />}
+          {isCurrency ? (delta > 0 ? "+" : "") + delta.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : (isPercent ? (delta > 0 ? "+" : "") + delta.toFixed(1) + "%" : (delta > 0 ? "+" : "") + delta.toFixed(2))}
+        </p>
+      </div>
+    </div>
   );
 }

@@ -68,22 +68,22 @@ interface ClienteInfo {
 export function CustomerLoyalty({ data, vinculos = [] }: CustomerLoyaltyProps) {
   const [openSection, setOpenSection] = useState<SectionId>("piramide");
   const [selectedCliente, setSelectedCliente] = useState<ClienteInfo | null>(null);
-
-  const sales = useMemo(() =>
-    data.filter(r => !r.is_cancelada && r.tpNF === 1 && !r.is_devolucao && r.cpf_cnpj_dest?.trim().length > 3),
-    [data]
-  );
+  const [searchTerm, setSearchTerm] = useState("");
+  const [sortBy, setSortBy] = useState<"value" | "visits">("value");
 
   const clientesByCpf = useMemo(() => {
-    const map: Record<string, ClienteInfo> = {};
+    const customerMap: Record<string, ClienteInfo> = {};
+
+    const sales = data.filter(r => !r.is_cancelada && r.tpNF === 1 && !r.is_devolucao && r.cpf_cnpj_dest?.trim().length > 3);
+
     for (const s of sales) {
       const cpf = s.cpf_cnpj_dest.trim();
-      if (!map[cpf]) map[cpf] = {
+      if (!customerMap[cpf]) customerMap[cpf] = {
         cpf, nome: s.nome_dest || "", totalGasto: 0, visitas: 0,
         timestamps: [], vendedores: new Set(), tier: TIERS[3],
         intervaloMedio: null, notas: [], trocas: [], canais: {},
       };
-      const c = map[cpf];
+      const c = customerMap[cpf];
       c.totalGasto += parseFloat(s.vNF) || 0;
       c.visitas++;
       try { c.timestamps.push(parseISO(s.dhEmi).getTime()); } catch { /* skip */ }
@@ -99,13 +99,13 @@ export function CustomerLoyalty({ data, vinculos = [] }: CustomerLoyaltyProps) {
     // vincular trocas por CPF
     for (const v of vinculos) {
       const cpf = v.cpf_cliente?.trim();
-      if (cpf && map[cpf]) {
-        map[cpf].trocas.push(v);
-        map[cpf].canais["TROCA"] = (map[cpf].canais["TROCA"] || 0) + 1;
+      if (cpf && customerMap[cpf]) {
+        customerMap[cpf].trocas.push(v);
+        customerMap[cpf].canais["TROCA"] = (customerMap[cpf].canais["TROCA"] || 0) + 1;
       }
     }
 
-    return Object.values(map).map(c => {
+    return Object.values(customerMap).map(c => {
       const sorted = [...c.timestamps].sort((a, b) => a - b);
       const deltas = sorted.slice(1).map((t, i) => differenceInDays(t, sorted[i]));
       c.intervaloMedio = deltas.length > 0 ? Math.round(deltas.reduce((a, b) => a + b, 0) / deltas.length) : null;
@@ -114,7 +114,7 @@ export function CustomerLoyalty({ data, vinculos = [] }: CustomerLoyaltyProps) {
       c.notas.sort((a, b) => b.dhEmi.localeCompare(a.dhEmi));
       return c;
     });
-  }, [sales, vinculos]);
+  }, [data, vinculos]);
 
   const totalClientes = clientesByCpf.length;
   const totalFaturamento = clientesByCpf.reduce((a, c) => a + c.totalGasto, 0);

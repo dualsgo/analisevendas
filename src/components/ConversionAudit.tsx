@@ -90,8 +90,48 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
     }).sort((a, b) => b.score - a.score);
   }, [pickupOrders, vinculadosMap]);
 
+  const funnelStats = useMemo(() => {
+    const totalPickups = pickupOrders.length;
+    const withAdicional = pickupOrders.filter(o => vinculadosMap[o.chave]?.length > 0).length;
+    const rate = totalPickups > 0 ? (withAdicional / totalPickups) * 100 : 0;
+    const totalRev = Object.values(vinculadosMap).flat().reduce((acc, r) => acc + parseFloat(r.vNF), 0);
+    return { totalPickups, withAdicional, rate, totalRev };
+  }, [pickupOrders, vinculadosMap]);
+
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 pb-20">
+    <div className="space-y-6 md:space-y-10 animate-in fade-in duration-500 pb-20">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card className="ri-card bg-white p-6 space-y-2 border-none shadow-sm">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Total Retiradas Online</p>
+          <div className="flex items-end justify-between">
+            <h3 className="text-3xl font-black text-slate-800 leading-none">{funnelStats.totalPickups}</h3>
+            <Smartphone className="w-5 h-5 text-slate-300" />
+          </div>
+        </Card>
+        <Card className="ri-card bg-white p-6 space-y-2 border-none shadow-sm">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Com Venda Adicional</p>
+          <div className="flex items-end justify-between">
+            <h3 className="text-3xl font-black text-sky-600 leading-none">{funnelStats.withAdicional}</h3>
+            <Zap className="w-5 h-5 text-sky-400" />
+          </div>
+        </Card>
+        <Card className="ri-card bg-emerald-50 p-6 space-y-2 border-none shadow-sm">
+          <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest leading-none">Taxa de Conversão</p>
+          <div className="flex items-end justify-between">
+            <h3 className="text-3xl font-black text-emerald-700 leading-none">{funnelStats.rate.toFixed(1)}%</h3>
+            <TrendingUp className="w-5 h-5 text-emerald-400" />
+          </div>
+        </Card>
+        <Card className="ri-card bg-slate-800 p-6 space-y-2 border-none shadow-sm">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Receita Extra Gerada</p>
+          <div className="flex items-end justify-between">
+            <h3 className="text-2xl font-black text-white leading-none">
+              {funnelStats.totalRev.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+            </h3>
+            <Trophy className="w-5 h-5 text-yellow-500" />
+          </div>
+        </Card>
+      </div>
       <Tabs value={activeView} onValueChange={setActiveView} className="w-full">
         <TabsList className="grid w-full grid-cols-2 bg-white border-2 border-slate-100 rounded-2xl h-14 p-1 shadow-sm">
           <TabsTrigger value="colaborador" className="rounded-xl font-black text-xs uppercase data-[state=active]:bg-sky-500 data-[state=active]:text-white">

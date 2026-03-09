@@ -1,11 +1,11 @@
 "use client";
 import React, { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Boxes, Info, Link2, ShoppingCart } from "lucide-react";
+import { Boxes, Info, Link2, ShoppingCart, Zap } from "lucide-react";
 import { DetailedSaleRow } from "@/lib/types";
 
 export function MatrizAfinidade({ data }: { data: DetailedSaleRow[] }) {
-  const affinities = useMemo(() => {
+  const affinitiesResult = useMemo(() => {
     const saidas = data.filter(r => r.tpNF === 1 && !r.is_devolucao && !r.is_cancelada);
     const coOccurrences: Record<string, { count: number; prodA: string; prodB: string; totalA: number }> = {};
     const productFrequency: Record<string, number> = {};
@@ -40,8 +40,10 @@ export function MatrizAfinidade({ data }: { data: DetailedSaleRow[] }) {
     });
 
     // 3. Calcular Score de Afinidade (Confiança)
-    // Se comprou A, qual a chance de comprar B? (count / freqA)
-    return Object.values(coOccurrences)
+    const dates = saidas.map(r => r.dhEmi.split('T')[0]);
+    const isSingleDay = new Set(dates).size <= 1;
+
+    const affinitiesData = Object.values(coOccurrences)
       .map(pair => {
         const freqA = productFrequency[pair.prodA] || 1;
         const freqB = productFrequency[pair.prodB] || 1;
@@ -58,7 +60,14 @@ export function MatrizAfinidade({ data }: { data: DetailedSaleRow[] }) {
       })
       .sort((a, b) => b.count - a.count)
       .slice(0, 12); // Top 12 afinidades
+
+    return {
+      affinities: affinitiesData,
+      isSingleDay
+    };
   }, [data]);
+
+  const { affinities, isSingleDay } = affinitiesResult;
 
   if (affinities.length === 0) return (
     <div className="p-8 text-center text-slate-500 italic border-2 border-dashed rounded-xl">
@@ -76,9 +85,17 @@ export function MatrizAfinidade({ data }: { data: DetailedSaleRow[] }) {
           </h2>
           <p className="text-xs text-slate-500 font-medium">Produtos que "andam juntos" nas cestas dos clientes.</p>
         </div>
-        <div className="bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full text-[10px] font-bold uppercase flex items-center gap-2 border border-indigo-100">
-          <Info className="w-3 h-3" />
-          Market Basket Analysis
+        <div className="flex items-center gap-2">
+          {isSingleDay && (
+            <div className="bg-amber-50 text-amber-600 px-3 py-1 rounded-full text-[10px] font-bold uppercase flex items-center gap-1.5 border border-amber-100">
+              <Zap className="w-3 h-3" />
+              Hoje
+            </div>
+          )}
+          <div className="bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full text-[10px] font-bold uppercase flex items-center gap-2 border border-indigo-100">
+            <Info className="w-3 h-3" />
+            Market Basket Analysis
+          </div>
         </div>
       </div>
 

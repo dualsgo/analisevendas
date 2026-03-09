@@ -42,7 +42,15 @@ import {
   CreditCard,
   Users2,
   DollarSign,
-  ShoppingCart
+  ShoppingCart,
+  ChevronRight,
+  Timer,
+  ListFilter,
+  Hash,
+  Scale,
+  Lightbulb,
+  AlertTriangle,
+  Heart
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -57,7 +65,6 @@ import {
   useSidebar
 } from "@/components/ui/sidebar";
 import { DailyPerformance } from "./DailyPerformance";
-import { VendorPerformance } from "./VendorPerformance";
 import { ConversionAudit } from "./ConversionAudit";
 import { DiscountAudit } from "./DiscountAudit";
 import { ExchangeManagement } from "./ExchangeManagement";
@@ -65,15 +72,12 @@ import { TransactionList } from "./TransactionList";
 import { WhatsappReports } from "./WhatsappReports";
 import { LostOpportunities } from "./LostOpportunities";
 import { SalesComposition } from "./SalesComposition";
-import { OperationalProductivity } from "./OperationalProductivity";
 import { RiskRadar } from "./RiskRadar";
-import { ComplianceAudit } from "./ComplianceAudit";
 import { ElasticityAnalysis } from "./ElasticityAnalysis";
 import { AdvancedAnalytics } from "./AdvancedAnalytics";
 import { QualityAnalysis } from "./QualityAnalysis";
 import { YoYAnalysis } from "./YoYAnalysis";
 import { AdditionalItemsAnalysis } from "./AdditionalItemsAnalysis";
-import { CollaboratorGamification } from "./CollaboratorGamification";
 import { ConsolidatedReport } from "./ConsolidatedReport";
 import { HeatmapAnalysis } from "./HeatmapAnalysis";
 import { BasketBehavior } from "./BasketBehavior";
@@ -208,15 +212,13 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
     { id: "geral", label: "Visão Geral", icon: LayoutDashboard, category: "Resultados" },
     { id: "pacing", label: "Termômetro de Tração", icon: TrendingUp, category: "Resultados", color: "text-indigo-600 font-black" },
     { id: "what_if", label: "Simulador What-If", icon: Calculator, category: "Resultados", color: "text-indigo-500 font-bold" },
-    { id: "consolidado", label: "Relatório Consolidado", icon: ClipboardList, category: "Resultados", color: "text-emerald-600 font-black" },
+    { id: "performance", label: "Performance", icon: ClipboardList, category: "Resultados", color: "text-emerald-600 font-black" },
     { id: "yoy_analise", label: "Resultado YoY", icon: History, category: "Resultados", color: "text-indigo-600 font-bold" },
     { id: "diario", label: "Performance Diária", icon: CalendarIcon, category: "Resultados" },
     { id: "composicao", label: "Composição", icon: Layers, category: "Resultados", color: "text-indigo-500" },
     { id: "deep_dive", label: "Fluxo & Pareto", icon: TrendingUp, category: "Resultados", color: "text-indigo-600" },
 
-    { id: "performance_vendedores", label: "Performance Colaboradores", icon: Award, category: "Pessoas" },
     { id: "gamification", label: "Arena de Talentos", icon: Sword, category: "Pessoas", color: "text-yellow-500 font-black" },
-    { id: "produtividade", label: "Produtividade", icon: Activity, category: "Pessoas", color: "text-cyan-500" },
     { id: "whatsapp", label: "WhatsApp", icon: MessageCircle, category: "Pessoas", color: "text-emerald-500" },
 
     { id: "item_ranking", label: "Ranking de Itens", icon: ShoppingCart, category: "Produtos", color: "text-orange-600 font-black" },
@@ -227,22 +229,18 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
     { id: "elasticidade", label: "Elasticidade Desconto", icon: LineChart, category: "Produtos", color: "text-amber-600" },
 
     { id: "customer_loyalty", label: "Fidelidade & Recorrência", icon: Users2, category: "Clientes", color: "text-emerald-600 font-black" },
-    { id: "heatmap", label: "Mapa de Calor", icon: Flame, category: "Clientes", color: "text-orange-500 font-black" },
-    { id: "energy", label: "Curva de Energia", icon: Activity, category: "Clientes", color: "text-sky-500 font-bold" },
-    { id: "geodesic", label: "Análise Geográfica", icon: Map, category: "Clientes", color: "text-emerald-600 font-bold" },
-
-    { id: "radar", label: "Radar de Alertas", icon: ShieldAlert, category: "Auditoria", color: "text-rose-600 font-black" },
-    { id: "sangria", label: "Risco de Trocas (Sangria)", icon: ShieldAlert, category: "Auditoria", color: "text-rose-500 font-bold" },
-    { id: "auditoria", label: "Audit. Descontos", icon: Percent, category: "Auditoria", color: "text-rose-500" },
-    { id: "trocas", label: "Audit. Trocas", icon: ArrowRightLeft, category: "Auditoria", color: "text-purple-500" },
-    { id: "compliance", label: "Auditoria PA", icon: ShieldCheck, category: "Auditoria", color: "text-red-600" },
-    { id: "conversao", label: "Audit. Conversão", icon: Smartphone, category: "Auditoria", color: "text-sky-500" },
-    { id: "oportunidades", label: "Oportunidades", icon: CircleAlert, category: "Auditoria", color: "text-orange-600" },
-
-    { id: "ritmo_operacional", label: "Ritmo Operacional", icon: Radio, category: "Operacional", color: "text-slate-600 font-black" },
-    { id: "payment_map", label: "Formas de Pagamento", icon: CreditCard, category: "Operacional", color: "text-indigo-600 font-black" },
-    { id: "transacoes", label: "Transações", icon: FileText, category: "Operacional" },
-    { id: "qualidade_avancada", label: "Qualidade de Venda", icon: UserCheck, category: "Operacional", color: "text-emerald-600" },
+    { id: "ritmo", label: "Ritmo Operacional", icon: Timer, category: "Operacional" },
+    { id: "vendas", label: "Transações", icon: ListFilter, category: "Operacional" },
+    { id: "pagamentos", label: "Mapa de Pagamentos", icon: CreditCard, category: "Operacional" },
+    { id: "qualidade", label: "Qualidade da Venda", icon: Target, category: "Operacional" },
+    { id: "radar", label: "Radar de Alertas", icon: ShieldAlert, category: "Auditoria" },
+    { id: "descontos", label: "Auditoria de Descontos", icon: Percent, category: "Auditoria" },
+    { id: "trocas", label: "Trocas", icon: ArrowRightLeft, category: "Auditoria" },
+    { id: "pa", label: "Análise de PA", icon: Hash, category: "Auditoria" },
+    { id: "conversao", label: "Auditoria de Conversão", icon: Scale, category: "Auditoria" },
+    { id: "oportunidades", label: "Oportunidades", icon: Lightbulb, category: "Auditoria" },
+    { id: "risco_trocas", label: "Risco de Trocas", icon: AlertTriangle, category: "Auditoria" },
+    { id: "geografia", label: "Análise Geográfica", icon: Map, category: "Clientes" },
   ];
 
   const renderActiveTab = () => {
@@ -307,15 +305,9 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
       case "energy": return <SalesEnergy data={data} />;
       case "basket": return <BasketBehavior data={data} />;
       case "product_risk": return <ProductRisk data={data} />;
-      case "consolidado": return <ConsolidatedReport data={data} vinculos={vinculos} />;
-      case "gamification": return <CollaboratorGamification data={data} vinculos={vinculos} />;
-      case "venda_sugestiva": return <AdditionalItemsAnalysis data={data} />;
+      case "performance": return <ConsolidatedReport data={data} vinculos={vinculos} />;
       case "diario": return <DailyPerformance data={data} />;
-      case "performance_vendedores": return <VendorPerformance data={data} />;
       case "composicao": return <SalesComposition data={data} vinculos={vinculos} />;
-      case "produtividade": return <OperationalProductivity data={data} />;
-      case "compliance": return <ComplianceAudit data={data} />;
-      case "oportunidades": return <LostOpportunities data={data} vinculos={vinculos} />;
       case "radar": return <RiskRadar data={data} />;
       case "conversao": return <ConversionAudit data={data} />;
       case "auditoria": return <DiscountAudit data={data} />;

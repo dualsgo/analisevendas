@@ -139,6 +139,44 @@ export function RiskRadar({ data }: RiskRadarProps) {
           recommendation: `Reforçar a importância da identificação para garantir a segurança da troca e fidelização do cliente.`
         });
       }
+
+      // NOVO: Alerta de Baixo PA
+      const vPA = v.sales.reduce((acc: any, s: any) => acc + (s.itens?.length || 0), 0) / v.sales.length;
+      if (vPA < 1.4 && v.sales.length > 5) {
+        list.push({
+          id: `pa-low-${v.name}`,
+          type: 'Baixa Agregação (PA)',
+          collaborator: v.name,
+          indicator: 'P.A. Médio',
+          value: vPA.toFixed(2),
+          reference: '1.80',
+          variation: (vPA - 1.8).toFixed(2),
+          level: vPA < 1.2 ? 'high' : 'medium',
+          icon: Zap,
+          description: `O colaborador está entregando uma média de Peças por Atendimento (PA) muito baixa, indicando vendas predominantemente de item único.`,
+          impact: `Redução drástica do faturamento potencial. Atendimentos de item único subutilizam o tráfego da loja.`,
+          recommendation: `Treinar técnicas de Cross-selling e sugestão de itens complementares logo após a primeira escolha do cliente.`
+        });
+      }
+
+      // NOVO: Alerta de Cancelamento por Vendedor
+      const vCancelRate = (data.filter(s => s.is_cancelada && (s.vendedor === v.name || (!s.vendedor && v.name === "VENDEDOR"))).length / (v.sales.length + data.filter(s => s.is_cancelada && (s.vendedor === v.name)).length)) * 100;
+      if (vCancelRate > 10 && v.sales.length > 3) {
+        list.push({
+          id: `cancel-v-${v.name}`,
+          type: 'Cancelamento Suspeito',
+          collaborator: v.name,
+          indicator: 'Taxa Cancel.',
+          value: `${vCancelRate.toFixed(1)}%`,
+          reference: '3.0%',
+          variation: `+${(vCancelRate - 3).toFixed(1)}%`,
+          level: 'high',
+          icon: AlertOctagon,
+          description: `Este colaborador apresenta uma taxa de cancelamento de notas muito superior à média aceitável.`,
+          impact: `Pode indicar erros constantes de digitação ou tentativa de ocultar atendimentos não finalizados.`,
+          recommendation: `Auditar os motivos de cancelamento deste colaborador junto à gerência e verificar se há dificuldade com o sistema.`
+        });
+      }
     });
 
     const cancelRate = (data.filter(s => s.is_cancelada).length / data.length) * 100;

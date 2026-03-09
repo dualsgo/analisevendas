@@ -15,11 +15,15 @@ export function TermometroTracao({ data }: { data: DetailedSaleRow[] }) {
     if (saidas.length === 0) return null;
 
     // Agrupar por data para contar dias operados
-    const diasComVenda = new Set(saidas.map(r => r.dhEmi.split('T')[0])).size;
+    const dates = saidas.map(r => r.dhEmi.split('T')[0]);
+    const diasComVenda = new Set(dates).size;
+    const isSingleDay = diasComVenda <= 1;
+    
     const totalVenda = saidas.reduce((acc, r) => acc + parseFloat(r.vNF), 0);
     const vmd = totalVenda / (diasComVenda || 1); // Venda Média Diária
     
-    const projeção = vmd * 30; // Projeção simplificada para 30 dias
+    // Projeção baseada na VMD para 30 dias
+    const projeção = vmd * 30;
     const atingimento = (totalVenda / metaMensal) * 100;
     const projeçãoAtingimento = (projeção / metaMensal) * 100;
     
@@ -30,7 +34,8 @@ export function TermometroTracao({ data }: { data: DetailedSaleRow[] }) {
       atingimento,
       projeçãoAtingimento,
       status: projeção >= metaMensal ? "BATE" : "NÃO BATE",
-      dias: diasComVenda
+      dias: diasComVenda,
+      isSingleDay
     };
   }, [data, metaMensal]);
 
@@ -108,36 +113,42 @@ export function TermometroTracao({ data }: { data: DetailedSaleRow[] }) {
       {/* Card de Projeção Final */}
       <Card className={cn(
         "ri-card border-l-8 overflow-hidden",
-        stats.status === "BATE" ? "border-l-emerald-500 bg-emerald-50/10" : "border-l-rose-500 bg-rose-50/10"
+        stats.isSingleDay ? "border-l-indigo-400 bg-indigo-50/10" : stats.status === "BATE" ? "border-l-emerald-500 bg-emerald-50/10" : "border-l-rose-500 bg-rose-50/10"
       )}>
         <CardContent className="p-6 md:p-8">
           <div className="flex flex-col md:flex-row items-center justify-between gap-8">
             <div className="space-y-2 text-center md:text-left">
               <div className="flex items-center justify-center md:justify-start gap-2">
-                {stats.status === "BATE" ? (
+                {stats.isSingleDay ? (
+                  <Zap className="w-6 h-6 text-indigo-500 animate-pulse" />
+                ) : stats.status === "BATE" ? (
                   <CheckCircle2 className="w-6 h-6 text-emerald-500" />
                 ) : (
                   <AlertCircle className="w-6 h-6 text-rose-500" />
                 )}
-                <h2 className="text-xl font-black text-slate-800 uppercase italic">Projeção de Fechamento</h2>
+                <h2 className="text-xl font-black text-slate-800 uppercase italic">
+                  {stats.isSingleDay ? "Ritmo de Venda Diária" : "Projeção de Fechamento"}
+                </h2>
               </div>
               <p className="text-sm text-slate-500 font-medium">
-                Se mantiver o ritmo de <span className="font-bold text-indigo-600">{formatCurrency(stats.vmd)}/dia</span>, a unidade fechará o mês com:
+                {stats.isSingleDay 
+                  ? "Analisando dados de hoje para estimar potencial operacional:"
+                  : `Se mantiver o ritmo de ${formatCurrency(stats.vmd)}/dia, a unidade fechará o mês com:`}
               </p>
             </div>
 
             <div className="flex flex-col items-center md:items-end">
               <p className={cn(
                 "text-4xl md:text-5xl font-black tracking-tighter leading-none mb-2",
-                stats.status === "BATE" ? "text-emerald-600" : "text-rose-600"
+                stats.isSingleDay ? "text-indigo-600" : stats.status === "BATE" ? "text-emerald-600" : "text-rose-600"
               )}>
-                {formatCurrency(stats.projeção)}
+                {formatCurrency(stats.isSingleDay ? stats.vmd : stats.projeção)}
               </p>
               <div className={cn(
                 "px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest",
-                stats.status === "BATE" ? "bg-emerald-500 text-white" : "bg-rose-500 text-white"
+                stats.isSingleDay ? "bg-indigo-500 text-white" : stats.status === "BATE" ? "bg-emerald-500 text-white" : "bg-rose-500 text-white"
               )}>
-                {stats.projeçãoAtingimento.toFixed(1)}% da Meta
+                {stats.isSingleDay ? "Ritmo Atual (VMD)" : `${stats.projeçãoAtingimento.toFixed(1)}% da Meta`}
               </div>
             </div>
           </div>

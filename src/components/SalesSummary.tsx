@@ -50,8 +50,11 @@ import {
   Scale,
   Lightbulb,
   AlertTriangle,
-  Heart
+  Menu,
+  ChevronDown
 } from "lucide-react";
+import { format, parseISO, min, max } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import {
   Sidebar,
@@ -62,8 +65,10 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  useSidebar
+  useSidebar,
+  SidebarTrigger
 } from "@/components/ui/sidebar";
+import { Badge } from "@/components/ui/badge";
 import { DailyPerformance } from "./DailyPerformance";
 import { ConversionAudit } from "./ConversionAudit";
 import { DiscountAudit } from "./DiscountAudit";
@@ -98,6 +103,7 @@ import { Calculator, Map } from "lucide-react";
 interface SalesSummaryProps {
   data: DetailedSaleRow[];
   vinculos: VinculoTroca[];
+  onLogout?: () => void;
 }
 
 export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
@@ -116,6 +122,19 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
     setActiveTab(tab);
     setOpenMobile(false);
   };
+
+  const analysisPeriod = useMemo(() => {
+    const saidas = data.filter(r => r.tpNF === 1 && !r.is_cancelada);
+    if (saidas.length === 0) return "Sem dados";
+    const dates = saidas.map(r => parseISO(r.dhEmi)).filter(d => !isNaN(d.getTime()));
+    if (dates.length === 0) return "Período Indefinido";
+    const start = min(dates);
+    const end = max(dates);
+    if (format(start, "MM/yyyy") === format(end, "MM/yyyy")) {
+      return format(start, "MMMM 'de' yyyy", { locale: ptBR }).toUpperCase();
+    }
+    return `${format(start, "dd/MM/yy")} — ${format(end, "dd/MM/yy")}`;
+  }, [data]);
 
   const toggleChannel = (channel: keyof typeof selectedChannels) => {
     setSelectedChannels(prev => ({ ...prev, [channel]: !prev[channel] }));
@@ -383,6 +402,32 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
         "flex-1 overflow-y-auto bg-slate-50 p-4 md:p-6 flex flex-col gap-6 scrollbar-hide print:p-0 print:bg-white transition-all duration-300",
         isCollapsed ? "text-mode-large" : ""
       )}>
+        {/* Dashboard Header with Period Info */}
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 shrink-0 px-2 lg:px-4">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <Badge variant="outline" className="bg-indigo-50/50 text-indigo-600 border-indigo-100 font-bold text-[10px] uppercase tracking-widest px-2 py-0">
+                {analysisPeriod}
+              </Badge>
+              <div className="w-1 h-1 bg-slate-300 rounded-full" />
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                {data.length} Transações Detectadas
+              </span>
+            </div>
+            <h1 className="text-xl md:text-3xl font-black text-slate-800 tracking-tight flex items-center gap-3 truncate">
+              Análise Estratégica
+            </h1>
+          </div>
+          
+          <div className="flex items-center gap-2 print:hidden">
+             <SidebarTrigger className="md:hidden" />
+             <Button variant="outline" size="sm" onClick={() => window.print()} className="rounded-xl border-slate-200 text-slate-500 font-bold text-[10px] uppercase gap-2">
+                <FileText className="w-3.5 h-3.5" />
+                Exportar PDF
+             </Button>
+          </div>
+        </div>
+
         <div className="flex-1 min-h-0 relative">
           <AnimatePresence mode="popLayout">
             <motion.div 

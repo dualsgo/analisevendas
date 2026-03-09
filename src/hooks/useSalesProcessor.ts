@@ -19,12 +19,16 @@ export function useSalesProcessor() {
     const [parsedRows, setParsedRows] = useState<DetailedSaleRow[]>([]);
     const [vinculos, setVinculos] = useState<VinculoTroca[]>([]);
     const [status, setStatus] = useState<ProcessingStatus>("idle");
+    const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
     const [history, setHistory] = useState<UploadHistoryItem[]>([]);
     const [availablePeriods, setAvailablePeriods] = useState<{ year: string, month: string }[]>([]);
     const { toast } = useToast();
 
-    // Load history from localStorage on mount
+    // Load history and auth from storage on mount
     useEffect(() => {
+        const auth = sessionStorage.getItem("ri_happy_auth");
+        if (auth === "true") setIsAuthenticated(true);
+
         const saved = localStorage.getItem("ri_happy_upload_history");
         if (saved) {
             try {
@@ -42,7 +46,6 @@ export function useSalesProcessor() {
             try {
                 const { rows, links, currentStatus } = JSON.parse(sessionData);
                 if (rows && rows.length > 0) {
-                    // Re-normalizar vendedores na carga de sessão para garantir consistência
                     const normalizedRows = rows.map((r: DetailedSaleRow) => ({
                         ...r,
                         vendedor: normalizeVendedor(r.vendedor)
@@ -80,7 +83,6 @@ export function useSalesProcessor() {
             localStorage.setItem("ri_happy_upload_history", JSON.stringify(list));
             return true;
         } catch (e) {
-            // Fallback: Save only metadata for older items if quota is exceeded
             try {
                 const lightHistory = list.map((item, idx) =>
                     idx === 0 ? item : { ...item, data: [] }
@@ -120,18 +122,14 @@ export function useSalesProcessor() {
 
     const processData = useCallback((rows: DetailedSaleRow[]) => {
         setStatus("processing");
-
         setTimeout(() => {
             try {
-                // Passo 0: Consolidação de Identidades Mandatória
                 const normalizedRows = rows.map(r => ({
                     ...r,
                     vendedor: normalizeVendedor(r.vendedor)
                 }));
-
                 const withSuspects = detectarAdicionaisSuspeitos(normalizedRows);
                 const exchangeLinks = vincularTrocasUtils(withSuspects);
-
                 setParsedRows(withSuspects);
                 setVinculos(exchangeLinks || []);
                 addToHistory(withSuspects);
@@ -168,15 +166,12 @@ export function useSalesProcessor() {
             });
             return;
         }
-
-        // Re-normalizar vendedores ao reabrir histórico antigo (Migration Clean)
         const normalizedData = item.data.map(r => ({
             ...r,
             vendedor: normalizeVendedor(r.vendedor)
         }));
-
         const processedRows = detectarAdicionaisSuspeitos(normalizedData);
-        setParsedRows(processedRows);  // ← usa processedRows com flags de adicionais corretamente aplicadas
+        setParsedRows(processedRows);
         setVinculos(vincularTrocasUtils(processedRows));
         setStatus("success");
     }, [toast]);
@@ -189,115 +184,118 @@ export function useSalesProcessor() {
             description: "Todos os registros de uploads recentes foram removidos.",
         });
     }, [toast]);
-    +
-        +    const syncToCloud = useCallback(async () => {
-            +        if (parsedRows.length === 0) return;
-            +
-                +        setStatus("syncing");
-            +        try {
-                +            const response = await fetch("/api/sales/sync", {
-+ method: "POST",
-                    +                headers: { "Content-Type": "application/json" },
-                    +                body: JSON.stringify({ sales: parsedRows, links: vinculos })
-                +            });
-    +
-        +            if (!response.ok) throw new Error("Falha na sincronização");
-    +
-        +            toast({
-+ title: "Sincronizado com Sucesso",
-            +                description: `${parsedRows.length} registros salvos no MongoDB Atlas.`,
-            +            });
-+            fetchPeriods(); // Refresh available periods
-+        } catch (error) {
-    +            console.error("Sync error:", error);
-    +            toast({
-+ title: "Erro de Sincronização",
-        +                description: "Não foi possível salvar os dados no banco de dados.",
-        +                variant: "destructive"
-    +            });
-+        } finally {
-    +            setStatus("success");
-    +        }
-+    }, [parsedRows, vinculos, toast]);
-+
-    +    const loadPeriod = useCallback(async (year: string, month: string) => {
-        +        setStatus("loading_db");
-        +        try {
-            +            const response = await fetch(`/api/sales/load?year=${year}&month=${month}`);
-            +            if (!response.ok) throw new Error("Falha ao carregar dados");
-            +
-                +            const { sales, links } = await response.json();
-            +
-                +            if (sales && sales.length > 0) {
-                    +                const normalizedRows = sales.map((r: DetailedSaleRow) => ({
-+                    ...r,
-                        +                    vendedor: normalizeVendedor(r.vendedor)
-                    +                }));
-+                const withSuspects = detectarAdicionaisSuspeitos(normalizedRows);
-+                setParsedRows(withSuspects);
-+                setVinculos(links || []);
-+                setStatus("success");
-+                toast({
-+ title: "Dados Carregados",
-    +                    description: `Período ${month}/${year} carregado com sucesso.`,
-    +                });
-+            } else {
-    +                toast({
-+ title: "Nenhum dado encontrado",
-        +                    description: "Não há registros para este período no banco de dados.",
-        +                });
-+                setStatus("idle");
-+            }
-+        } catch (error) {
-    +            console.error("Load error:", error);
-    +            toast({
-+ title: "Erro ao carregar",
-        +                description: "Ocorreu um problema ao buscar os dados históricos.",
-        +                variant: "destructive"
-    +            });
-+            setStatus("idle");
-+        }
-+    }, [toast]);
-+
-    +    const fetchPeriods = useCallback(async () => {
-        +        try {
-            +            const response = await fetch("/api/sales/periods");
-            +            if (response.ok) {
-                +                const data = await response.json();
-                +                setAvailablePeriods(data.periods || []);
-                +            }
-            +        } catch (error) {
-                +            console.error("Fetch periods error:", error);
-                +        }
-        +    }, []);
-+
-    +    useEffect(() => {
-        +        fetchPeriods();
-        +    }, [fetchPeriods]);
-+
-     const fileStats = useMemo(() => {
-    const total = parsedRows.length;
-    const entradas = parsedRows.filter(r => (r.tpNF === 0 || r.is_devolucao) && !r.is_cancelada).length;
-    const saidas = parsedRows.filter(r => r.tpNF === 1 && !r.is_devolucao && !r.is_cancelada).length;
-    const canceladas = parsedRows.filter(r => r.is_cancelada).length;
 
-    return { total, entradas, saidas, canceladas };
-}, [parsedRows]);
+    const login = useCallback((key: string) => {
+        const secret = process.env.NEXT_PUBLIC_APP_SECRET_KEY;
+        if (key === secret) {
+            setIsAuthenticated(true);
+            sessionStorage.setItem("ri_happy_auth", "true");
+            return true;
+        }
+        return false;
+    }, []);
 
-return {
-    parsedRows,
-    vinculos,
-    status,
-    history,
-    fileStats,
-    processData,
-    confirmDashboard,
-    reset,
-    reopenHistory,
-    clearHistory,
-    syncToCloud,
-    loadPeriod,
-    availablePeriods,
-    fetchPeriods
-};
+    const logout = useCallback(() => {
+        setIsAuthenticated(false);
+        sessionStorage.removeItem("ri_happy_auth");
+        reset();
+    }, [reset]);
+
+    const fetchPeriods = useCallback(async () => {
+        try {
+            const response = await fetch("/api/sales/periods");
+            if (response.ok) {
+                const data = await response.json();
+                setAvailablePeriods(data.periods || []);
+            }
+        } catch (error) {
+            console.error("Fetch periods error:", error);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (isAuthenticated) fetchPeriods();
+    }, [isAuthenticated, fetchPeriods]);
+
+    const syncToCloud = useCallback(async () => {
+        if (parsedRows.length === 0) return;
+        setStatus("syncing");
+        try {
+            const response = await fetch("/api/sales/sync", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ sales: parsedRows, links: vinculos })
+            });
+            if (!response.ok) throw new Error("Falha na sincronização");
+            toast({
+                title: "Sincronizado com Sucesso",
+                description: `${parsedRows.length} registros salvos no MongoDB Atlas.`,
+            });
+            fetchPeriods();
+        } catch (error) {
+            console.error("Sync error:", error);
+            toast({
+                title: "Erro de Sincronização",
+                description: "Não foi possível salvar os dados no banco de dados.",
+                variant: "destructive"
+            });
+        } finally {
+            setStatus("success");
+        }
+    }, [parsedRows, vinculos, toast, fetchPeriods]);
+
+    const loadPeriod = useCallback(async (year: string, month: string) => {
+        setStatus("loading_db");
+        try {
+            const response = await fetch(`/api/sales/load?year=${year}&month=${month}`);
+            if (!response.ok) throw new Error("Falha ao carregar dados");
+            const { sales, links } = await response.json();
+            if (sales && sales.length > 0) {
+                const normalizedRows = sales.map((r: DetailedSaleRow) => ({
+                    ...r,
+                    vendedor: normalizeVendedor(r.vendedor)
+                }));
+                const withSuspects = detectarAdicionaisSuspeitos(normalizedRows);
+                setParsedRows(withSuspects);
+                setVinculos(links || []);
+                setStatus("success");
+                toast({ title: "Dados Carregados", description: `Período ${month}/${year} carregado com sucesso.` });
+            } else {
+                toast({ title: "Nenhum dado encontrado", description: "Não há registros para este período." });
+                setStatus("idle");
+            }
+        } catch (error) {
+            console.error("Load error:", error);
+            toast({ title: "Erro ao carregar", description: "Ocorreu um problema.", variant: "destructive" });
+            setStatus("idle");
+        }
+    }, [toast]);
+
+    const fileStats = useMemo(() => {
+        const total = parsedRows.length;
+        const entradas = parsedRows.filter(r => (r.tpNF === 0 || r.is_devolucao) && !r.is_cancelada).length;
+        const saidas = parsedRows.filter(r => r.tpNF === 1 && !r.is_devolucao && !r.is_cancelada).length;
+        const canceladas = parsedRows.filter(r => r.is_cancelada).length;
+        return { total, entradas, saidas, canceladas };
+    }, [parsedRows]);
+
+    return {
+        parsedRows,
+        vinculos,
+        status,
+        history,
+        fileStats,
+        processData,
+        confirmDashboard,
+        reset,
+        reopenHistory,
+        clearHistory,
+        syncToCloud,
+        loadPeriod,
+        availablePeriods,
+        fetchPeriods,
+        isAuthenticated,
+        login,
+        logout
+    };
 }

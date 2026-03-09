@@ -29,6 +29,7 @@ export default function Home() {
     confirmDashboard,
     reset,
     reopenHistory,
+    clearHistory,
     syncToCloud,
     loadPeriod,
     availablePeriods,

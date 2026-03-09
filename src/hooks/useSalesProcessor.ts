@@ -20,6 +20,7 @@ export function useSalesProcessor() {
     const [vinculos, setVinculos] = useState<VinculoTroca[]>([]);
     const [status, setStatus] = useState<ProcessingStatus>("idle");
     const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+    const [lastSyncedKey, setLastSyncedKey] = useState<string | null>(null);
     const [history, setHistory] = useState<UploadHistoryItem[]>([]);
     const [availablePeriods, setAvailablePeriods] = useState<{ year: string, month: string }[]>([]);
     const { toast } = useToast();
@@ -154,6 +155,7 @@ export function useSalesProcessor() {
         setParsedRows([]);
         setVinculos([]);
         setStatus("idle");
+        setLastSyncedKey(null);
         sessionStorage.removeItem("ri_happy_current_session");
     }, []);
 
@@ -240,6 +242,11 @@ export function useSalesProcessor() {
                 body: JSON.stringify({ sales: parsedRows, links: vinculos })
             });
             if (!response.ok) throw new Error("Falha na sincronização");
+
+            // Create a unique key for the current session to mark as synced
+            const syncKey = parsedRows.length > 0 ? parsedRows[0].chave : "synced";
+            setLastSyncedKey(syncKey);
+
             toast({
                 title: "Sincronizado com Sucesso",
                 description: `${parsedRows.length} registros salvos no MongoDB Atlas.`,
@@ -309,6 +316,7 @@ export function useSalesProcessor() {
         fetchPeriods,
         isAuthenticated,
         login,
-        logout
+        logout,
+        lastSyncedKey
     };
 }

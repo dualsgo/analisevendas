@@ -33,9 +33,10 @@ interface UploadDiagnosisProps {
   data: DetailedSaleRow[];
   vinculos: VinculoTroca[];
   onConfirm: () => void;
+  isSynced?: boolean;
 }
 
-export function UploadDiagnosis({ data, vinculos, onConfirm }: UploadDiagnosisProps) {
+export function UploadDiagnosis({ data, vinculos, onConfirm, isSynced }: UploadDiagnosisProps) {
   const { syncToCloud, status } = useSalesProcessor();
   const isSyncing = status === "syncing";
 
@@ -150,16 +151,23 @@ export function UploadDiagnosis({ data, vinculos, onConfirm }: UploadDiagnosisPr
         <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
           <Button 
             onClick={syncToCloud}
-            disabled={isSyncing}
+            disabled={isSyncing || isSynced}
             variant="outline"
-            className="border-2 border-indigo-600 text-indigo-600 hover:bg-indigo-50 font-black rounded-2xl h-14 md:h-16 px-8 text-sm md:text-base shadow-sm gap-3 group w-full sm:w-auto transition-all"
+            className={cn(
+              "border-2 font-black rounded-2xl h-14 md:h-16 px-8 text-sm md:text-base shadow-sm gap-3 group w-full sm:w-auto transition-all",
+              isSynced 
+                ? "border-emerald-200 bg-emerald-50 text-emerald-600 cursor-default" 
+                : "border-indigo-600 text-indigo-600 hover:bg-indigo-50"
+            )}
           >
             {isSyncing ? (
               <Loader2 className="w-5 h-5 animate-spin" />
+            ) : isSynced ? (
+              <CheckCircle2 className="w-5 h-5" />
             ) : (
               <CloudUpload className="w-5 h-5" />
             )}
-            {isSyncing ? "SALVANDO..." : "SALVAR NO MOGO ATLAS"}
+            {isSyncing ? "SALVANDO..." : isSynced ? "DADOS SINCRONIZADOS" : "SALVAR NO MOGO ATLAS"}
           </Button>
 
           <Button 
@@ -170,7 +178,9 @@ export function UploadDiagnosis({ data, vinculos, onConfirm }: UploadDiagnosisPr
             <ArrowRight className="w-5 h-5 group-hover:translate-x-2 transition-transform" />
           </Button>
         </div>
-        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Dados validados conforme padrão SEFAZ • INTEGRAÇÃO CLOUD ATIVA</p>
+        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">
+          {isSynced ? "✓ SEUS DADOS ESTÃO PROTEGIDOS NA NUVEM" : "DADOS VALIDADOS CONFORME PADRÃO SEFAZ • INTEGRAÇÃO CLOUD ATIVA"}
+        </p>
       </div>
     </div>
   );

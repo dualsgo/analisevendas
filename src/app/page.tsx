@@ -34,7 +34,8 @@ export default function Home() {
     availablePeriods,
     isAuthenticated,
     login,
-    logout
+    logout,
+    lastSyncedKey
   } = useSalesProcessor();
 
   const [loginError, setLoginError] = useState(false);
@@ -89,21 +90,39 @@ export default function Home() {
                     <div className="mb-6 md:mb-8">
                       <div className="inline-block bg-indigo-50 text-indigo-600 px-4 py-1.5 rounded-full text-[9px] md:text-[10px] font-bold uppercase mb-4 tracking-widest">Início da Jornada</div>
                       <h2 className="text-xl md:text-3xl font-bold text-slate-800 tracking-tight mb-2 leading-tight">Painel de Inteligência</h2>
-                      
+                      <p className="text-slate-500 font-medium text-xs md:text-sm leading-relaxed max-w-md mx-auto mb-6">
+                        Arraste seus pacotes <span className="text-indigo-600 font-bold">ZIP</span> ou <span className="text-indigo-600 font-bold">XMLs</span> para iniciar uma nova análise.
+                      </p>
+
+                      <UploadZone onDataParsed={processData} isProcessing={processorStatus === "processing"} />
+
                       {parsedRows.length > 0 && (
-                         <div className="flex justify-center mt-4">
-                            <Button 
-                              onClick={confirmDashboard}
-                              className="bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl h-12 px-8 font-black gap-2 shadow-lg shadow-emerald-100"
-                            >
-                              <LayoutDashboard className="w-4 h-4" />
-                              CONTINUAR ANÁLISE ATUAL
-                            </Button>
-                         </div>
+                        <motion.div 
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="mt-8 p-6 bg-emerald-50 border-2 border-emerald-100 rounded-3xl text-left flex flex-col sm:flex-row items-center justify-between gap-6"
+                        >
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm text-emerald-600">
+                              <LayoutDashboard className="w-6 h-6" />
+                            </div>
+                            <div>
+                               <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight">Análise em Memória</h4>
+                               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mt-1">
+                                  {fileStats.saidas} Saídas • {fileStats.total} Total Notas
+                               </p>
+                            </div>
+                          </div>
+                          <Button 
+                            onClick={confirmDashboard}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl h-14 px-10 font-black gap-2 shadow-lg shadow-emerald-100 w-full sm:w-auto"
+                          >
+                            ACESSAR DASHBOARD
+                            <ArrowRight className="w-4 h-4" />
+                          </Button>
+                        </motion.div>
                       )}
                     </div>
-                    
-                    <UploadZone onDataParsed={processData} isProcessing={processorStatus === "processing"} />
 
                     {processorStatus === "processing" && (
                       <motion.div 
@@ -186,7 +205,12 @@ export default function Home() {
                       </span>
                     </div>
                   )}
-                  <UploadDiagnosis data={parsedRows} vinculos={vinculos} onConfirm={confirmDashboard} />
+                  <UploadDiagnosis 
+                    data={parsedRows} 
+                    vinculos={vinculos} 
+                    onConfirm={confirmDashboard} 
+                    isSynced={lastSyncedKey !== null}
+                  />
                 </div>
               </motion.div>
             ) : (

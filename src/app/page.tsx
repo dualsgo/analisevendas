@@ -8,14 +8,12 @@ import { UploadDiagnosis } from "@/components/UploadDiagnosis";
 import { Toaster } from "@/components/ui/toaster";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
-import { Loader2, History, ArrowRight, LayoutDashboard } from "lucide-react";
+import { Loader2, LayoutDashboard, ArrowRight } from "lucide-react";
 import { Header } from "@/components/Header";
 import { UploadHistory } from "@/components/UploadHistory";
 import { useSalesProcessor } from "@/hooks/useSalesProcessor";
 import { motion, AnimatePresence } from "framer-motion";
 import { fadeIn, zoomIn, slideUp } from "@/lib/animations";
-import { Login } from "@/components/Login";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
 export default function Home() {
@@ -29,31 +27,8 @@ export default function Home() {
     confirmDashboard,
     reset,
     reopenHistory,
-    clearHistory,
-    syncToCloud,
-    loadPeriod,
-    availablePeriods,
-    isAuthenticated,
-    login,
-    logout,
-    lastSyncedKey
+    clearHistory
   } = useSalesProcessor();
-
-  const [loginError, setLoginError] = useState(false);
-
-  const handleLogin = async (key: string) => {
-    const success = await login(key);
-    setLoginError(!success);
-  };
-
-  if (!isAuthenticated) {
-    return (
-      <>
-        <Login onLogin={handleLogin} isError={loginError} />
-        <Toaster />
-      </>
-    );
-  }
 
   return (
     <SidebarProvider>
@@ -77,7 +52,7 @@ export default function Home() {
               >
                 <div className={cn(
                   "w-full max-w-6xl flex flex-col gap-6",
-                  (history.length > 0 || availablePeriods.length > 0 || parsedRows.length > 0) && "lg:grid lg:grid-cols-12 lg:gap-8 items-start"
+                  (history.length > 0 || parsedRows.length > 0) && "lg:grid lg:grid-cols-12 lg:gap-8 items-start"
                 )}>
                   <motion.section 
                     variants={zoomIn}
@@ -85,7 +60,7 @@ export default function Home() {
                     animate="visible"
                     className={cn(
                       "bg-white rounded-[2rem] md:rounded-[3rem] shadow-sm border border-slate-200 p-6 md:p-10 text-center",
-                      (history.length > 0 || availablePeriods.length > 0 || parsedRows.length > 0) ? "lg:col-span-7" : "max-w-2xl mx-auto w-full"
+                      (history.length > 0 || parsedRows.length > 0) ? "lg:col-span-12 max-w-4xl mx-auto" : "max-w-2xl mx-auto w-full"
                     )}
                   >
                     <div className="mb-6 md:mb-8">
@@ -139,46 +114,13 @@ export default function Home() {
                     )}
                   </motion.section>
 
-                  {processorStatus === "idle" && (history.length > 0 || availablePeriods.length > 0) && (
+                  {processorStatus === "idle" && history.length > 0 && (
                     <motion.div 
                       variants={slideUp}
                       initial="hidden"
                       animate="visible"
-                      className="lg:col-span-5 flex flex-col gap-6"
+                      className="lg:col-span-12 flex flex-col gap-6 max-w-4xl mx-auto w-full"
                     >
-                      {availablePeriods.length > 0 && (
-                        <Card className="ri-card bg-white border-2 border-indigo-100 p-6 rounded-[2rem] shadow-sm">
-                          <div className="flex items-center gap-3 mb-4">
-                            <div className="p-2 bg-indigo-50 rounded-xl text-indigo-600">
-                              <History className="w-5 h-5" />
-                            </div>
-                            <div>
-                              <h3 className="text-sm font-black text-slate-800 uppercase tracking-tight">Análises Salvas</h3>
-                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">MongoDB Atlas Cloud</p>
-                            </div>
-                          </div>
-                          <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                            {availablePeriods.map((p, i) => (
-                              <button
-                                key={i}
-                                onClick={() => loadPeriod(p.year, p.month)}
-                                className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 border border-transparent hover:border-slate-100 transition-all group"
-                              >
-                                <div className="flex items-center gap-3">
-                                  <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center font-black text-slate-400 text-xs uppercase group-hover:bg-indigo-100 group-hover:text-indigo-600 transition-colors">
-                                    {p.month}
-                                  </div>
-                                  <div className="text-left">
-                                    <p className="text-sm font-black text-slate-700">{p.year}</p>
-                                  </div>
-                                </div>
-                                <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-indigo-600 group-hover:translate-x-1 transition-all" />
-                              </button>
-                            ))}
-                          </div>
-                        </Card>
-                      )}
-
                       <UploadHistory 
                         history={history} 
                         onReopen={reopenHistory} 
@@ -188,7 +130,7 @@ export default function Home() {
                   )}
                 </div>
               </motion.div>
-            ) : processorStatus === "analyzed" || processorStatus === "loading_db" || processorStatus === "syncing" ? (
+            ) : processorStatus === "analyzed" ? (
               <motion.div 
                 key="home-analyzed"
                 variants={slideUp}
@@ -198,21 +140,10 @@ export default function Home() {
                 className="flex-1 p-4 md:p-8 absolute inset-0 overflow-y-auto"
               >
                 <div className="flex flex-col gap-6">
-                  {(processorStatus === "loading_db" || processorStatus === "syncing") && (
-                    <div className="bg-indigo-600 text-white p-4 rounded-2xl flex items-center justify-center gap-3 animate-pulse shadow-lg shadow-indigo-100 max-w-5xl mx-auto w-full">
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                      <span className="text-xs font-black uppercase tracking-widest">
-                        {processorStatus === "loading_db" ? "RECUPERANDO DADOS DO CLOUD..." : "SINCRONIZANDO COM MOGO ATLAS..."}
-                      </span>
-                    </div>
-                  )}
                   <UploadDiagnosis 
                     data={parsedRows} 
                     vinculos={vinculos} 
                     onConfirm={confirmDashboard} 
-                    isSynced={lastSyncedKey !== null}
-                    onSync={syncToCloud}
-                    isSyncing={processorStatus === "syncing"}
                   />
                 </div>
               </motion.div>
@@ -231,16 +162,6 @@ export default function Home() {
           </AnimatePresence>
         </div>
         <Toaster />
-
-        <div className="fixed bottom-6 right-6 z-[100] print:hidden">
-           <Button 
-            onClick={logout}
-            variant="ghost"
-            className="text-[10px] font-black text-slate-400 hover:text-rose-500 uppercase tracking-widest gap-2 bg-white/80 backdrop-blur shadow-sm rounded-full px-4 h-10 border border-slate-100"
-           >
-              Encerrar Sessão
-           </Button>
-        </div>
       </main>
     </SidebarProvider>
   );

@@ -184,6 +184,7 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
       const metrics = {
         pa: totalCupons > 0 ? totalItens / totalCupons : 0,
         tkm: totalCupons > 0 ? totalVenda / totalCupons : 0,
+        pm: totalItens > 0 ? totalVenda / totalItens : 0,
         ident: totalCupons > 0 ? Math.min((totalIdent / totalCupons) * 100, 100) : 0,
         conv: v.pickupsAtendidas > 0 ? (v.adicionaisFeitos / v.pickupsAtendidas) * 100 : 0
       };
@@ -230,6 +231,9 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
           case 'pa': aVal = a.metrics.pa; bVal = b.metrics.pa; break;
           case 'tkm': aVal = a.metrics.tkm; bVal = b.metrics.tkm; break;
           case 'ident': aVal = a.metrics.ident; bVal = b.metrics.ident; break;
+          case 'pm': aVal = a.metrics.pm; bVal = b.metrics.pm; break;
+          case 'cupons': aVal = a.current.cupons; bVal = b.current.cupons; break;
+          case 'itens': aVal = a.current.itens; bVal = b.current.itens; break;
           case 'conv': aVal = a.metrics.conv; bVal = b.metrics.conv; break;
           default: aVal = a.current.venda; bVal = b.current.venda;
         }
@@ -358,15 +362,18 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
           <TableHeader className="bg-slate-900 print:bg-slate-200">
             <TableRow className="hover:bg-slate-900 border-none h-10 md:h-12 print:h-7 print:border-b print:border-black">
               <TableHead className="text-white print:text-black font-black uppercase text-[8px] md:text-[9px] pl-4 md:pl-8 print:pl-1 print:w-[15%]">Colaborador</TableHead>
-              <SortableHead label="Venda Total" sortKey="venda" currentSort={sortConfig} onSort={setSortConfig} className="text-right print:w-[12%]" />
-              <SortableHead label="PA" sortKey="pa" currentSort={sortConfig} onSort={setSortConfig} className="text-center print:w-[8%]" />
-              <SortableHead label="TKM" sortKey="tkm" currentSort={sortConfig} onSort={setSortConfig} className="text-right print:w-[10%]" />
-              <SortableHead label="CPF %" sortKey="ident" currentSort={sortConfig} onSort={setSortConfig} className="text-center print:w-[8%]" />
-              <TableHead className="text-white print:text-black font-black uppercase text-[8px] md:text-[9px] text-center print:w-[7%]">SLP</TableHead>
-              <TableHead className="text-white print:text-black font-black uppercase text-[8px] md:text-[9px] text-center print:w-[7%]">Social</TableHead>
-              <TableHead className="text-white print:text-black font-black uppercase text-[8px] md:text-[9px] text-center print:w-[8%]">Pks</TableHead>
-              <TableHead className="text-white print:text-black font-black uppercase text-[8px] md:text-[9px] text-center print:w-[8%]">Adic</TableHead>
-              <SortableHead label="Conv %" sortKey="conv" currentSort={sortConfig} onSort={setSortConfig} className="text-right pr-4 md:pr-8 print:pr-1 print:w-[10%]" />
+              <SortableHead label="Venda Total" sortKey="venda" currentSort={sortConfig} onSort={setSortConfig} className="text-right print:w-[10%]" />
+              <SortableHead label="Cps" sortKey="cupons" currentSort={sortConfig} onSort={setSortConfig} className="text-center print:w-[5%]" />
+              <SortableHead label="Its" sortKey="itens" currentSort={sortConfig} onSort={setSortConfig} className="text-center print:w-[5%]" />
+              <SortableHead label="PA" sortKey="pa" currentSort={sortConfig} onSort={setSortConfig} className="text-center print:w-[6%]" />
+              <SortableHead label="TKM" sortKey="tkm" currentSort={sortConfig} onSort={setSortConfig} className="text-right print:w-[8%]" />
+              <SortableHead label="PM" sortKey="pm" currentSort={sortConfig} onSort={setSortConfig} className="text-right print:w-[8%]" />
+              <SortableHead label="CPF %" sortKey="ident" currentSort={sortConfig} onSort={setSortConfig} className="text-center print:w-[6%]" />
+              <TableHead className="text-white print:text-black font-black uppercase text-[8px] md:text-[9px] text-center print:w-[6%]">SLP</TableHead>
+              <TableHead className="text-white print:text-black font-black uppercase text-[8px] md:text-[9px] text-center print:w-[6%]">Social</TableHead>
+              <TableHead className="text-white print:text-black font-black uppercase text-[8px] md:text-[9px] text-center print:w-[10%]">Adic (R$)</TableHead>
+              <TableHead className="text-white print:text-black font-black uppercase text-[8px] md:text-[9px] text-center print:w-[10%]">Troca (R$)</TableHead>
+              <SortableHead label="Conv %" sortKey="conv" currentSort={sortConfig} onSort={setSortConfig} className="text-right pr-4 md:pr-8 print:pr-1 print:w-[8%]" />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -385,16 +392,12 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
                     <p className={cn("font-black text-slate-800 uppercase leading-none", isCollapsed ? "text-[12px] md:text-[13px]" : "text-[10px] md:text-[11px]", "print:text-[8px]")}>{v.name}</p>
                   </TableCell>
                   
-                  <TableCell className="text-right">
-                    <div className="flex flex-col items-end">
-                      <span className={cn("font-black text-slate-700", isCollapsed ? "text-sm" : "text-[10px] md:xs", "print:text-[8px]")}>{formatBRL(v.current.venda)}</span>
-                      {Math.abs(v.deltas.venda) > 0.1 && (
-                        <span className={cn("font-bold flex items-center gap-0.5", v.deltas.venda > 0 ? "text-emerald-600" : "text-rose-500", isCollapsed ? "text-[10px]" : "text-[7px] md:text-[8px]", "print:text-[6px]")}>
-                          {v.deltas.venda > 0 ? <ArrowUpRight className={cn(isCollapsed ? "w-3 h-3" : "w-2 md:w-2.5 h-2 md:h-2.5", "print:w-1.5 print:h-1.5")} /> : <ArrowDownRight className={cn(isCollapsed ? "w-3 h-3" : "w-2 md:w-2.5 h-2 md:h-2.5", "print:w-1.5 print:h-1.5")} />}
-                          {formatBRL(Math.abs(v.deltas.venda))}
-                        </span>
-                      )}
-                    </div>
+                  <TableCell className="text-center">
+                    <span className={cn("font-black text-slate-700", isCollapsed ? "text-sm" : "text-[10px] md:text-xs", "print:text-[8px]")}>{v.current.cupons}</span>
+                  </TableCell>
+
+                  <TableCell className="text-center">
+                    <span className={cn("font-black text-slate-700", isCollapsed ? "text-sm" : "text-[10px] md:text-xs", "print:text-[8px]")}>{v.current.itens.toFixed(0)}</span>
                   </TableCell>
 
                   <TableCell className="text-center">
@@ -417,12 +420,11 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
                         <span className={cn("font-black text-slate-700", isCollapsed ? "text-sm" : "text-[10px] md:text-xs", "print:text-[8px]")}>{formatBRL(v.metrics.tkm)}</span>
                         {isAboveTKM ? <ArrowUpRight className={cn("text-emerald-500", isCollapsed ? "w-3.5 h-3.5" : "w-2 md:w-2.5 h-2 md:h-2.5", "print:w-1.5 print:h-1.5")} /> : <ArrowDownRight className={cn("text-rose-500", isCollapsed ? "w-3.5 h-3.5" : "w-2 md:w-2.5 h-2 md:h-2.5", "print:w-1.5 print:h-1.5")} />}
                       </div>
-                      {Math.abs(v.deltas.tkm) > 0.1 && (
-                        <span className={cn("font-black", v.deltas.tkm > 0 ? "text-emerald-600" : "text-rose-500", isCollapsed ? "text-[9px]" : "text-[6px] md:text-[7px]", "print:text-[5px]")}>
-                          {v.deltas.tkm > 0 ? "+" : ""}{formatBRL(Math.abs(v.deltas.tkm))}
-                        </span>
-                      )}
                     </div>
+                  </TableCell>
+
+                  <TableCell className="text-right">
+                     <span className={cn("font-black text-slate-700", isCollapsed ? "text-sm" : "text-[10px] md:text-xs", "print:text-[8px]")}>{formatBRL(v.metrics.pm)}</span>
                   </TableCell>
 
                   <TableCell className="text-center">
@@ -455,12 +457,12 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
                     </Badge>
                   </TableCell>
 
-                  <TableCell className={cn("text-center font-bold text-slate-400 print:text-[8px] print:text-black", isCollapsed ? "text-sm" : "text-[10px] md:text-xs")}>
-                    {v.pickupsAtendidas}
+                  <TableCell className={cn("text-center font-black text-emerald-600 print:text-[8px] print:text-black", isCollapsed ? "text-sm" : "text-[10px] md:text-xs")}>
+                    {formatBRL(v.extra.venda + (includePickups ? 0 : 0))} 
                   </TableCell>
 
-                  <TableCell className={cn("text-center font-black text-emerald-600 print:text-[8px] print:text-black", isCollapsed ? "text-sm" : "text-[10px] md:text-xs")}>
-                    {v.adicionaisFeitos}
+                  <TableCell className={cn("text-center font-black text-purple-600 print:text-[8px] print:text-black", isCollapsed ? "text-sm" : "text-[10px] md:text-xs")}>
+                    {formatBRL(v.troca.venda)}
                   </TableCell>
 
                   <TableCell className="text-right pr-4 md:pr-8 print:pr-1">

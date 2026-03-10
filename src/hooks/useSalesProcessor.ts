@@ -5,7 +5,7 @@ import { detectarAdicionaisSuspeitos, vincularTrocas as vincularTrocasUtils } fr
 import { format, parseISO, min, max } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 
-type ProcessingStatus = "idle" | "processing" | "analyzed" | "success" | "syncing" | "loading_db";
+type ProcessingStatus = "idle" | "processing" | "analyzed" | "success";
 
 // Função Central de Normalização de Vendedores (Solzinho Engine)
 function normalizeVendedor(name: string): string {
@@ -19,17 +19,11 @@ export function useSalesProcessor() {
     const [parsedRows, setParsedRows] = useState<DetailedSaleRow[]>([]);
     const [vinculos, setVinculos] = useState<VinculoTroca[]>([]);
     const [status, setStatus] = useState<ProcessingStatus>("idle");
-    const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-    const [lastSyncedKey, setLastSyncedKey] = useState<string | null>(null);
     const [history, setHistory] = useState<UploadHistoryItem[]>([]);
-    const [availablePeriods, setAvailablePeriods] = useState<{ year: string, month: string }[]>([]);
     const { toast } = useToast();
 
-    // Load history and auth from storage on mount
+    // Load history from storage on mount
     useEffect(() => {
-        const auth = sessionStorage.getItem("ri_happy_auth");
-        if (auth === "true") setIsAuthenticated(true);
-
         const saved = localStorage.getItem("ri_happy_upload_history");
         if (saved) {
             try {
@@ -155,7 +149,6 @@ export function useSalesProcessor() {
         setParsedRows([]);
         setVinculos([]);
         setStatus("idle");
-        setLastSyncedKey(null);
         sessionStorage.removeItem("ri_happy_current_session");
     }, []);
 
@@ -187,127 +180,6 @@ export function useSalesProcessor() {
         });
     }, [toast]);
 
-    const login = useCallback(async (key: string) => {
-        try {
-            const response = await fetch("/api/auth/check", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ key })
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                if (data.success) {
-                    setIsAuthenticated(true);
-                    sessionStorage.setItem("ri_happy_auth", "true");
-                    return true;
-                }
-            }
-            return false;
-        } catch (error) {
-            console.error("Auth error:", error);
-            return false;
-        }
-    }, []);
-
-    const logout = useCallback(() => {
-        setIsAuthenticated(false);
-        sessionStorage.removeItem("ri_happy_auth");
-        reset();
-    }, [reset]);
-
-    const fetchPeriods = useCallback(async () => {
-        try {
-            const response = await fetch("/api/sales/periods");
-            if (response.ok) {
-                const data = await response.json();
-                setAvailablePeriods(data.periods || []);
-            }
-        } catch (error) {
-            console.error("Fetch periods error:", error);
-        }
-    }, []);
-
-    useEffect(() => {
-        if (isAuthenticated) fetchPeriods();
-    }, [isAuthenticated, fetchPeriods]);
-
-    const syncToCloud = useCallback(async () => {
-        if (parsedRows.length === 0) return;
-        setStatus("syncing");
-        try {
-            // Dividir em chunks para evitar o limite de 4.5MB da Vercel
-            const chunkSize = 150;
-            const salesChunks = [];
-            for (let i = 0; i < parsedRows.length; i += chunkSize) {
-                salesChunks.push(parsedRows.slice(i, i + chunkSize));
-            }
-
-            // Sincronizar em lotes
-            for (let i = 0; i < salesChunks.length; i++) {
-                const response = await fetch("/api/sales/sync", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        sales: salesChunks[i],
-                        // Envia os vínculos apenas no primeiro lote
-                        links: i === 0 ? vinculos : []
-                    })
-                });
-
-                if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.details || errorData.error || `Erro no lote ${i + 1}`);
-                }
-            }
-
-            const syncKey = parsedRows.length > 0 ? parsedRows[0].chave : "synced";
-            setLastSyncedKey(syncKey);
-
-            toast({
-                title: "✓ Sincronizado com Sucesso",
-                description: `${parsedRows.length} registros salvos no MongoDB Atlas.`,
-            });
-            fetchPeriods();
-        } catch (error: any) {
-            console.error("Sync error:", error);
-            toast({
-                title: "⚠️ Erro de Sincronização",
-                description: `Falha: ${error.message || "Verifique sua conexão e o MONGODB_URI"}.`,
-                variant: "destructive"
-            });
-        } finally {
-            setStatus("success");
-        }
-    }, [parsedRows, vinculos, toast, fetchPeriods]);
-
-    const loadPeriod = useCallback(async (year: string, month: string) => {
-        setStatus("loading_db");
-        try {
-            const response = await fetch(`/api/sales/load?year=${year}&month=${month}`);
-            if (!response.ok) throw new Error("Falha ao carregar dados");
-            const { sales, links } = await response.json();
-            if (sales && sales.length > 0) {
-                const normalizedRows = sales.map((r: DetailedSaleRow) => ({
-                    ...r,
-                    vendedor: normalizeVendedor(r.vendedor)
-                }));
-                const withSuspects = detectarAdicionaisSuspeitos(normalizedRows);
-                setParsedRows(withSuspects);
-                setVinculos(links || []);
-                setStatus("success");
-                toast({ title: "Dados Carregados", description: `Período ${month}/${year} carregado com sucesso.` });
-            } else {
-                toast({ title: "Nenhum dado encontrado", description: "Não há registros para este período." });
-                setStatus("idle");
-            }
-        } catch (error) {
-            console.error("Load error:", error);
-            toast({ title: "Erro ao carregar", description: "Ocorreu um problema.", variant: "destructive" });
-            setStatus("idle");
-        }
-    }, [toast]);
-
     const fileStats = useMemo(() => {
         const total = parsedRows.length;
         const entradas = parsedRows.filter(r => (r.tpNF === 0 || r.is_devolucao) && !r.is_cancelada).length;
@@ -326,14 +198,6 @@ export function useSalesProcessor() {
         confirmDashboard,
         reset,
         reopenHistory,
-        clearHistory,
-        syncToCloud,
-        loadPeriod,
-        availablePeriods,
-        fetchPeriods,
-        isAuthenticated,
-        login,
-        logout,
-        lastSyncedKey
+        clearHistory
     };
 }

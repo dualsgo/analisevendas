@@ -72,6 +72,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Badge } from "@/components/ui/badge";
 import { DailyPerformance } from "./DailyPerformance";
+import { ImpactProjection } from './ImpactProjection';
 import { ConversionAudit } from "./ConversionAudit";
 import { DiscountAudit } from "./DiscountAudit";
 import { ExchangeManagement } from "./ExchangeManagement";
@@ -83,7 +84,6 @@ import { RiskRadar } from "./RiskRadar";
 import { ElasticityAnalysis } from "./ElasticityAnalysis";
 import { AdvancedAnalytics } from "./AdvancedAnalytics";
 import { QualityAnalysis } from "./QualityAnalysis";
-import { YoYAnalysis } from "./YoYAnalysis";
 import { AdditionalItemsAnalysis } from "./AdditionalItemsAnalysis";
 import { ConsolidatedReport } from "./ConsolidatedReport";
 import { HeatmapAnalysis } from "./HeatmapAnalysis";
@@ -235,10 +235,11 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
     { id: "executivo", label: "Resumo Executivo", icon: Sparkles, category: "Resultados", color: "text-orange-500 font-black" },
     { id: "ia_insights", label: "Insights IA", icon: BrainCircuit, category: "Resultados", color: "text-orange-400 font-bold" },
     { id: "geral", label: "Visão Geral", icon: LayoutDashboard, category: "Resultados" },
+    { id: "impacto", label: "Projeção de Impacto", icon: Target, category: "Resultados", color: "text-purple-500 font-bold" },
     { id: "pacing", label: "Termômetro de Tração", icon: TrendingUp, category: "Resultados", color: "text-indigo-600 font-black" },
     { id: "what_if", label: "Simulador What-If", icon: Calculator, category: "Resultados", color: "text-indigo-500 font-bold" },
     { id: "performance", label: "Performance", icon: ClipboardList, category: "Resultados", color: "text-emerald-600 font-black" },
-    { id: "yoy_analise", label: "Resultado YoY", icon: History, category: "Resultados", color: "text-indigo-600 font-bold" },
+    { id: "performance", label: "Performance", icon: ClipboardList, category: "Resultados", color: "text-emerald-600 font-black" },
     { id: "diario", label: "Performance Diária", icon: CalendarIcon, category: "Resultados" },
     { id: "composicao", label: "Composição", icon: Layers, category: "Resultados", color: "text-indigo-500" },
     { id: "deep_dive", label: "Fluxo & Pareto", icon: TrendingUp, category: "Resultados", color: "text-indigo-600" },
@@ -328,6 +329,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
             </motion.div>
           </motion.div>
         );
+      case "impacto": return <ImpactProjection data={data} />;
       case "heatmap": return <HeatmapAnalysis data={data} vinculos={vinculos} />;
       case "energy": return <SalesEnergy data={data} />;
       case "basket": return <BasketBehavior data={data} />;
@@ -344,7 +346,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
       case "elasticidade": return <ElasticityAnalysis data={data} />;
       case "deep_dive": return <AdvancedAnalytics data={data} />;
       case "qualidade_avancada": return <QualityAnalysis data={data} vinculos={vinculos} />;
-      case "yoy_analise": return <YoYAnalysis data={data} />;
+      case "qualidade_avancada": return <QualityAnalysis data={data} vinculos={vinculos} />;
       case "ritmo_operacional": return <OperationalRhythm data={data} />;
       case "payment_map": return <PaymentMap data={data} />;
       case "customer_loyalty": return <CustomerLoyalty data={data} vinculos={vinculos} />;

@@ -404,6 +404,12 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
             </SidebarGroup>
           ))}
         </SidebarContent>
+        <div className="mt-auto p-4 border-t border-slate-200 group-data-[collapsible=icon]:hidden">
+          <div className="flex flex-col gap-1">
+            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Versão Atual</p>
+            <p className="text-[10px] font-bold text-slate-500 uppercase">09/03/2026 • 21:03</p>
+          </div>
+        </div>
       </Sidebar>
 
       <div className={cn(

@@ -239,7 +239,6 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
     { id: "pacing", label: "Termômetro de Tração", icon: TrendingUp, category: "Resultados", color: "text-indigo-600 font-black" },
     { id: "what_if", label: "Simulador What-If", icon: Calculator, category: "Resultados", color: "text-indigo-500 font-bold" },
     { id: "performance", label: "Performance", icon: ClipboardList, category: "Resultados", color: "text-emerald-600 font-black" },
-    { id: "performance", label: "Performance", icon: ClipboardList, category: "Resultados", color: "text-emerald-600 font-black" },
     { id: "diario", label: "Performance Diária", icon: CalendarIcon, category: "Resultados" },
     { id: "composicao", label: "Composição", icon: Layers, category: "Resultados", color: "text-indigo-500" },
     { id: "deep_dive", label: "Fluxo & Pareto", icon: TrendingUp, category: "Resultados", color: "text-indigo-600" },

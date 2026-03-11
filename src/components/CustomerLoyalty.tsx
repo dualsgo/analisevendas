@@ -233,11 +233,13 @@ export function CustomerLoyalty({ data, vinculos = [] }: CustomerLoyaltyProps) {
     { id: "retorno" as SectionId,    label: "Intervalo de Retorno",        icon: Users },
   ];
 
-  if (sales.length === 0) {
+  if (clientesByCpf.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-32 gap-4 text-slate-400">
         <Users className="w-16 h-16 opacity-30" />
-        <p className="text-sm font-bold uppercase tracking-widest">Carregue XMLs com CPF para analisar fidelidade</p>
+        <p className="text-sm font-bold uppercase tracking-widest text-center max-w-xs">
+          Nenhum cliente identificado com CPF encontrado nos XMLs carregados.
+        </p>
       </div>
     );
   }

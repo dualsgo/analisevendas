@@ -22,7 +22,7 @@ interface ImpactProjectionProps {
 }
 
 export const ImpactProjection: React.FC<ImpactProjectionProps> = ({ data }) => {
-  const [benchmarkType, setBenchmarkType] = useState<'average' | 'top'>('average');
+  const [benchmarkType, setBenchmarkType] = useState<'average' | 'top' | 'meta'>('meta');
 
   const stats = useMemo(() => {
     if (!data.length) return null;
@@ -46,19 +46,22 @@ export const ImpactProjection: React.FC<ImpactProjectionProps> = ({ data }) => {
       const val = parseFloat(s.vNF);
       const qItens = parseFloat(s.itens_qtd);
 
+      // Físico, Adicional e Suspeitos de Adicional
       if (s.canal === "LOJA_FISICA" || s.canal === "RETIRADA_ADICIONAL" || s.is_adicional || s.is_adicional_suspeito) {
         vendors[v].current.venda += val;
         vendors[v].current.cupons += 1;
         vendors[v].current.itens += qItens;
       }
 
+      // Somente pickups online (potencial de conversão)
       if (s.canal === "RETIRADA_ONLINE") {
         vendors[v].pickupsAtendidas += 1;
-        vendors[v].extra.venda += val;
       }
 
+      // Identificar quem fez a venda adicional de fato
       if (s.is_adicional || s.is_adicional_suspeito || s.canal === "RETIRADA_ADICIONAL") {
         vendors[v].adicionaisFeitos += 1;
+        vendors[v].extra.venda += val;
       }
     });
 
@@ -82,9 +85,10 @@ export const ImpactProjection: React.FC<ImpactProjectionProps> = ({ data }) => {
     const topTKM = Math.max(...groupedData.map(v => v.current.cupons > 0 ? v.current.venda / v.current.cupons : 0));
     const topConv = Math.max(...groupedData.map(v => v.pickupsAtendidas > 0 ? (v.adicionaisFeitos / v.pickupsAtendidas) * 100 : 0));
 
-    const targetPA = benchmarkType === 'average' ? avgPA : topPA;
-    const targetTKM = benchmarkType === 'average' ? avgTKM : topTKM;
-    const targetConv = benchmarkType === 'average' ? avgConv : topConv;
+    // Target Selection
+    const targetPA = benchmarkType === 'average' ? avgPA : benchmarkType === 'top' ? topPA : 2.5; // Meta 2.5 é sugerida para varejo, ou use algo fixo
+    const targetTKM = benchmarkType === 'average' ? avgTKM : benchmarkType === 'top' ? topTKM : (avgTKM * 1.1); // +10% como meta
+    const targetConv = benchmarkType === 'average' ? avgConv : benchmarkType === 'top' ? topConv : 22.0;
 
     // Impact Calculation
     const potentialItensPA = groupedData.reduce((acc, v) => {
@@ -92,7 +96,7 @@ export const ImpactProjection: React.FC<ImpactProjectionProps> = ({ data }) => {
       if (currentPA < targetPA) {
         const gap = targetPA - currentPA;
         const extraItens = gap * v.current.cupons;
-        const currentPM = v.current.itens > 0 ? v.current.venda / v.current.itens : 0;
+        const currentPM = v.current.itens > 0 ? v.current.venda / v.current.itens : (totals.venda / totals.itens || 0);
         return acc + (extraItens * currentPM);
       }
       return acc;
@@ -110,7 +114,7 @@ export const ImpactProjection: React.FC<ImpactProjectionProps> = ({ data }) => {
       const currentConv = v.pickupsAtendidas > 0 ? (v.adicionaisFeitos / v.pickupsAtendidas) * 100 : 0;
       if (currentConv < targetConv) {
         const extraAdicionais = ((targetConv - currentConv) / 100) * v.pickupsAtendidas;
-        const avgAdicValue = v.adicionaisFeitos > 0 ? v.extra.venda / v.adicionaisFeitos : (totals.vendaAdicional / totals.adicionais || 0);
+        const avgAdicValue = v.adicionaisFeitos > 0 ? v.extra.venda / v.adicionaisFeitos : (totals.vendaAdicional / totals.adicionais || (totals.venda / totals.cupons));
         return acc + (extraAdicionais * avgAdicValue);
       }
       return acc;
@@ -142,15 +146,24 @@ export const ImpactProjection: React.FC<ImpactProjectionProps> = ({ data }) => {
             <Calculator className="w-6 h-6 text-emerald-400" />
             PROJEÇÃO DE IMPACTO
           </h2>
-          <p className="text-slate-400 text-sm font-medium">Simulação de arrecadação baseada em indicadores de performance</p>
+          <p className="text-slate-400 text-sm font-medium italic">Simulador de Arrecadação Incremental</p>
         </div>
         
-        <div className="flex bg-slate-800 p-1 rounded-xl border border-slate-700">
+        <div className="flex gap-2 bg-slate-800 p-1.5 rounded-xl border border-slate-700">
+          <button 
+            onClick={() => setBenchmarkType('meta')}
+            className={cn(
+              "px-4 py-2 rounded-lg text-[10px] font-black tracking-widest transition-all",
+              benchmarkType === 'meta' ? "bg-indigo-600 text-white shadow-lg" : "text-slate-400 hover:text-white"
+            )}
+          >
+            META COMPANHIA (22%)
+          </button>
           <button 
             onClick={() => setBenchmarkType('average')}
             className={cn(
-              "px-4 py-2 rounded-lg text-xs font-black transition-all",
-              benchmarkType === 'average' ? "bg-emerald-500 text-white shadow-lg" : "text-slate-400 hover:text-white"
+              "px-4 py-2 rounded-lg text-[10px] font-black tracking-widest transition-all",
+              benchmarkType === 'average' ? "bg-emerald-600 text-white shadow-lg" : "text-slate-400 hover:text-white"
             )}
           >
             MÉDIA DO GRUPO
@@ -158,11 +171,11 @@ export const ImpactProjection: React.FC<ImpactProjectionProps> = ({ data }) => {
           <button 
             onClick={() => setBenchmarkType('top')}
             className={cn(
-              "px-4 py-2 rounded-lg text-xs font-black transition-all",
-              benchmarkType === 'top' ? "bg-emerald-500 text-white shadow-lg" : "text-slate-400 hover:text-white"
+              "px-4 py-2 rounded-lg text-[10px] font-black tracking-widest transition-all",
+              benchmarkType === 'top' ? "bg-amber-500 text-white shadow-lg" : "text-slate-400 hover:text-white"
             )}
           >
-            MELHOR PERFORMANCE
+            MELHOR PERFORMER
           </button>
         </div>
       </div>

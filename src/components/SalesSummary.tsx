@@ -99,6 +99,7 @@ import { MatrizAfinidade } from "./MatrizAfinidade";
 import { RiscoTrocas } from "./RiscoTrocas";
 import { SimuladorCenarios } from "./SimuladorCenarios";
 import { GeographicAnalysis } from "./GeographicAnalysis";
+import { ArenaDeTalentos } from "./ArenaDeTalentos";
 import { ExecutiveSummary } from "./ExecutiveSummary";
 import { Calculator, Map } from "lucide-react";
 
@@ -354,6 +355,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
       case "oportunidades": return <LostOpportunities data={data} vinculos={vinculos} />;
       case "pa": return <AdditionalItemsAnalysis data={data} />;
       case "venda_sugestiva": return <AdditionalItemsAnalysis data={data} />;
+      case "gamification": return <ArenaDeTalentos data={data} />;
       default: return null;
     }
   };

@@ -136,16 +136,17 @@ export function ExecutiveSummary({ data, vinculos, onSwitchTab }: ExecutiveSumma
         <MetricCard 
           label="Identificação" 
           value={`${stats.identPerc.toFixed(1)}%`} 
-          desc="Clientes com CPF/CNPJ" 
+          desc="Clientes identificados com CPF" 
           icon={Users} 
           color="text-emerald-600" 
         />
         <MetricCard 
           label="Conversão Pickup" 
           value={`${stats.pickupConv.toFixed(1)}%`} 
-          desc="Retiradas que geraram adicional" 
+          desc="Fórmula: Adicionais / Pickups" 
           icon={Smartphone} 
           color="text-orange-600" 
+          tooltip="Percentual de clientes que vieram retirar um pedido online e acabaram comprando algo a mais na loja."
         />
       </div>
 
@@ -207,15 +208,22 @@ export function ExecutiveSummary({ data, vinculos, onSwitchTab }: ExecutiveSumma
   );
 }
 
-function MetricCard({ label, value, desc, icon: Icon, color }: any) {
+function MetricCard({ label, value, desc, icon: Icon, color, tooltip }: any) {
   return (
     <Card className="ri-card p-6 border-slate-100 hover:border-indigo-100 transition-all group overflow-hidden relative">
       <div className="absolute -right-4 -bottom-4 opacity-[0.03] group-hover:opacity-[0.08] transition-all transform group-hover:scale-110">
         <Icon className="w-24 h-24" />
       </div>
       <div className="relative z-10 space-y-3">
-        <div className={cn("p-2 rounded-xl bg-slate-50 inline-block", color)}>
-          <Icon className="w-5 h-5" />
+        <div className="flex items-start justify-between">
+           <div className={cn("p-2 rounded-xl bg-slate-50 inline-block", color)}>
+             <Icon className="w-5 h-5" />
+           </div>
+           {tooltip && (
+             <div className="bg-slate-900 text-white text-[8px] font-bold px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity">
+                {tooltip}
+             </div>
+           )}
         </div>
         <div className="space-y-0.5">
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</p>

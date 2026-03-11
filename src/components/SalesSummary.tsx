@@ -251,18 +251,18 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
     { id: "elasticidade", label: "Elasticidade Desconto", icon: LineChart, category: "Produtos", color: "text-amber-600" },
 
     { id: "customer_loyalty", label: "Fidelidade & Recorrência", icon: Users2, category: "Clientes", color: "text-emerald-600 font-black" },
-    { id: "ritmo", label: "Ritmo Operacional", icon: Timer, category: "Operacional" },
-    { id: "vendas", label: "Transações", icon: ListFilter, category: "Operacional" },
-    { id: "pagamentos", label: "Mapa de Pagamentos", icon: CreditCard, category: "Operacional" },
-    { id: "qualidade", label: "Qualidade da Venda", icon: Target, category: "Operacional" },
+    { id: "ritmo_operacional", label: "Ritmo Operacional", icon: Timer, category: "Operacional" },
+    { id: "transacoes", label: "Transações", icon: ListFilter, category: "Operacional" },
+    { id: "payment_map", label: "Mapa de Pagamentos", icon: CreditCard, category: "Operacional" },
+    { id: "qualidade_avancada", label: "Qualidade da Venda", icon: Target, category: "Operacional" },
     { id: "radar", label: "Radar de Alertas", icon: ShieldAlert, category: "Auditoria" },
-    { id: "descontos", label: "Auditoria de Descontos", icon: Percent, category: "Auditoria" },
+    { id: "auditoria", label: "Auditoria de Descontos", icon: Percent, category: "Auditoria" },
     { id: "trocas", label: "Trocas", icon: ArrowRightLeft, category: "Auditoria" },
     { id: "pa", label: "Análise de PA", icon: Hash, category: "Auditoria" },
     { id: "conversao", label: "Auditoria de Conversão", icon: Scale, category: "Auditoria" },
     { id: "oportunidades", label: "Oportunidades", icon: Lightbulb, category: "Auditoria" },
-    { id: "risco_trocas", label: "Risco de Trocas", icon: AlertTriangle, category: "Auditoria" },
-    { id: "geografia", label: "Análise Geográfica", icon: Map, category: "Clientes" },
+    { id: "sangria", label: "Risco de Trocas", icon: AlertTriangle, category: "Auditoria" },
+    { id: "geodesic", label: "Análise Geográfica", icon: Map, category: "Clientes" },
   ];
 
   const renderActiveTab = () => {
@@ -351,6 +351,9 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
       case "sangria": return <RiscoTrocas data={data} />;
       case "what_if": return <SimuladorCenarios data={data} />;
       case "geodesic": return <GeographicAnalysis data={data} />;
+      case "oportunidades": return <LostOpportunities data={data} vinculos={vinculos} />;
+      case "pa": return <AdditionalItemsAnalysis data={data} />;
+      case "venda_sugestiva": return <AdditionalItemsAnalysis data={data} />;
       default: return null;
     }
   };

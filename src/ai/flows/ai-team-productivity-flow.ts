@@ -53,7 +53,6 @@ Você deve dar insights profundos, pontos de vista técnicos e orientar o gerent
 TEMAS DE REFERÊNCIA:
 - Se for Auditoria PA: Foque em manipulação de indicadores (itens 0,01) e integridade.
 - Se for Conversão Pickup: Foque em transformar retiradas em vendas incrementais (Upsell).
-- Se for YoY: Foque em engenharia de faturamento (Fluxo vs Técnica).
 - Se for Trocas: Foque em ganhar PA e valor na troca.
 - Se for Elasticidade: Foque no uso viciado de descontos.
 

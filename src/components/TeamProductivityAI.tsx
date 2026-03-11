@@ -44,7 +44,6 @@ const TAB_NAME_MAP: Record<string, string> = {
   geral: "Visão Macro",
   compliance: "Auditoria de PA (Itens 0,01)",
   conversao: "Conversão Pickup e Adicionais",
-  yoy_analise: "Engenharia de Resultado YoY",
   auditoria: "Gestão de Margem e Descontos",
   trocas: "Qualidade de Trocas",
   elasticidade: "Eficiência de Desconto",
@@ -134,7 +133,6 @@ export function TeamProductivityAI({ data, vinculos, activeTab }: TeamProductivi
   const getIcon = () => {
     if (activeTab === 'compliance') return <ShieldCheck className="w-6 h-6 text-white" />;
     if (activeTab === 'conversao') return <Smartphone className="w-6 h-6 text-white" />;
-    if (activeTab === 'yoy_analise') return <History className="w-6 h-6 text-white" />;
     if (activeTab === 'auditoria') return <Percent className="w-6 h-6 text-white" />;
     return <Users className="w-6 h-6 text-white" />;
   };

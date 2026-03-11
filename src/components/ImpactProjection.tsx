@@ -27,7 +27,44 @@ export const ImpactProjection: React.FC<ImpactProjectionProps> = ({ data }) => {
   const stats = useMemo(() => {
     if (!data.length) return null;
 
-    const totals = data.reduce((acc, v) => ({
+    // Agrupar dados por vendedor para a projeção
+    const vendors: Record<string, any> = {};
+    const activeSales = data.filter(s => !s.is_cancelada && s.tpNF === 1);
+
+    activeSales.forEach(s => {
+      const v = s.vendedor || "OUTROS";
+      if (!vendors[v]) {
+        vendors[v] = {
+          name: v,
+          current: { venda: 0, cupons: 0, itens: 0 },
+          pickupsAtendidas: 0,
+          adicionaisFeitos: 0,
+          extra: { venda: 0 }
+        };
+      }
+
+      const val = parseFloat(s.vNF);
+      const qItens = parseFloat(s.itens_qtd);
+
+      if (s.canal === "LOJA_FISICA" || s.canal === "RETIRADA_ADICIONAL" || s.is_adicional || s.is_adicional_suspeito) {
+        vendors[v].current.venda += val;
+        vendors[v].current.cupons += 1;
+        vendors[v].current.itens += qItens;
+      }
+
+      if (s.canal === "RETIRADA_ONLINE") {
+        vendors[v].pickupsAtendidas += 1;
+        vendors[v].extra.venda += val;
+      }
+
+      if (s.is_adicional || s.is_adicional_suspeito || s.canal === "RETIRADA_ADICIONAL") {
+        vendors[v].adicionaisFeitos += 1;
+      }
+    });
+
+    const groupedData = Object.values(vendors);
+
+    const totals = groupedData.reduce((acc, v) => ({
       venda: acc.venda + v.current.venda,
       cupons: acc.cupons + v.current.cupons,
       itens: acc.itens + v.current.itens,
@@ -38,21 +75,19 @@ export const ImpactProjection: React.FC<ImpactProjectionProps> = ({ data }) => {
 
     const avgPA = totals.cupons > 0 ? totals.itens / totals.cupons : 0;
     const avgTKM = totals.cupons > 0 ? totals.venda / totals.cupons : 0;
-    const avgPM = totals.itens > 0 ? totals.venda / totals.itens : 0;
     const avgConv = totals.pickups > 0 ? (totals.adicionais / totals.pickups) * 100 : 0;
 
     // Benchmarks
-    const topPA = Math.max(...data.map(v => v.current.cupons > 0 ? v.current.itens / v.current.cupons : 0));
-    const topTKM = Math.max(...data.map(v => v.current.cupons > 0 ? v.current.venda / v.current.cupons : 0));
-    const topConv = Math.max(...data.map(v => v.pickupsAtendidas > 0 ? (v.adicionaisFeitos / v.pickupsAtendidas) * 100 : 0));
+    const topPA = Math.max(...groupedData.map(v => v.current.cupons > 0 ? v.current.itens / v.current.cupons : 0));
+    const topTKM = Math.max(...groupedData.map(v => v.current.cupons > 0 ? v.current.venda / v.current.cupons : 0));
+    const topConv = Math.max(...groupedData.map(v => v.pickupsAtendidas > 0 ? (v.adicionaisFeitos / v.pickupsAtendidas) * 100 : 0));
 
     const targetPA = benchmarkType === 'average' ? avgPA : topPA;
     const targetTKM = benchmarkType === 'average' ? avgTKM : topTKM;
     const targetConv = benchmarkType === 'average' ? avgConv : topConv;
 
     // Impact Calculation
-    // 1. Impacto PA: Se todos tivessem o PA do benchmark, mantendo Cupons e PM atual
-    const potentialItensPA = data.reduce((acc, v) => {
+    const potentialItensPA = groupedData.reduce((acc, v) => {
       const currentPA = v.current.cupons > 0 ? v.current.itens / v.current.cupons : 0;
       if (currentPA < targetPA) {
         const gap = targetPA - currentPA;
@@ -63,8 +98,7 @@ export const ImpactProjection: React.FC<ImpactProjectionProps> = ({ data }) => {
       return acc;
     }, 0);
 
-    // 2. Impacto TKM: Se todos abaixo do benchmark atingissem o benchmark
-    const potentialVendaTKM = data.reduce((acc, v) => {
+    const potentialVendaTKM = groupedData.reduce((acc, v) => {
       const currentTKM = v.current.cupons > 0 ? v.current.venda / v.current.cupons : 0;
       if (currentTKM < targetTKM) {
         return acc + ((targetTKM - currentTKM) * v.current.cupons);
@@ -72,8 +106,7 @@ export const ImpactProjection: React.FC<ImpactProjectionProps> = ({ data }) => {
       return acc;
     }, 0);
 
-    // 3. Impacto Conversão Adicional
-    const potentialVendaAdic = data.reduce((acc, v) => {
+    const potentialVendaAdic = groupedData.reduce((acc, v) => {
       const currentConv = v.pickupsAtendidas > 0 ? (v.adicionaisFeitos / v.pickupsAtendidas) * 100 : 0;
       if (currentConv < targetConv) {
         const extraAdicionais = ((targetConv - currentConv) / 100) * v.pickupsAtendidas;
@@ -85,6 +118,7 @@ export const ImpactProjection: React.FC<ImpactProjectionProps> = ({ data }) => {
 
     return {
       totals,
+      groupedData,
       targets: { pa: targetPA, tkm: targetTKM, conv: targetConv },
       impacts: {
         pa: potentialItensPA,
@@ -196,7 +230,7 @@ export const ImpactProjection: React.FC<ImpactProjectionProps> = ({ data }) => {
           </CardHeader>
           <CardContent className="max-h-[400px] overflow-y-auto custom-scrollbar">
             <div className="space-y-4">
-              {data
+              {stats.groupedData
                 .map(v => {
                   const currentTKM = v.current.cupons > 0 ? v.current.venda / v.current.cupons : 0;
                   const gap = Math.max(0, stats.targets.tkm - currentTKM);
@@ -292,7 +326,7 @@ const ImpactCard: React.FC<ImpactCardProps> = ({ title, value, icon, description
   return (
     <Card className="bg-slate-900 border-slate-800 hover:border-slate-700 transition-all overflow-hidden relative">
       <div className={cn("absolute top-0 right-0 p-4 opacity-10", colorMap[color].split(' ')[0])}>
-        {React.cloneElement(icon as React.ReactElement, { className: "w-12 h-12" })}
+        {React.cloneElement(icon as React.ReactElement, { className: "w-12 h-12" } as any)}
       </div>
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between mb-1">

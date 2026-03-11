@@ -199,28 +199,8 @@ export function ExecutiveSummary({ data, vinculos, onSwitchTab }: ExecutiveSumma
               </div>
             </div>
 
-            <div className="mt-8 pt-6 border-t border-white/10">
-              <button 
-                onClick={() => onSwitchTab?.("ia_insights")}
-                className="w-full bg-white text-slate-900 font-black rounded-xl h-12 text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-orange-400 hover:text-white transition-all shadow-lg"
-              >
-                <Sparkles className="w-4 h-4" />
-                Gerar Relatório IA
-              </button>
-            </div>
           </Card>
 
-          <Card className="ri-card border-none bg-orange-50 p-5">
-            <div className="flex gap-3">
-              <AlertCircle className="w-5 h-5 text-orange-600 shrink-0" />
-              <div className="space-y-1">
-                <p className="text-[10px] font-black text-orange-800 uppercase leading-none">Insight do Algoritmo</p>
-                <p className="text-xs font-medium text-orange-700 leading-relaxed italic">
-                  "O PA de vendas adicionais provenientes de Pickups está {stats.pickupConv > 30 ? "excelente" : "abaixo da meta de 40%"}, indicando oportunidade de cross-selling no balcão de retirada."
-                </p>
-              </div>
-            </div>
-          </Card>
         </div>
       </div>
     </div>

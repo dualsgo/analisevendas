@@ -52,8 +52,7 @@ import {
   AlertTriangle,
   Menu,
   ChevronDown,
-  Sparkles,
-  BrainCircuit
+  Sparkles
 } from "lucide-react";
 import { format, parseISO, min, max } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -101,7 +100,6 @@ import { RiscoTrocas } from "./RiscoTrocas";
 import { SimuladorCenarios } from "./SimuladorCenarios";
 import { GeographicAnalysis } from "./GeographicAnalysis";
 import { ExecutiveSummary } from "./ExecutiveSummary";
-import { AISummary } from "./AISummary";
 import { Calculator, Map } from "lucide-react";
 
 interface SalesSummaryProps {
@@ -233,7 +231,6 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
 
   const navItems = [
     { id: "executivo", label: "Resumo Executivo", icon: Sparkles, category: "Resultados", color: "text-orange-500 font-black" },
-    { id: "ia_insights", label: "Insights IA", icon: BrainCircuit, category: "Resultados", color: "text-orange-400 font-bold" },
     { id: "geral", label: "Visão Geral", icon: LayoutDashboard, category: "Resultados" },
     { id: "impacto", label: "Projeção de Impacto", icon: Target, category: "Resultados", color: "text-purple-500 font-bold" },
     { id: "pacing", label: "Termômetro de Tração", icon: TrendingUp, category: "Resultados", color: "text-indigo-600 font-black" },
@@ -271,7 +268,6 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
   const renderActiveTab = () => {
     switch(activeTab) {
       case "executivo": return <ExecutiveSummary data={data} vinculos={vinculos} onSwitchTab={handleTabChange} />;
-      case "ia_insights": return <AISummary data={data} vinculos={vinculos} />;
       case "geral":
         return (
           <motion.div 
@@ -344,7 +340,6 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
       case "whatsapp": return <WhatsappReports data={data} vinculos={vinculos} />;
       case "elasticidade": return <ElasticityAnalysis data={data} />;
       case "deep_dive": return <AdvancedAnalytics data={data} />;
-      case "qualidade_avancada": return <QualityAnalysis data={data} vinculos={vinculos} />;
       case "qualidade_avancada": return <QualityAnalysis data={data} vinculos={vinculos} />;
       case "ritmo_operacional": return <OperationalRhythm data={data} />;
       case "payment_map": return <PaymentMap data={data} />;

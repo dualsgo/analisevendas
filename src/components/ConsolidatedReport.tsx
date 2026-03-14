@@ -235,6 +235,8 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
           case 'cupons': aVal = a.current.cupons; bVal = b.current.cupons; break;
           case 'itens': aVal = a.current.itens; bVal = b.current.itens; break;
           case 'conv': aVal = a.metrics.conv; bVal = b.metrics.conv; break;
+          case 'pickups': aVal = a.pickupsAtendidas; bVal = b.pickupsAtendidas; break;
+          case 'adicionais': aVal = a.adicionaisFeitos; bVal = b.adicionaisFeitos; break;
           default: aVal = a.current.venda; bVal = b.current.venda;
         }
 
@@ -371,8 +373,8 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
               <SortableHead label="CPF %" sortKey="ident" currentSort={sortConfig} onSort={setSortConfig} className="text-center print:w-[6%]" />
               <TableHead className="text-white print:text-black font-black uppercase text-[8px] md:text-[9px] text-center print:w-[6%]">SLP</TableHead>
               <TableHead className="text-white print:text-black font-black uppercase text-[8px] md:text-[9px] text-center print:w-[6%]">Social</TableHead>
-              <TableHead className="text-white print:text-black font-black uppercase text-[8px] md:text-[9px] text-center print:w-[10%]">Adic (R$)</TableHead>
-              <TableHead className="text-white print:text-black font-black uppercase text-[8px] md:text-[9px] text-center print:w-[10%]">Troca (R$)</TableHead>
+              <SortableHead label="Pickups" sortKey="pickups" currentSort={sortConfig} onSort={setSortConfig} className="text-center print:w-[6%]" />
+              <SortableHead label="Adicionais" sortKey="adicionais" currentSort={sortConfig} onSort={setSortConfig} className="text-center print:w-[6%]" />
               <SortableHead label="Conv %" sortKey="conv" currentSort={sortConfig} onSort={setSortConfig} className="text-right pr-4 md:pr-8 print:pr-1 print:w-[8%]" />
             </TableRow>
           </TableHeader>
@@ -450,12 +452,18 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
                     </Badge>
                   </TableCell>
 
-                  <TableCell className={cn("text-center font-black text-emerald-600 print:text-[8px] print:text-black", isCollapsed ? "text-sm" : "text-[10px] md:text-xs")}>
-                    {formatBRL(v.extra.venda)} 
+                  <TableCell className="text-center">
+                    <span className="hidden print:inline text-[8px] font-black">{v.pickupsAtendidas}</span>
+                    <Badge className={cn("print:hidden font-black border-none px-1", v.pickupsAtendidas > 0 ? "bg-sky-100 text-sky-700" : "bg-slate-50 text-slate-300", isCollapsed ? "text-[11px] h-6" : "text-[8px] md:text-[9px] h-4 md:h-5")}>
+                      <Smartphone className={cn("fill-current", isCollapsed ? "w-3.5 h-3.5 mr-1.5" : "w-2 md:w-2.5 h-2 md:h-2.5 mr-0.5 md:mr-1")} /> {v.pickupsAtendidas}
+                    </Badge>
                   </TableCell>
 
-                  <TableCell className={cn("text-center font-black text-purple-600 print:text-[8px] print:text-black", isCollapsed ? "text-sm" : "text-[10px] md:text-xs")}>
-                    {formatBRL(v.troca.venda)}
+                  <TableCell className="text-center">
+                    <span className="hidden print:inline text-[8px] font-black">{v.adicionaisFeitos}</span>
+                    <Badge className={cn("print:hidden font-black border-none px-1", v.adicionaisFeitos > 0 ? "bg-emerald-100 text-emerald-700" : "bg-slate-50 text-slate-300", isCollapsed ? "text-[11px] h-6" : "text-[8px] md:text-[9px] h-4 md:h-5")}>
+                      <Zap className={cn("fill-current", isCollapsed ? "w-3.5 h-3.5 mr-1.5" : "w-2 md:w-2.5 h-2 md:h-2.5 mr-0.5 md:mr-1")} /> {v.adicionaisFeitos}
+                    </Badge>
                   </TableCell>
 
                   <TableCell className="text-right pr-4 md:pr-8 print:pr-1">

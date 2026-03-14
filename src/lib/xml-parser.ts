@@ -257,23 +257,25 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     const vendedorRaw = extractVendedor(infCpl);
 
     // --- LOGICA DE CLASSIFICAÇÃO UNIFICADA ---
-    const isEnderecoLoja =
-      cep_dest === "21211007" &&
-      nro_dest === "909" &&
-      uf_dest === "RJ" &&
-      /VICENTE\s+DE\s+CARVALHO/i.test(xLgr_dest);
+    const isOperacaoInternet = indPres === 2 || indPres === 3 || indPres === 9;
+    
+    // O CEP de destino pode ser o da própria loja ou conter o nome do local (para retrocompatibilidade)
+    const isEnderecoLoja = (!!cep_dest && cep_dest === cep_loja) || 
+      (cep_dest === "21211007" && /VICENTE\s+DE\s+CARVALHO/i.test(xLgr_dest));
 
+    // Identificação de pagamento digital pelo site pela tag (Sem varredura textural)
+    // tpIntegra = 2 (Não Integrado com TEF físico da loja), tPag = 99 (Outros), 90 (Sem pagamento)
+    const temPagamentoSite = pagamentosDet.some(p => p.tpIntegra === "2" || p.tPag === "99" || p.tPag === "90");
     const temDinheiro = pagamentosDet.some(p => p.tPag === "01");
-    const hasTextualPickupEvidence = /RETIRADA|PICKUP|PEDIDO|SITE|ECOMM|MAGENTO/i.test(infCpl);
 
     // BLOQUEIOS DE BALCÃO
     const isBalcaoBlocked =
       hasSymbolicItem ||
       temDinheiro ||
-      vTrocoPag > 0 ||
-      (tpIntegraValue !== "2" && !hasTextualPickupEvidence);
+      vTrocoPag > 0;
 
-    const isRetiradaOnline = isEnderecoLoja && !isBalcaoBlocked;
+    // Exclusivamente via Tags do XML: Destino na Loja AND (Operação de Internet OR Pagamento de Site)
+    const isRetiradaOnline = isEnderecoLoja && (isOperacaoInternet || temPagamentoSite) && !isBalcaoBlocked;
 
     const vTrocaCredito = pagamentosDet.filter(p => p.tPag === "05").reduce((acc, p) => acc + p.vPag, 0);
     const isTroca = vTrocaCredito > 0;
@@ -290,6 +292,7 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     let tipoDescontoFinal = "PADRÃO";
     let statusAuditoriaFinal = temSuspeitaPrecoErrado ? "SUSPEITA DE AJUSTE MANUAL" : (descontoTotal > 0 ? "DESCONTO APLICADO" : "SEM DESCONTO");
 
+    let isDescontoEstrategico = false;
     if (hasSlpDiscount) {
       if (hasNonSlpDiscount) {
         tipoDescontoFinal = "CAMPANHA + ALERTA";
@@ -307,6 +310,7 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     } else if (percentualDesconto >= 0.08 && percentualDesconto <= 0.12) {
       tipoDescontoFinal = "ADICIONAL";
       statusAuditoriaFinal = "DESCONTO ESTRATÉGICO (10%)";
+      isDescontoEstrategico = true;
     } else if (percentualDesconto >= 0.045 && percentualDesconto <= 0.055) {
       tipoDescontoFinal = "MOSTRUÁRIO";
     }

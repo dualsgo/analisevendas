@@ -58,12 +58,12 @@ export function detectarAdicionaisSuspeitos(rows: DetailedSaleRow[]): DetailedSa
     if (!cpf) return;
 
     const pickupsDoCliente = pickupsPorCpf.get(cpf) || [];
-    const timeNota = new Date(nota.dhEmi).getTime();
+    const timeNota = new Date(nota.dhEmi);
+    const dateNotaStr = timeNota.toISOString().split('T')[0];
 
     const pickupVinculada = pickupsDoCliente.find(p => {
-      const timePickup = new Date(p.dhEmi).getTime();
-      const diffMinutes = Math.abs(timeNota - timePickup) / (1000 * 60);
-      return diffMinutes <= 30;
+      const datePickupStr = new Date(p.dhEmi).toISOString().split('T')[0];
+      return dateNotaStr === datePickupStr;
     });
 
     if (pickupVinculada) {
@@ -75,13 +75,12 @@ export function detectarAdicionaisSuspeitos(rows: DetailedSaleRow[]): DetailedSa
       const perc = parseFloat(nota.percentual_desconto);
       const temDescontoEstrategico = perc >= 0.08 && perc <= 0.12;
 
+      nota.is_adicional = true;
       if (temDescontoEstrategico) {
-        nota.is_adicional = true;
         nota.tipo_desconto = "ADICIONAL";
-        nota.status_auditoria = "ADICIONAL CONFIRMADO (10%)";
+        nota.status_auditoria = "ADICIONAL CONFIRMADO (CPF + DESCONTO 10%)";
       } else {
-        nota.is_adicional_suspeito = true;
-        nota.status_auditoria = "ADICIONAL (VÍNCULO CPF)";
+        nota.status_auditoria = "ADICIONAL CONFIRMADO (VÍNCULO CPF NO MESMO DIA)";
       }
     }
   });

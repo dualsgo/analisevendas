@@ -123,23 +123,15 @@ export function PickupPanel({ data }: PickupPanelProps) {
         }
       }
 
-      // Orphan adicional: no pickup found — create a group without retirada
-      if (cpf) {
-        const key = `${cpf}__${dateStr}`;
-        if (!groupMap.has(key)) {
-          groupMap.set(key, {
-            cpf,
-            nome: a.nome_dest || "Consumidor",
-            date: dateStr,
-            retiradas: [],
-            adicionais: [],
-          });
-        }
-        groupMap.get(key)!.adicionais.push(a);
-      }
     });
 
-    return Array.from(groupMap.values()).sort((a, b) => b.date.localeCompare(a.date));
+    const finalGroups = Array.from(groupMap.values());
+    
+    // FILTRO CRÍTICO: Um grupo de pickup sem retirada é um "falso adicional".
+    // Removemos qualquer grupo que não tenha pelo menos uma retirada confirmada.
+    return finalGroups
+      .filter(g => g.retiradas.length > 0)
+      .sort((a, b) => b.date.localeCompare(a.date));
   }, [data]);
 
   const filtered = useMemo(() => {

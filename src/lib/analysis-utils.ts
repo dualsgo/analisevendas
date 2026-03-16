@@ -27,7 +27,7 @@ export function detectarAdicionaisSuspeitos(rows: DetailedSaleRow[]): DetailedSa
     const timeNota = new Date(nota.dhEmi);
     const dateNotaStr = timeNota.toISOString().split('T')[0];
 
-    // Encontra retirada no mesmo CPF e mesmo dia
+    // Vínculo por CPF + Data (Regra solicitada: CPF é o fator principal)
     const pickupVinculada = pickupsDoCliente.find(p => {
       const datePickupStr = new Date(p.dhEmi).toISOString().split('T')[0];
       return dateNotaStr === datePickupStr;
@@ -40,7 +40,6 @@ export function detectarAdicionaisSuspeitos(rows: DetailedSaleRow[]): DetailedSa
       nota.canal_consolidado = "RETIRADA_ADICIONAL";
 
       const perc = parseFloat(nota.percentual_desconto);
-      // Desconto estratégico de 10% (0.08 a 0.12 pela variação de arredondamento)
       const temDescontoEstrategico = perc >= 0.08 && perc <= 0.12;
 
       nota.is_adicional = true;
@@ -48,7 +47,7 @@ export function detectarAdicionaisSuspeitos(rows: DetailedSaleRow[]): DetailedSa
         nota.tipo_desconto = "ADICIONAL";
         nota.status_auditoria = "ADICIONAL CONFIRMADO (CPF + DESCONTO 10% NO DIA)";
       } else {
-        nota.status_auditoria = "ADICIONAL VINCULADO (CPF NO DIA DA RETIRADA)";
+        nota.status_auditoria = "ADICIONAL VINCULADO (MESMO CPF NO DIA DA RETIRADA)";
       }
     }
   });

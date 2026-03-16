@@ -278,21 +278,26 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     const isTroca = vTrocaCredito > 0;
     const dif_troca = vNFValue - vTrocaCredito;
 
+    // DEFINIÇÃO DE CEPs (Carioca Shopping)
+    const SITE_STORE_CEP = "21211007"; // CEP cadastrado no site (Oficial de Pickup)
+    const PHYSICAL_STORE_CEP = "21210623"; // CEP físico da loja (Digitado manualmente no iFood)
+
     // Lógica: Endereço na loja AND (Origem Digital SEFAZ OU Pagamento Site via tpIntegra)
-    const isDigitalOuPickup = isEnderecoLoja && (isOperacaoInternet || temPagamentoSite) && !isBalcaoBlocked;
+    const isDigitalOuOnline = (isOperacaoInternet || temPagamentoSite) && !isBalcaoBlocked;
 
     let canalFinal = isTroca ? "TROCA" : "LOJA_FISICA";
     let isRetiradaOnlineFinal = false;
 
-    if (!isTroca && isDigitalOuPickup) {
-      // Diferenciação crítica: CEP 21211007 é a "âncora" de retirada presencial
-      if (cep_dest === "21211007") {
+    if (!isTroca && isDigitalOuOnline) {
+      // 1. PICKUP OFICIAL: Se o destino for o CEP do site (21211007)
+      if (cep_dest === SITE_STORE_CEP) {
         canalFinal = "RETIRADA_ONLINE";
         isRetiradaOnlineFinal = true;
-      } else {
-        // Se for digital mas CEP diferente do oficial de pickup, é Delivery (iFood/Rappi)
+      } 
+      // 2. DELIVERY (iFood/Rappi): Se o destino for o CEP físico digitado manualmente (21210623)
+      else if (cep_dest === PHYSICAL_STORE_CEP || cep_dest === cep_loja) {
         canalFinal = "DELIVERY";
-        isRetiradaOnlineFinal = false; // Delivery não conta como pickup para o painel de adicionais
+        isRetiradaOnlineFinal = false; // Não é pickup presencial para auditoria de adicional
       }
     }
 

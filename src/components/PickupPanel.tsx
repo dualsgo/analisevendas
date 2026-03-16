@@ -1,0 +1,598 @@
+"use client";
+
+import React, { useMemo, useState } from "react";
+import { DetailedSaleRow } from "@/lib/types";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import {
+  Sheet,
+  SheetContent,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import {
+  Smartphone,
+  Zap,
+  Search,
+  Users,
+  ShoppingBag,
+  TrendingUp,
+  AlertCircle,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  Package,
+  User,
+  Calendar,
+  DollarSign,
+  FileText,
+  Link2,
+  ArrowRightLeft,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { format, parseISO } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { motion, AnimatePresence } from "framer-motion";
+
+const container = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1
+    }
+  }
+};
+
+const itemAnim = {
+  hidden: { opacity: 0, y: 20 },
+  show: { opacity: 1, y: 0 }
+};
+
+interface PickupPanelProps {
+  data: DetailedSaleRow[];
+}
+
+interface PickupGroup {
+  cpf: string;
+  nome: string;
+  date: string;
+  retiradas: DetailedSaleRow[];
+  adicionais: DetailedSaleRow[];
+}
+
+const formatBRL = (val: number) =>
+  val.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+export function PickupPanel({ data }: PickupPanelProps) {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
+  const [selectedTx, setSelectedTx] = useState<DetailedSaleRow | null>(null);
+  const [filterMode, setFilterMode] = useState<"all" | "com_adicional" | "sem_adicional">("all");
+
+  // Build groups: one group per (CPF, date)
+  const groups = useMemo(() => {
+    const saidas = data.filter(r => !r.is_cancelada && r.tpNF === 1);
+    const retiradas = saidas.filter(r => r.canal === "RETIRADA_ONLINE" || r.is_retirada_online);
+    const adicionais = saidas.filter(r => r.canal === "RETIRADA_ADICIONAL" || r.is_adicional);
+
+    const groupMap = new Map<string, PickupGroup>();
+
+    // Seed with retiradas
+    retiradas.forEach(r => {
+      const dateStr = r.dhEmi ? r.dhEmi.split("T")[0] : "unknown";
+      const cpf = r.cpf_cnpj_dest || "__sem_cpf__" + r.chave;
+      const key = `${cpf}__${dateStr}`;
+      if (!groupMap.has(key)) {
+        groupMap.set(key, {
+          cpf,
+          nome: r.nome_dest || "Consumidor",
+          date: dateStr,
+          retiradas: [],
+          adicionais: [],
+        });
+      }
+      groupMap.get(key)!.retiradas.push(r);
+    });
+
+    // Link adicionais by chave_retirada_associada or by CPF+date
+    adicionais.forEach(a => {
+      const dateStr = a.dhEmi ? a.dhEmi.split("T")[0] : "unknown";
+      const cpf = a.cpf_cnpj_dest;
+
+      // Try exact link via chave_retirada_associada
+      if (a.chave_retirada_associada) {
+        for (const [, g] of groupMap) {
+          if (g.retiradas.some(r => r.chave === a.chave_retirada_associada)) {
+            g.adicionais.push(a);
+            return;
+          }
+        }
+      }
+
+      // Fallback: CPF + same day
+      if (cpf) {
+        const key = `${cpf}__${dateStr}`;
+        if (groupMap.has(key)) {
+          // check if already added
+          if (!groupMap.get(key)!.adicionais.includes(a)) {
+            groupMap.get(key)!.adicionais.push(a);
+          }
+          return;
+        }
+      }
+
+      // Orphan adicional: no pickup found — create a group without retirada
+      if (cpf) {
+        const key = `${cpf}__${dateStr}`;
+        if (!groupMap.has(key)) {
+          groupMap.set(key, {
+            cpf,
+            nome: a.nome_dest || "Consumidor",
+            date: dateStr,
+            retiradas: [],
+            adicionais: [],
+          });
+        }
+        groupMap.get(key)!.adicionais.push(a);
+      }
+    });
+
+    return Array.from(groupMap.values()).sort((a, b) => b.date.localeCompare(a.date));
+  }, [data]);
+
+  const filtered = useMemo(() => {
+    return groups.filter(g => {
+      const searchOk =
+        !searchTerm ||
+        g.cpf.includes(searchTerm) ||
+        g.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        g.retiradas.some(r => r.nf.includes(searchTerm)) ||
+        g.adicionais.some(a => a.nf.includes(searchTerm));
+
+      const modeOk =
+        filterMode === "all" ||
+        (filterMode === "com_adicional" && g.adicionais.length > 0) ||
+        (filterMode === "sem_adicional" && g.adicionais.length === 0 && g.retiradas.length > 0);
+
+      return searchOk && modeOk;
+    });
+  }, [groups, searchTerm, filterMode]);
+
+  // KPI summary
+  const kpis = useMemo(() => {
+    const totalPickups = groups.reduce((acc, g) => acc + g.retiradas.length, 0);
+    const comAdicional = groups.filter(g => g.adicionais.length > 0).length;
+    const totalGroups = groups.length;
+    const convRate = totalGroups > 0 ? (comAdicional / totalGroups) * 100 : 0;
+    const valorAdicionais = groups.reduce(
+      (acc, g) => acc + g.adicionais.reduce((s, a) => s + parseFloat(a.vNF), 0),
+      0
+    );
+    const valorRetiradas = groups.reduce(
+      (acc, g) => acc + g.retiradas.reduce((s, r) => s + parseFloat(r.vNF), 0),
+      0
+    );
+    return { totalPickups, comAdicional, totalGroups, convRate, valorAdicionais, valorRetiradas };
+  }, [groups]);
+
+  const toggleGroup = (key: string) =>
+    setExpandedGroup(prev => (prev === key ? null : key));
+
+  return (
+    <div className="space-y-6 pb-20 animate-in fade-in duration-500">
+      {/* KPI Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <KpiCard
+          label="Total Retiradas Online"
+          value={kpis.totalPickups.toString()}
+          icon={Smartphone}
+          color="sky"
+        />
+        <KpiCard
+          label="Grupos com Adicional"
+          value={`${kpis.comAdicional} / ${kpis.totalGroups}`}
+          icon={Zap}
+          color="emerald"
+        />
+        <KpiCard
+          label="Conversão Adicional"
+          value={`${kpis.convRate.toFixed(1)}%`}
+          icon={TrendingUp}
+          color="indigo"
+        />
+        <KpiCard
+          label="Faturamento Adicionais"
+          value={formatBRL(kpis.valorAdicionais)}
+          icon={DollarSign}
+          color="amber"
+        />
+      </div>
+
+      {/* Filters */}
+      <Card className="shadow-sm border-slate-100">
+        <div className="p-4 flex flex-col md:flex-row gap-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Input
+              placeholder="Buscar por CPF, Nome ou NF..."
+              className="pl-9 rounded-xl border-slate-100 bg-slate-50/50 h-11 text-sm font-medium text-slate-700"
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            {(
+              [
+                { value: "all", label: "Todos" },
+                { value: "com_adicional", label: "✅ Com Adicional" },
+                { value: "sem_adicional", label: "⚠️ Sem Adicional" },
+              ] as const
+            ).map(opt => (
+              <Button
+                key={opt.value}
+                size="sm"
+                variant={filterMode === opt.value ? "default" : "outline"}
+                onClick={() => setFilterMode(opt.value)}
+                className={cn(
+                  "rounded-xl font-bold text-xs h-11 px-5",
+                  filterMode === opt.value
+                    ? "bg-indigo-600 text-white shadow-md"
+                    : "border-slate-200 text-slate-600"
+                )}
+              >
+                {opt.label}
+              </Button>
+            ))}
+          </div>
+          <div className="flex items-center justify-end">
+            <Badge
+              variant="outline"
+              className="h-11 px-4 bg-slate-50 border-slate-100 text-slate-500 font-bold text-xs"
+            >
+              {filtered.length} grupos
+            </Badge>
+          </div>
+        </div>
+      </Card>
+
+      {/* Groups */}
+      <motion.div 
+        variants={container}
+        initial="hidden"
+        animate="show"
+        className="space-y-4"
+      >
+        {filtered.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-20 text-slate-400 gap-3">
+            <Smartphone className="w-12 h-12 opacity-30" />
+            <p className="font-bold text-sm uppercase">Nenhuma retirada online encontrada</p>
+          </div>
+        )}
+        {filtered.map(group => {
+          const key = `${group.cpf}__${group.date}`;
+          const isExpanded = expandedGroup === key;
+          const hasAdicional = group.adicionais.length > 0;
+          const totalRetirada = group.retiradas.reduce((s, r) => s + parseFloat(r.vNF), 0);
+          const totalAdicional = group.adicionais.reduce((s, a) => s + parseFloat(a.vNF), 0);
+
+          return (
+            <motion.div
+              variants={itemAnim}
+              key={key}
+              className={cn(
+                "rounded-2xl border-2 overflow-hidden transition-all duration-200 shadow-sm",
+                hasAdicional
+                  ? "border-emerald-100 bg-white"
+                  : "border-slate-100 bg-white"
+              )}
+            >
+              {/* Group Header */}
+              <div
+                className={cn(
+                  "p-4 flex flex-col sm:flex-row sm:items-center gap-3 cursor-pointer hover:bg-slate-50 transition-colors",
+                )}
+                onClick={() => toggleGroup(key)}
+              >
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <div
+                    className={cn(
+                      "w-10 h-10 rounded-2xl flex items-center justify-center shrink-0",
+                      hasAdicional ? "bg-emerald-100" : "bg-slate-100"
+                    )}
+                  >
+                    <User className={cn("w-5 h-5", hasAdicional ? "text-emerald-600" : "text-slate-400")} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-black text-slate-800 uppercase truncate">
+                      {group.nome}
+                    </p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                      CPF: {group.cpf !== `__sem_cpf__${group.retiradas[0]?.chave}` ? `***${group.cpf.slice(-4)}` : "Não Identificado"} •{" "}
+                      {group.date ? format(new Date(group.date + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR }) : ""}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                  {/* Pickup badge */}
+                  <div className="flex items-center gap-1.5 bg-sky-50 border border-sky-100 px-3 py-1.5 rounded-xl">
+                    <Smartphone className="w-3.5 h-3.5 text-sky-500" />
+                    <span className="text-xs font-bold text-sky-700">
+                      {group.retiradas.length}x Pickup
+                    </span>
+                    <span className="text-xs font-black text-sky-800">{formatBRL(totalRetirada)}</span>
+                  </div>
+
+                  {/* Adicional badge */}
+                  {hasAdicional ? (
+                    <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-100 px-3 py-1.5 rounded-xl">
+                      <Zap className="w-3.5 h-3.5 text-emerald-500" />
+                      <span className="text-xs font-bold text-emerald-700">
+                        {group.adicionais.length}x Adicional
+                      </span>
+                      <span className="text-xs font-black text-emerald-800">{formatBRL(totalAdicional)}</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1.5 bg-amber-50 border border-amber-100 px-3 py-1.5 rounded-xl">
+                      <AlertCircle className="w-3.5 h-3.5 text-amber-500" />
+                      <span className="text-xs font-bold text-amber-700">Sem Adicional</span>
+                    </div>
+                  )}
+
+                  {isExpanded ? (
+                    <ChevronUp className="w-4 h-4 text-slate-400 shrink-0" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
+                  )}
+                </div>
+              </div>
+
+              {/* Expanded Detail */}
+              <AnimatePresence>
+                {isExpanded && (
+                  <motion.div 
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="border-t border-slate-100 p-4 space-y-4 bg-slate-50/50">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Retiradas */}
+                        <div className="space-y-2">
+                          <h5 className="text-[10px] font-black uppercase text-sky-600 tracking-widest flex items-center gap-1.5">
+                            <Smartphone className="w-3 h-3" /> Nota(s) de Retirada Online
+                          </h5>
+                          {group.retiradas.length === 0 && (
+                            <p className="text-xs text-slate-400 italic">Nenhuma retirada direta encontrada</p>
+                          )}
+                          {group.retiradas.map(r => (
+                            <TxCard
+                              key={r.chave}
+                              tx={r}
+                              color="sky"
+                              onClick={() => setSelectedTx(r)}
+                            />
+                          ))}
+                        </div>
+
+                        {/* Adicionais */}
+                        <div className="space-y-2">
+                          <h5 className="text-[10px] font-black uppercase text-emerald-600 tracking-widest flex items-center gap-1.5">
+                            <Zap className="w-3 h-3" /> Nota(s) Adicional Vinculada
+                          </h5>
+                          {group.adicionais.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-8 rounded-xl border-2 border-dashed border-amber-200 bg-amber-50/50 gap-2">
+                              <AlertCircle className="w-6 h-6 text-amber-400" />
+                              <p className="text-xs font-bold text-amber-600 uppercase">
+                                Oportunidade não convertida
+                              </p>
+                              <p className="text-[10px] text-amber-500 text-center max-w-[200px]">
+                                Este cliente retirou mas não comprou um adicional no mesmo dia.
+                              </p>
+                            </div>
+                          ) : (
+                            group.adicionais.map(a => (
+                              <TxCard
+                                key={a.chave}
+                                tx={a}
+                                color="emerald"
+                                onClick={() => setSelectedTx(a)}
+                              />
+                            ))
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Item divergence summary — only when both sides exist */}
+                      {group.retiradas.length > 0 && group.adicionais.length > 0 && (
+                        <ItemDivergence retiradas={group.retiradas} adicionais={group.adicionais} />
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+          );
+        })}
+      </motion.div>
+
+      {/* Side panel detail */}
+      <Sheet open={!!selectedTx} onOpenChange={open => !open && setSelectedTx(null)}>
+        <SheetContent className="w-full sm:max-w-lg bg-white border-l-4 border-slate-800 p-0 overflow-y-auto">
+          {selectedTx && (
+            <div>
+              <div
+                className={cn(
+                  "p-6 text-white space-y-3",
+                  selectedTx.canal === "RETIRADA_ONLINE" ? "bg-sky-800" : "bg-emerald-800"
+                )}
+              >
+                <div className="flex items-center gap-3">
+                  {selectedTx.canal === "RETIRADA_ONLINE" ? (
+                    <Smartphone className="w-5 h-5" />
+                  ) : (
+                    <Zap className="w-5 h-5" />
+                  )}
+                  <SheetTitle className="text-lg font-black text-white uppercase">
+                    {selectedTx.canal === "RETIRADA_ONLINE" ? "Retirada Online" : "Adicional de Pickup"} — NF #{selectedTx.nf}
+                  </SheetTitle>
+                </div>
+                <p className="text-sm font-bold opacity-80">
+                  {selectedTx.dhEmi ? format(parseISO(selectedTx.dhEmi), "dd/MM/yyyy HH:mm") : "—"}
+                </p>
+                <p className="text-2xl font-black">{formatBRL(parseFloat(selectedTx.vNF))}</p>
+              </div>
+              <div className="p-6 space-y-6">
+                <Detail label="Cliente" value={selectedTx.nome_dest || "Consumidor Final"} />
+                <Detail label="CPF" value={selectedTx.cpf_cnpj_dest ? `***${selectedTx.cpf_cnpj_dest.slice(-4)}` : "Não Identificado"} />
+                <Detail label="Colaborador" value={selectedTx.vendedor} />
+                <Detail label="Desconto" value={selectedTx.desconto_total !== "0.00" ? `R$ ${selectedTx.desconto_total} (${(parseFloat(selectedTx.percentual_desconto) * 100).toFixed(1)}%)` : "Sem desconto"} />
+                {selectedTx.chave_retirada_associada && (
+                  <Detail label="Pickup Vinculado" value={`Chave: ...${selectedTx.chave_retirada_associada.slice(-8)}`} />
+                )}
+                <div className="space-y-2">
+                  <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Itens</p>
+                  <div className="space-y-2">
+                    {(selectedTx.itens || []).map((item, i) => (
+                      <div key={i} className="flex justify-between items-center py-2 border-b border-slate-50">
+                        <div>
+                          <p className="text-xs font-bold text-slate-700 uppercase">{item.xProd}</p>
+                          <p className="text-[10px] text-slate-400 font-medium">Cod: {item.cProd} | Qtd: {item.qCom}</p>
+                        </div>
+                        <p className="text-sm font-bold text-slate-600">{formatBRL(item.vProd)}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
+    </div>
+  );
+}
+
+// ─── Sub-components ────────────────────────────────────────────────────────────
+
+function KpiCard({ label, value, icon: Icon, color }: { label: string; value: string; icon: React.ElementType; color: string }) {
+  const colorMap: Record<string, string> = {
+    sky: "bg-sky-50 text-sky-600 border-sky-100",
+    emerald: "bg-emerald-50 text-emerald-600 border-emerald-100",
+    indigo: "bg-indigo-50 text-indigo-600 border-indigo-100",
+    amber: "bg-amber-50 text-amber-600 border-amber-100",
+  };
+  return (
+    <Card className={cn("border overflow-hidden shadow-sm", colorMap[color] || "bg-slate-50")}>
+      <CardContent className="p-4 flex flex-col gap-2">
+        <div className="flex items-center gap-2">
+          <Icon className="w-4 h-4" />
+          <p className="text-[10px] font-black uppercase tracking-widest opacity-70">{label}</p>
+        </div>
+        <p className="text-xl font-black tracking-tight">{value}</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function TxCard({ tx, color, onClick }: { tx: DetailedSaleRow; color: "sky" | "emerald"; onClick: () => void }) {
+  const ring = color === "sky" ? "border-sky-100 bg-sky-50/50 hover:bg-sky-50" : "border-emerald-100 bg-emerald-50/50 hover:bg-emerald-50";
+  const textColor = color === "sky" ? "text-sky-700" : "text-emerald-700";
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "w-full rounded-xl border p-3 text-left transition-all space-y-2 cursor-pointer",
+        ring
+      )}
+    >
+      <div className="flex justify-between items-start">
+        <div>
+          <p className="text-xs font-black text-slate-700 uppercase">NF #{tx.nf}</p>
+          <p className="text-[10px] text-slate-400 font-bold uppercase">
+            {tx.dhEmi ? format(parseISO(tx.dhEmi), "dd/MM HH:mm") : "—"} • {tx.vendedor}
+          </p>
+        </div>
+        <p className={cn("text-sm font-black", textColor)}>
+          {parseFloat(tx.vNF).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+        </p>
+      </div>
+      <div className="flex flex-wrap gap-1">
+        {(tx.itens || []).slice(0, 3).map((item, i) => (
+          <span key={i} className="text-[9px] bg-white border border-slate-100 rounded-md px-2 py-0.5 font-bold text-slate-500 uppercase truncate max-w-[120px]">
+            {item.xProd}
+          </span>
+        ))}
+        {(tx.itens || []).length > 3 && (
+          <span className="text-[9px] bg-white border border-slate-100 rounded-md px-2 py-0.5 font-bold text-slate-400">
+            +{(tx.itens || []).length - 3}
+          </span>
+        )}
+      </div>
+    </button>
+  );
+}
+
+function ItemDivergence({ retiradas, adicionais }: { retiradas: DetailedSaleRow[]; adicionais: DetailedSaleRow[] }) {
+  const allRetItems = retiradas.flatMap(r => r.itens || []);
+  const allAdiItems = adicionais.flatMap(a => a.itens || []);
+
+  const retCodes = new Set(allRetItems.map(i => i.cProd));
+  const adiCodes = new Set(allAdiItems.map(i => i.cProd));
+
+  const soNoRet = allRetItems.filter(i => !adiCodes.has(i.cProd));
+  const soNoAdi = allAdiItems.filter(i => !retCodes.has(i.cProd));
+  const comuns = allRetItems.filter(i => adiCodes.has(i.cProd));
+
+  if (soNoRet.length === 0 && soNoAdi.length === 0) return null;
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
+      <h5 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-1.5">
+        <ArrowRightLeft className="w-3 h-3" /> Divergência entre Notas (Indicativo de Pickup + Adicional)
+      </h5>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+        {soNoRet.length > 0 && (
+          <div className="space-y-1">
+            <p className="text-[9px] font-black text-sky-600 uppercase tracking-wider">Apenas no Pickup</p>
+            {[...new Map(soNoRet.map(i => [i.cProd, i])).values()].map(item => (
+              <div key={item.cProd} className="flex items-center gap-2 bg-sky-50 rounded-lg px-2 py-1">
+                <Package className="w-3 h-3 text-sky-400 shrink-0" />
+                <span className="truncate font-medium text-slate-600 uppercase">{item.xProd}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        {soNoAdi.length > 0 && (
+          <div className="space-y-1">
+            <p className="text-[9px] font-black text-emerald-600 uppercase tracking-wider">Apenas no Adicional</p>
+            {[...new Map(soNoAdi.map(i => [i.cProd, i])).values()].map(item => (
+              <div key={item.cProd} className="flex items-center gap-2 bg-emerald-50 rounded-lg px-2 py-1">
+                <Package className="w-3 h-3 text-emerald-400 shrink-0" />
+                <span className="truncate font-medium text-slate-600 uppercase">{item.xProd}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      {comuns.length > 0 && (
+        <p className="text-[9px] font-bold text-slate-400 flex items-center gap-1">
+          <CheckCircle2 className="w-3 h-3 text-slate-300" />
+          {[...new Set(comuns.map(i => i.cProd))].length} produto(s) em comum entre as notas
+        </p>
+      )}
+    </div>
+  );
+}
+
+function Detail({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">{label}</p>
+      <p className="text-sm font-bold text-slate-700 uppercase">{value}</p>
+    </div>
+  );
+}

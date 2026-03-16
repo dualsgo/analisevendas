@@ -86,7 +86,7 @@ export function TransactionList({ data }: TransactionListProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [itemCodeSearch, setItemCodeSearch] = useState("");
   const [selectedChannel, setSelectedChannel] = useState("all");
-  const [selectedStatus, setSelectedStatus] = useState("all");
+  const [selectedStatus, setSelectedStatus] = useState("ativa");
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: "nf", direction: "desc" });
   
   const [selectedTransaction, setSelectedTransaction] = useState<DetailedSaleRow | null>(null);
@@ -241,8 +241,9 @@ export function TransactionList({ data }: TransactionListProps) {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all" className="text-xs font-medium">Todos os Canais</SelectItem>
-                  <SelectItem value="VENDA_LOJA" className="text-xs font-medium">Venda Loja</SelectItem>
-                  <SelectItem value="RETIRADA_ONLINE" className="text-xs font-medium">Retirada Online</SelectItem>
+                  <SelectItem value="VENDA_LOJA" className="text-xs font-medium">Venda Loja Física</SelectItem>
+                  <SelectItem value="RETIRADA_ONLINE" className="text-xs font-medium">Retirada Online (Pickup)</SelectItem>
+                  <SelectItem value="RETIRADA_ADICIONAL" className="text-xs font-medium">Adicional de Pickup</SelectItem>
                   <SelectItem value="TROCA" className="text-xs font-medium">Troca</SelectItem>
                 </SelectContent>
               </Select>
@@ -492,6 +493,7 @@ function getChannelIcon(channel: string) {
   switch(channel) {
     case "VENDA_LOJA": return <Store className="w-3 h-3 text-slate-400" />;
     case "RETIRADA_ONLINE": return <Smartphone className="w-3 h-3 text-sky-400" />;
+    case "RETIRADA_ADICIONAL": return <Zap className="w-3 h-3 text-emerald-500" />;
     case "TROCA": return <ArrowRightLeft className="w-3 h-3 text-purple-400" />;
     default: return <FileText className="w-3 h-3 text-slate-300" />;
   }

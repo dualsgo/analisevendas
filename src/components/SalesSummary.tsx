@@ -101,6 +101,7 @@ import { SimuladorCenarios } from "./SimuladorCenarios";
 import { GeographicAnalysis } from "./GeographicAnalysis";
 import { ArenaDeTalentos } from "./ArenaDeTalentos";
 import { ExecutiveSummary } from "./ExecutiveSummary";
+import { PickupPanel } from "./PickupPanel";
 import { Calculator, Map } from "lucide-react";
 
 interface SalesSummaryProps {
@@ -253,6 +254,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
 
     { id: "customer_loyalty", label: "Fidelidade & Recorrência", icon: Users2, category: "Clientes", color: "text-emerald-600 font-black" },
     { id: "ritmo_operacional", label: "Ritmo Operacional", icon: Timer, category: "Operacional" },
+    { id: "pickup_track", label: "Monitor Pickup", icon: Smartphone, category: "Operacional", color: "text-sky-600 font-black" },
     { id: "transacoes", label: "Transações", icon: ListFilter, category: "Operacional" },
     { id: "payment_map", label: "Mapa de Pagamentos", icon: CreditCard, category: "Operacional" },
     { id: "qualidade_avancada", label: "Qualidade da Venda", icon: Target, category: "Operacional" },
@@ -338,6 +340,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
       case "auditoria": return <DiscountAudit data={data} />;
       case "trocas": return <ExchangeManagement data={data} vinculos={vinculos} />;
       case "transacoes": return <TransactionList data={data} />;
+      case "pickup_track": return <PickupPanel data={data} />;
       case "whatsapp": return <WhatsappReports data={data} vinculos={vinculos} />;
       case "elasticidade": return <ElasticityAnalysis data={data} />;
       case "deep_dive": return <AdvancedAnalytics data={data} />;

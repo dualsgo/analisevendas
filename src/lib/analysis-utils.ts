@@ -47,7 +47,7 @@ export function detectarAdicionaisSuspeitos(rows: DetailedSaleRow[]): DetailedSa
         nota.tipo_desconto = "ADICIONAL";
         nota.status_auditoria = "ADICIONAL CONFIRMADO (CPF + DESCONTO 10% NO DIA)";
       } else {
-        nota.status_auditoria = "ADICIONAL VINCULADO (MESMO CPF NO DIA DA RETIRADA)";
+        nota.status_auditoria = "ADICIONAL PROVÁVEL (MESMO CPF NO DIA DA RETIRADA)";
       }
     }
   });

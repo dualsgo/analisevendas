@@ -282,22 +282,24 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     const SITE_STORE_CEP = "21211007"; // CEP cadastrado no site (Oficial de Pickup)
     const PHYSICAL_STORE_CEP = "21210623"; // CEP físico da loja (Digitado manualmente no iFood)
 
-    // Lógica: Endereço na loja AND (Origem Digital SEFAZ OU Pagamento Site via tpIntegra)
+    // --- FLUXO DE FILTROS SEQUENCIAIS ---
+    
+    // FILTRO 1: Identificação da Natureza Digital (Tags, Pagamento e Bloqueios)
     const isDigitalOuOnline = (isOperacaoInternet || temPagamentoSite) && !isBalcaoBlocked;
 
     let canalFinal = isTroca ? "TROCA" : "LOJA_FISICA";
     let isRetiradaOnlineFinal = false;
 
     if (!isTroca && isDigitalOuOnline) {
-      // 1. PICKUP OFICIAL: Se o destino for o CEP do site (21211007)
+      // FILTRO 2: Validação Estrita de Destino para Pickup Presencial
+      // Se passar pelo filtro 1 mas o CEP for diferente do site (21211007), reclassificamos como Delivery
       if (cep_dest === SITE_STORE_CEP) {
         canalFinal = "RETIRADA_ONLINE";
         isRetiradaOnlineFinal = true;
-      } 
-      // 2. DELIVERY (iFood/Rappi): Se o destino for o CEP físico digitado manualmente (21210623)
-      else if (cep_dest === PHYSICAL_STORE_CEP || cep_dest === cep_loja) {
+      } else {
+        // Enquadra como Delivery (iFood/Rappi/Manual) e remove o flag de pickup presencial
         canalFinal = "DELIVERY";
-        isRetiradaOnlineFinal = false; // Não é pickup presencial para auditoria de adicional
+        isRetiradaOnlineFinal = false; 
       }
     }
 

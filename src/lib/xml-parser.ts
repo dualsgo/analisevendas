@@ -274,12 +274,27 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
       temDinheiro ||
       vTrocoPag > 0;
 
-    // Lógica: Endereço na loja AND (Origem Digital SEFAZ OU Pagamento Site via tpIntegra)
-    const isRetiradaOnline = isEnderecoLoja && (isOperacaoInternet || temPagamentoSite) && !isBalcaoBlocked;
-
     const vTrocaCredito = pagamentosDet.filter(p => p.tPag === "05").reduce((acc, p) => acc + p.vPag, 0);
     const isTroca = vTrocaCredito > 0;
     const dif_troca = vNFValue - vTrocaCredito;
+
+    // Lógica: Endereço na loja AND (Origem Digital SEFAZ OU Pagamento Site via tpIntegra)
+    const isDigitalOuPickup = isEnderecoLoja && (isOperacaoInternet || temPagamentoSite) && !isBalcaoBlocked;
+
+    let canalFinal = isTroca ? "TROCA" : "LOJA_FISICA";
+    let isRetiradaOnlineFinal = false;
+
+    if (!isTroca && isDigitalOuPickup) {
+      // Diferenciação crítica: CEP 21211007 é a "âncora" de retirada presencial
+      if (cep_dest === "21211007") {
+        canalFinal = "RETIRADA_ONLINE";
+        isRetiradaOnlineFinal = true;
+      } else {
+        // Se for digital mas CEP diferente do oficial de pickup, é Delivery (iFood/Rappi)
+        canalFinal = "DELIVERY";
+        isRetiradaOnlineFinal = false; // Delivery não conta como pickup para o painel de adicionais
+      }
+    }
 
     const valorTotalProds = itemsList.reduce((acc, it) => acc + it.vProd, 0);
     const descontoTotal = itemsList.reduce((acc, it) => acc + it.vDesc, 0);
@@ -318,15 +333,15 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     return {
       chave, nf, serie: getElement(ide, "serie")?.textContent || "", modelo: getElement(ide, "mod")?.textContent || "", dhEmi, vendedor: vendedorRaw,
       tpNF, finNFe, natOp, indPres,
-      canal: isTroca ? "TROCA" : (isRetiradaOnline ? "RETIRADA_ONLINE" : "LOJA_FISICA"),
-      subcanal: "", canal_consolidado: isTroca ? "TROCA" : (isRetiradaOnline ? "RETIRADA_ONLINE" : "VENDA_LOJA"),
+      canal: canalFinal,
+      subcanal: "", canal_consolidado: canalFinal === "LOJA_FISICA" ? "VENDA_LOJA" : canalFinal,
       is_adicional: false, is_adicional_suspeito: false, motivo_adicional: "NAO_ADICIONAL",
       vNF: vNFValue.toFixed(2), itens_qtd: itemsList.reduce((acc, it) => acc + it.qCom, 0).toString(),
       desconto_total: descontoTotal.toFixed(2), percentual_desconto: percentualDesconto.toFixed(4),
       is_troca: isTroca, vTroca: vTrocaCredito.toFixed(2), dif_troca: dif_troca.toFixed(2),
       is_devolucao: tpNF === 0 && (finNFe === 4 || natOp.toLowerCase().includes("devolucao")),
       refNFe: refNFes, refNFe_normalizadas: refNFes.map(r => r.replace(/\D/g, "")),
-      is_retirada_online: isRetiradaOnline, vTroco: vTrocoPag.toFixed(2), is_presencial_por_troco: !isRetiradaOnline, tpIntegra: tpIntegraValue,
+      is_retirada_online: isRetiradaOnlineFinal, vTroco: vTrocoPag.toFixed(2), is_presencial_por_troco: canalFinal === "LOJA_FISICA", tpIntegra: tpIntegraValue,
       tem_desconto: descontoTotal > 0, tipo_desconto: tipoDescontoFinal,
       status_auditoria: statusAuditoriaFinal,
       cep_dest, cep_loja, is_cep_diferente_da_loja: !!cep_dest && cep_dest !== cep_loja,

@@ -18,6 +18,7 @@ import {
   FileText, 
   MessageCircle, 
   X, 
+  Truck,
   Calendar as CalendarIcon,
   Smartphone,
   Zap,
@@ -102,6 +103,7 @@ import { GeographicAnalysis } from "./GeographicAnalysis";
 import { ArenaDeTalentos } from "./ArenaDeTalentos";
 import { ExecutiveSummary } from "./ExecutiveSummary";
 import { PickupPanel } from "./PickupPanel";
+import { DeliveryPanel } from "./DeliveryPanel";
 import { Calculator, Map } from "lucide-react";
 
 interface SalesSummaryProps {
@@ -119,7 +121,8 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
     fisica: true,
     online: true,
     adicional: true,
-    troca: true
+    troca: true,
+    delivery: true
   });
 
   const handleTabChange = (tab: string) => {
@@ -149,8 +152,8 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
     
     const fisica    = saidas.filter(r => r.canal === "LOJA_FISICA" && !r.is_troca);
     const online    = saidas.filter(r => r.canal === "RETIRADA_ONLINE");
-    // adicional: canal já é definido como RETIRADA_ADICIONAL pelo parser quando is_adicional/suspeito
     const adicional = saidas.filter(r => r.canal === "RETIRADA_ADICIONAL");
+    const delivery  = saidas.filter(r => r.canal === "DELIVERY");
     
     const calcMetrics = (rows: DetailedSaleRow[]) => {
       const v = rows.reduce((acc, r) => acc + parseFloat(r.vNF), 0);
@@ -178,6 +181,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
       fisica: calcMetrics(fisica),
       online: calcMetrics(online),
       adicional: calcMetrics(adicional),
+      delivery: calcMetrics(delivery),
       troca: {
         venda: vTroca,
         cupons: cTroca,
@@ -211,6 +215,12 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
       i += metricsByChannel.adicional.itens;
       iden += metricsByChannel.adicional.identified;
     }
+    if (selectedChannels.delivery) {
+      v += metricsByChannel.delivery.venda;
+      c += metricsByChannel.delivery.cupons;
+      i += metricsByChannel.delivery.itens;
+      iden += metricsByChannel.delivery.identified;
+    }
     if (selectedChannels.troca) {
       v += metricsByChannel.troca.venda;
       c += metricsByChannel.troca.cupons;
@@ -218,7 +228,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
       iden += metricsByChannel.troca.identified;
     }
 
-    const allDisabled = !selectedChannels.fisica && !selectedChannels.online && !selectedChannels.adicional && !selectedChannels.troca;
+    const allDisabled = !selectedChannels.fisica && !selectedChannels.online && !selectedChannels.adicional && !selectedChannels.troca && !selectedChannels.delivery;
     if (allDisabled) return { venda: 0, cupons: 0, itens: 0, tkm: 0, pa: 0, cadastros: 0 };
 
     return {
@@ -255,6 +265,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
     { id: "customer_loyalty", label: "Fidelidade & Recorrência", icon: Users2, category: "Clientes", color: "text-emerald-600 font-black" },
     { id: "ritmo_operacional", label: "Ritmo Operacional", icon: Timer, category: "Operacional" },
     { id: "pickup_track", label: "Monitor Pickup", icon: Smartphone, category: "Operacional", color: "text-sky-600 font-black" },
+    { id: "delivery_track", label: "Monitor Delivery", icon: Truck, category: "Operacional", color: "text-rose-600 font-black" },
     { id: "transacoes", label: "Transações", icon: ListFilter, category: "Operacional" },
     { id: "payment_map", label: "Mapa de Pagamentos", icon: CreditCard, category: "Operacional" },
     { id: "qualidade_avancada", label: "Qualidade da Venda", icon: Target, category: "Operacional" },
@@ -283,6 +294,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
               <ChannelSelector label="Loja Física" icon={Store} active={selectedChannels.fisica} color="text-slate-600" onToggle={() => toggleChannel('fisica')} />
               <ChannelSelector label="Pickup" icon={Smartphone} active={selectedChannels.online} color="text-sky-500" onToggle={() => toggleChannel('online')} />
               <ChannelSelector label="Adicional" icon={Zap} active={selectedChannels.adicional} color="text-emerald-500" onToggle={() => toggleChannel('adicional')} />
+              <ChannelSelector label="Delivery" icon={Truck} active={selectedChannels.delivery} color="text-rose-500" onToggle={() => toggleChannel('delivery')} />
               <ChannelSelector label="Trocas" icon={ArrowRightLeft} active={selectedChannels.troca} color="text-purple-500" onToggle={() => toggleChannel('troca')} />
             </motion.div>
 
@@ -323,6 +335,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
               <FixedChannelCard title="Físico" icon={Store} metrics={metricsByChannel.fisica} color="border-slate-200" large={isCollapsed} />
               <FixedChannelCard title="Pickup" icon={Smartphone} metrics={metricsByChannel.online} color="border-sky-200" large={isCollapsed} />
               <FixedChannelCard title="Adicional" icon={Zap} metrics={metricsByChannel.adicional} color="border-emerald-200" large={isCollapsed} />
+              <FixedChannelCard title="Delivery" icon={Truck} metrics={metricsByChannel.delivery} color="border-rose-200" large={isCollapsed} />
               <FixedChannelCard title="Trocas" icon={ArrowRightLeft} metrics={metricsByChannel.troca} color="border-purple-200" large={isCollapsed} />
             </motion.div>
           </motion.div>
@@ -341,6 +354,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
       case "trocas": return <ExchangeManagement data={data} vinculos={vinculos} />;
       case "transacoes": return <TransactionList data={data} />;
       case "pickup_track": return <PickupPanel data={data} />;
+      case "delivery_track": return <DeliveryPanel data={data} />;
       case "whatsapp": return <WhatsappReports data={data} vinculos={vinculos} />;
       case "elasticidade": return <ElasticityAnalysis data={data} />;
       case "deep_dive": return <AdvancedAnalytics data={data} />;

@@ -37,6 +37,7 @@ import {
   ShoppingBag,
   Sword,
   ClipboardList,
+  ClipboardCheck,
   Flame,
   MousePointer2,
   Radio,
@@ -104,6 +105,7 @@ import { ArenaDeTalentos } from "./ArenaDeTalentos";
 import { ExecutiveSummary } from "./ExecutiveSummary";
 import { PickupPanel } from "./PickupPanel";
 import { DeliveryPanel } from "./DeliveryPanel";
+import { FeedbackPanel } from "./FeedbackPanel";
 import { Calculator, Map } from "lucide-react";
 
 interface SalesSummaryProps {
@@ -243,6 +245,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
 
   const navItems = [
     { id: "executivo", label: "Resumo Executivo", icon: Sparkles, category: "Resultados", color: "text-orange-500 font-black" },
+    { id: "feedback", label: "Feedback Consolidado", icon: ClipboardCheck, category: "Resultados", color: "text-indigo-600 font-black" },
     { id: "geral", label: "Visão Geral", icon: LayoutDashboard, category: "Resultados" },
     { id: "impacto", label: "Projeção de Impacto", icon: Target, category: "Resultados", color: "text-purple-500 font-bold" },
     { id: "pacing", label: "Termômetro de Tração", icon: TrendingUp, category: "Resultados", color: "text-indigo-600 font-black" },
@@ -373,6 +376,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
       case "pa": return <AdditionalItemsAnalysis data={data} />;
       case "venda_sugestiva": return <AdditionalItemsAnalysis data={data} />;
       case "gamification": return <ArenaDeTalentos data={data} />;
+      case "feedback": return <FeedbackPanel data={data} vinculos={vinculos} />;
       default: return null;
     }
   };

@@ -282,24 +282,24 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     const SITE_STORE_CEP = "21211007"; // CEP cadastrado no site (Oficial de Pickup)
     const PHYSICAL_STORE_CEP = "21210623"; // CEP físico da loja (Digitado manualmente no iFood)
 
-    // --- FLUXO DE FILTROS SEQUENCIAIS ---
-    
-    // FILTRO 1: Identificação da Natureza Digital (Tags, Pagamento e Bloqueios)
-    const isDigitalOuOnline = (isOperacaoInternet || temPagamentoSite) && !isBalcaoBlocked;
+    // --- PASSO 1: Classificação Primária Base (Original do Sistema) ---
+    // Identifica a natureza digital baseada em tags, pagamento e endereço na loja
+    const isDigitalOuOnline = isEnderecoLoja && (isOperacaoInternet || temPagamentoSite) && !isBalcaoBlocked;
 
     let canalFinal = isTroca ? "TROCA" : "LOJA_FISICA";
     let isRetiradaOnlineFinal = false;
 
     if (!isTroca && isDigitalOuOnline) {
-      // FILTRO 2: Validação Estrita de Destino para Pickup Presencial
-      // Se passar pelo filtro 1 mas o CEP for diferente do site (21211007), reclassificamos como Delivery
-      if (cep_dest === SITE_STORE_CEP) {
-        canalFinal = "RETIRADA_ONLINE";
-        isRetiradaOnlineFinal = true;
-      } else {
-        // Enquadra como Delivery (iFood/Rappi/Manual) e remove o flag de pickup presencial
+      canalFinal = "RETIRADA_ONLINE"; // Confirmado primariamente como Pickup
+      isRetiradaOnlineFinal = true;
+    }
+
+    // --- PASSO 2: Filtro Extra de Auditoria (Validar apenas Retiradas) ---
+    // Reforça a regra: se é Pickup mas o CEP não é o oficial do site, reclassifica como Delivery
+    if (canalFinal === "RETIRADA_ONLINE") {
+      if (cep_dest !== SITE_STORE_CEP) {
         canalFinal = "DELIVERY";
-        isRetiradaOnlineFinal = false; 
+        isRetiradaOnlineFinal = false; // Delivery não entra no monitor de adicionais de balcão
       }
     }
 

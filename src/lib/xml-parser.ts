@@ -289,15 +289,18 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     let isRetiradaOnlineFinal = false;
 
     if (!isTroca && isDigitalOuOnline) {
-      // 1. PICKUP OFICIAL: Se o destino for o CEP do site (21211007)
-      if (cep_dest === SITE_STORE_CEP) {
+      // 1. PICKUP OFICIAL: Regra reforçada - Remetente E Destinatário obrigatoriamente com CEP 21211007
+      const isRemetenteSite = cep_loja === SITE_STORE_CEP;
+      const isDestinatarioSite = cep_dest === SITE_STORE_CEP;
+
+      if (isRemetenteSite && isDestinatarioSite) {
         canalFinal = "RETIRADA_ONLINE";
         isRetiradaOnlineFinal = true;
       } 
-      // 2. DELIVERY (iFood/Rappi): Se o destino for o CEP físico digitado manualmente (21210623)
-      else if (cep_dest === PHYSICAL_STORE_CEP || cep_dest === cep_loja) {
+      // 2. DELIVERY (iFood/Rappi): Se o destino for o CEP físico (21210623) ou o mesmo da loja (mas sem ser o do site)
+      else if (cep_dest === PHYSICAL_STORE_CEP || (cep_dest === cep_loja && cep_loja !== SITE_STORE_CEP)) {
         canalFinal = "DELIVERY";
-        isRetiradaOnlineFinal = false; // Não é pickup presencial para auditoria de adicional
+        isRetiradaOnlineFinal = false; 
       }
     }
 

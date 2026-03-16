@@ -274,7 +274,7 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
       temDinheiro ||
       vTrocoPag > 0;
 
-    // Exclusivamente via Tags do XML: Destino na Loja AND (Operação de Internet OR Pagamento de Site)
+    // Lógica: Endereço na loja AND (Origem Digital SEFAZ OU Pagamento Site via tpIntegra)
     const isRetiradaOnline = isEnderecoLoja && (isOperacaoInternet || temPagamentoSite) && !isBalcaoBlocked;
 
     const vTrocaCredito = pagamentosDet.filter(p => p.tPag === "05").reduce((acc, p) => acc + p.vPag, 0);

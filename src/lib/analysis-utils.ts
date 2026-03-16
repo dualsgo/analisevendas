@@ -1,48 +1,14 @@
 
 import { DetailedSaleRow, VinculoTroca } from "./types";
 
-/**
- * Detecta fragmentação de cupons (divisão artificial de compras).
- * Regra: Vendas com diferença de tempo < 3 minutos para o mesmo CPF ou mesmo Vendedor com valores baixos.
- */
-export function detectarFragmentacao(rows: DetailedSaleRow[]): DetailedSaleRow[] {
-  const saidas = [...rows]
-    .filter(r => r.tpNF === 1 && !r.is_cancelada)
-    .sort((a, b) => new Date(a.dhEmi).getTime() - new Date(b.dhEmi).getTime());
-
-  for (let i = 1; i < saidas.length; i++) {
-    const atual = saidas[i];
-    const anterior = saidas[i - 1];
-
-    const tAtual = new Date(atual.dhEmi).getTime();
-    const tAnterior = new Date(anterior.dhEmi).getTime();
-    const diffMin = (tAtual - tAnterior) / 60000;
-
-    if (diffMin <= 3) {
-      const mesmoCpf = atual.cpf_cnpj_dest && atual.cpf_cnpj_dest === anterior.cpf_cnpj_dest;
-      const mesmoVendedor = atual.vendedor === anterior.vendedor;
-
-      if (mesmoCpf || (mesmoVendedor && parseInt(atual.itens_qtd) === 1 && parseInt(anterior.itens_qtd) === 1)) {
-        atual.is_fragmentada = true;
-        anterior.is_fragmentada = true;
-      }
-    }
-  }
-  return rows;
-}
-
 export function detectarAdicionaisSuspeitos(rows: DetailedSaleRow[]): DetailedSaleRow[] {
-  // Primeiro detecta fragmentação para não confundir com adicional legítimo
-  const withFragmented = detectarFragmentacao(rows);
-
-  const retiradas = withFragmented.filter(r => r.canal === "RETIRADA_ONLINE" && !r.is_cancelada);
-  const candidatos = withFragmented.filter(r =>
+  const retiradas = rows.filter(r => r.canal === "RETIRADA_ONLINE" && !r.is_cancelada);
+  const candidatos = rows.filter(r =>
     r.tpNF === 1 &&
     r.canal !== "RETIRADA_ONLINE" &&
     !r.is_cancelada &&
     !r.is_troca &&
-    !r.tem_suspeita_preco_errado &&
-    !r.is_fragmentada // Fragmentado não é adicional seguro
+    !r.tem_suspeita_preco_errado
   );
 
   const pickupsPorCpf = new Map<string, DetailedSaleRow[]>();
@@ -61,6 +27,7 @@ export function detectarAdicionaisSuspeitos(rows: DetailedSaleRow[]): DetailedSa
     const timeNota = new Date(nota.dhEmi);
     const dateNotaStr = timeNota.toISOString().split('T')[0];
 
+    // Encontra retirada no mesmo CPF e mesmo dia
     const pickupVinculada = pickupsDoCliente.find(p => {
       const datePickupStr = new Date(p.dhEmi).toISOString().split('T')[0];
       return dateNotaStr === datePickupStr;
@@ -73,19 +40,20 @@ export function detectarAdicionaisSuspeitos(rows: DetailedSaleRow[]): DetailedSa
       nota.canal_consolidado = "RETIRADA_ADICIONAL";
 
       const perc = parseFloat(nota.percentual_desconto);
+      // Desconto estratégico de 10% (0.08 a 0.12 pela variação de arredondamento)
       const temDescontoEstrategico = perc >= 0.08 && perc <= 0.12;
 
       nota.is_adicional = true;
       if (temDescontoEstrategico) {
         nota.tipo_desconto = "ADICIONAL";
-        nota.status_auditoria = "ADICIONAL CONFIRMADO (CPF + DESCONTO 10%)";
+        nota.status_auditoria = "ADICIONAL CONFIRMADO (CPF + DESCONTO 10% NO DIA)";
       } else {
-        nota.status_auditoria = "ADICIONAL CONFIRMADO (VÍNCULO CPF NO MESMO DIA)";
+        nota.status_auditoria = "ADICIONAL VINCULADO (CPF NO DIA DA RETIRADA)";
       }
     }
   });
 
-  return withFragmented;
+  return rows;
 }
 
 export function vincularTrocas(rows: DetailedSaleRow[]): VinculoTroca[] {

@@ -12,6 +12,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import {
   Card,
   CardContent,
   CardHeader,
@@ -51,6 +58,7 @@ interface ConversionAuditProps {
 export function ConversionAudit({ data }: ConversionAuditProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeView, setActiveView] = useState("colaborador");
+  const [selectedVendor, setSelectedVendor] = useState<string | null>(null);
 
   const pickupOrders = useMemo(() => {
     return data.filter(r => r.canal === "RETIRADA_ONLINE" && !r.is_cancelada);
@@ -145,7 +153,11 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
         <div className="mt-6">
           <TabsContent value="colaborador" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {statsByVendor.map((v, i) => (
-              <Card key={i} className="ri-card overflow-hidden shadow-md">
+              <Card 
+                key={i} 
+                className="ri-card overflow-hidden shadow-md cursor-pointer hover:border-sky-300 transition-all active:scale-[0.98]"
+                onClick={() => setSelectedVendor(v.name)}
+              >
                 <div className="p-5 flex justify-between items-start">
                   <div className="space-y-1">
                     <p className="text-xs font-black uppercase text-slate-800">{v.name}</p>
@@ -171,6 +183,88 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
               </Card>
             ))}
           </TabsContent>
+
+          {/* Collaborator Details Drawer */}
+          <Sheet open={!!selectedVendor} onOpenChange={(open) => !open && setSelectedVendor(null)}>
+            <SheetContent className="w-full sm:max-w-xl bg-white p-0 overflow-y-auto">
+              {selectedVendor && (
+                <div className="h-full flex flex-col">
+                  <div className="p-6 bg-slate-900 text-white">
+                    <SheetHeader>
+                      <SheetTitle className="text-xl font-black text-white uppercase flex items-center gap-2">
+                        <Users className="w-5 h-5 text-sky-400" />
+                        Auditoria: {selectedVendor}
+                      </SheetTitle>
+                      <SheetDescription className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">
+                        Detalhamento das Conversões Adicionais
+                      </SheetDescription>
+                    </SheetHeader>
+                  </div>
+
+                  <div className="flex-1 p-6 space-y-6">
+                    {/* Filter for current vendor sales */}
+                    {(() => {
+                      const vendorSales: any[] = [];
+                      pickupOrders.forEach(order => {
+                        const adics = (vinculadosMap[order.chave] || [])
+                          .filter(a => (a.vendedor || "OUTROS") === selectedVendor);
+                        
+                        adics.forEach(a => {
+                          vendorSales.push({ order, adicional: a });
+                        });
+                      });
+
+                      if (vendorSales.length === 0) return <p className="text-center py-20 text-slate-400 font-bold uppercase italic">Nenhuma conversão detalhada encontrada.</p>;
+
+                      return (
+                        <div className="space-y-4">
+                          {vendorSales.map((item, idx) => (
+                            <div key={idx} className="bg-slate-50 rounded-2xl border border-slate-100 p-4 space-y-3">
+                              <div className="flex justify-between items-start border-b border-slate-200 pb-2">
+                                <div>
+                                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Data/Hora</p>
+                                  <p className="text-xs font-black text-slate-700">
+                                    {format(parseISO(item.adicional.dhEmi), "dd/MM/yyyy HH:mm")}
+                                  </p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Valor do Adicional</p>
+                                  <p className="text-sm font-black text-emerald-700">
+                                    {parseFloat(item.adicional.vNF).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                  </p>
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Retirada (Âncora)</p>
+                                  <p className="text-[11px] font-bold text-slate-600 truncate">NF #{item.order.nf} - {item.order.vendedor}</p>
+                                </div>
+                                <div>
+                                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Peças Adicionais</p>
+                                  <p className="text-[11px] font-bold text-slate-600 truncate">{item.adicional.itens_qtd} itens</p>
+                                </div>
+                              </div>
+
+                              <div className="bg-white rounded-xl p-3 border border-slate-100 space-y-1">
+                                <p className="text-[8px] font-black text-slate-400 uppercase">Itens Vendidos</p>
+                                {Object.values(item.adicional.itens).map((prod: any, pIdx: number) => (
+                                  <div key={pIdx} className="flex justify-between text-[10px] font-bold text-slate-600">
+                                    <span className="uppercase truncate max-w-[200px]">{prod.xProd}</span>
+                                    <span>{parseFloat(prod.vProd).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </div>
+              )}
+            </SheetContent>
+          </Sheet>
 
           <TabsContent value="diagnostico" className="space-y-6">
             <Card className="ri-card bg-slate-900 text-white p-8 md:p-12 relative overflow-hidden">

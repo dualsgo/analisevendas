@@ -29,6 +29,7 @@ import {
   FileText,
   Link2,
   ArrowRightLeft,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, parseISO } from "date-fns";
@@ -161,8 +162,70 @@ export function PickupPanel({ data }: PickupPanelProps) {
   const toggleGroup = (key: string) =>
     setExpandedGroup(prev => (prev === key ? null : key));
 
+  // Guardian Suggestion Algorithm
+  const guardians = useMemo(() => {
+    const vendors: Record<string, { converted: number, total: number, rev: number }> = {};
+    
+    groups.forEach(g => {
+      g.retiradas.forEach(r => {
+        const v = r.vendedor || "DESCONHECIDO";
+        if (!vendors[v]) vendors[v] = { converted: 0, total: 0, rev: 0 };
+        vendors[v].total++;
+        if (g.adicionais.length > 0) {
+          vendors[v].converted++;
+          vendors[v].rev += g.adicionais.reduce((acc, a) => acc + parseFloat(a.vNF), 0);
+        }
+      });
+    });
+
+    return Object.entries(vendors)
+      .map(([name, s]) => ({
+        name,
+        conv: s.total > 0 ? (s.converted / s.total) * 100 : 0,
+        rev: s.rev,
+        score: (s.total > 0 ? (s.converted / s.total) * 60 : 0) + (Math.min(s.rev / 1000, 1) * 40)
+      }))
+      .filter(v => v.name !== "DESCONHECIDO" && v.name !== "COLABORADOR NÃO IDENTIFICADO")
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 2);
+  }, [groups]);
+
   return (
     <div className="space-y-6 pb-20 animate-in fade-in duration-500">
+      {/* Guardians Suggestion */}
+      {guardians.length > 0 && (
+        <Card className="ri-card bg-slate-900 overflow-hidden relative border-none">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 blur-[100px] -mr-32 -mt-32" />
+          <div className="p-6 flex flex-col md:flex-row items-center justify-between gap-6 relative z-10">
+            <div className="space-y-1 text-center md:text-left">
+              <div className="inline-flex items-center gap-2 bg-indigo-500/20 text-indigo-300 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">
+                <Sparkles className="w-3.5 h-3.5" />
+                Guardiões Sugeridos
+              </div>
+              <h3 className="text-xl font-black text-white italic uppercase tracking-tight">Especialistas em Conversão</h3>
+              <p className="text-slate-400 text-xs font-medium">Prioridade recomendada no atendimento do balcão de retirada.</p>
+            </div>
+
+            <div className="flex gap-4">
+               {guardians.map((g, i) => (
+                 <div key={i} className="bg-white/5 border border-white/10 p-4 rounded-2xl flex items-center gap-4 min-w-[200px]">
+                    <div className="w-12 h-12 rounded-xl bg-indigo-500/20 flex items-center justify-center text-indigo-400 font-black text-lg">
+                      {i + 1}º
+                    </div>
+                    <div>
+                      <p className="text-xs font-black text-white uppercase truncate max-w-[120px]">{g.name}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Badge className="bg-emerald-500/20 text-emerald-400 border-none text-[8px] font-black">{g.conv.toFixed(1)}% CONV.</Badge>
+                        <span className="text-[10px] font-bold text-slate-500">{formatBRL(g.rev)}</span>
+                      </div>
+                    </div>
+                 </div>
+               ))}
+            </div>
+          </div>
+        </Card>
+      )}
+
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard

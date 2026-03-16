@@ -23,8 +23,8 @@ interface OperationalRhythmProps {
 }
 
 const DAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
-const SLOT_MINUTES = 15;
-const SLOTS_PER_DAY = Math.ceil((22 - 9) * 60 / SLOT_MINUTES); // 09h–22h = 52 slots
+const SLOT_MINUTES = 30;
+const SLOTS_PER_DAY = Math.ceil((22 - 9) * 60 / SLOT_MINUTES); // 09h–22h = 26 slots
 
 function toSlotKey(dhEmi: string): string | null {
   try {
@@ -354,8 +354,8 @@ export function OperationalRhythm({ data }: OperationalRhythmProps) {
       let totalCupons = 0;
       let validSlots = 0;
       
-      for(let step=0; step<4; step++) {
-        let curM = m + (step * 15);
+      for(let step=0; step<2; step++) {
+        let curM = m + (step * 30);
         let curH = h + Math.floor(curM / 60);
         curM = curM % 60;
         const curSlot = `${String(curH).padStart(2, '0')}:${String(curM).padStart(2, '0')}`;
@@ -368,12 +368,12 @@ export function OperationalRhythm({ data }: OperationalRhythmProps) {
         }
       }
       
-      if (validSlots === 4) {
+      if (validSlots === 2) {
         janelas.push({
           slotInicio: start,
           slotFim: endStr,
-          pressaoMedia: +(totalPressao / 4).toFixed(2),
-          avgCupons: +(totalCupons / 4).toFixed(1)
+          pressaoMedia: +(totalPressao / 2).toFixed(2),
+          avgCupons: +(totalCupons / 2).toFixed(1)
         });
       }
     }

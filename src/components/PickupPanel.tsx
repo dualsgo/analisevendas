@@ -75,15 +75,18 @@ export function PickupPanel({ data }: PickupPanelProps) {
   const groups = useMemo(() => {
     const saidas = data.filter(r => !r.is_cancelada && r.tpNF === 1);
     const retiradas = saidas.filter(r => r.canal === "RETIRADA_ONLINE" || r.is_retirada_online);
-    const adicionais = saidas.filter(r => r.canal === "RETIRADA_ADICIONAL" || r.is_adicional);
+    
+    // Qualquer venda que NÃO seja retirada (inclui vendas físicas normais, com ou sem desconto)
+    const outrasVendasNoDia = saidas.filter(r => r.canal !== "RETIRADA_ONLINE" && !r.is_retirada_online);
 
     const groupMap = new Map<string, PickupGroup>();
 
-    // Seed with retiradas
+    // Primeiro, criamos os grupos baseados nas retiradas encontradas
     retiradas.forEach(r => {
       const dateStr = r.dhEmi ? r.dhEmi.split("T")[0] : "unknown";
       const cpf = r.cpf_cnpj_dest || "__sem_cpf__" + r.chave;
       const key = `${cpf}__${dateStr}`;
+      
       if (!groupMap.has(key)) {
         groupMap.set(key, {
           cpf,
@@ -96,40 +99,26 @@ export function PickupPanel({ data }: PickupPanelProps) {
       groupMap.get(key)!.retiradas.push(r);
     });
 
-    // Link adicionais by chave_retirada_associada or by CPF+date
-    adicionais.forEach(a => {
-      const dateStr = a.dhEmi ? a.dhEmi.split("T")[0] : "unknown";
-      const cpf = a.cpf_cnpj_dest;
+    // Depois, percorremos todas as outras vendas e as "puxamos" para os grupos de retirada
+    outrasVendasNoDia.forEach(v => {
+      // Ignora notas sem CPF para vínculo opcional (só vinculamos se tiver CPF)
+      if (!v.cpf_cnpj_dest) return;
+      
+      const dateStr = v.dhEmi ? v.dhEmi.split("T")[0] : "unknown";
+      const key = `${v.cpf_cnpj_dest}__${dateStr}`;
 
-      // Try exact link via chave_retirada_associada
-      if (a.chave_retirada_associada) {
-        for (const [, g] of groupMap) {
-          if (g.retiradas.some(r => r.chave === a.chave_retirada_associada)) {
-            g.adicionais.push(a);
-            return;
-          }
+      // Se existir um grupo de retirada para esse CPF e Data, vinculamos como "Adicional"
+      if (groupMap.has(key)) {
+        const group = groupMap.get(key)!;
+        // Evita duplicidade se a mesma nota já estiver lá (pela chave)
+        if (!group.adicionais.some(a => a.chave === v.chave)) {
+          group.adicionais.push(v);
         }
       }
-
-      // Fallback: CPF + same day
-      if (cpf) {
-        const key = `${cpf}__${dateStr}`;
-        if (groupMap.has(key)) {
-          // check if already added
-          if (!groupMap.get(key)!.adicionais.includes(a)) {
-            groupMap.get(key)!.adicionais.push(a);
-          }
-          return;
-        }
-      }
-
     });
 
-    const finalGroups = Array.from(groupMap.values());
-    
-    // FILTRO CRÍTICO: Um grupo de pickup sem retirada é um "falso adicional".
-    // Removemos qualquer grupo que não tenha pelo menos uma retirada confirmada.
-    return finalGroups
+    // Filtro Final: Só mostramos no painel se houver de fato uma retirada
+    return Array.from(groupMap.values())
       .filter(g => g.retiradas.length > 0)
       .sort((a, b) => b.date.localeCompare(a.date));
   }, [data]);

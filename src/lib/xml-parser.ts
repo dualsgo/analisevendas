@@ -259,9 +259,10 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     // --- LOGICA DE CLASSIFICAÇÃO UNIFICADA ---
     const isOperacaoInternet = indPres === 2 || indPres === 3 || indPres === 9;
     
-    // O CEP de destino pode ser o da própria loja ou conter o nome do local (para retrocompatibilidade)
-    const isEnderecoLoja = (!!cep_dest && cep_dest === cep_loja) || 
-      (cep_dest === "21211007" && /VICENTE\s+DE\s+CARVALHO/i.test(xLgr_dest));
+    // --- DETECÇÃO DE ENDEREÇO DA LOJA ---
+    // Aceita tanto o CEP do Site (21211007) quanto o CEP físico (21210623) como destino na loja
+    const isEnderecoLoja = (!!cep_dest && (cep_dest === "21211007" || cep_dest === "21210623" || cep_dest === cep_loja)) || 
+      /VICENTE\s+DE\s+CARVALHO/i.test(xLgr_dest);
 
     // Identificação de pagamento digital pelo site pela tag (Sem varredura textural)
     // tpIntegra = 2 (Não Integrado com TEF físico da loja), tPag = 99 (Outros), 90 (Sem pagamento)

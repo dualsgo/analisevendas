@@ -27,6 +27,8 @@ interface CouponAnalysisProps {
 }
 
 export function CouponAnalysis({ data }: CouponAnalysisProps) {
+  const [selectedVendor, setSelectedVendor] = React.useState("TODOS");
+
   const analytics = useMemo(() => {
     const activeSales = data.filter(s => !s.is_cancelada && s.tpNF === 1);
     
@@ -39,7 +41,6 @@ export function CouponAnalysis({ data }: CouponAnalysisProps) {
       const oneItemCount = oneItemRows.length;
       const oneItemRate = total > 0 ? (oneItemCount / total) * 100 : 0;
       
-      // Price ranges for 1-item coupons
       const priceRanges = [
         { label: "Até R$ 50", min: 0, max: 50, count: 0 },
         { label: "R$ 50 - 100", min: 50, max: 100, count: 0 },
@@ -60,7 +61,16 @@ export function CouponAnalysis({ data }: CouponAnalysisProps) {
     const pickupStats = get1ItemStats(pickup);
     const globalStats = get1ItemStats(activeSales);
 
-    // Breakdown by Collaborator (Physical Store only usually, or consistent across)
+    // Vendor specific stats for the price dissection
+    const filteredFisica = selectedVendor === "TODOS" 
+      ? fisica 
+      : fisica.filter(s => (s.vendedor || "OUTROS") === selectedVendor);
+    
+    const vendorFisicaStats = get1ItemStats(filteredFisica);
+
+    // List of vendors for the selector
+    const vendors = Array.from(new Set(fisica.map(s => s.vendedor || "OUTROS"))).sort();
+
     const vendorMap: Record<string, { total: number, oneItem: number }> = {};
     fisica.forEach(s => {
       const v = s.vendedor || "OUTROS";
@@ -75,20 +85,18 @@ export function CouponAnalysis({ data }: CouponAnalysisProps) {
       rate: stats.total > 0 ? (stats.oneItem / stats.total) * 100 : 0
     })).sort((a, b) => b.rate - a.rate);
 
-    // Impact Analysis
-    // Consolidated 1-item rate vs 1-item rate WITHOUT Pickup
-    const rateWithPickup = globalStats.oneItemRate;
-    const rateWithoutPickup = fisicaStats.oneItemRate; // Assuming "consolidated" means including everything
-    const impact = rateWithPickup - rateWithoutPickup;
+    const impact = globalStats.oneItemRate - fisicaStats.oneItemRate;
 
     return {
       fisicaStats,
       pickupStats,
       globalStats,
+      vendorFisicaStats,
       vendorRanking,
+      vendors,
       impact
     };
-  }, [data]);
+  }, [data, selectedVendor]);
 
   const formatCurrency = (val: number) => {
     return val.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -124,14 +132,36 @@ export function CouponAnalysis({ data }: CouponAnalysisProps) {
         {/* Price Dissection */}
         <Card className="ri-card">
           <CardHeader className="bg-slate-50/50 border-b p-6">
-            <CardTitle className="text-xs font-black uppercase text-slate-500 flex items-center gap-2">
-              <DollarSign className="w-4 h-4" /> Dissecação por Faixa de Preço (Loja Física)
-            </CardTitle>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <CardTitle className="text-xs font-black uppercase text-slate-500 flex items-center gap-2">
+                <DollarSign className="w-4 h-4" /> Dissecação por Faixa de Preço
+              </CardTitle>
+              
+              <select 
+                value={selectedVendor}
+                onChange={(e) => setSelectedVendor(e.target.value)}
+                className="text-[10px] font-bold uppercase bg-white border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
+              >
+                <option value="TODOS">Todos Colaboradores</option>
+                {analytics.vendors.map(v => (
+                  <option key={v} value={v}>{v}</option>
+                ))}
+              </select>
+            </div>
           </CardHeader>
           <CardContent className="p-6 space-y-6">
-            {analytics.fisicaStats.priceRanges.map((range, i) => {
-              const perc = analytics.fisicaStats.oneItemCount > 0 
-                ? (range.count / analytics.fisicaStats.oneItemCount) * 100 
+            <div className="flex items-center justify-between mb-2">
+               <p className="text-[10px] font-black text-slate-400 border-b-2 border-slate-100 pb-1">
+                 {selectedVendor === "TODOS" ? "VISÃO GERAL DA LOJA" : `ANÁLISE INDIVIDUAL: ${selectedVendor}`}
+               </p>
+               <Badge className="bg-slate-100 text-slate-600 font-black text-[9px] hover:bg-slate-200">
+                 {analytics.vendorFisicaStats.oneItemCount} CUPONS
+               </Badge>
+            </div>
+
+            {analytics.vendorFisicaStats.priceRanges.map((range, i) => {
+              const perc = analytics.vendorFisicaStats.oneItemCount > 0 
+                ? (range.count / analytics.vendorFisicaStats.oneItemCount) * 100 
                 : 0;
               return (
                 <div key={i} className="space-y-2">
@@ -168,9 +198,21 @@ export function CouponAnalysis({ data }: CouponAnalysisProps) {
           <CardContent className="p-6">
             <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 scrollbar-hide">
               {analytics.vendorRanking.map((v, i) => (
-                <div key={i} className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between">
+                <button 
+                  key={i} 
+                  onClick={() => setSelectedVendor(v.name)}
+                  className={cn(
+                    "w-full text-left p-4 rounded-2xl border transition-all flex items-center justify-between group",
+                    selectedVendor === v.name 
+                      ? "bg-indigo-50 border-indigo-200 shadow-sm" 
+                      : "bg-slate-50 border-slate-100 hover:border-indigo-200 hover:bg-white"
+                  )}
+                >
                   <div className="min-w-0 flex-1">
-                    <h4 className="text-[11px] font-black text-slate-800 uppercase truncate">{v.name}</h4>
+                    <h4 className="text-[11px] font-black text-slate-800 uppercase truncate flex items-center gap-2">
+                       {v.name}
+                       {selectedVendor === v.name && <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse" />}
+                    </h4>
                     <p className="text-[9px] font-bold text-slate-400 uppercase">{v.oneItem} de {v.total} cupons</p>
                   </div>
                   <div className="text-right ml-4">
@@ -182,7 +224,7 @@ export function CouponAnalysis({ data }: CouponAnalysisProps) {
                     </span>
                     <p className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">Taxa Unitária</p>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           </CardContent>

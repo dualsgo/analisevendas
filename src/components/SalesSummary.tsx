@@ -80,7 +80,6 @@ import { ExchangeManagement } from "./ExchangeManagement";
 import { TransactionList } from "./TransactionList";
 import { WhatsappReports } from "./WhatsappReports";
 import { LostOpportunities } from "./LostOpportunities";
-import { SalesComposition } from "./SalesComposition";
 import { RiskRadar } from "./RiskRadar";
 import { ElasticityAnalysis } from "./ElasticityAnalysis";
 import { AdvancedAnalytics } from "./AdvancedAnalytics";
@@ -88,7 +87,6 @@ import { QualityAnalysis } from "./QualityAnalysis";
 import { AdditionalItemsAnalysis } from "./AdditionalItemsAnalysis";
 import { ConsolidatedReport } from "./ConsolidatedReport";
 import { HeatmapAnalysis } from "./HeatmapAnalysis";
-import { BasketBehavior } from "./BasketBehavior";
 import { SalesEnergy } from "./SalesEnergy";
 import { ProductRisk } from "./ProductRisk";
 import { OperationalRhythm } from "./OperationalRhythm";
@@ -96,16 +94,12 @@ import { PaymentMap } from "./PaymentMap";
 import { CustomerLoyalty } from "./CustomerLoyalty";
 import { PriceProfile } from "./PriceProfile";
 import { ItemRanking } from "./ItemRanking";
-import { TermometroTracao } from "./TermometroTracao";
 import { MatrizAfinidade } from "./MatrizAfinidade";
 import { RiscoTrocas } from "./RiscoTrocas";
-import { SimuladorCenarios } from "./SimuladorCenarios";
 import { GeographicAnalysis } from "./GeographicAnalysis";
-import { ArenaDeTalentos } from "./ArenaDeTalentos";
 import { ExecutiveSummary } from "./ExecutiveSummary";
 import { PickupPanel } from "./PickupPanel";
 import { DeliveryPanel } from "./DeliveryPanel";
-import { FeedbackPanel } from "./FeedbackPanel";
 import { CouponAnalysis } from "./CouponAnalysis";
 import { Calculator, Map } from "lucide-react";
 
@@ -246,22 +240,15 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
 
   const navItems = [
     { id: "executivo", label: "Resumo Executivo", icon: Sparkles, category: "Resultados", color: "text-orange-500 font-black" },
-    { id: "feedback", label: "Feedback Consolidado", icon: ClipboardCheck, category: "Resultados", color: "text-indigo-600 font-black" },
     { id: "geral", label: "Visão Geral", icon: LayoutDashboard, category: "Resultados" },
     { id: "impacto", label: "Projeção de Impacto", icon: Target, category: "Resultados", color: "text-purple-500 font-bold" },
-    { id: "pacing", label: "Termômetro de Tração", icon: TrendingUp, category: "Resultados", color: "text-indigo-600 font-black" },
-    { id: "what_if", label: "Simulador What-If", icon: Calculator, category: "Resultados", color: "text-indigo-500 font-bold" },
     { id: "performance", label: "Performance", icon: ClipboardList, category: "Resultados", color: "text-emerald-600 font-black" },
     { id: "diario", label: "Performance Diária", icon: CalendarIcon, category: "Resultados" },
-    { id: "composicao", label: "Composição", icon: Layers, category: "Resultados", color: "text-indigo-500" },
-    { id: "deep_dive", label: "Fluxo & Pareto", icon: TrendingUp, category: "Resultados", color: "text-indigo-600" },
 
-    { id: "gamification", label: "Arena de Talentos", icon: Sword, category: "Pessoas", color: "text-yellow-500 font-black" },
     { id: "whatsapp", label: "WhatsApp", icon: MessageCircle, category: "Pessoas", color: "text-emerald-500" },
 
     { id: "item_ranking", label: "Ranking de Itens", icon: ShoppingCart, category: "Produtos", color: "text-orange-600 font-black" },
     { id: "market_basket", label: "Matriz de Afinidade", icon: Boxes, category: "Produtos", color: "text-indigo-600 font-black" },
-    { id: "basket", label: "Anatomia da Cesta", icon: ShoppingBag, category: "Produtos", color: "text-emerald-600 font-bold" },
     { id: "venda_sugestiva", label: "SLP & Social", icon: ShoppingBag, category: "Produtos", color: "text-orange-600 font-black" },
     { id: "price_profile", label: "Perfil de Preço", icon: DollarSign, category: "Produtos", color: "text-rose-600 font-black" },
     { id: "elasticidade", label: "Elasticidade Desconto", icon: LineChart, category: "Produtos", color: "text-amber-600" },
@@ -348,11 +335,11 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
       case "impacto": return <ImpactProjection data={data} />;
       case "heatmap": return <HeatmapAnalysis data={data} vinculos={vinculos} />;
       case "energy": return <SalesEnergy data={data} />;
-      case "basket": return <BasketBehavior data={data} />;
+      case "basket": return null;
       case "product_risk": return <ProductRisk data={data} />;
       case "performance": return <ConsolidatedReport data={data} vinculos={vinculos} />;
       case "diario": return <DailyPerformance data={data} />;
-      case "composicao": return <SalesComposition data={data} vinculos={vinculos} />;
+      case "composicao": return null;
       case "radar": return <RiskRadar data={data} />;
       case "conversao": return <ConversionAudit data={data} />;
       case "auditoria": return <DiscountAudit data={data} />;
@@ -362,24 +349,24 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
       case "delivery_track": return <DeliveryPanel data={data} />;
       case "whatsapp": return <WhatsappReports data={data} vinculos={vinculos} />;
       case "elasticidade": return <ElasticityAnalysis data={data} />;
-      case "deep_dive": return <AdvancedAnalytics data={data} />;
+      case "deep_dive": return null;
       case "qualidade_avancada": return <QualityAnalysis data={data} vinculos={vinculos} />;
       case "ritmo_operacional": return <OperationalRhythm data={data} />;
       case "payment_map": return <PaymentMap data={data} />;
       case "customer_loyalty": return <CustomerLoyalty data={data} vinculos={vinculos} />;
       case "price_profile": return <PriceProfile data={data} />;
       case "item_ranking": return <ItemRanking data={data} />;
-      case "pacing": return <TermometroTracao data={data} />;
+      case "pacing": return null;
       case "market_basket": return <MatrizAfinidade data={data} />;
       case "sangria": return <RiscoTrocas data={data} />;
-      case "what_if": return <SimuladorCenarios data={data} />;
+      case "what_if": return null;
       case "geodesic": return <GeographicAnalysis data={data} />;
       case "oportunidades": return <LostOpportunities data={data} vinculos={vinculos} />;
       case "pa": return <AdditionalItemsAnalysis data={data} />;
       case "coupon_analysis": return <CouponAnalysis data={data} />;
       case "venda_sugestiva": return <AdditionalItemsAnalysis data={data} />;
-      case "gamification": return <ArenaDeTalentos data={data} />;
-      case "feedback": return <FeedbackPanel data={data} vinculos={vinculos} />;
+      case "gamification": return null;
+      case "feedback": return null;
       default: return null;
     }
   };

@@ -159,12 +159,7 @@ export function ExecutiveSummary({ data, vinculos, onSwitchTab }: ExecutiveSumma
               <PieChart className="w-5 h-5 text-indigo-500" />
               <h3 className="text-sm font-black uppercase text-slate-800 tracking-tight">Composição por Canal</h3>
             </div>
-            <button 
-              onClick={() => onSwitchTab?.("composicao")}
-              className="text-[10px] font-black text-indigo-600 hover:text-indigo-700 uppercase tracking-widest flex items-center gap-1"
-            >
-              Ver Detalhes <ChevronRight className="w-3 h-3" />
-            </button>
+
           </div>
           <CardContent className="p-6">
             <div className="space-y-5">

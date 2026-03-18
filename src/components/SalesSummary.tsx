@@ -106,6 +106,7 @@ import { ExecutiveSummary } from "./ExecutiveSummary";
 import { PickupPanel } from "./PickupPanel";
 import { DeliveryPanel } from "./DeliveryPanel";
 import { FeedbackPanel } from "./FeedbackPanel";
+import { CouponAnalysis } from "./CouponAnalysis";
 import { Calculator, Map } from "lucide-react";
 
 interface SalesSummaryProps {
@@ -276,6 +277,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
     { id: "auditoria", label: "Auditoria de Descontos", icon: Percent, category: "Auditoria" },
     { id: "trocas", label: "Trocas", icon: ArrowRightLeft, category: "Auditoria" },
     { id: "pa", label: "Análise de PA", icon: Hash, category: "Auditoria" },
+    { id: "coupon_analysis", label: "Análise de Cupons", icon: Layers, category: "Auditoria", color: "text-rose-500 font-black" },
     { id: "conversao", label: "Auditoria de Conversão", icon: Scale, category: "Auditoria" },
     { id: "oportunidades", label: "Oportunidades", icon: Lightbulb, category: "Auditoria" },
     { id: "sangria", label: "Risco de Trocas", icon: AlertTriangle, category: "Auditoria" },
@@ -374,6 +376,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
       case "geodesic": return <GeographicAnalysis data={data} />;
       case "oportunidades": return <LostOpportunities data={data} vinculos={vinculos} />;
       case "pa": return <AdditionalItemsAnalysis data={data} />;
+      case "coupon_analysis": return <CouponAnalysis data={data} />;
       case "venda_sugestiva": return <AdditionalItemsAnalysis data={data} />;
       case "gamification": return <ArenaDeTalentos data={data} />;
       case "feedback": return <FeedbackPanel data={data} vinculos={vinculos} />;

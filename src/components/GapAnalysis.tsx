@@ -34,9 +34,15 @@ interface GapAnalysisProps {
 
 export function GapAnalysis({ data }: GapAnalysisProps) {
   // State para as metas
-  const [metaVenda, setMetaVenda] = useState<number>(100000);
-  const [metaCupons, setMetaCupons] = useState<number>(500);
-  const [metaPA, setMetaPA] = useState<number>(2.5);
+  const [metaVenda, setMetaVenda] = useState<number | "">("");
+  const [metaCupons, setMetaCupons] = useState<number | "">("");
+  const [metaPA, setMetaPA] = useState<number | "">("");
+
+  // State para Ano Anterior (LY)
+  const [lyCupons, setLyCupons] = useState<number | "">("");
+  const [lyPA, setLyPA] = useState<number | "">("");
+  const [lyTKM, setLyTKM] = useState<number | "">("");
+  const [lyPM, setLyPM] = useState<number | "">("");
 
   // State para simulações
   const [simulAddCupom2, setSimulAddCupom2] = useState<number>(10); // +10%
@@ -122,15 +128,19 @@ export function GapAnalysis({ data }: GapAnalysisProps) {
   }, [activeSales]);
 
   const gapAnalysis = useMemo(() => {
-    const metaTKM = metaCupons > 0 ? metaVenda / metaCupons : 0;
-    const metaPM = metaPA > 0 ? metaTKM / metaPA : 0;
+    const mVenda = Number(metaVenda) || 0;
+    const mCupons = Number(metaCupons) || 0;
+    const mPA = Number(metaPA) || 0;
 
-    const gapTotal = metrics.sales - metaVenda;
-    const gapPerc = metaVenda > 0 ? (gapTotal / metaVenda) * 100 : 0;
+    const metaTKM = mCupons > 0 ? mVenda / mCupons : 0;
+    const metaPM = mPA > 0 ? metaTKM / mPA : 0;
 
-    const impactVolume = (metrics.cupons - metaCupons) * metaTKM;
-    const impactPA = ((metrics.pa - metaPA) * metaPM) * metrics.cupons;
-    const impactPreco = ((metrics.pm - metaPM) * metrics.pa) * metrics.cupons;
+    const gapTotal = mVenda > 0 ? metrics.sales - mVenda : 0;
+    const gapPerc = mVenda > 0 ? (gapTotal / mVenda) * 100 : 0;
+
+    const impactVolume = mCupons > 0 ? (metrics.cupons - mCupons) * metaTKM : 0;
+    const impactPA = mPA > 0 ? ((metrics.pa - mPA) * metaPM) * metrics.cupons : 0;
+    const impactPreco = mPA > 0 ? ((metrics.pm - metaPM) * metrics.pa) * metrics.cupons : 0;
 
     return {
       metaTKM,
@@ -239,49 +249,71 @@ export function GapAnalysis({ data }: GapAnalysisProps) {
     );
   }
 
+  const numMetaVenda = Number(metaVenda) || 0;
+  const numMetaCupons = Number(metaCupons) || 0;
+  const numMetaPA = Number(metaPA) || 0;
+  const numLyCupons = Number(lyCupons) || 0;
+  const numLyPA = Number(lyPA) || 0;
+  const numLyTKM = Number(lyTKM) || 0;
+  const numLyPM = Number(lyPM) || 0;
+
   return (
     <div className="space-y-6 pb-12 animate-in fade-in duration-500">
       
       {/* Configuration Bar */}
       <Card className="ri-card border-indigo-100 bg-indigo-50/30 overflow-hidden shrink-0">
-        <div className="p-4 border-b border-indigo-100/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white/50 backdrop-blur-sm">
-          <div className="flex items-center gap-2">
+        <div className="p-4 md:p-5 border-b border-indigo-100/50 bg-white/50 backdrop-blur-sm">
+          <div className="flex items-center gap-2 mb-5">
             <div className="p-2 bg-indigo-600 rounded-lg shadow-sm">
               <Target className="w-4 h-4 text-white" />
             </div>
             <div>
-              <h3 className="text-sm font-black uppercase tracking-tight text-slate-800">Metas do Período</h3>
-              <p className="text-[10px] font-bold text-slate-500 uppercase">Ajuste os valores para base de cálculo</p>
+              <h3 className="text-sm font-black uppercase tracking-tight text-slate-800">Parâmetros Comparativos</h3>
+              <p className="text-[10px] font-bold text-slate-500 uppercase">Preencha metas e indicadores do ano anterior para cálculo do GAP</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="space-y-1">
-              <Label className="text-[9px] font-black uppercase text-indigo-600 tracking-widest">Meta de Venda (R$)</Label>
-              <Input 
-                type="number" 
-                value={metaVenda} 
-                onChange={(e) => setMetaVenda(Number(e.target.value))}
-                className="h-8 text-xs font-bold w-32 bg-white border-indigo-100"
-              />
+          
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-10">
+            {/* Metas Atuais */}
+            <div className="space-y-4">
+               <h4 className="text-[10px] font-black uppercase tracking-widest text-indigo-800 border-b border-indigo-100 pb-1">Metas Atuais (Orçamento)</h4>
+               <div className="grid grid-cols-3 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-[9px] font-bold uppercase text-slate-600">Venda Total (R$)</Label>
+                    <Input type="number" placeholder="Ex: 50000" value={metaVenda} onChange={(e) => setMetaVenda(e.target.value ? Number(e.target.value) : "")} className="h-8 text-xs font-bold" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-[9px] font-bold uppercase text-slate-600">Cupons</Label>
+                    <Input type="number" placeholder="Ex: 350" value={metaCupons} onChange={(e) => setMetaCupons(e.target.value ? Number(e.target.value) : "")} className="h-8 text-xs font-bold" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-[9px] font-bold uppercase text-slate-600">PA</Label>
+                    <Input type="number" step="0.1" placeholder="Ex: 2.5" value={metaPA} onChange={(e) => setMetaPA(e.target.value ? Number(e.target.value) : "")} className="h-8 text-xs font-bold" />
+                  </div>
+               </div>
             </div>
-            <div className="space-y-1">
-              <Label className="text-[9px] font-black uppercase text-indigo-600 tracking-widest">Meta Cupons</Label>
-              <Input 
-                type="number" 
-                value={metaCupons} 
-                onChange={(e) => setMetaCupons(Number(e.target.value))}
-                className="h-8 text-xs font-bold w-24 bg-white border-indigo-100"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-[9px] font-black uppercase text-indigo-600 tracking-widest">Meta PA</Label>
-              <Input 
-                type="number" 
-                step="0.1"
-                value={metaPA} 
-                onChange={(e) => setMetaPA(Number(e.target.value))}
-                className="h-8 text-xs font-bold w-20 bg-white border-indigo-100"
-              />
+
+            {/* Ano Anterior */}
+            <div className="space-y-4">
+               <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-800 border-b border-slate-200 pb-1">Ano Anterior (LY)</h4>
+               <div className="grid grid-cols-4 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-[9px] font-bold uppercase text-slate-600">Cupons</Label>
+                    <Input type="number" placeholder="Ex: 320" value={lyCupons} onChange={(e) => setLyCupons(e.target.value ? Number(e.target.value) : "")} className="h-8 text-xs font-bold" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-[9px] font-bold uppercase text-slate-600">PA</Label>
+                    <Input type="number" step="0.1" placeholder="Ex: 2.1" value={lyPA} onChange={(e) => setLyPA(e.target.value ? Number(e.target.value) : "")} className="h-8 text-xs font-bold" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-[9px] font-bold uppercase text-slate-600">TKM (R$)</Label>
+                    <Input type="number" placeholder="Ex: 150" value={lyTKM} onChange={(e) => setLyTKM(e.target.value ? Number(e.target.value) : "")} className="h-8 text-xs font-bold" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-[9px] font-bold uppercase text-slate-600">Preço M. (R$)</Label>
+                    <Input type="number" placeholder="Ex: 75" value={lyPM} onChange={(e) => setLyPM(e.target.value ? Number(e.target.value) : "")} className="h-8 text-xs font-bold" />
+                  </div>
+               </div>
             </div>
           </div>
         </div>
@@ -311,7 +343,7 @@ export function GapAnalysis({ data }: GapAnalysisProps) {
                </div>
                <div className="text-right">
                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Meta</p>
-                 <p className="text-xl font-bold text-slate-500 tracking-tighter leading-none">{formatBRL(metaVenda)}</p>
+                 <p className="text-xl font-bold text-slate-500 tracking-tighter leading-none">{formatBRL(numMetaVenda)}</p>
                </div>
             </div>
 
@@ -372,9 +404,19 @@ export function GapAnalysis({ data }: GapAnalysisProps) {
                   <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Cupons Realizados</p>
                   <p className="text-3xl font-black text-slate-800 leading-none">{metrics.cupons}</p>
                 </div>
-                <div className="text-right">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Meta</p>
-                  <p className="text-xl font-bold text-slate-500 leading-none">{metaCupons}</p>
+                <div className="text-right flex items-end gap-4">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Meta</p>
+                    <p className="text-xl font-bold text-slate-500 leading-none">{numMetaCupons}</p>
+                  </div>
+                  {numLyCupons > 0 && (
+                    <div className="text-right border-l pl-4 pb-0.5">
+                      <p className="text-[9px] font-black uppercase tracking-widest text-amber-500 mb-1">vs Ano Ant.</p>
+                      <p className={cn("text-base font-black leading-none", metrics.cupons >= numLyCupons ? "text-emerald-500" : "text-rose-500")}>
+                        {metrics.cupons >= numLyCupons ? '+' : ''}{(((metrics.cupons / numLyCupons) - 1) * 100).toFixed(1)}%
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
               
@@ -382,8 +424,8 @@ export function GapAnalysis({ data }: GapAnalysisProps) {
                 <p className="text-[10px] font-black uppercase tracking-widest text-indigo-600 pt-2 border-t border-slate-100">Performance</p>
                 <div className="flex items-center justify-between text-sm">
                   <span className="font-bold text-slate-600">Atingimento de Volume</span>
-                  <span className={cn("font-black", metrics.cupons >= metaCupons ? "text-emerald-600" : "text-rose-600")}>
-                    {metaCupons > 0 ? ((metrics.cupons / metaCupons)*100).toFixed(1) : 0}%
+                  <span className={cn("font-black", metrics.cupons >= numMetaCupons ? "text-emerald-600" : "text-rose-600")}>
+                    {numMetaCupons > 0 ? ((metrics.cupons / numMetaCupons)*100).toFixed(1) : 0}%
                   </span>
                 </div>
                 <div className="flex items-center gap-2 mt-4 p-3 bg-indigo-50 rounded-xl text-xs font-medium text-indigo-700">
@@ -406,9 +448,19 @@ export function GapAnalysis({ data }: GapAnalysisProps) {
                   <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">PA Atual</p>
                   <p className="text-3xl font-black text-slate-800 leading-none">{metrics.pa.toFixed(2)}</p>
                 </div>
-                <div className="text-right">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Meta</p>
-                  <p className="text-xl font-bold text-slate-500 leading-none">{metaPA.toFixed(2)}</p>
+                <div className="text-right flex items-end gap-4">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Meta</p>
+                    <p className="text-xl font-bold text-slate-500 leading-none">{numMetaPA.toFixed(2)}</p>
+                  </div>
+                  {numLyPA > 0 && (
+                    <div className="text-right border-l pl-4 pb-0.5">
+                      <p className="text-[9px] font-black uppercase tracking-widest text-amber-500 mb-1">vs Ano Ant.</p>
+                      <p className={cn("text-base font-black leading-none", metrics.pa >= numLyPA ? "text-emerald-500" : "text-rose-500")}>
+                        {metrics.pa >= numLyPA ? '+' : ''}{(((metrics.pa / numLyPA) - 1) * 100).toFixed(1)}%
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
               
@@ -448,11 +500,25 @@ export function GapAnalysis({ data }: GapAnalysisProps) {
               <div className="flex items-end justify-between mb-2">
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Ticket Médio</p>
-                  <p className="text-3xl font-black text-slate-800 leading-none">{formatBRL(metrics.tkm)}</p>
+                  <div className="flex items-end gap-2">
+                     <p className="text-3xl font-black text-slate-800 leading-none">{formatBRL(metrics.tkm)}</p>
+                     {numLyTKM > 0 && (
+                        <p className={cn("text-xs font-black mb-1", metrics.tkm >= numLyTKM ? "text-emerald-500" : "text-rose-500")}>
+                          ({metrics.tkm >= numLyTKM ? '+' : ''}{(((metrics.tkm / numLyTKM) - 1) * 100).toFixed(1)}% YoY)
+                        </p>
+                     )}
+                  </div>
                 </div>
                 <div className="text-right">
                   <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Preço Médio / Item</p>
-                  <p className="text-xl font-bold text-indigo-600 leading-none">{formatBRL(metrics.pm)}</p>
+                  <div className="flex items-end justify-end gap-2">
+                    {numLyPM > 0 && (
+                        <p className={cn("text-xs font-black mb-1", metrics.pm >= numLyPM ? "text-emerald-500" : "text-rose-500")}>
+                          ({metrics.pm >= numLyPM ? '+' : ''}{(((metrics.pm / numLyPM) - 1) * 100).toFixed(1)}% YoY)
+                        </p>
+                    )}
+                    <p className="text-xl font-bold text-indigo-600 leading-none">{formatBRL(metrics.pm)}</p>
+                  </div>
                 </div>
               </div>
               

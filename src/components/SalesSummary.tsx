@@ -100,6 +100,7 @@ import { GeographicAnalysis } from "./GeographicAnalysis";
 import { ExecutiveSummary } from "./ExecutiveSummary";
 import { PickupPanel } from "./PickupPanel";
 import { DeliveryPanel } from "./DeliveryPanel";
+import { GapAnalysis } from "./GapAnalysis";
 import { CouponAnalysis } from "./CouponAnalysis";
 import { Calculator, Map } from "lucide-react";
 
@@ -240,6 +241,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
 
   const navItems = [
     { id: "executivo", label: "Resumo Executivo", icon: Sparkles, category: "Resultados", color: "text-orange-500 font-black" },
+    { id: "gap_analise", label: "GAP de Produtividade", icon: Activity, category: "Resultados", color: "text-rose-500 font-black" },
     { id: "geral", label: "Visão Geral", icon: LayoutDashboard, category: "Resultados" },
     { id: "impacto", label: "Projeção de Impacto", icon: Target, category: "Resultados", color: "text-purple-500 font-bold" },
     { id: "performance", label: "Performance", icon: ClipboardList, category: "Resultados", color: "text-emerald-600 font-black" },
@@ -274,6 +276,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
   const renderActiveTab = () => {
     switch(activeTab) {
       case "executivo": return <ExecutiveSummary data={data} vinculos={vinculos} onSwitchTab={handleTabChange} />;
+      case "gap_analise": return <GapAnalysis data={data} />;
       case "geral":
         return (
           <motion.div 

@@ -3,47 +3,28 @@
 import React, { useState, useMemo } from "react";
 import { DetailedSaleRow } from "@/lib/types";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { 
-  Target, 
-  TrendingDown, 
-  TrendingUp, 
   ShoppingBag, 
   DollarSign, 
-  Layers, 
   Activity, 
-  Lightbulb, 
-  BarChart3, 
   Smartphone, 
   Store,
   ArrowRight,
   Settings2,
   AlertTriangle,
-  Zap,
-  Percent,
-  Users
+  Users,
+  Target
 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
-interface GapAnalysisProps {
+interface ProductivityAnalysisProps {
   data: DetailedSaleRow[];
 }
 
-export function GapAnalysis({ data }: GapAnalysisProps) {
-  // State para as metas
-  const [metaVenda, setMetaVenda] = useState<number | "">("");
-  const [metaCupons, setMetaCupons] = useState<number | "">("");
-  const [metaPA, setMetaPA] = useState<number | "">("");
-
-  // State para Ano Anterior (LY)
-  const [lyCupons, setLyCupons] = useState<number | "">("");
-  const [lyPA, setLyPA] = useState<number | "">("");
-  const [lyTKM, setLyTKM] = useState<number | "">("");
-  const [lyPM, setLyPM] = useState<number | "">("");
-
+export function GapAnalysis({ data }: ProductivityAnalysisProps) {
   // State para simulações
   const [simulAddCupom2, setSimulAddCupom2] = useState<number>(10); // +10%
   const [simulAddCupom3, setSimulAddCupom3] = useState<number>(5); // +5%
@@ -127,43 +108,10 @@ export function GapAnalysis({ data }: GapAnalysisProps) {
     };
   }, [activeSales]);
 
-  const gapAnalysis = useMemo(() => {
-    const mVenda = Number(metaVenda) || 0;
-    const mCupons = Number(metaCupons) || 0;
-    const mPA = Number(metaPA) || 0;
-
-    const metaTKM = mCupons > 0 ? mVenda / mCupons : 0;
-    const metaPM = mPA > 0 ? metaTKM / mPA : 0;
-
-    const gapTotal = mVenda > 0 ? metrics.sales - mVenda : 0;
-    const gapPerc = mVenda > 0 ? (gapTotal / mVenda) * 100 : 0;
-
-    const impactVolume = mCupons > 0 ? (metrics.cupons - mCupons) * metaTKM : 0;
-    const impactPA = mPA > 0 ? ((metrics.pa - mPA) * metaPM) * metrics.cupons : 0;
-    const impactPreco = mPA > 0 ? ((metrics.pm - metaPM) * metrics.pa) * metrics.cupons : 0;
-
-    return {
-      metaTKM,
-      metaPM,
-      gapTotal,
-      gapPerc,
-      impactVolume,
-      impactPA,
-      impactPreco
-    };
-  }, [metrics, metaVenda, metaCupons, metaPA]);
-
   const simAnalysis = useMemo(() => {
-    // Simul 1: Ajuste de PA
-    // Retirar da base de 1 item e jogar para 2 e 3 itens
-    const base1 = metrics.itemsDistribution["1"];
     const move2 = Math.round(metrics.cupons * (simulAddCupom2 / 100));
     const move3 = Math.round(metrics.cupons * (simulAddCupom3 / 100));
     
-    // We assume PM (Preço Médio) remains constant per item.
-    // If we add items, we add sales.
-    // Moving from 1 item to 2 items means adding 1 item per coupon moved.
-    // Moving from 1 item to 3 items means adding 2 items per coupon moved.
     const addedItems2 = move2 * 1; 
     const addedItems3 = move3 * 2; 
 
@@ -171,7 +119,6 @@ export function GapAnalysis({ data }: GapAnalysisProps) {
     const newPA = metrics.cupons > 0 ? newItems / metrics.cupons : 0;
     const newSales = newItems * metrics.pm;
 
-    // Simul 2: Remover Digital
     const sFisico = metrics.channelStats.fisico;
     const paFisico = sFisico.cupons > 0 ? sFisico.items / sFisico.cupons : 0;
 
@@ -190,206 +137,96 @@ export function GapAnalysis({ data }: GapAnalysisProps) {
   }, [metrics, simulAddCupom2, simulAddCupom3]);
 
   const diagnostic = useMemo(() => {
-    const impacts = [
-      { name: "Volume (Fluxo/Cupons)", val: gapAnalysis.impactVolume },
-      { name: "Profundidade (PA)", val: gapAnalysis.impactPA },
-      { name: "Valor (Ticket/Preço)", val: gapAnalysis.impactPreco }
-    ];
-    impacts.sort((a, b) => a.val - b.val); // lowest (most negative) first
-
-    const mainProblem = impacts[0].val < 0 ? impacts[0] : null;
-
-    let textMainCause = "";
-    let actionPlan = [];
-
     const perc1Item = metrics.cupons > 0 ? (metrics.itemsDistribution["1"] / metrics.cupons) * 100 : 0;
     const digitalShare = metrics.cupons > 0 ? (metrics.channelStats.digital.cupons / metrics.cupons) * 100 : 0;
 
-    if (mainProblem?.name.includes("Volume")) {
-      textMainCause = "O fluxo de clientes convertidos está abaixo do esperado.";
-      actionPlan = [
-        "Revisar vitrine e comunicação visual da loja para atrair fluxo.",
-        "Avaliar horários de vale e remanejar equipe para abordagem mais ativa na porta.",
-        "Ativar base de clientes VIP via WhatsApp com ofertas exclusivas."
-      ];
-    } else if (mainProblem?.name.includes("Profundidade")) {
-      textMainCause = `Alta concentração de cupons com apenas 1 item (${perc1Item.toFixed(1)}%).`;
+    let mainProblemName = "";
+    let textMainCause = "";
+    let actionPlan: string[] = [];
+
+    if (perc1Item > 40) {
+      mainProblemName = "Profundidade (PA Baixo)";
+      textMainCause = `Alta concentração de cupons com apenas 1 item (${perc1Item.toFixed(1)}%). Oportunidade gigante de vendas adicionais em balcão.`;
       actionPlan = [
         "Reforçar Venda Sugestiva (SLP) no caixa e na esteira.",
-        "Treinar equipe para oferecer itens complementares (pilhas, acessórios) em 100% dos atendimentos.",
-        "Criar desafio relâmpago para a equipe focado em cupons com 2+ itens."
+        "Treinar equipe para oferecer itens complementares (pilhas, embalagens, utilitários) em 100% dos atendimentos.",
+        "Criar dinâmica relâmpago para a equipe focada na pulverização (cestas com 2+ itens)."
+      ];
+    } else if (metrics.pm < 50) {
+      mainProblemName = "Valor Nominal (Ticket/Preço Médio Acanhado)";
+      textMainCause = `O mix escoado pela operação está altamente concentrado em itens de menor valor agregado bruto (Preço Médio do item não passa de R$ ${metrics.pm.toFixed(2)}).`;
+      actionPlan = [
+        "Direcionar urgentemente a demonstração passiva para produtos de curva A e maior ticket isolado.",
+        "Reduzir descontos agressivos na base de volume se não houver contrapartida escalonada.",
+        "Garantir exposição primária nos produtos formadores de ticket que sustentam a loja."
       ];
     } else {
-      textMainCause = "Mix de produtos vendidos está concentrado em itens de menor valor agregado.";
+      mainProblemName = "Tração Orgânica (Volume de Cupons e Conversão)";
+      textMainCause = "Com a base matricial de PA e Preço Médio saudáveis para a categoria, a alavanca principal de crescimento passa a ser unicamente a atração de volume e conversão de porta para tráfego.";
       actionPlan = [
-        "Direcionar a demonstração para produtos de curva A e maior ticket.",
-        "Reduzir descontos agressivos se não houver contrapartida em volume.",
-        "Garantir ruptura zero nos produtos formadores de ticket da loja."
+        "Revisar vitrine e a comunicação visual em frente de loja de modo agressivo para pescar o fluxo.",
+        "Avaliar horários de vale ou extrema ociosidade e remanejar a linha de frente para abordagem externa proativa.",
+        "Acionar lista de transmissão ou ações clienteling (VIP/WhatsApp) ofertando novidades âncora."
       ];
     }
 
     return {
-      mainProblem,
+      mainProblemName,
       textMainCause,
       actionPlan,
       perc1Item,
       digitalShare
     };
-  }, [gapAnalysis, metrics]);
+  }, [metrics]);
 
   const formatBRL = (val: number) => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-  const formatNum = (val: number) => val.toLocaleString('pt-BR', { maximumFractionDigits: 1 });
 
   if (activeSales.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center p-12 text-slate-500">
         <Activity className="w-12 h-12 mb-4 text-slate-300" />
-        <p className="font-medium">Nenhum dado disponível para análise de GAP.</p>
+        <p className="font-medium">Nenhum dado disponível para análise de Produtividade.</p>
       </div>
     );
   }
 
-  const numMetaVenda = Number(metaVenda) || 0;
-  const numMetaCupons = Number(metaCupons) || 0;
-  const numMetaPA = Number(metaPA) || 0;
-  const numLyCupons = Number(lyCupons) || 0;
-  const numLyPA = Number(lyPA) || 0;
-  const numLyTKM = Number(lyTKM) || 0;
-  const numLyPM = Number(lyPM) || 0;
-
   return (
     <div className="space-y-6 pb-12 animate-in fade-in duration-500">
       
-      {/* Configuration Bar */}
-      <Card className="ri-card border-indigo-100 bg-indigo-50/30 overflow-hidden shrink-0">
-        <div className="p-4 md:p-5 border-b border-indigo-100/50 bg-white/50 backdrop-blur-sm">
-          <div className="flex items-center gap-2 mb-5">
-            <div className="p-2 bg-indigo-600 rounded-lg shadow-sm">
-              <Target className="w-4 h-4 text-white" />
-            </div>
-            <div>
-              <h3 className="text-sm font-black uppercase tracking-tight text-slate-800">Parâmetros Comparativos</h3>
-              <p className="text-[10px] font-bold text-slate-500 uppercase">Preencha metas e indicadores do ano anterior para cálculo do GAP</p>
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-10">
-            {/* Metas Atuais */}
-            <div className="space-y-4">
-               <h4 className="text-[10px] font-black uppercase tracking-widest text-indigo-800 border-b border-indigo-100 pb-1">Metas Atuais (Orçamento)</h4>
-               <div className="grid grid-cols-3 gap-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-[9px] font-bold uppercase text-slate-600">Venda Total (R$)</Label>
-                    <Input type="number" placeholder="Ex: 50000" value={metaVenda} onChange={(e) => setMetaVenda(e.target.value ? Number(e.target.value) : "")} className="h-8 text-xs font-bold" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-[9px] font-bold uppercase text-slate-600">Cupons</Label>
-                    <Input type="number" placeholder="Ex: 350" value={metaCupons} onChange={(e) => setMetaCupons(e.target.value ? Number(e.target.value) : "")} className="h-8 text-xs font-bold" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-[9px] font-bold uppercase text-slate-600">PA</Label>
-                    <Input type="number" step="0.1" placeholder="Ex: 2.5" value={metaPA} onChange={(e) => setMetaPA(e.target.value ? Number(e.target.value) : "")} className="h-8 text-xs font-bold" />
-                  </div>
-               </div>
-            </div>
-
-            {/* Ano Anterior */}
-            <div className="space-y-4">
-               <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-800 border-b border-slate-200 pb-1">Ano Anterior (LY)</h4>
-               <div className="grid grid-cols-4 gap-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-[9px] font-bold uppercase text-slate-600">Cupons</Label>
-                    <Input type="number" placeholder="Ex: 320" value={lyCupons} onChange={(e) => setLyCupons(e.target.value ? Number(e.target.value) : "")} className="h-8 text-xs font-bold" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-[9px] font-bold uppercase text-slate-600">PA</Label>
-                    <Input type="number" step="0.1" placeholder="Ex: 2.1" value={lyPA} onChange={(e) => setLyPA(e.target.value ? Number(e.target.value) : "")} className="h-8 text-xs font-bold" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-[9px] font-bold uppercase text-slate-600">TKM (R$)</Label>
-                    <Input type="number" placeholder="Ex: 150" value={lyTKM} onChange={(e) => setLyTKM(e.target.value ? Number(e.target.value) : "")} className="h-8 text-xs font-bold" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-[9px] font-bold uppercase text-slate-600">Preço M. (R$)</Label>
-                    <Input type="number" placeholder="Ex: 75" value={lyPM} onChange={(e) => setLyPM(e.target.value ? Number(e.target.value) : "")} className="h-8 text-xs font-bold" />
-                  </div>
-               </div>
-            </div>
-          </div>
+      {/* Bloco 1: Raio-X Geral */}
+      <Card className="ri-card border-slate-200 overflow-hidden relative bg-indigo-600 text-white shadow-lg">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 blur-[50px] rounded-full -mr-20 -mt-20 pointer-events-none" />
+        <div className="p-6 md:px-8 md:py-8 relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
+           <div>
+              <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full text-[10px] font-black uppercase tracking-widest mb-4">
+                 <Target className="w-3.5 h-3.5" />
+                 Raio-X da Operação
+              </div>
+              <h2 className="text-4xl md:text-5xl font-black tracking-tighter mb-1">
+                 {formatBRL(metrics.sales)}
+              </h2>
+              <p className="text-indigo-200 font-bold uppercase text-xs tracking-widest">Faturamento Realizado</p>
+           </div>
+           
+           <div className="grid grid-cols-3 gap-4 md:gap-6 w-full md:w-auto">
+              <div className="flex flex-col items-center justify-center p-4 bg-white/10 rounded-2xl border border-white/5">
+                 <Users className="w-5 h-5 text-indigo-300 mb-2" />
+                 <p className="text-2xl font-black leading-none mb-1">{metrics.cupons}</p>
+                 <p className="text-[9px] font-bold uppercase text-indigo-200 tracking-widest">Cupons Base</p>
+              </div>
+              <div className="flex flex-col items-center justify-center p-4 bg-white/10 rounded-2xl border border-white/5">
+                 <ShoppingBag className="w-5 h-5 text-indigo-300 mb-2" />
+                 <p className="text-2xl font-black leading-none mb-1">{metrics.pa.toFixed(2)}</p>
+                 <p className="text-[9px] font-bold uppercase text-indigo-200 tracking-widest">P.A. Global</p>
+              </div>
+              <div className="flex flex-col items-center justify-center p-4 bg-white/10 rounded-2xl border border-white/5">
+                 <DollarSign className="w-5 h-5 text-indigo-300 mb-2" />
+                 <p className="text-2xl font-black leading-none mb-1">{formatBRL(metrics.tkm)}</p>
+                 <p className="text-[9px] font-bold uppercase text-indigo-200 tracking-widest">TKM</p>
+              </div>
+           </div>
         </div>
       </Card>
-
-      {/* Bloco 1: Resumo Executivo do GAP */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-        <Card className="ri-card border-slate-200 md:col-span-5 overflow-hidden flex flex-col relative">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-slate-100 blur-[50px] -mr-10 -mt-10 rounded-full" />
-          <div className="p-5 border-b border-slate-100 relative z-10 flex items-center gap-3">
-            <div className={cn(
-              "p-2 rounded-lg text-white",
-              gapAnalysis.gapTotal >= 0 ? "bg-emerald-500" : "bg-rose-500"
-            )}>
-              {gapAnalysis.gapTotal >= 0 ? <TrendingUp className="w-5 h-5" /> : <TrendingDown className="w-5 h-5" />}
-            </div>
-            <div>
-              <h3 className="text-sm font-black uppercase tracking-tight text-slate-800">Resultado vs Meta</h3>
-              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Resumo Executivo do GAP</p>
-            </div>
-          </div>
-          <CardContent className="p-6 flex-1 flex flex-col justify-center relative z-10 space-y-6">
-            <div className="flex items-end justify-between">
-               <div>
-                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Venda Atual</p>
-                 <p className="text-3xl font-black text-slate-800 tracking-tighter leading-none">{formatBRL(metrics.sales)}</p>
-               </div>
-               <div className="text-right">
-                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Meta</p>
-                 <p className="text-xl font-bold text-slate-500 tracking-tighter leading-none">{formatBRL(numMetaVenda)}</p>
-               </div>
-            </div>
-
-            <div className={cn(
-              "p-4 rounded-2xl flex items-center justify-between border",
-              gapAnalysis.gapTotal >= 0 ? "bg-emerald-50 border-emerald-100" : "bg-rose-50 border-rose-100"
-            )}>
-               <div>
-                  <p className={cn(
-                    "text-[10px] font-black uppercase tracking-widest mb-1",
-                    gapAnalysis.gapTotal >= 0 ? "text-emerald-600" : "text-rose-600"
-                  )}>GAP Absoluto</p>
-                  <p className={cn(
-                    "text-2xl font-black tracking-tighter leading-none",
-                    gapAnalysis.gapTotal >= 0 ? "text-emerald-700" : "text-rose-700"
-                  )}>{formatBRL(gapAnalysis.gapTotal)}</p>
-               </div>
-               <div className="text-right">
-                  <p className={cn(
-                    "text-[10px] font-black uppercase tracking-widest mb-1",
-                    gapAnalysis.gapTotal >= 0 ? "text-emerald-600" : "text-rose-600"
-                  )}>Variação</p>
-                  <p className={cn(
-                    "text-2xl font-black tracking-tighter leading-none",
-                    gapAnalysis.gapTotal >= 0 ? "text-emerald-700" : "text-rose-700"
-                  )}>{gapAnalysis.gapPerc > 0 && '+'}{gapAnalysis.gapPerc.toFixed(1)}%</p>
-               </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="ri-card border-slate-200 md:col-span-7 overflow-hidden flex flex-col">
-          <div className="p-5 border-b border-slate-100 flex items-center gap-3">
-             <Layers className="w-5 h-5 text-indigo-500" />
-             <div>
-               <h3 className="text-sm font-black uppercase tracking-tight text-slate-800">Decomposição do GAP</h3>
-               <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">De onde vem a diferença</p>
-             </div>
-          </div>
-          <CardContent className="p-6 flex-1 grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <ImpactCard title="Impacto de Cupons" subtitle="Volume" val={gapAnalysis.impactVolume} icon={Users} />
-            <ImpactCard title="Impacto de PA" subtitle="Profundidade" val={gapAnalysis.impactPA} icon={ShoppingBag} />
-            <ImpactCard title="Impacto de Preço" subtitle="TKM / Preço Médio" val={gapAnalysis.impactPreco} icon={DollarSign} />
-          </CardContent>
-        </Card>
-      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Bloco 2: Volume */}
@@ -399,38 +236,20 @@ export function GapAnalysis({ data }: GapAnalysisProps) {
               <Users className="w-4 h-4 text-slate-400" />
            </div>
            <CardContent className="p-5 space-y-6">
-              <div className="flex items-end justify-between">
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Cupons Realizados</p>
-                  <p className="text-3xl font-black text-slate-800 leading-none">{metrics.cupons}</p>
-                </div>
-                <div className="text-right flex items-end gap-4">
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Meta</p>
-                    <p className="text-xl font-bold text-slate-500 leading-none">{numMetaCupons}</p>
-                  </div>
-                  {numLyCupons > 0 && (
-                    <div className="text-right border-l pl-4 pb-0.5">
-                      <p className="text-[9px] font-black uppercase tracking-widest text-amber-500 mb-1">vs Ano Ant.</p>
-                      <p className={cn("text-base font-black leading-none", metrics.cupons >= numLyCupons ? "text-emerald-500" : "text-rose-500")}>
-                        {metrics.cupons >= numLyCupons ? '+' : ''}{(((metrics.cupons / numLyCupons) - 1) * 100).toFixed(1)}%
-                      </p>
-                    </div>
-                  )}
-                </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Total de Atendimentos</p>
+                <p className="text-4xl font-black text-slate-800 leading-none">{metrics.cupons}</p>
               </div>
               
               <div className="space-y-3">
-                <p className="text-[10px] font-black uppercase tracking-widest text-indigo-600 pt-2 border-t border-slate-100">Performance</p>
+                <p className="text-[10px] font-black uppercase tracking-widest text-indigo-600 pt-2 border-t border-slate-100">Distribuição por Canal Escoado</p>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="font-bold text-slate-600">Atingimento de Volume</span>
-                  <span className={cn("font-black", metrics.cupons >= numMetaCupons ? "text-emerald-600" : "text-rose-600")}>
-                    {numMetaCupons > 0 ? ((metrics.cupons / numMetaCupons)*100).toFixed(1) : 0}%
-                  </span>
+                  <span className="font-bold text-slate-600 flex items-center gap-1.5"><Store className="w-3.5 h-3.5 text-slate-400"/> Balcão</span>
+                  <span className="font-black text-slate-800">{metrics.channelStats.fisico.cupons} cf</span>
                 </div>
-                <div className="flex items-center gap-2 mt-4 p-3 bg-indigo-50 rounded-xl text-xs font-medium text-indigo-700">
-                  <Lightbulb className="w-4 h-4 shrink-0 text-indigo-500" />
-                  <p>{gapAnalysis.impactVolume < 0 ? "O volume está retendo o potencial de faturamento geral." : "Volume saudável contribuindo positivamente para o fechamento."}</p>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="font-bold text-slate-600 flex items-center gap-1.5"><Smartphone className="w-3.5 h-3.5 text-sky-500"/> Retirada/Delivery</span>
+                  <span className="font-black text-sky-600">{metrics.channelStats.digital.cupons} cf</span>
                 </div>
               </div>
            </CardContent>
@@ -443,44 +262,28 @@ export function GapAnalysis({ data }: GapAnalysisProps) {
               <ShoppingBag className="w-4 h-4 text-slate-400" />
            </div>
            <CardContent className="p-5 space-y-5">
-              <div className="flex items-end justify-between mb-2">
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">PA Atual</p>
-                  <p className="text-3xl font-black text-slate-800 leading-none">{metrics.pa.toFixed(2)}</p>
-                </div>
-                <div className="text-right flex items-end gap-4">
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Meta</p>
-                    <p className="text-xl font-bold text-slate-500 leading-none">{numMetaPA.toFixed(2)}</p>
-                  </div>
-                  {numLyPA > 0 && (
-                    <div className="text-right border-l pl-4 pb-0.5">
-                      <p className="text-[9px] font-black uppercase tracking-widest text-amber-500 mb-1">vs Ano Ant.</p>
-                      <p className={cn("text-base font-black leading-none", metrics.pa >= numLyPA ? "text-emerald-500" : "text-rose-500")}>
-                        {metrics.pa >= numLyPA ? '+' : ''}{(((metrics.pa / numLyPA) - 1) * 100).toFixed(1)}%
-                      </p>
-                    </div>
-                  )}
-                </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">PA Operado</p>
+                <p className="text-4xl font-black text-slate-800 leading-none">{metrics.pa.toFixed(2)}</p>
               </div>
               
               <div className="space-y-2">
-                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Distribuição da Cesta</p>
-                 <ProgressRow label="1 item" val={metrics.itemsDistribution["1"]} total={metrics.cupons} color="bg-rose-500" />
+                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Tração na Cesta</p>
+                 <ProgressRow label="Somente 1 item" val={metrics.itemsDistribution["1"]} total={metrics.cupons} color="bg-rose-500" />
                  <ProgressRow label="2 itens" val={metrics.itemsDistribution["2"]} total={metrics.cupons} color="bg-amber-500" />
                  <ProgressRow label="3+ itens" val={metrics.itemsDistribution["3+"]} total={metrics.cupons} color="bg-emerald-500" />
               </div>
 
               <div className="pt-3 border-t border-slate-100 grid grid-cols-2 gap-4">
                  <div>
-                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">PA Físico</p>
+                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">PA Físico (Balcão)</p>
                     <p className="text-sm font-black text-slate-700 flex items-center gap-1">
                       <Store className="w-3 h-3 text-slate-400" />
                       {metrics.channelStats.fisico.cupons > 0 ? (metrics.channelStats.fisico.items / metrics.channelStats.fisico.cupons).toFixed(2) : "0.00"}
                     </p>
                  </div>
                  <div>
-                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">PA Digital</p>
+                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">PA Digital (Web)</p>
                     <p className="text-sm font-black text-sky-600 flex items-center gap-1">
                       <Smartphone className="w-3 h-3 text-sky-400" />
                       {metrics.channelStats.digital.cupons > 0 ? (metrics.channelStats.digital.items / metrics.channelStats.digital.cupons).toFixed(2) : "0.00"}
@@ -499,31 +302,17 @@ export function GapAnalysis({ data }: GapAnalysisProps) {
            <CardContent className="p-5 space-y-6">
               <div className="flex items-end justify-between mb-2">
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Ticket Médio</p>
-                  <div className="flex items-end gap-2">
-                     <p className="text-3xl font-black text-slate-800 leading-none">{formatBRL(metrics.tkm)}</p>
-                     {numLyTKM > 0 && (
-                        <p className={cn("text-xs font-black mb-1", metrics.tkm >= numLyTKM ? "text-emerald-500" : "text-rose-500")}>
-                          ({metrics.tkm >= numLyTKM ? '+' : ''}{(((metrics.tkm / numLyTKM) - 1) * 100).toFixed(1)}% YoY)
-                        </p>
-                     )}
-                  </div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Ticket Médio (TKM)</p>
+                  <p className="text-3xl font-black text-slate-800 leading-none">{formatBRL(metrics.tkm)}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Preço Médio / Item</p>
-                  <div className="flex items-end justify-end gap-2">
-                    {numLyPM > 0 && (
-                        <p className={cn("text-xs font-black mb-1", metrics.pm >= numLyPM ? "text-emerald-500" : "text-rose-500")}>
-                          ({metrics.pm >= numLyPM ? '+' : ''}{(((metrics.pm / numLyPM) - 1) * 100).toFixed(1)}% YoY)
-                        </p>
-                    )}
-                    <p className="text-xl font-bold text-indigo-600 leading-none">{formatBRL(metrics.pm)}</p>
-                  </div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Preço M. / Item</p>
+                  <p className="text-xl font-bold text-indigo-600 leading-none">{formatBRL(metrics.pm)}</p>
                 </div>
               </div>
               
               <div className="space-y-3">
-                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Faixas de Ticket</p>
+                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Giro nas Faixas de Ticket</p>
                  <div className="p-3 bg-slate-50 rounded-xl space-y-2 text-xs">
                     <div className="flex justify-between items-center">
                        <span className="font-bold text-slate-600">Ticket Baixo (&lt; R$ 50)</span>
@@ -538,10 +327,10 @@ export function GapAnalysis({ data }: GapAnalysisProps) {
                        <span className="font-black text-slate-800">{((metrics.ticketRanges.alto / metrics.cupons)*100 || 0).toFixed(1)}%</span>
                     </div>
                  </div>
-                 {metrics.tkm > gapAnalysis.metaTKM && gapAnalysis.impactPA < 0 && (
+                 {metrics.tkm > 150 && diagnostic.perc1Item > 50 && (
                     <div className="mt-2 text-[10px] font-bold text-amber-600 flex items-start gap-1">
                       <AlertTriangle className="w-3 h-3 shrink-0 mt-0.5" />
-                      Ticket sustentado por precificação. Cuidado com o mix muito caro reduzindo o número de itens na cesta.
+                      Atenção: Ticket sustentado por extrema precificação isolada, mas com baixa conversão paralela.
                     </div>
                  )}
               </div>
@@ -550,33 +339,33 @@ export function GapAnalysis({ data }: GapAnalysisProps) {
       </div>
 
       {/* Bloco 5: Simulações (Diferencial) */}
-      <Card className="ri-card border-slate-200 overflow-hidden bg-gradient-to-br from-indigo-900 to-slate-900 text-white">
+      <Card className="ri-card border-slate-200 overflow-hidden bg-gradient-to-br from-indigo-900 to-slate-900 text-white shadow-xl">
         <div className="p-6 border-b border-white/10 flex items-center justify-between">
             <div className="flex items-center gap-3">
                <div className="p-2 bg-white/10 rounded-xl backdrop-blur-sm">
                   <Settings2 className="w-5 h-5 text-indigo-300" />
                </div>
                <div>
-                  <h3 className="text-base font-black uppercase tracking-tight text-white">Simulador Estratégico</h3>
-                  <p className="text-[11px] font-bold text-indigo-300 uppercase tracking-widest">O que acontece se mudarmos o cenário?</p>
+                  <h3 className="text-base font-black uppercase tracking-tight text-white">Laboratório de Produtividade</h3>
+                  <p className="text-[11px] font-bold text-indigo-300 uppercase tracking-widest">Descubra o ganho orgânico calibrando seu cenário real</p>
                </div>
             </div>
         </div>
-        <CardContent className="p-6">
-           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <CardContent className="p-6 md:p-8">
+           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-14">
               
               {/* Simulação: Ajuste de PA */}
               <div className="space-y-6">
                  <div>
                     <h4 className="text-sm font-black uppercase tracking-widest text-indigo-200 mb-4 flex items-center gap-2">
                        <Activity className="w-4 h-4" />
-                       Cenário 1: Conversão de Cesta
+                       Cenário 1: Conversão e Profundidade (Equipe)
                     </h4>
-                    <div className="space-y-6 px-4">
+                    <div className="space-y-6 px-1">
                        <div className="space-y-3">
                           <div className="flex justify-between items-center">
-                             <Label className="text-xs font-bold text-slate-300">Aumentar cupons com 2 itens em:</Label>
-                             <span className="text-sm font-black text-white">+{simulAddCupom2}%</span>
+                             <Label className="text-xs font-bold text-slate-300">Esforço em convencer p/ 2 itens (+%)</Label>
+                             <span className="text-sm font-black text-white px-2 py-1 bg-white/10 rounded-md">+{simulAddCupom2}%</span>
                           </div>
                           <Slider 
                             value={[simulAddCupom2]} 
@@ -587,8 +376,8 @@ export function GapAnalysis({ data }: GapAnalysisProps) {
                        </div>
                        <div className="space-y-3">
                           <div className="flex justify-between items-center">
-                             <Label className="text-xs font-bold text-slate-300">Aumentar cupons com 3+ itens em:</Label>
-                             <span className="text-sm font-black text-white">+{simulAddCupom3}%</span>
+                             <Label className="text-xs font-bold text-slate-300">Esforço em pulverizações de 3+ itens (+%)</Label>
+                             <span className="text-sm font-black text-white px-2 py-1 bg-white/10 rounded-md">+{simulAddCupom3}%</span>
                           </div>
                           <Slider 
                             value={[simulAddCupom3]} 
@@ -600,46 +389,46 @@ export function GapAnalysis({ data }: GapAnalysisProps) {
                     </div>
                  </div>
                  
-                 <div className="p-4 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between">
+                 <div className="p-5 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between shadow-inner">
                     <div>
                        <p className="text-[10px] font-black uppercase tracking-widest text-indigo-300 mb-1">Novo PA Projetado</p>
-                       <p className="text-2xl font-black text-white">{simAnalysis.ajustePA.newPA.toFixed(2)}</p>
+                       <p className="text-3xl font-black text-white">{simAnalysis.ajustePA.newPA.toFixed(2)}</p>
                     </div>
-                    <ArrowRight className="w-5 h-5 text-indigo-400" />
+                    <ArrowRight className="w-5 h-5 text-indigo-400 opacity-50" />
                     <div className="text-right">
-                       <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400 mb-1">Ganho Estimado</p>
-                       <p className="text-2xl font-black text-emerald-400">+{formatBRL(simAnalysis.ajustePA.salesGain)}</p>
+                       <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400 mb-1">Ganho Faturamento</p>
+                       <p className="text-3xl font-black text-emerald-400">+{formatBRL(simAnalysis.ajustePA.salesGain)}</p>
                     </div>
                  </div>
               </div>
 
               {/* Simulação: Sem Digital */}
-              <div className="space-y-6 lg:border-l lg:border-white/10 lg:pl-8 flex flex-col">
+              <div className="space-y-6 lg:border-l lg:border-white/10 lg:pl-10 flex flex-col">
                  <div>
                     <h4 className="text-sm font-black uppercase tracking-widest text-indigo-200 mb-4 flex items-center gap-2">
                        <Store className="w-4 h-4" />
-                       Cenário 2: Resultado Estrutural (Sem Digital)
+                       Cenário 2: Visão Balcão Raiz
                     </h4>
                     <p className="text-xs text-slate-400 font-medium leading-relaxed mb-6">
-                       Isola o resultado apenas da loja física, removendo as vendas de Pickup e Delivery que distorcem o PA (pois geralmente possuem apenas 1 item).
+                       Isola a purificação orgânica de balcão físico local. Remove todos os cupons sujos provindos de Pickup ou Delivery que arrastam o seu PA estatístico para baixo devido ao limite do canal digital em gerar vendas adjacentes.
                     </p>
                  </div>
 
                  <div className="mt-auto grid grid-cols-2 gap-4">
-                    <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
-                       <p className="text-[10px] font-black uppercase tracking-widest text-indigo-300 mb-1">PA Físico Ajustado</p>
+                    <div className="p-5 rounded-2xl bg-white/5 border border-white/10">
+                       <p className="text-[10px] font-black uppercase tracking-widest text-indigo-300 mb-1">Seu PA Real de Loja</p>
                        <div className="flex items-center gap-3">
                          <p className="text-3xl font-black text-white">{simAnalysis.semDigital.pa.toFixed(2)}</p>
                          <span className={cn(
-                           "text-xs font-bold px-2 py-0.5 rounded-full",
-                           simAnalysis.semDigital.pa > metrics.pa ? "bg-emerald-500/20 text-emerald-300" : "bg-white/10 text-slate-300"
+                           "text-[10px] font-black uppercase px-2 py-0.5 rounded-full",
+                           simAnalysis.semDigital.pa > metrics.pa ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/20" : "bg-white/10 text-slate-300"
                          )}>
-                            vs {metrics.pa.toFixed(2)}
+                            (O Global é {metrics.pa.toFixed(2)})
                          </span>
                        </div>
                     </div>
-                    <div className="p-4 rounded-2xl bg-white/5 border border-white/10 flex flex-col justify-center">
-                       <p className="text-[10px] font-black uppercase tracking-widest text-indigo-300 mb-1">Venda Física Real</p>
+                    <div className="p-5 rounded-2xl bg-white/5 border border-white/10 flex flex-col justify-center">
+                       <p className="text-[10px] font-black uppercase tracking-widest text-indigo-300 mb-1">Geração de Verba (Balcão)</p>
                        <p className="text-xl font-black text-white">{formatBRL(simAnalysis.semDigital.sales)}</p>
                     </div>
                  </div>
@@ -654,31 +443,27 @@ export function GapAnalysis({ data }: GapAnalysisProps) {
          <Card className="ri-card border-slate-200 shadow-xl overflow-hidden">
             <div className="p-5 bg-indigo-600 text-white flex items-center gap-3">
                <Activity className="w-5 h-5" />
-               <h3 className="text-sm font-black uppercase tracking-widest">Sintese Diagnóstica</h3>
+               <h3 className="text-sm font-black uppercase tracking-widest">Auto-Diagnóstico de Contexto</h3>
             </div>
-            <CardContent className="p-6 space-y-6">
+            <CardContent className="p-6 space-y-7">
                <div className="space-y-2">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Principal Ofensor do Resultado</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Ponto Fraco (Vulnerabilidade da Bateria Geral)</p>
                   <p className="text-2xl font-black text-slate-800 tracking-tight">
-                    {diagnostic.mainProblem?.name.split(' (')[0] || "N/A"}
+                    {diagnostic.mainProblemName}
                   </p>
                </div>
                <div className="space-y-2">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Causa Raiz Identificada</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Leitura de Causa Raiz pelo Engine</p>
                   <p className="text-sm font-bold text-slate-600 leading-relaxed border-l-2 border-indigo-400 pl-3">
                     {diagnostic.textMainCause}
                   </p>
                </div>
                <div className="space-y-2">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Fator Estrutural</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Fator Oculto (Peso Digital)</p>
                   <p className="text-sm font-bold text-slate-600 flex items-center gap-2">
                      <Smartphone className="w-4 h-4 text-sky-500" />
-                     Canal digital representa {diagnostic.digitalShare.toFixed(1)}% das operações.
+                     Os canais OMNI perfazem {diagnostic.digitalShare.toFixed(1)}% das operações dessa base analisável.
                   </p>
-               </div>
-               <div className="p-4 bg-rose-50 rounded-2xl flex justify-between items-center border border-rose-100">
-                  <span className="text-xs font-black uppercase tracking-widest text-rose-500">Impacto Estimado</span>
-                  <span className="text-xl font-black text-rose-700">{formatBRL(diagnostic.mainProblem?.val || 0)}</span>
                </div>
             </CardContent>
          </Card>
@@ -686,12 +471,12 @@ export function GapAnalysis({ data }: GapAnalysisProps) {
          <Card className="ri-card border-slate-200 overflow-hidden bg-slate-50">
             <div className="p-5 border-b border-slate-200 flex items-center gap-3 bg-white">
                <Target className="w-5 h-5 text-emerald-500" />
-               <h3 className="text-sm font-black uppercase tracking-widest text-slate-800">Plano de Ação Sugerido</h3>
+               <h3 className="text-sm font-black uppercase tracking-widest text-slate-800">Cure o Gap: Rotina Operacional (Sugerida)</h3>
             </div>
             <CardContent className="p-6">
                <ul className="space-y-4">
                  {diagnostic.actionPlan.map((action, idx) => (
-                   <li key={idx} className="flex gap-4 p-4 bg-white rounded-2xl shadow-sm border border-slate-100 items-start">
+                   <li key={idx} className="flex gap-4 p-4 bg-white rounded-2xl shadow-sm border border-slate-100 items-start hover:bg-slate-50 transition-colors">
                       <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-black shrink-0">
                          {idx + 1}
                       </div>
@@ -707,38 +492,7 @@ export function GapAnalysis({ data }: GapAnalysisProps) {
   );
 }
 
-function ImpactCard({ title, subtitle, val, icon: Icon }: any) {
-  const formatBRL = (v: number) => Math.abs(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-  const isPos = val >= 0;
-
-  return (
-    <div className={cn(
-      "p-4 rounded-2xl border",
-      isPos ? "bg-emerald-50/50 border-emerald-100" : "bg-rose-50/50 border-rose-100"
-    )}>
-       <div className="flex justify-between items-start mb-4">
-          <div className={cn(
-            "p-2 rounded-lg",
-            isPos ? "bg-emerald-100 text-emerald-600" : "bg-rose-100 text-rose-600"
-          )}>
-             <Icon className="w-4 h-4" />
-          </div>
-       </div>
-       <div className="space-y-1">
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">{subtitle}</p>
-          <p className="text-xs font-bold text-slate-700 mb-2">{title}</p>
-          <p className={cn(
-            "text-xl font-black tracking-tighter",
-            isPos ? "text-emerald-700" : "text-rose-700"
-          )}>
-             {isPos ? "+" : "-"}{formatBRL(val)}
-          </p>
-       </div>
-    </div>
-  );
-}
-
-function ProgressRow({ label, val, total, color }: any) {
+function ProgressRow({ label, val, total, color }: { label: string, val: number, total: number, color: string }) {
   const perc = total > 0 ? (val / total) * 100 : 0;
   return (
     <div className="space-y-1.5">

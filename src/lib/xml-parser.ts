@@ -277,8 +277,7 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
 
     // Identificação de pagamento digital pelo site pela tag (Sem varredura textural)
     // tpIntegra = 2 (Não Integrado com TEF físico da loja), tPag = 99 (Outros), 90 (Sem pagamento)
-    // REFINAMENTO: Se tiver tpIntegra = 2 mas possuir Bandeira ou CNPJ da credenciadora, assume-se que foi um POS físico operacionalizado manualmente.
-    const temPagamentoSite = pagamentosDet.some(p => (p.tpIntegra === "2" && !p.tBand && !p.cNPJCard) || p.tPag === "99" || p.tPag === "90");
+    const temPagamentoSite = pagamentosDet.some(p => p.tpIntegra === "2" || p.tPag === "99" || p.tPag === "90");
     const temDinheiro = pagamentosDet.some(p => p.tPag === "01");
 
     // BLOQUEIOS DE BALCÃO
@@ -315,9 +314,18 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
         canalFinal = "RETIRADA_ONLINE";
         isRetiradaOnlineFinal = true;
       } else {
-        // Se tem indicação digital mas não é Pickup, é DELIVERY (iFood/Rappi)
-        canalFinal = "DELIVERY";
-        isRetiradaOnlineFinal = false;
+        // Se tem indicação digital mas não é Pickup, deveria ser DELIVERY (iFood/Rappi)
+        // EXCEÇÃO: Se possui metadados de cartão físico (Bandeira, CNPJ), NÃO pode ser Delivery genuíno. 
+        // Representa uma venda presencial lançada manualmente com erro operacional, caindo de volta pro Balcão.
+        const temErrosPOS = pagamentosDet.some(p => !!p.tBand || !!p.cNPJCard || !!p.nAut);
+        
+        if (temErrosPOS) {
+          canalFinal = "LOJA_FISICA";
+          isRetiradaOnlineFinal = false;
+        } else {
+          canalFinal = "DELIVERY";
+          isRetiradaOnlineFinal = false;
+        }
       }
     }
 

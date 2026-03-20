@@ -11,6 +11,7 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { 
+  Trophy,
   Store, 
   Target, 
   LayoutDashboard, 
@@ -102,6 +103,7 @@ import { PickupPanel } from "./PickupPanel";
 import { DeliveryPanel } from "./DeliveryPanel";
 import { GapAnalysis } from "./GapAnalysis";
 import { CouponAnalysis } from "./CouponAnalysis";
+import { CollaboratorProductRanking } from "./CollaboratorProductRanking";
 import { Calculator, Map } from "lucide-react";
 
 interface SalesSummaryProps {
@@ -248,6 +250,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
     { id: "diario", label: "Performance Diária", icon: CalendarIcon, category: "Resultados" },
 
     { id: "whatsapp", label: "WhatsApp", icon: MessageCircle, category: "Pessoas", color: "text-emerald-500" },
+    { id: "colab_ranking_prod", label: "Ranking por Produto", icon: Trophy, category: "Pessoas", color: "text-violet-600 font-black" },
 
     { id: "item_ranking", label: "Ranking de Itens", icon: ShoppingCart, category: "Produtos", color: "text-orange-600 font-black" },
     { id: "market_basket", label: "Matriz de Afinidade", icon: Boxes, category: "Produtos", color: "text-indigo-600 font-black" },
@@ -368,6 +371,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
       case "pa": return <AdditionalItemsAnalysis data={data} />;
       case "coupon_analysis": return <CouponAnalysis data={data} />;
       case "venda_sugestiva": return <AdditionalItemsAnalysis data={data} />;
+      case "colab_ranking_prod": return <CollaboratorProductRanking data={data} />;
       case "gamification": return null;
       case "feedback": return null;
       default: return null;

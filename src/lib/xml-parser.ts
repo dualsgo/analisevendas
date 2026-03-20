@@ -277,7 +277,8 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
 
     // Identificação de pagamento digital pelo site pela tag (Sem varredura textural)
     // tpIntegra = 2 (Não Integrado com TEF físico da loja), tPag = 99 (Outros), 90 (Sem pagamento)
-    const temPagamentoSite = pagamentosDet.some(p => p.tpIntegra === "2" || p.tPag === "99" || p.tPag === "90");
+    // REFINAMENTO: Se tiver tpIntegra = 2 mas possuir Bandeira ou CNPJ da credenciadora, assume-se que foi um POS físico operacionalizado manualmente.
+    const temPagamentoSite = pagamentosDet.some(p => (p.tpIntegra === "2" && !p.tBand && !p.cNPJCard) || p.tPag === "99" || p.tPag === "90");
     const temDinheiro = pagamentosDet.some(p => p.tPag === "01");
 
     // BLOQUEIOS DE BALCÃO

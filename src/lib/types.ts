@@ -106,6 +106,8 @@ export interface DetailedSaleRow {
     tPag: string;
     vPag: number;
     tpIntegra?: string;
+    tBand?: string;
+    cNPJCard?: string;
   }>;
   infCpl?: string;
 }

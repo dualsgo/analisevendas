@@ -221,7 +221,7 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
       });
     }
 
-    const pagamentosDet: Array<{ tPag: string, vPag: number, tpIntegra?: string }> = [];
+    const pagamentosDet: Array<{ tPag: string, vPag: number, tpIntegra?: string, tBand?: string, cNPJCard?: string }> = [];
     let vTrocoPag = 0;
     let tpIntegraValue = "";
     const pag = getElement(infNFe, "pag");
@@ -232,7 +232,16 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
         const vPag = dec(getElement(detPag, "vPag")?.textContent);
         const card = getElement(detPag, "card");
         const tpInt = card ? getElement(card, "tpIntegra")?.textContent || "" : undefined;
-        pagamentosDet.push({ tPag, vPag, tpIntegra: tpInt });
+        const tBand = card ? getElement(card, "tBand")?.textContent || "" : undefined;
+        const cnpjC = card ? getElement(card, "CNPJ")?.textContent || "" : undefined;
+        
+        pagamentosDet.push({ 
+          tPag, 
+          vPag, 
+          tpIntegra: tpInt,
+          tBand: tBand,
+          cNPJCard: cnpjC
+        });
         if (tpInt) tpIntegraValue = tpInt;
       });
     }
@@ -283,9 +292,15 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     const SITE_STORE_CEP = "21211007"; // CEP cadastrado no site (Oficial de Pickup)
     const PHYSICAL_STORE_CEP = "21210623"; // CEP físico da loja (Digitado manualmente no iFood)
 
+    // --- PASSO 0: Identificação de indícios (Refinamento iFood) ---
+    // Se tiver nome e CPF mas não possuir bandeira nem CNPJ da credenciadora no cartão tpIntegra 2
+    const temIdentificacaoCliente = !!nome_dest && !!cpf_cnpj;
+    const temCartaoSemDados = pagamentosDet.some(p => p.tpIntegra === "2" && !p.tBand && !p.cNPJCard);
+    const isIndicioIFood = temIdentificacaoCliente && temCartaoSemDados;
+
     // --- PASSO 1: Classificação Primária (Digital vs Presencial) ---
-    // Identifica se a venda tem natureza digital (Pagamento Site, Operação Internet, tpIntegra 2)
-    const isPotencialDigital = (isOperacaoInternet || temPagamentoSite) && !isBalcaoBlocked;
+    // Identifica se a venda tem natureza digital (Pagamento Site, Operação Internet, tpIntegra 2 ou Indício iFood)
+    const isPotencialDigital = (isOperacaoInternet || temPagamentoSite || isIndicioIFood) && !isBalcaoBlocked;
 
     let canalFinal = isTroca ? "TROCA" : "LOJA_FISICA";
     let isRetiradaOnlineFinal = false;

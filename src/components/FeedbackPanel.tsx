@@ -57,13 +57,14 @@ export function FeedbackPanel({ data, vinculos }: FeedbackPanelProps) {
     const activeSales = data.filter(s => !s.is_cancelada && s.tpNF === 1);
     const vendors: Record<string, any> = {};
 
-    // Métricas Globais
-    const totalVendaLoja = activeSales.reduce((acc, s) => acc + parseFloat(s.vNF), 0);
-    const totalCuponsLoja = activeSales.length;
-    const totalItensLoja = activeSales.reduce((acc, s) => acc + parseFloat(s.itens_qtd), 0);
+    // Métricas Globais (exclui volume inflado passivamente pela OMNI)
+    const organicSales = activeSales.filter(s => s.canal !== "DELIVERY" && s.canal !== "RETIRADA_ONLINE");
+    const totalVendaLoja = organicSales.reduce((acc, s) => acc + parseFloat(s.vNF), 0);
+    const totalCuponsLoja = organicSales.length;
+    const totalItensLoja = organicSales.reduce((acc, s) => acc + parseFloat(s.itens_qtd), 0);
     const avgLojaPA = totalCuponsLoja > 0 ? totalItensLoja / totalCuponsLoja : 0;
     const avgLojaTKM = totalCuponsLoja > 0 ? totalVendaLoja / totalCuponsLoja : 0;
-    const totalIdentificadas = activeSales.filter(s => s.cpf_cnpj_dest && s.cpf_cnpj_dest.trim().length > 3).length;
+    const totalIdentificadas = organicSales.filter(s => s.cpf_cnpj_dest && s.cpf_cnpj_dest.trim().length > 3).length;
     const avgLojaIdent = totalCuponsLoja > 0 ? (totalIdentificadas / totalCuponsLoja) * 100 : 0;
 
     const pickupsLoja = activeSales.filter(s => s.canal === "RETIRADA_ONLINE").length;
@@ -86,10 +87,13 @@ export function FeedbackPanel({ data, vinculos }: FeedbackPanelProps) {
         adicionais: 0 
       };
       
-      vendors[v].venda += parseFloat(s.vNF);
-      vendors[v].cupons++;
-      vendors[v].itens += parseFloat(s.itens_qtd);
-      if (s.cpf_cnpj_dest && s.cpf_cnpj_dest.trim().length > 3) vendors[v].identificados++;
+      const isOrganico = s.canal !== "DELIVERY" && s.canal !== "RETIRADA_ONLINE";
+      if (isOrganico) {
+        vendors[v].venda += parseFloat(s.vNF);
+        vendors[v].cupons++;
+        vendors[v].itens += parseFloat(s.itens_qtd);
+        if (s.cpf_cnpj_dest && s.cpf_cnpj_dest.trim().length > 3) vendors[v].identificados++;
+      }
       if (s.canal === "RETIRADA_ONLINE") vendors[v].pickups++;
       if (s.canal === "RETIRADA_ADICIONAL" || s.is_adicional || s.is_adicional_suspeito) vendors[v].adicionais++;
     });

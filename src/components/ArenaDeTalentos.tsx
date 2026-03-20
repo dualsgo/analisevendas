@@ -43,19 +43,23 @@ export function ArenaDeTalentos({ data }: ArenaDeTalentosProps) {
         adicionais: 0 
       };
       
-      const val = parseFloat(s.vNF);
-      vendors[v].venda += val;
-      vendors[v].cupons++;
-      vendors[v].itens += parseFloat(s.itens_qtd);
-      if (s.cpf_cnpj_dest && s.cpf_cnpj_dest.trim().length > 3) vendors[v].identificados++;
+      const isOrganico = s.canal !== "DELIVERY" && s.canal !== "RETIRADA_ONLINE";
+
+      if (isOrganico) {
+        vendors[v].venda += parseFloat(s.vNF);
+        vendors[v].cupons++;
+        vendors[v].itens += parseFloat(s.itens_qtd);
+        if (s.cpf_cnpj_dest && s.cpf_cnpj_dest.trim().length > 3) vendors[v].identificados++;
+      }
       
       if (s.canal === "RETIRADA_ONLINE") vendors[v].pickups++;
       if (s.canal === "RETIRADA_ADICIONAL" || s.is_adicional || s.is_adicional_suspeito) vendors[v].adicionais++;
     });
 
     // Calcular KPIs e Score
-    const totalVendaLoja = activeSales.reduce((acc, s) => acc + parseFloat(s.vNF), 0);
-    const avgLojaPA = activeSales.reduce((acc, s) => acc + parseFloat(s.itens_qtd), 0) / activeSales.length || 0;
+    const organicSales = activeSales.filter(s => s.canal !== "DELIVERY" && s.canal !== "RETIRADA_ONLINE");
+    const totalVendaLoja = organicSales.reduce((acc, s) => acc + parseFloat(s.vNF), 0);
+    const avgLojaPA = organicSales.length > 0 ? organicSales.reduce((acc, s) => acc + parseFloat(s.itens_qtd), 0) / organicSales.length : 0;
 
     return Object.values(vendors).map(v => {
       const pa = v.cupons > 0 ? v.itens / v.cupons : 0;

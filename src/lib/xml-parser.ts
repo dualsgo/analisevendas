@@ -221,7 +221,7 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
       });
     }
 
-    const pagamentosDet: Array<{ tPag: string, vPag: number, tpIntegra?: string, tBand?: string, cNPJCard?: string }> = [];
+    const pagamentosDet: Array<{ tPag: string, vPag: number, tpIntegra?: string, tBand?: string, cNPJCard?: string, nAut?: string }> = [];
     let vTrocoPag = 0;
     let tpIntegraValue = "";
     const pag = getElement(infNFe, "pag");
@@ -234,13 +234,15 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
         const tpInt = card ? getElement(card, "tpIntegra")?.textContent || "" : undefined;
         const tBand = card ? getElement(card, "tBand")?.textContent || "" : undefined;
         const cnpjC = card ? getElement(card, "CNPJ")?.textContent || "" : undefined;
+        const nAut = card ? getElement(card, "nAut")?.textContent || "" : undefined;
         
         pagamentosDet.push({ 
           tPag, 
           vPag, 
           tpIntegra: tpInt,
           tBand: tBand,
-          cNPJCard: cnpjC
+          cNPJCard: cnpjC,
+          nAut: nAut
         });
         if (tpInt) tpIntegraValue = tpInt;
       });
@@ -296,11 +298,13 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     // Se tiver nome e CPF mas não possuir bandeira nem CNPJ da credenciadora no cartão tpIntegra 2
     const temIdentificacaoCliente = !!nome_dest && !!cpf_cnpj;
     const temCartaoSemDados = pagamentosDet.some(p => p.tpIntegra === "2" && !p.tBand && !p.cNPJCard);
+    const temCartaoPOSCompleto = pagamentosDet.some(p => !!p.tBand && !!p.cNPJCard && !!p.nAut);
     const isIndicioIFood = temIdentificacaoCliente && temCartaoSemDados;
 
     // --- PASSO 1: Classificação Primária (Digital vs Presencial) ---
     // Identifica se a venda tem natureza digital (Pagamento Site, Operação Internet, tpIntegra 2 ou Indício iFood)
-    const isPotencialDigital = (isOperacaoInternet || temPagamentoSite || isIndicioIFood) && !isBalcaoBlocked;
+    // EXCEÇÃO: Se o cartão tiver dados completos (CNPJ + Bandeira + Aut), assume-se que é uma máquina física (POS) na loja
+    const isPotencialDigital = (isOperacaoInternet || temPagamentoSite || isIndicioIFood) && !isBalcaoBlocked && !temCartaoPOSCompleto;
 
     let canalFinal = isTroca ? "TROCA" : "LOJA_FISICA";
     let isRetiradaOnlineFinal = false;

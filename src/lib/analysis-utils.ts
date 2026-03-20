@@ -5,7 +5,7 @@ export function detectarAdicionaisSuspeitos(rows: DetailedSaleRow[]): DetailedSa
   const retiradas = rows.filter(r => r.canal === "RETIRADA_ONLINE" && !r.is_cancelada);
   const candidatos = rows.filter(r =>
     r.tpNF === 1 &&
-    r.canal !== "RETIRADA_ONLINE" &&
+    r.canal === "LOJA_FISICA" && // Somente vendas de balcão (físicas) podem ser consideradas "Adicionais" a uma retirada
     !r.is_cancelada &&
     !r.is_troca &&
     !r.tem_suspeita_preco_errado

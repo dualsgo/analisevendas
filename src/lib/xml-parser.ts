@@ -299,13 +299,14 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     // Se tiver nome e CPF mas não possuir bandeira nem CNPJ da credenciadora no cartão tpIntegra 2
     const temIdentificacaoCliente = !!nome_dest && !!cpf_cnpj;
     const temCartaoSemDados = pagamentosDet.some(p => p.tpIntegra === "2" && !p.tBand && !p.cNPJCard);
-    const temCartaoPOSCompleto = pagamentosDet.some(p => !!p.tBand && !!p.cNPJCard && !!p.nAut);
+    // Se o pagamento possui a Bandeira do Cartão E (o CNPJ da Credenciadora OU o Código de Autorização), é um forte indício de que o cartão foi passado em uma máquina física.
+    const temCartaoPOSFisico = pagamentosDet.some(p => !!p.tBand && (!!p.cNPJCard || !!p.nAut));
     const isIndicioIFood = temIdentificacaoCliente && temCartaoSemDados;
 
     // --- PASSO 1: Classificação Primária (Digital vs Presencial) ---
     // Identifica se a venda tem natureza digital (Pagamento Site, Operação Internet, tpIntegra 2 ou Indício iFood)
-    // EXCEÇÃO: Se o cartão tiver dados completos (CNPJ + Bandeira + Aut), assume-se que é uma máquina física (POS) na loja
-    const isPotencialDigital = (isOperacaoInternet || temPagamentoSite || isIndicioIFood) && !isBalcaoBlocked && !temCartaoPOSCompleto;
+    // EXCEÇÃO: Vendas com indícios de máquina de cartão de balcão (POS Físico) são categoricamente presenciais.
+    const isPotencialDigital = (isOperacaoInternet || temPagamentoSite || isIndicioIFood) && !isBalcaoBlocked && !temCartaoPOSFisico;
 
     let canalFinal = isTroca ? "TROCA" : "LOJA_FISICA";
     let isRetiradaOnlineFinal = false;

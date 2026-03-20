@@ -24,18 +24,22 @@ export function detectarAdicionaisSuspeitos(rows: DetailedSaleRow[]): DetailedSa
     if (!cpf) return;
 
     const pickupsDoCliente = pickupsPorCpf.get(cpf) || [];
-    const timeNota = new Date(nota.dhEmi);
-    const dateNotaStr = timeNota.toISOString().split('T')[0];
+    // Evita bug de fuso horário UTC extraindo a data local diretamente da string de emissão
+    const dateNotaStr = nota.dhEmi.split('T')[0];
 
     // Vínculo por CPF + Data (Regra solicitada: CPF é o fator principal)
     const pickupVinculada = pickupsDoCliente.find(p => {
-      const datePickupStr = new Date(p.dhEmi).toISOString().split('T')[0];
+      const datePickupStr = p.dhEmi.split('T')[0];
       return dateNotaStr === datePickupStr;
     });
 
     if (pickupVinculada) {
+      const tAdicional = new Date(nota.dhEmi).getTime();
+      const tPickup = new Date(pickupVinculada.dhEmi).getTime();
+
       nota.chave_retirada_associada = pickupVinculada.chave;
       nota.data_retirada_associada = pickupVinculada.dhEmi;
+      nota.tipo_retirada_associada = tAdicional < tPickup ? "ANTES" : "DEPOIS";
       nota.canal = "RETIRADA_ADICIONAL";
       nota.canal_consolidado = "RETIRADA_ADICIONAL";
 

@@ -67,7 +67,9 @@ export function EasterPanel({ data }: EasterPanelProps) {
           vendedor: v,
           data: sale.dhEmi,
           itens: giftItems.map(it => it.xProd).join(", "),
-          qtd: extrasGifts
+          qtd: extrasGifts,
+          cliente: sale.nome_dest || "NÃO IDENTIFICADO",
+          cpf: sale.cpf_cnpj_dest || "NÃO INFORMADO"
         });
       }
 
@@ -78,7 +80,9 @@ export function EasterPanel({ data }: EasterPanelProps) {
           vendedor: v,
           data: sale.dhEmi,
           itens: chocoItems.map(it => it.xProd).join(", "),
-          qtd: extrasChoco
+          qtd: extrasChoco,
+          cliente: sale.nome_dest || "NÃO IDENTIFICADO",
+          cpf: sale.cpf_cnpj_dest || "NÃO INFORMADO"
         });
       }
     });
@@ -233,6 +237,16 @@ export function EasterPanel({ data }: EasterPanelProps) {
                         <p className="text-[11px] font-bold text-rose-600 bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-100">
                           {alert.itens}
                         </p>
+                        <div className="bg-slate-50 p-2 rounded-lg border border-slate-100 flex flex-col gap-1">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[9px] font-black text-slate-400 uppercase">Cliente</span>
+                            <span className="text-[10px] font-black text-slate-700 truncate max-w-[150px] uppercase">{alert.cliente}</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-[9px] font-black text-slate-400 uppercase">CPF/CNPJ</span>
+                            <span className="text-[10px] font-bold text-slate-600">{alert.cpf}</span>
+                          </div>
+                        </div>
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <div className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center border border-slate-200">
@@ -261,14 +275,40 @@ export function EasterPanel({ data }: EasterPanelProps) {
             <CardContent className="p-0 overflow-auto max-h-[300px]">
               <div className="divide-y divide-slate-100">
                 {stats.separateChocolates.map((item, i) => (
-                  <div key={`${item.nf}-${i}`} className="p-4 flex items-center justify-between hover:bg-orange-50/20 transition-colors">
-                    <div>
-                      <p className="text-[10px] font-black text-slate-800 uppercase leading-none">NF: {item.nf} • {item.vendedor}</p>
-                      <p className="text-[10px] font-bold text-orange-600 mt-1 uppercase">{item.itens}</p>
+                  <div key={`${item.nf}-${i}`} className="p-4 flex flex-col gap-3 hover:bg-orange-50/20 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Package className="w-4 h-4 text-slate-400" />
+                        <span className="text-[11px] font-black text-slate-800 uppercase leading-none">NF: {item.nf}</span>
+                      </div>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase">{format(parseISO(item.data), "dd/MM HH:mm")}</span>
                     </div>
-                    <Badge variant="outline" className="font-black text-[9px] border-orange-200 text-orange-600 uppercase">
-                      {item.qtd} UN
-                    </Badge>
+                    
+                    <div>
+                      <p className="text-[10px] font-black text-orange-600 uppercase mb-1">{item.itens}</p>
+                      <div className="bg-slate-50 p-2 rounded-lg border border-slate-100 flex flex-col gap-1 mt-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[9px] font-black text-slate-400 uppercase">Cliente</span>
+                          <span className="text-[10px] font-black text-slate-700 truncate max-w-[150px] uppercase">{item.cliente}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[9px] font-black text-slate-400 uppercase">CPF/CNPJ</span>
+                          <span className="text-[10px] font-bold text-slate-600">{item.cpf}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center border border-slate-200">
+                          <User className="w-3 h-3 text-slate-500" />
+                        </div>
+                        <span className="text-[10px] font-black text-slate-500 uppercase">{item.vendedor}</span>
+                      </div>
+                      <Badge variant="outline" className="font-black text-[9px] border-orange-200 text-orange-600 uppercase">
+                        {item.qtd} UN
+                      </Badge>
+                    </div>
                   </div>
                 ))}
               </div>

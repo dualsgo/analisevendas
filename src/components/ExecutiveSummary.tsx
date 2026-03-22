@@ -4,6 +4,12 @@ import React, { useMemo } from "react";
 import { motion } from "framer-motion";
 import { DetailedSaleRow, VinculoTroca } from "@/lib/types";
 import { Card, CardContent } from "@/components/ui/card";
+const CHOCOLATE_CODES = ['5147482', '5142574'];
+const GIFT_CODES = [
+  '5147476', '5147477', '5147459', '5147452', '5147478', '5147480', 
+  '5147454', '5147456', '5147460', '5147461', '5147463', '5147465', 
+  '5147466', '5147467', '5147470', '5147471', '5147473', '5147475'
+];
 import { 
   TrendingUp, 
   Users, 
@@ -18,7 +24,8 @@ import {
   Sparkles,
   ChevronRight,
   PieChart,
-  BarChart3
+  BarChart3,
+  Egg
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, parseISO } from "date-fns";
@@ -61,6 +68,16 @@ export function ExecutiveSummary({ data, vinculos, onSwitchTab }: ExecutiveSumma
     });
     const topDay = Object.entries(daySales).sort((a, b) => b[1] - a[1])[0] || ["-", 0];
 
+    // Páscoa
+    let easterKits = 0;
+    let easterGifts = 0;
+    activeSales.forEach(sale => {
+      const chocoQty = sale.itens.filter(it => CHOCOLATE_CODES.includes(it.cProd)).reduce((acc, it) => acc + it.qCom, 0);
+      const giftQty = sale.itens.filter(it => GIFT_CODES.includes(it.cProd)).reduce((acc, it) => acc + it.qCom, 0);
+      easterKits += Math.min(chocoQty, giftQty);
+      easterGifts += giftQty;
+    });
+
     // Melhor Mês
     const monthSales: Record<string, number> = {};
     activeSales.forEach(s => {
@@ -87,6 +104,7 @@ export function ExecutiveSummary({ data, vinculos, onSwitchTab }: ExecutiveSumma
       topDay: { date: topDay[0], value: topDay[1] },
       topMonth: { date: topMonth[0], value: topMonth[1] },
       hasMultipleMonths,
+      easter: { kits: easterKits, conv: easterGifts > 0 ? (easterKits / easterGifts) * 100 : 0 },
       monthList: Object.entries(monthSales).map(([month, venda]) => {
         const monthRows = activeSales.filter(s => s.dhEmi.substring(0, 7) === month);
         const cupons = monthRows.length;
@@ -139,7 +157,7 @@ export function ExecutiveSummary({ data, vinculos, onSwitchTab }: ExecutiveSumma
       </section>
 
       {/* Primary Metrics Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
         <MetricCard 
           label="Ticket Médio" 
           value={formatBRL(stats.tkm)} 
@@ -162,11 +180,19 @@ export function ExecutiveSummary({ data, vinculos, onSwitchTab }: ExecutiveSumma
           color="text-emerald-600" 
         />
         <MetricCard 
+          label="Conv. Kit Páscoa" 
+          value={`${stats.easter.conv.toFixed(1)}%`} 
+          desc={`${stats.easter.kits} Kits Formados`} 
+          icon={Egg} 
+          color="text-orange-600" 
+          tooltip="Percentual de brindes de páscoa que foram vendidos acompanhados de chocolate."
+        />
+        <MetricCard 
           label="Conversão Pickup" 
           value={`${stats.pickupConv.toFixed(1)}%`} 
           desc="Fórmula: Adicionais / Pickups" 
           icon={Smartphone} 
-          color="text-orange-600" 
+          color="text-sky-600" 
           tooltip="Percentual de clientes que vieram retirar um pedido online e acabaram comprando algo a mais na loja."
         />
       </div>

@@ -62,7 +62,7 @@ type MetricType = 'venda' | 'cupons' | 'itens' | 'tkm' | 'pa' | 'cadastros' | 't
 
 export function DailyPerformance({ data }: DailyPerformanceProps) {
   const [selectedMetric, setSelectedMetric] = useState<MetricType>('venda');
-  const [viewMode, setViewMode] = useState<'daily' | 'weekly'>('daily');
+  const [viewMode, setViewMode] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const [dayOfWeekFilter, setDayOfWeekFilter] = useState<string>('all');
   const [selectedVendors, setSelectedVendors] = useState<string[]>([]);
 
@@ -140,7 +140,7 @@ export function DailyPerformance({ data }: DailyPerformanceProps) {
           }, {} as Record<string, DetailedSaleRow[]>)
         ).map(([name, vRows]) => ({ name, ...calculateMetrics(vRows) }))
       }));
-    } else {
+    } else if (viewMode === 'weekly') {
       const firstDate = startOfDay(parseISO(sortedData[0].dhEmi));
       const weeks: { label: string; rows: DetailedSaleRow[] }[] = [];
       
@@ -165,6 +165,27 @@ export function DailyPerformance({ data }: DailyPerformanceProps) {
         ...calculateMetrics(w.rows),
         vendors: Object.entries(
           w.rows.reduce((acc, r) => {
+            const v = r.vendedor || "COLABORADOR";
+            if (!acc[v]) acc[v] = [];
+            acc[v].push(r);
+            return acc;
+          }, {} as Record<string, DetailedSaleRow[]>)
+        ).map(([name, vRows]) => ({ name, ...calculateMetrics(vRows) }))
+      }));
+    } else {
+      // Monthly
+      const groups: Record<string, DetailedSaleRow[]> = {};
+      sortedData.forEach(r => {
+        const month = r.dhEmi.substring(0, 7);
+        if (!groups[month]) groups[month] = [];
+        groups[month].push(r);
+      });
+
+      return Object.entries(groups).map(([month, rows]) => ({
+        label: format(parseISO(month + "-01"), "MMMM yy", { locale: ptBR }).toUpperCase(),
+        ...calculateMetrics(rows),
+        vendors: Object.entries(
+          rows.reduce((acc, r) => {
             const v = r.vendedor || "COLABORADOR";
             if (!acc[v]) acc[v] = [];
             acc[v].push(r);
@@ -205,9 +226,10 @@ export function DailyPerformance({ data }: DailyPerformanceProps) {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-white p-4 rounded-2xl border border-orange-100 shadow-sm">
         <div className="space-y-1.5 text-center">
           <label className="text-[9px] font-black uppercase text-slate-400 px-1">Visão</label>
-          <div className="flex gap-1">
-            <Button size="sm" variant={viewMode === 'daily' ? 'default' : 'outline'} onClick={() => setViewMode('daily')} className="flex-1 h-8 text-[10px] font-black uppercase">Dia</Button>
-            <Button size="sm" variant={viewMode === 'weekly' ? 'default' : 'outline'} onClick={() => setViewMode('weekly')} className="flex-1 h-8 text-[10px] font-black uppercase">7D</Button>
+          <div className="flex gap-1 w-full sm:w-auto">
+            <Button size="sm" variant={viewMode === 'daily' ? 'default' : 'outline'} onClick={() => setViewMode('daily')} className="flex-1 h-8 text-[9px] font-black uppercase px-2">Dia</Button>
+            <Button size="sm" variant={viewMode === 'weekly' ? 'default' : 'outline'} onClick={() => setViewMode('weekly')} className="flex-1 h-8 text-[9px] font-black uppercase px-2">7D</Button>
+            <Button size="sm" variant={viewMode === 'monthly' ? 'default' : 'outline'} onClick={() => setViewMode('monthly')} className="flex-1 h-8 text-[9px] font-black uppercase px-2">Meses</Button>
           </div>
         </div>
         <div className="space-y-1.5 text-center">

@@ -61,6 +61,15 @@ export function ExecutiveSummary({ data, vinculos, onSwitchTab }: ExecutiveSumma
     });
     const topDay = Object.entries(daySales).sort((a, b) => b[1] - a[1])[0] || ["-", 0];
 
+    // Melhor Mês
+    const monthSales: Record<string, number> = {};
+    activeSales.forEach(s => {
+      const m = s.dhEmi.substring(0, 7); // YYYY-MM
+      monthSales[m] = (monthSales[m] || 0) + parseFloat(s.vNF);
+    });
+    const topMonth = Object.entries(monthSales).sort((a, b) => b[1] - a[1])[0] || ["-", 0];
+    const hasMultipleMonths = Object.keys(monthSales).length > 1;
+
     return {
       venda: totalVenda,
       cupons: totalCupons,
@@ -76,6 +85,18 @@ export function ExecutiveSummary({ data, vinculos, onSwitchTab }: ExecutiveSumma
       },
       topVendor: { name: topVendor[0], value: topVendor[1] },
       topDay: { date: topDay[0], value: topDay[1] },
+      topMonth: { date: topMonth[0], value: topMonth[1] },
+      hasMultipleMonths,
+      monthList: Object.entries(monthSales).map(([month, venda]) => {
+        const monthRows = activeSales.filter(s => s.dhEmi.substring(0, 7) === month);
+        const cupons = monthRows.length;
+        return {
+          month,
+          venda,
+          cupons,
+          tkm: cupons > 0 ? venda / cupons : 0
+        };
+      }).sort((a, b) => a.month.localeCompare(b.month)),
       pickupConv: pickup.length > 0 ? (adicional.length / pickup.length) * 100 : 0
     };
   }, [activeSales, vinculos]);
@@ -186,17 +207,48 @@ export function ExecutiveSummary({ data, vinculos, onSwitchTab }: ExecutiveSumma
                 <p className="text-xs font-bold text-orange-400">{formatBRL(stats.topVendor.value)}</p>
               </div>
 
-              <div className="space-y-1">
+              <div className="space-y-1 border-t border-slate-800 pt-4">
                 <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Melhor Dia (Faturamento)</p>
                 <p className="text-xl font-black text-white uppercase tracking-tight">
                   {stats.topDay.date !== "-" ? format(parseISO(stats.topDay.date), "dd 'de' MMMM", { locale: ptBR }) : "-"}
                 </p>
                 <p className="text-xs font-bold text-emerald-400">{formatBRL(stats.topDay.value)}</p>
               </div>
-            </div>
 
+              {stats.hasMultipleMonths && (
+                <div className="space-y-1 border-t border-slate-800 pt-4">
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Melhor Mês</p>
+                  <p className="text-xl font-black text-white uppercase tracking-tight">
+                    {stats.topMonth.date !== "-" ? format(parseISO(stats.topMonth.date + "-01"), "MMMM yyyy", { locale: ptBR }) : "-"}
+                  </p>
+                  <p className="text-xs font-bold text-sky-400">{formatBRL(stats.topMonth.value)}</p>
+                </div>
+              )}
+            </div>
           </Card>
 
+          {stats.hasMultipleMonths && (
+            <Card className="ri-card border-slate-100 p-6 overflow-hidden">
+               <div className="flex items-center gap-3 mb-4">
+                <TrendingUp className="w-5 h-5 text-indigo-500" />
+                <h3 className="text-[10px] font-black uppercase text-slate-800 tracking-tight">Evolução Mensal</h3>
+              </div>
+              <div className="space-y-3">
+                {stats.monthList.map((m: any, i: number) => (
+                  <div key={m.month} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-none">
+                    <div>
+                      <p className="text-[10px] font-black text-slate-700 uppercase">{format(parseISO(m.month + "-01"), "MMM yy", { locale: ptBR })}</p>
+                      <p className="text-[8px] font-bold text-slate-400 uppercase">{m.cupons} Tickets</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[11px] font-black text-slate-900">{formatBRL(m.venda)}</p>
+                      <p className="text-[9px] font-bold text-indigo-600">{formatBRL(m.tkm)} TKM</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
         </div>
       </div>
     </div>

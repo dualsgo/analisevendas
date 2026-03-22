@@ -130,6 +130,8 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
     setOpenMobile(false);
   };
 
+  const [periodView, setPeriodView] = useState<'consolidated' | 'monthly' | 'daily'>('consolidated');
+
   const analysisPeriod = useMemo(() => {
     const saidas = data.filter(r => r.tpNF === 1 && !r.is_cancelada);
     if (saidas.length === 0) return "Sem dados";
@@ -137,7 +139,14 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
     if (dates.length === 0) return "Período Indefinido";
     const start = min(dates);
     const end = max(dates);
-    if (format(start, "MM/yyyy") === format(end, "MM/yyyy")) {
+    
+    const isSameMonth = format(start, "MM/yyyy") === format(end, "MM/yyyy");
+    const isSameDay = format(start, "dd/MM/yyyy") === format(end, "dd/MM/yyyy");
+
+    if (isSameDay) {
+      return format(start, "dd 'de' MMMM 'de' yyyy", { locale: ptBR }).toUpperCase();
+    }
+    if (isSameMonth) {
       return format(start, "MMMM 'de' yyyy", { locale: ptBR }).toUpperCase();
     }
     return `${format(start, "dd/MM/yy")} — ${format(end, "dd/MM/yy")}`;
@@ -241,6 +250,59 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
     };
   }, [selectedChannels, metricsByChannel]);
 
+  const periodBreakdown = useMemo(() => {
+    if (periodView === 'consolidated') return null;
+
+    const saidas = data.filter(r => r.tpNF === 1 && !r.is_cancelada);
+    const groups: Record<string, DetailedSaleRow[]> = {};
+    
+    saidas.forEach(r => {
+      const date = parseISO(r.dhEmi);
+      const key = periodView === 'monthly' ? format(date, "MM/yyyy") : format(date, "dd/MM/yyyy");
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(r);
+    });
+
+    return Object.entries(groups).map(([key, rows]) => {
+      const venta = rows.reduce((acc, r) => acc + parseFloat(r.vNF), 0);
+      const cupons = rows.length;
+      const itens = rows.reduce((acc, r) => acc + parseFloat(r.itens_qtd), 0);
+      const iden = rows.filter(r => r.cpf_cnpj_dest && r.cpf_cnpj_dest.trim() !== "").length;
+      
+      const label = periodView === 'monthly' 
+        ? format(parseISO(rows[0].dhEmi), "MMMM yyyy", { locale: ptBR }).toUpperCase()
+        : format(parseISO(rows[0].dhEmi), "dd/MM (eee)", { locale: ptBR }).toUpperCase();
+
+      return {
+        key,
+        label,
+        venda: venta,
+        cupons,
+        itens,
+        tkm: cupons > 0 ? venta / cupons : 0,
+        pa: cupons > 0 ? itens / cupons : 0,
+        ident: cupons > 0 ? (iden / cupons) * 100 : 0
+      };
+    }).sort((a, b) => {
+      // Sort by date key
+      if (periodView === 'monthly') {
+        const [ma, ya] = a.key.split('/').map(Number);
+        const [mb, yb] = b.key.split('/').map(Number);
+        return (ya * 12 + ma) - (yb * 12 + mb);
+      } else {
+        const [da, ma, ya] = a.key.split('/').map(Number);
+        const [db, mb, yb] = b.key.split('/').map(Number);
+        return new Date(ya, ma-1, da).getTime() - new Date(yb, mb-1, db).getTime();
+      }
+    }).map((p, i, arr) => {
+      // Add trend comparison with previous month/day
+      if (i === 0) return { ...p, trend: 0 };
+      const prev = arr[i - 1];
+      const trend = prev.venda > 0 ? ((p.venda - prev.venda) / prev.venda) * 100 : 0;
+      return { ...p, trend };
+    });
+  }, [data, periodView]);
+
   const navItems = [
     { id: "executivo", label: "Resumo Executivo", icon: Sparkles, category: "Resultados", color: "text-orange-500 font-black" },
     { id: "gap_analise", label: "GAP de Produtividade", icon: Activity, category: "Resultados", color: "text-rose-500 font-black" },
@@ -296,38 +358,109 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
               <ChannelSelector label="Trocas" icon={ArrowRightLeft} active={selectedChannels.troca} color="text-purple-500" onToggle={() => toggleChannel('troca')} />
             </motion.div>
 
-            <motion.div variants={childItem}>
-              <Card className="ri-card border-slate-200 border overflow-hidden shadow-sm">
-                <div className="p-3 md:p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Target className="w-4 h-4 text-indigo-600" />
-                    <h3 className="text-xs font-bold text-slate-800 uppercase tracking-tight">Consolidado</h3>
-                  </div>
-                  <div className="flex items-center gap-2 bg-white px-3 py-1 rounded-full border border-slate-200 shadow-sm">
-                     <UserCheck className="w-3.5 h-3.5 text-emerald-500" />
-                     <span className="text-[10px] font-bold text-slate-600">{consolidado.cadastros.toFixed(1)}% IDENT.</span>
-                  </div>
-                </div>
-                <CardContent className="p-4 md:p-5 space-y-6 flex flex-col items-center justify-center text-center">
-                  <div className="space-y-1">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-2">Faturamento Consolidado</p>
-                    <p className={cn(
-                      "font-black text-slate-800 tracking-tighter leading-none transition-all duration-300",
-                      isCollapsed ? "text-5xl sm:text-7xl" : "text-4xl sm:text-5xl"
-                    )}>
-                      {formatCurrency(consolidado.venda)}
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 w-full px-4 md:px-10">
-                    <QuickMetric label="Cupons" value={consolidado.cupons} large={isCollapsed} />
-                    <QuickMetric label="Peças" value={consolidado.itens} large={isCollapsed} />
-                    <QuickMetric label="Ticket Médio" value={formatCurrency(consolidado.tkm, true)} color="text-indigo-600" large={isCollapsed} />
-                    <QuickMetric label="P.A. Geral" value={consolidado.pa.toFixed(2)} color="text-sky-600" large={isCollapsed} />
-                  </div>
-                </CardContent>
-              </Card>
+            <motion.div variants={childItem} className="flex items-center gap-2 bg-white p-2 rounded-2xl border border-slate-200 shadow-sm w-fit">
+              <Button 
+                variant={periodView === 'consolidated' ? 'default' : 'ghost'} 
+                size="sm" 
+                onClick={() => setPeriodView('consolidated')}
+                className="rounded-xl text-[10px] font-black uppercase h-8"
+              >
+                Consolidado
+              </Button>
+              <Button 
+                variant={periodView === 'monthly' ? 'default' : 'ghost'} 
+                size="sm" 
+                onClick={() => setPeriodView('monthly')}
+                className="rounded-xl text-[10px] font-black uppercase h-8"
+              >
+                Por Mês
+              </Button>
+              <Button 
+                variant={periodView === 'daily' ? 'default' : 'ghost'} 
+                size="sm" 
+                onClick={() => setPeriodView('daily')}
+                className="rounded-xl text-[10px] font-black uppercase h-8"
+              >
+                Por Dia
+              </Button>
             </motion.div>
+
+            {periodView === 'consolidated' ? (
+              <motion.div variants={childItem}>
+                <Card className="ri-card border-slate-200 border overflow-hidden shadow-sm">
+                  <div className="p-3 md:p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Target className="w-4 h-4 text-indigo-600" />
+                      <h3 className="text-xs font-bold text-slate-800 uppercase tracking-tight">Consolidado do Período</h3>
+                    </div>
+                    <div className="flex items-center gap-2 bg-white px-3 py-1 rounded-full border border-slate-200 shadow-sm">
+                      <UserCheck className="w-3.5 h-3.5 text-emerald-500" />
+                      <span className="text-[10px] font-bold text-slate-600">{consolidado.cadastros.toFixed(1)}% IDENT.</span>
+                    </div>
+                  </div>
+                  <CardContent className="p-4 md:p-5 space-y-6 flex flex-col items-center justify-center text-center">
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-2">Faturamento Total</p>
+                      <p className={cn(
+                        "font-black text-slate-800 tracking-tighter leading-none transition-all duration-300",
+                        isCollapsed ? "text-5xl sm:text-7xl" : "text-4xl sm:text-5xl"
+                      )}>
+                        {formatCurrency(consolidado.venda)}
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 w-full px-4 md:px-10">
+                      <QuickMetric label="Cupons" value={consolidado.cupons} large={isCollapsed} />
+                      <QuickMetric label="Peças" value={consolidado.itens} large={isCollapsed} />
+                      <QuickMetric label="Ticket Médio" value={formatCurrency(consolidado.tkm, true)} color="text-indigo-600" large={isCollapsed} />
+                      <QuickMetric label="P.A. Geral" value={consolidado.pa.toFixed(2)} color="text-sky-600" large={isCollapsed} />
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ) : (
+              <motion.div variants={childItem} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {periodBreakdown?.map((p) => (
+                  <Card key={p.key} className="ri-card border-slate-200 border overflow-hidden shadow-sm bg-white">
+                    <div className="p-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                      <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-tight">{p.label}</h3>
+                      <div className="flex items-center gap-2">
+                        {p.trend !== 0 && (
+                          <div className={cn(
+                            "flex items-center gap-0.5 text-[9px] font-black px-1.5 py-0.5 rounded-full",
+                            p.trend > 0 ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"
+                          )}>
+                            {p.trend > 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingUp className="w-3 h-3 rotate-180" />}
+                            {Math.abs(p.trend).toFixed(1)}%
+                          </div>
+                        )}
+                        <Badge className="bg-white border-slate-200 text-slate-600 border text-[8px]">{p.ident.toFixed(0)}% CPF</Badge>
+                      </div>
+                    </div>
+                    <CardContent className="p-4 space-y-4">
+                      <div className="text-center">
+                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Faturamento</p>
+                        <p className="text-xl font-black text-slate-800">{formatCurrency(p.venda)}</p>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 border-t pt-3">
+                        <div className="text-center">
+                          <p className="text-[8px] font-bold text-slate-400 uppercase">Tickets</p>
+                          <p className="text-xs font-black text-slate-700">{p.cupons}</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-[8px] font-bold text-slate-400 uppercase">P.A.</p>
+                          <p className="text-xs font-black text-sky-600">{p.pa.toFixed(2)}</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-[8px] font-bold text-slate-400 uppercase">TKM</p>
+                          <p className="text-xs font-black text-indigo-600">{formatCurrency(p.tkm, true)}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </motion.div>
+            )}
 
             <motion.div variants={childItem} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <FixedChannelCard title="Físico" icon={Store} metrics={metricsByChannel.fisica} color="border-slate-200" large={isCollapsed} />

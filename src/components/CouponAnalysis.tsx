@@ -29,6 +29,7 @@ interface CouponAnalysisProps {
 export function CouponAnalysis({ data }: CouponAnalysisProps) {
   const [selectedVendor, setSelectedVendor] = React.useState("TODOS");
   const [selectedRange, setSelectedRange] = React.useState<number | string>(1);
+  const [selectedChannel, setSelectedChannel] = React.useState<"FISICA" | "DIGITAL" | "ADICIONAIS">("FISICA");
 
   const analytics = useMemo(() => {
     const activeSales = data.filter(s => !s.is_cancelada && s.tpNF === 1);
@@ -105,15 +106,24 @@ export function CouponAnalysis({ data }: CouponAnalysisProps) {
     const adicionaisStats = getItemStats(adicionais);
     const globalStats = getItemStats(activeSales);
 
-    const filteredFisica = selectedVendor === "TODOS" 
-      ? fisica 
-      : fisica.filter(s => (s.vendedor || "OUTROS") === selectedVendor);
+    // Dynamic stats based on selected channel
+    const currentChannelRows = 
+      selectedChannel === "FISICA" ? fisica :
+      selectedChannel === "DIGITAL" ? digital :
+      adicionais;
+
+    const channelSummaryStats = getItemStats(currentChannelRows);
     
-    const vendorFisicaStats = getItemStats(filteredFisica);
-    const vendors = Array.from(new Set(fisica.map(s => s.vendedor || "OUTROS"))).sort();
+    // Vendor specific stats for the SELECTED channel
+    const filteredRows = selectedVendor === "TODOS" 
+      ? currentChannelRows 
+      : currentChannelRows.filter(s => (s.vendedor || "OUTROS") === selectedVendor);
+    
+    const detailedStats = getItemStats(filteredRows);
+    const vendors = Array.from(new Set(currentChannelRows.map(s => s.vendedor || "OUTROS"))).sort();
 
     const vendorMap: Record<string, { total: number, oneItem: number }> = {};
-    fisica.forEach(s => {
+    currentChannelRows.forEach(s => {
       const v = s.vendedor || "OUTROS";
       if (!vendorMap[v]) vendorMap[v] = { total: 0, oneItem: 0 };
       vendorMap[v].total++;
@@ -126,6 +136,19 @@ export function CouponAnalysis({ data }: CouponAnalysisProps) {
       rate: stats.total > 0 ? (stats.oneItem / stats.total) * 100 : 0
     })).sort((a, b) => b.rate - a.rate);
 
+    // Breakdown per specific channel for impact analysis (Fixed reference)
+    const channelImpact = [
+      { id: "fisica", label: "Loja Física", stats: fisicaStats, color: "bg-slate-500", icon: Store },
+      { id: "pickup", label: "Pickup Online", stats: getItemStats(activeSales.filter(s => s.canal === "RETIRADA_ONLINE")), color: "bg-sky-500", icon: Smartphone },
+      { id: "delivery", label: "Delivery (iFood/Rappi)", stats: getItemStats(activeSales.filter(s => s.canal === "DELIVERY")), color: "bg-rose-500", icon: ShoppingBag },
+      { id: "adicionais", label: "Vendas Adicionais", stats: adicionaisStats, color: "bg-emerald-500", icon: Target },
+    ].map(c => ({
+      ...c,
+      oneItemRate: c.stats.ranges[0].rate,
+      total: c.stats.total,
+      weight: activeSales.length > 0 ? (c.stats.total / activeSales.length) * 100 : 0
+    })).sort((a, b) => b.oneItemRate - a.oneItemRate);
+
     const impact = globalStats.ranges[0].rate - fisicaStats.ranges[0].rate;
 
     return {
@@ -133,76 +156,136 @@ export function CouponAnalysis({ data }: CouponAnalysisProps) {
       digitalStats,
       adicionaisStats,
       globalStats,
-      vendorFisicaStats,
+      detailedStats,
       vendorRanking,
       vendors,
+      channelImpact,
       impact
     };
-  }, [data, selectedVendor]);
+  }, [data, selectedVendor, selectedChannel]);
 
-  const currentRangeData = analytics.vendorFisicaStats.ranges.find(r => r.id === selectedRange) || analytics.vendorFisicaStats.ranges[0];
+  const currentRangeData = analytics.detailedStats.ranges.find(r => r.id === selectedRange) || analytics.detailedStats.ranges[0];
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-20">
-      {/* Confronto Loja vs Digital */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatsCard 
-          title="Loja Física" 
-          icon={Store} 
-          count={analytics.fisicaStats.total} 
-          rate={analytics.fisicaStats.ranges[0].rate} 
-          pa={analytics.fisicaStats.pa}
-          color="text-slate-600"
-          accent="bg-slate-500"
-          subtitle="Taxa de Unitários"
-        />
-        <StatsCard 
-          title="Digital (Pickup/Delivery)" 
-          icon={Smartphone} 
-          count={analytics.digitalStats.total} 
-          rate={analytics.digitalStats.ranges[0].rate} 
-          pa={analytics.digitalStats.pa}
-          color="text-sky-600"
-          accent="bg-sky-500"
-          subtitle="Taxa Inevitável"
-        />
-        <StatsCard 
-          title="Vendas Adicionais" 
-          icon={Target} 
-          count={analytics.adicionaisStats.total} 
-          rate={analytics.adicionaisStats.ranges[0].rate} 
-          pa={analytics.adicionaisStats.pa}
-          color="text-emerald-600"
-          accent="bg-emerald-500"
-          subtitle="Performance de Conversão"
-        />
-        <ImpactCard 
-          impact={analytics.impact} 
-          globalRate={analytics.globalStats.ranges[0].rate}
-        />
-      </div>
+      {/* Comparativo de Impacto por Canal */}
+      <Card className="ri-card border-none shadow-sm overflow-hidden">
+        <CardHeader className="bg-slate-900 text-white p-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <CardTitle className="text-sm font-black uppercase flex items-center gap-2 tracking-widest">
+                <Target className="w-5 h-5 text-indigo-400" /> % Cupons Unitários por Canal
+              </CardTitle>
+              <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">Identificando o maior impacto negativo no consolidado</p>
+            </div>
+            <div className="bg-white/10 px-4 py-2 rounded-xl border border-white/20">
+               <p className="text-[9px] font-black uppercase opacity-60">Taxa Global de Unitários</p>
+               <p className="text-xl font-black text-indigo-300">{analytics.globalStats.ranges[0].rate.toFixed(1)}%</p>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 divide-y md:divide-y-0 md:divide-x border-b">
+            {analytics.channelImpact.map((c, i) => (
+              <div key={i} className="p-6 transition-colors hover:bg-slate-50/50">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className={cn("p-2 rounded-xl text-white", c.color)}>
+                    <c.icon className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-[11px] font-black text-slate-800 uppercase leading-none">{c.label}</h4>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase mt-1">{c.total} cupons ({c.weight.toFixed(1)}% do total)</p>
+                  </div>
+                </div>
+                
+                <div className="space-y-3">
+                  <div className="flex justify-between items-end">
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Taxa Unitária</span>
+                    <span className={cn(
+                      "text-2xl font-black",
+                      c.oneItemRate > 60 ? "text-rose-600" : (c.oneItemRate > 30 ? "text-amber-500" : "text-emerald-600")
+                    )}>
+                      {c.oneItemRate.toFixed(1)}%
+                    </span>
+                  </div>
+                  <Progress 
+                    value={c.oneItemRate} 
+                    className={cn(
+                      "h-2",
+                      c.oneItemRate > 60 ? "[&>div]:bg-rose-500" : (c.oneItemRate > 30 ? "[&>div]:bg-amber-500" : "[&>div]:bg-emerald-500")
+                    )} 
+                  />
+                  <p className="text-[8px] font-bold text-slate-400 uppercase italic">
+                    {c.oneItemRate > 60 ? "CRÍTICO: Impacto Negativo Auto" : (c.oneItemRate > 30 ? "MODERADO: Impacto no Consolidado" : "SAUDÁVEL: Baixa influência")}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
-      {/* Item Ranges Distribution (Physical Store Only for Controllable Analysis) */}
-      <Card className="ri-card border-none shadow-sm">
-        <CardHeader className="bg-slate-900 text-white rounded-t-2xl p-6">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-xs font-black uppercase flex items-center gap-2 tracking-widest">
-              <ShoppingBag className="w-4 h-4 text-indigo-400" /> Distribuição de Itens por Cupom (Loja Física)
-            </CardTitle>
-            <Badge className="bg-white/10 text-white border-white/20">Apenas Vendas Controláveis</Badge>
+      {/* Detailed Analysis Section */}
+      <Card className="ri-card border-none shadow-sm overflow-hidden">
+        <CardHeader className="bg-slate-900 border-b p-0">
+          <div className="flex flex-col md:flex-row">
+            <button 
+              onClick={() => { setSelectedChannel("FISICA"); setSelectedVendor("TODOS"); }}
+              className={cn(
+                "flex-1 p-4 text-[10px] font-black uppercase tracking-widest transition-all border-b-2 md:border-b-0 md:border-r border-white/10",
+                selectedChannel === "FISICA" ? "bg-indigo-600 text-white border-indigo-400" : "text-slate-400 hover:bg-white/5"
+              )}
+            >
+              <div className="flex items-center justify-center gap-2">
+                <Store className="w-4 h-4" /> Análise Loja Física
+              </div>
+            </button>
+            <button 
+              onClick={() => { setSelectedChannel("DIGITAL"); setSelectedVendor("TODOS"); }}
+              className={cn(
+                "flex-1 p-4 text-[10px] font-black uppercase tracking-widest transition-all border-b-2 md:border-b-0 md:border-r border-white/10",
+                selectedChannel === "DIGITAL" ? "bg-sky-600 text-white border-sky-400" : "text-slate-400 hover:bg-white/5"
+              )}
+            >
+              <div className="flex items-center justify-center gap-2">
+                <Smartphone className="w-4 h-4" /> Análise Digital (Pickup/Deliv)
+              </div>
+            </button>
+            <button 
+              onClick={() => { setSelectedChannel("ADICIONAIS"); setSelectedVendor("TODOS"); }}
+              className={cn(
+                "flex-1 p-4 text-[10px] font-black uppercase tracking-widest transition-all border-white/10",
+                selectedChannel === "ADICIONAIS" ? "bg-emerald-600 text-white border-emerald-400" : "text-slate-400 hover:bg-white/5"
+              )}
+            >
+              <div className="flex items-center justify-center gap-2">
+                <Target className="w-4 h-4" /> Vendas Adicionais
+              </div>
+            </button>
           </div>
         </CardHeader>
         <CardContent className="p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div className="space-y-1">
+              <CardTitle className="text-xs font-black uppercase flex items-center gap-2 tracking-widest text-slate-800">
+                <ShoppingBag className="w-4 h-4 text-indigo-500" /> Distribuição de Itens por Cupom
+              </CardTitle>
+              <p className="text-[10px] text-slate-400 font-bold uppercase">
+                Analisando: {selectedChannel === "FISICA" ? "Loja Física" : selectedChannel === "DIGITAL" ? "Operação Digital" : "Vendas Adicionais"}
+              </p>
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            {analytics.vendorFisicaStats.ranges.map((range) => (
+            {analytics.detailedStats.ranges.map((range) => (
               <button
                 key={range.id}
                 onClick={() => setSelectedRange(range.id)}
                 className={cn(
                   "p-4 flex flex-col items-center justify-center text-center transition-all border-2 rounded-2xl",
                   selectedRange === range.id 
-                    ? "bg-indigo-600 border-indigo-400 text-white shadow-lg scale-105 z-10" 
-                    : "bg-slate-50 border-transparent hover:border-indigo-100 text-slate-600"
+                    ? "bg-slate-900 border-slate-700 text-white shadow-lg scale-105 z-10" 
+                    : "bg-slate-50 border-transparent hover:border-slate-200 text-slate-600"
                 )}
               >
                 <p className="text-[9px] font-black uppercase opacity-70 tracking-widest leading-none mb-1">{range.label}</p>
@@ -231,7 +314,7 @@ export function CouponAnalysis({ data }: CouponAnalysisProps) {
                 onChange={(e) => setSelectedVendor(e.target.value)}
                 className="text-[10px] font-bold uppercase bg-white border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
               >
-                <option value="TODOS">Consolidado Loja</option>
+                <option value="TODOS">Consolidado ({selectedChannel})</option>
                 {analytics.vendors.map(v => (
                   <option key={v} value={v}>{v}</option>
                 ))}
@@ -241,7 +324,7 @@ export function CouponAnalysis({ data }: CouponAnalysisProps) {
           <CardContent className="p-6 space-y-6">
             <div className="flex items-center justify-between mb-2">
                <p className="text-[10px] font-black text-slate-400 border-b-2 border-slate-100 pb-1 uppercase">
-                 {selectedVendor === "TODOS" ? "Visão Total Física" : `Vendedor: ${selectedVendor}`}
+                 {selectedVendor === "TODOS" ? `Visão Total ${selectedChannel}` : `Vendedor: ${selectedVendor}`}
                </p>
                <Badge className="bg-indigo-50 text-indigo-600 font-black text-[9px]">
                  {currentRangeData.count} CUPONS NESTA FAIXA

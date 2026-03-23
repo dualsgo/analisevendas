@@ -149,6 +149,57 @@ export function CouponAnalysis({ data }: CouponAnalysisProps) {
       weight: activeSales.length > 0 ? (c.stats.total / activeSales.length) * 100 : 0
     })).sort((a, b) => b.oneItemRate - a.oneItemRate);
 
+    // Behavioral Patterns Analysis
+    const itemAssociations: Record<string, Record<string, number>> = {};
+    const hourConcentration: Record<number, { total: number, oneItem: number }> = {};
+    const productFrequencyInOneItem: Record<string, { name: string, count: number }> = {};
+
+    activeSales.forEach(s => {
+      const isOneItem = parseInt(s.itens_qtd) === 1;
+      const hour = parseInt(s.dhEmi.split("T")[1]?.split(":")[0] || "0");
+      
+      if (!hourConcentration[hour]) hourConcentration[hour] = { total: 0, oneItem: 0 };
+      hourConcentration[hour].total++;
+      if (isOneItem) hourConcentration[hour].oneItem++;
+
+      if (isOneItem && s.itens[0]) {
+        const p = s.itens[0];
+        if (!productFrequencyInOneItem[p.cProd]) productFrequencyInOneItem[p.cProd] = { name: p.xProd, count: 0 };
+        productFrequencyInOneItem[p.cProd].count++;
+      }
+
+      if (s.itens.length > 1) {
+        for (let i = 0; i < s.itens.length; i++) {
+          for (let j = i + 1; j < s.itens.length; j++) {
+            const idA = s.itens[i].cProd;
+            const nameA = s.itens[i].xProd;
+            const idB = s.itens[j].cProd;
+            const nameB = s.itens[j].xProd;
+            
+            const key = [idA, idB].sort().join("|");
+            const names = [nameA, nameB].sort().join(" + ");
+            
+            if (!itemAssociations[key]) itemAssociations[key] = { count: 0, name: names as any };
+            itemAssociations[key].count++;
+          }
+        }
+      }
+    });
+
+    const topAssociations = Object.entries(itemAssociations)
+      .map(([_, data]: any) => ({ name: data.name, count: data.count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+
+    const unitSaleHotspots = Object.entries(hourConcentration)
+      .map(([h, stats]) => ({ hour: parseInt(h), rate: (stats.oneItem / stats.total) * 100 }))
+      .sort((a, b) => b.rate - a.rate)
+      .slice(0, 3);
+
+    const topUnitHeros = Object.values(productFrequencyInOneItem)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+
     const impact = globalStats.ranges[0].rate - fisicaStats.ranges[0].rate;
 
     return {
@@ -160,6 +211,9 @@ export function CouponAnalysis({ data }: CouponAnalysisProps) {
       vendorRanking,
       vendors,
       channelImpact,
+      topAssociations,
+      unitSaleHotspots,
+      topUnitHeros,
       impact
     };
   }, [data, selectedVendor, selectedChannel]);
@@ -429,6 +483,92 @@ export function CouponAnalysis({ data }: CouponAnalysisProps) {
             </CardContent>
           </Card>
         </div>
+      </div>
+
+      {/* Padrões Comportamentais e Estratégias */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+         {/* Alavancas de Bundle */}
+         <Card className="ri-card">
+            <CardHeader className="bg-slate-50 p-6 border-b">
+               <CardTitle className="text-xs font-black uppercase flex items-center gap-2 text-slate-500">
+                  <Flame className="w-4 h-4 text-orange-500" /> Alavancas de Bundle (Top Duplas)
+               </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6">
+               <div className="space-y-4">
+                  {analytics.topAssociations.map((assoc, i) => (
+                    <div key={i} className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                       <p className="text-[10px] font-black text-slate-800 uppercase leading-relaxed mb-1">{assoc.name}</p>
+                       <div className="flex justify-between items-center">
+                          <Badge variant="outline" className="text-[8px] font-bold border-indigo-200 text-indigo-600">
+                            {assoc.count} associações diretas
+                          </Badge>
+                          <p className="text-[8px] font-black text-slate-400">Sugestão: Oferta Conjunta</p>
+                       </div>
+                    </div>
+                  ))}
+                  {analytics.topAssociations.length === 0 && (
+                    <p className="text-center py-10 text-[10px] text-slate-300 font-bold uppercase tracking-widest italic leading-none">Aguardando dados de associação</p>
+                  )}
+               </div>
+            </CardContent>
+         </Card>
+
+         {/* Vulnerabilidade Unitária */}
+         <Card className="ri-card">
+            <CardHeader className="bg-slate-50 p-6 border-b">
+               <CardTitle className="text-xs font-black uppercase flex items-center gap-2 text-slate-500">
+                  <TrendingDown className="w-4 h-4 text-rose-500" /> Itens "Soberanos" (Vendem mais sozinhos)
+               </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6">
+               <div className="space-y-4">
+                  {analytics.topUnitHeros.map((item, i) => (
+                    <div key={i} className="p-3 bg-rose-50/30 rounded-xl border border-rose-100">
+                       <p className="text-[10px] font-black text-rose-900 uppercase truncate leading-none mb-2">{item.name}</p>
+                       <div className="flex justify-between items-center">
+                          <span className="text-[9px] font-bold text-rose-600 uppercase">{item.count} cupons unitários</span>
+                          <Badge className="bg-rose-100 text-rose-700 text-[8px] font-black border-none uppercase">Foco p/ Adicional</Badge>
+                       </div>
+                    </div>
+                  ))}
+               </div>
+               <p className="mt-4 text-[9px] text-slate-400 font-medium leading-relaxed italic">
+                 *Esses produtos são "imãs" de vendas unitárias. Precisam obrigatoriamente de um produto complemetar em exposição ao lado.
+               </p>
+            </CardContent>
+         </Card>
+
+         {/* Hotspots Horários */}
+         <Card className="ri-card">
+            <CardHeader className="bg-slate-50 p-6 border-b">
+               <CardTitle className="text-xs font-black uppercase flex items-center gap-2 text-slate-500">
+                  <Search className="w-4 h-4 text-indigo-500" /> Hotspots de Fragilidade (Horários)
+               </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6">
+               <div className="space-y-4">
+                  {analytics.unitSaleHotspots.map((slot, i) => (
+                    <div key={i} className="flex items-center justify-between p-3 bg-indigo-50/30 rounded-xl border border-indigo-100">
+                       <div>
+                          <p className="text-sm font-black text-indigo-900">{slot.hour}:00 - {slot.hour + 1}:00</p>
+                          <p className="text-[9px] font-bold text-indigo-400 uppercase">Pico de Unitários</p>
+                       </div>
+                       <div className="text-right">
+                          <p className="text-lg font-black text-indigo-600">{slot.rate.toFixed(1)}%</p>
+                          <p className="text-[8px] font-black text-slate-400 uppercase">Taxa</p>
+                       </div>
+                    </div>
+                  ))}
+               </div>
+               <div className="mt-6 p-4 bg-slate-900 text-white rounded-2xl space-y-2">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-indigo-400">Estratégia Recomendada</p>
+                  <p className="text-xs font-medium leading-relaxed text-slate-300">
+                    Reforçar o time de pista/apoio nestes horários críticos para garantir a abordagem e a venda adicional, pois a equipe de caixa sozinha não está convertendo.
+                  </p>
+               </div>
+            </CardContent>
+         </Card>
       </div>
 
       {/* Seção de Resumo de Impacto */}

@@ -105,7 +105,14 @@ export function PriceProfile({ data }: PriceProfileProps) {
         hora: `${h}h`,
         total,
         dominante: dom,
-        pcts: FAIXAS.map(f => ({ id: f.id, pct: total > 0 ? ((faixas[f.id] || 0) / total) * 100 : 0 })),
+        pcts: FAIXAS.map(f => {
+          const count = faixas[f.id] || 0;
+          return {
+            id: f.id,
+            count,
+            pct: total > 0 ? (count / total) * 100 : 0,
+          };
+        }),
       };
     });
   }, [annotated]);
@@ -144,9 +151,10 @@ export function PriceProfile({ data }: PriceProfileProps) {
               const count = annotated.filter(s => s.faixa?.id === f.id).length;
               const pct = totalGlobal > 0 ? (count / totalGlobal) * 100 : 0;
               return (
-                <div key={f.id} className="bg-white/10 px-3 py-2 rounded-2xl text-center">
-                  <p className="text-[10px] font-bold opacity-70 uppercase tracking-widest">{f.label}</p>
-                  <p className="text-base font-black">{pct.toFixed(0)}%</p>
+                <div key={f.id} className="bg-white/10 px-4 py-2 rounded-2xl text-center min-w-[80px]">
+                  <p className="text-[10px] font-bold opacity-70 uppercase tracking-widest mb-1">{f.label}</p>
+                  <p className="text-xl font-black leading-none">{count}</p>
+                  <p className="text-[10px] font-bold opacity-60 mt-1">{pct.toFixed(0)}%</p>
                 </div>
               );
             })}
@@ -194,12 +202,15 @@ export function PriceProfile({ data }: PriceProfileProps) {
                               const intensity = f.pct;
                               return (
                                 <td key={f.id} className="p-1 text-center">
-                                  <span className={cn("inline-block px-2 py-0.5 rounded-lg font-black text-[11px]",
+                                  <span className={cn("inline-block px-2 py-1 rounded-lg font-black text-[11px] min-w-[3rem]",
                                     intensity > 40 ? "text-white" : "text-slate-500 bg-slate-100"
                                   )}
                                     style={intensity > 40 ? { backgroundColor: fData.color } : {}}
                                   >
-                                    {f.pct.toFixed(0)}%
+                                    <div className="flex flex-col items-center leading-none">
+                                      <span>{f.count}</span>
+                                      <span className={cn("text-[9px] mt-1", intensity > 40 ? "text-white/70" : "text-slate-400")}>{f.pct.toFixed(0)}%</span>
+                                    </div>
                                   </span>
                                 </td>
                               );
@@ -251,7 +262,7 @@ export function PriceProfile({ data }: PriceProfileProps) {
                             if (!match || match.pct === 0) return null;
                             return (
                               <span key={f.id} className="text-[10px] font-bold text-slate-400">
-                                <span style={{ color: f.color }}>■</span> {f.label} {match.pct.toFixed(0)}%
+                                <span style={{ color: f.color }}>■</span> {f.label} {match.count} ({match.pct.toFixed(0)}%)
                               </span>
                             );
                           })}
@@ -276,7 +287,7 @@ export function PriceProfile({ data }: PriceProfileProps) {
                           {h.pcts.map(p => {
                             const fData = FAIXAS.find(f => f.id === p.id)!;
                             return p.pct > 0 ? (
-                              <div key={p.id} className="h-full transition-all" title={`${fData.label}: ${p.pct.toFixed(0)}%`}
+                              <div key={p.id} className="h-full transition-all" title={`${fData.label}: ${p.count} notas (${p.pct.toFixed(0)}%)`}
                                 style={{ width: `${p.pct}%`, backgroundColor: fData.color }} />
                             ) : null;
                           })}

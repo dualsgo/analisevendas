@@ -41,24 +41,74 @@ export function EasterPanel({ data }: EasterPanelProps) {
     let separateGifts: any[] = [];
     let separateChocolates: any[] = [];
     const vendorKits: Record<string, { kits: number, giftsOnly: number, chocolateOnly: number }> = {};
+    const productStats: Record<string, { code: string, name: string, total: number, inKits: number, individual: number }> = {};
 
     activeSales.forEach(sale => {
       const v = sale.vendedor || "OUTROS";
       if (!vendorKits[v]) vendorKits[v] = { kits: 0, giftsOnly: 0, chocolateOnly: 0 };
 
       const items = sale.itens;
+      
+      // Filtrar itens de páscoa e atualizar estatísticas base
+      items.forEach(it => {
+        if (CHOCOLATE_CODES.includes(it.cProd) || GIFT_CODES.includes(it.cProd)) {
+          if (!productStats[it.cProd]) {
+            productStats[it.cProd] = { code: it.cProd, name: it.xProd, total: 0, inKits: 0, individual: 0 };
+          }
+          productStats[it.cProd].total += it.qCom;
+        }
+      });
+
       const chocoItems = items.filter(it => CHOCOLATE_CODES.includes(it.cProd));
       const giftItems = items.filter(it => GIFT_CODES.includes(it.cProd));
 
+      // Identificar brindes que NÃO precisam de chocolate (Kits Wood e Homem Aranha)
+      const rawGifts = giftItems.map(it => {
+        const name = it.xProd.toUpperCase();
+        const isNoChoco = name.includes("WOOD") || name.includes("HOMEM ARANHA");
+        return { ...it, isNoChoco };
+      });
+
+      const noChocoQty = rawGifts.filter(it => it.isNoChoco).reduce((acc, it) => acc + it.qCom, 0);
+      const regularGiftQty = rawGifts.filter(it => !it.isNoChoco).reduce((acc, it) => acc + it.qCom, 0);
       const chocoQty = chocoItems.reduce((acc, it) => acc + it.qCom, 0);
-      const giftQty = giftItems.reduce((acc, it) => acc + it.qCom, 0);
 
-      const kitsInSale = Math.min(chocoQty, giftQty);
-      totalKits += kitsInSale;
-      vendorKits[v].kits += kitsInSale;
+      // 1. Kits que já são completos por natureza
+      totalKits += noChocoQty;
+      vendorKits[v].kits += noChocoQty;
+      rawGifts.filter(it => it.isNoChoco).forEach(it => {
+        if (productStats[it.cProd]) productStats[it.cProd].inKits += it.qCom;
+      });
 
-      const extrasGifts = giftQty - kitsInSale;
-      const extrasChoco = chocoQty - kitsInSale;
+      // 2. Consolidação de Kits Regulares (Chocolate + Brinde)
+      const regularKitsInSale = Math.min(chocoQty, regularGiftQty);
+      totalKits += regularKitsInSale;
+      vendorKits[v].kits += regularKitsInSale;
+
+      // Distribuir itens nos kits para a tabela consolidada
+      let remainingKitsToDistribute = regularKitsInSale;
+      rawGifts.filter(it => !it.isNoChoco).forEach(it => {
+        const take = Math.min(it.qCom, remainingKitsToDistribute);
+        if (productStats[it.cProd]) {
+          productStats[it.cProd].inKits += take;
+          productStats[it.cProd].individual += (it.qCom - take);
+        }
+        remainingKitsToDistribute -= take;
+      });
+
+      let remainingKitsForChoco = regularKitsInSale;
+      chocoItems.forEach(it => {
+        const take = Math.min(it.qCom, remainingKitsForChoco);
+        if (productStats[it.cProd]) {
+          productStats[it.cProd].inKits += take;
+          productStats[it.cProd].individual += (it.qCom - take);
+        }
+        remainingKitsForChoco -= take;
+      });
+
+      // 3. Identificar Erros (Brindes regulares sem chocolate)
+      const extrasGifts = regularGiftQty - regularKitsInSale;
+      const extrasChoco = chocoQty - regularKitsInSale;
 
       if (extrasGifts > 0) {
         vendorKits[v].giftsOnly += extrasGifts;
@@ -66,7 +116,7 @@ export function EasterPanel({ data }: EasterPanelProps) {
           nf: sale.nf,
           vendedor: v,
           data: sale.dhEmi,
-          itens: giftItems.map(it => it.xProd).join(", "),
+          itens: rawGifts.filter(it => !it.isNoChoco && it.qCom > 0).map(it => it.xProd).join(", "),
           qtd: extrasGifts,
           cliente: sale.nome_dest || "NÃO IDENTIFICADO",
           cpf: sale.cpf_cnpj_dest || "NÃO INFORMADO"
@@ -91,15 +141,35 @@ export function EasterPanel({ data }: EasterPanelProps) {
       .map(([name, s]) => ({ name, ...s }))
       .sort((a, b) => b.kits - a.kits);
 
+    const productsTable = Object.values(productStats)
+      .sort((a, b) => b.total - a.total);
+
     return {
       totalKits,
       separateGifts,
       separateChocolates,
       topVendors,
-      totalGifts: separateGifts.reduce((acc, s) => acc + s.qtd, 0) + totalKits,
-      totalChoco: separateChocolates.reduce((acc, s) => acc + s.qtd, 0) + totalKits
+      productsTable,
+      totalGifts: rawTotalGifts(activeSales),
+      totalChoco: rawTotalChocolates(activeSales)
     };
   }, [data]);
+
+  function rawTotalGifts(sales: DetailedSaleRow[]) {
+    return sales.reduce((acc, sale) => {
+      return acc + sale.itens
+        .filter(it => GIFT_CODES.includes(it.cProd))
+        .reduce((sum, it) => sum + it.qCom, 0);
+    }, 0);
+  }
+
+  function rawTotalChocolates(sales: DetailedSaleRow[]) {
+    return sales.reduce((acc, sale) => {
+      return acc + sale.itens
+        .filter(it => CHOCOLATE_CODES.includes(it.cProd))
+        .reduce((sum, it) => sum + it.qCom, 0);
+    }, 0);
+  }
 
   const formatBRL = (val: number) => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
@@ -266,52 +336,59 @@ export function EasterPanel({ data }: EasterPanelProps) {
             </CardContent>
           </Card>
 
-          {/* Chocolates sem brinde */}
-          <Card className="ri-card border-orange-100 flex flex-col bg-white shadow-sm overflow-hidden">
-            <div className="p-4 bg-orange-50 border-b border-orange-100 flex items-center gap-3">
-              <Egg className="w-4 h-4 text-orange-600" />
-              <h3 className="text-xs font-black uppercase text-orange-900 tracking-tight">Chocolates Vendidos sem Brinde (Oportunidade)</h3>
-            </div>
-            <CardContent className="p-0 overflow-auto max-h-[300px]">
-              <div className="divide-y divide-slate-100">
-                {stats.separateChocolates.map((item, i) => (
-                  <div key={`${item.nf}-${i}`} className="p-4 flex flex-col gap-3 hover:bg-orange-50/20 transition-colors">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Package className="w-4 h-4 text-slate-400" />
-                        <span className="text-[11px] font-black text-slate-800 uppercase leading-none">NF: {item.nf}</span>
-                      </div>
-                      <span className="text-[10px] font-bold text-slate-400 uppercase">{format(parseISO(item.data), "dd/MM HH:mm")}</span>
-                    </div>
-                    
-                    <div>
-                      <p className="text-[10px] font-black text-orange-600 uppercase mb-1">{item.itens}</p>
-                      <div className="bg-slate-50 p-2 rounded-lg border border-slate-100 flex flex-col gap-1 mt-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[9px] font-black text-slate-400 uppercase">Cliente</span>
-                          <span className="text-[10px] font-black text-slate-700 truncate max-w-[150px] uppercase">{item.cliente}</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-[9px] font-black text-slate-400 uppercase">CPF/CNPJ</span>
-                          <span className="text-[10px] font-bold text-slate-600">{item.cpf}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center border border-slate-200">
-                          <User className="w-3 h-3 text-slate-500" />
-                        </div>
-                        <span className="text-[10px] font-black text-slate-500 uppercase">{item.vendedor}</span>
-                      </div>
-                      <Badge variant="outline" className="font-black text-[9px] border-orange-200 text-orange-600 uppercase">
-                        {item.qtd} UN
-                      </Badge>
-                    </div>
-                  </div>
-                ))}
+          {/* Tabela de Produtos Detalhada */}
+          <Card className="ri-card border-indigo-100 flex flex-col bg-white shadow-sm overflow-hidden">
+            <div className="p-4 bg-indigo-50 border-b border-indigo-100 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Package className="w-4 h-4 text-indigo-600" />
+                <h3 className="text-xs font-black uppercase text-indigo-900 tracking-tight">Consolidado por Produto</h3>
               </div>
+              <Badge className="bg-indigo-600 text-white font-black border-none uppercase text-[9px] px-2 py-0.5">
+                {stats.productsTable.length} SKU
+              </Badge>
+            </div>
+            <CardContent className="p-0 overflow-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-100">
+                    <th className="p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Código</th>
+                    <th className="p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Produto</th>
+                    <th className="p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Total</th>
+                    <th className="p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Em Kit</th>
+                    <th className="p-3 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Avulso</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {stats.productsTable.map((p) => (
+                    <tr key={p.code} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="p-3 text-[10px] font-bold text-slate-400">{p.code}</td>
+                      <td className="p-3">
+                        <p className="text-[10px] font-black text-slate-700 uppercase leading-tight line-clamp-1">{p.name}</p>
+                        <Badge variant="outline" className={cn(
+                          "mt-1 text-[8px] px-1 py-0 border-none uppercase font-bold",
+                          CHOCOLATE_CODES.includes(p.code) ? "text-orange-500 bg-orange-50" : "text-indigo-500 bg-indigo-50"
+                        )}>
+                          {CHOCOLATE_CODES.includes(p.code) ? "Chocolate" : "Brinde"}
+                        </Badge>
+                      </td>
+                      <td className="p-3 text-center">
+                        <span className="text-[11px] font-black text-slate-800">{p.total}</span>
+                      </td>
+                      <td className="p-3 text-center">
+                        <span className="text-[11px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">{p.inKits}</span>
+                      </td>
+                      <td className="p-3 text-center">
+                        <span className={cn(
+                          "text-[11px] font-black px-2 py-0.5 rounded-full",
+                          p.individual > 0 ? "text-rose-600 bg-rose-50" : "text-slate-300 bg-slate-50"
+                        )}>
+                          {p.individual}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </CardContent>
           </Card>
         </div>

@@ -20,25 +20,52 @@ interface PriceProfileProps {
   data: DetailedSaleRow[];
 }
 
+interface Faixa {
+  id: string;
+  label: string;
+  min: number;
+  max: number;
+  color: string;
+  badge: string;
+}
+
 type SectionId = "heatmap" | "ranking" | "horario";
 
 export function PriceProfile({ data }: PriceProfileProps) {
   const [openSection, setOpenSection] = useState<SectionId>("heatmap");
   const [step, setStep] = useState(30);
 
-  const FAIXAS = useMemo(() => {
+  const FAIXAS: Faixa[] = useMemo(() => {
     const s = step;
+    const colors = [
+      { c: "#94a3b8", b: "text-slate-600 bg-slate-100" },
+      { c: "#22c55e", b: "text-emerald-700 bg-emerald-100" },
+      { c: "#10b981", b: "text-teal-700 bg-teal-100" },
+      { c: "#f59e0b", b: "text-amber-700 bg-amber-100" },
+      { c: "#fbbf24", b: "text-yellow-700 bg-yellow-100" },
+      { c: "#f97316", b: "text-orange-700 bg-orange-100" },
+      { c: "#ef4444", b: "text-rose-700 bg-rose-100" },
+      { c: "#ec4899", b: "text-pink-700 bg-pink-100" },
+      { c: "#8b5cf6", b: "text-violet-700 bg-violet-100" },
+      { c: "#6366f1", b: "text-indigo-700 bg-indigo-100" },
+    ];
+    
     return [
-      { id: "F1", label: `R$0–${s}`,    min: 0,   max: s,   color: "#94a3b8", badge: "text-slate-600 bg-slate-100" },
-      { id: "F2", label: `R$${s+1}–${s*2}`,  min: s+1,  max: s*2,  color: "#22c55e", badge: "text-emerald-700 bg-emerald-100" },
-      { id: "F3", label: `R$${s*2+1}–${s*4}`, min: s*2+1, max: s*4,  color: "#f59e0b", badge: "text-amber-700 bg-amber-100" },
-      { id: "F4", label: `R$${s*4+1}–${s*7}`, min: s*4+1, max: s*7,  color: "#f97316", badge: "text-orange-700 bg-orange-100" },
-      { id: "F5", label: `R$${s*7}+`,    min: s*7+1, max: Infinity, color: "#ef4444", badge: "text-rose-700 bg-rose-100" },
+      { id: "F1",  label: `R$0–${s}`,      min: 0,      max: s,      color: colors[0].c, badge: colors[0].b },
+      { id: "F2",  label: `R$${s+1}–${s*2}`,   min: s+1,    max: s*2,    color: colors[1].c, badge: colors[1].b },
+      { id: "F3",  label: `R$${s*2+1}–${s*3}`, min: s*2+1,  max: s*3,    color: colors[2].c, badge: colors[2].b },
+      { id: "F4",  label: `R$${s*3+1}–${s*4}`, min: s*3+1,  max: s*4,    color: colors[3].c, badge: colors[3].b },
+      { id: "F5",  label: `R$${s*4+1}–${s*5}`, min: s*4+1,  max: s*5,    color: colors[4].c, badge: colors[4].b },
+      { id: "F6",  label: `R$${s*5+1}–${s*6}`, min: s*5+1,  max: s*6,    color: colors[5].c, badge: colors[5].b },
+      { id: "F7",  label: `R$${s*6+1}–${s*8}`, min: s*6+1,  max: s*8,    color: colors[6].c, badge: colors[6].b },
+      { id: "F8",  label: `R$${s*8+1}–${s*10}`, min: s*8+1,  max: s*10,   color: colors[7].c, badge: colors[7].b },
+      { id: "F9",  label: `R$${s*10+1}–${s*15}`, min: s*10+1, max: s*15,   color: colors[8].c, badge: colors[8].b },
+      { id: "F10", label: `R$${s*15}+`,     min: s*15+1, max: Infinity, color: colors[9].c, badge: colors[9].b },
     ];
   }, [step]);
 
   function getFaixa(precoUnit: number) {
-    return FAIXAS.find((f: any) => precoUnit >= f.min && precoUnit <= f.max) || FAIXAS[FAIXAS.length - 1];
+    return FAIXAS.find((f: Faixa) => precoUnit >= f.min && precoUnit <= f.max) || FAIXAS[FAIXAS.length - 1];
   }
 
   function getPrecoUnitMedio(itens: DetailedSaleRow["itens"]): number | null {
@@ -56,7 +83,7 @@ export function PriceProfile({ data }: PriceProfileProps) {
 
   // Anotar cada nota com faixa de preço unitário médio
   const annotated = useMemo(() =>
-    sales.map((s: any) => {
+    sales.map((s: DetailedSaleRow) => {
       const preco = getPrecoUnitMedio(s.itens);
       return { ...s, preco, faixa: preco !== null ? getFaixa(preco) : null };
     }).filter((s: any) => s.faixa !== null),
@@ -75,11 +102,12 @@ export function PriceProfile({ data }: PriceProfileProps) {
     }
     return Object.entries(byVend).map(([nome, faixas]: [string, Record<string, number>]) => {
       const total = Object.values(faixas).reduce((a: number, b: number) => a + b, 0);
-      const highValueCount = (faixas["F4"] || 0) + (faixas["F5"] || 0);
+      const highFaixas = ["F7", "F8", "F9", "F10"];
+      const highValueCount = highFaixas.reduce((acc: number, id: string) => acc + (faixas[id] || 0), 0);
       return {
         nome,
         total,
-        faixas: FAIXAS.map((f: any) => ({
+        faixas: FAIXAS.map((f: Faixa) => ({
           id: f.id,
           count: faixas[f.id] || 0,
           pct: total > 0 ? ((faixas[f.id] || 0) / total) * 100 : 0,
@@ -111,13 +139,13 @@ export function PriceProfile({ data }: PriceProfileProps) {
     }
     return Object.entries(byHour).map(([h, faixas]: [string, Record<string, number>]) => {
       const total = Object.values(faixas).reduce((a: number, b: number) => a + b, 0);
-      const dom = total > 0 ? FAIXAS.reduce((best: any, f: any) =>
+      const dom = total > 0 ? FAIXAS.reduce((best: Faixa, f: Faixa) =>
         (faixas[f.id] || 0) > (faixas[best.id] || 0) ? f : best, FAIXAS[0]) : null;
       return {
         hora: `${h}h`,
         total,
         dominante: dom,
-        pcts: FAIXAS.map((f: any) => {
+        pcts: FAIXAS.map((f: Faixa) => {
           const count = faixas[f.id] || 0;
           return {
             id: f.id,
@@ -145,8 +173,8 @@ export function PriceProfile({ data }: PriceProfileProps) {
   }
 
   const totalGlobal = annotated.length;
-  const highFaixasIds = ["F4", "F5"];
-  const pctGlobalAlto = annotated.filter((s: any) => highFaixasIds.includes(s.faixa?.id || "")).length / totalGlobal * 100;
+  const highFaixasIds = ["F7", "F8", "F9", "F10"];
+  const pctGlobalAlto = annotated.filter((s: { faixa: Faixa | null }) => highFaixasIds.includes(s.faixa?.id || "")).length / totalGlobal * 100;
 
   return (
     <div className="space-y-4 animate-in fade-in duration-500 pb-20">
@@ -176,15 +204,16 @@ export function PriceProfile({ data }: PriceProfileProps) {
               </div>
             </div>
           </div>
-          <div className="flex flex-wrap gap-3">
-            {FAIXAS.map((f: any) => {
+          <div className="flex flex-wrap gap-2">
+            {FAIXAS.map((f: Faixa) => {
               const count = annotated.filter((s: any) => s.faixa?.id === f.id).length;
               const pct = totalGlobal > 0 ? (count / totalGlobal) * 100 : 0;
+              if (count === 0) return null;
               return (
-                <div key={f.id} className="bg-white/10 px-4 py-2 rounded-2xl text-center min-w-[80px]">
-                  <p className="text-[10px] font-bold opacity-70 uppercase tracking-widest mb-1">{f.label}</p>
-                  <p className="text-xl font-black leading-none">{count}</p>
-                  <p className="text-[10px] font-bold opacity-60 mt-1">{pct.toFixed(0)}%</p>
+                <div key={f.id} className="bg-white/10 px-3 py-1.5 rounded-xl text-center min-w-[60px] border border-white/5">
+                  <p className="text-[8px] font-bold opacity-70 uppercase tracking-tight mb-0.5 whitespace-nowrap">{f.label}</p>
+                  <p className="text-sm font-black leading-none">{count}</p>
+                  <p className="text-[8px] font-bold opacity-60 mt-0.5">{pct.toFixed(0)}%</p>
                 </div>
               );
             })}
@@ -217,36 +246,36 @@ export function PriceProfile({ data }: PriceProfileProps) {
                       <thead>
                         <tr className="border-b border-slate-100">
                           <th className="text-left p-2 font-black text-slate-400 uppercase">Colaborador</th>
-                          {FAIXAS.map((f: any) => (
-                            <th key={f.id} className="text-center p-2 font-black text-[11px]" style={{ color: f.color }}>{f.label}</th>
+                          {FAIXAS.map((f: Faixa) => (
+                            <th key={f.id} className="text-center p-1 font-black text-[9px] leading-tight" style={{ color: f.color }}>{f.label}</th>
                           ))}
-                          <th className="text-center p-2 font-black text-[11px] text-rose-500 uppercase">F4+F5</th>
+                          <th className="text-center p-1 font-black text-[9px] text-rose-500 uppercase">Top</th>
                         </tr>
                       </thead>
                       <tbody>
                         {heatmapData.map((row: any, i: number) => (
                           <tr key={i} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
                             <td className="p-2 font-bold text-slate-700">{row.nome}</td>
-                            {row.faixas.map((f: any) => {
-                              const fData = FAIXAS.find((fx: typeof FAIXAS[0]) => fx.id === f.id)!;
+                            {row.faixas.map((f: { id: string; count: number; pct: number }) => {
+                              const fData = FAIXAS.find((fx: Faixa) => fx.id === f.id)!;
                               const intensity = f.pct;
                               return (
-                                <td key={f.id} className="p-1 text-center">
-                                  <span className={cn("inline-block px-2 py-1 rounded-lg font-black text-[11px] min-w-[3rem]",
+                                <td key={f.id} className="p-0.5 text-center">
+                                  <span className={cn("inline-block px-1 py-0.5 rounded-lg font-black text-[10px] min-w-[2.2rem]",
                                     intensity > 40 ? "text-white" : "text-slate-500 bg-slate-100"
                                   )}
                                     style={intensity > 40 ? { backgroundColor: fData.color } : {}}
                                   >
                                     <div className="flex flex-col items-center leading-none">
                                       <span>{f.count}</span>
-                                      <span className={cn("text-[9px] mt-1", intensity > 40 ? "text-white/70" : "text-slate-400")}>{f.pct.toFixed(0)}%</span>
+                                      <span className={cn("text-[7px] mt-0.5", intensity > 40 ? "text-white/70" : "text-slate-400")}>{f.pct.toFixed(0)}%</span>
                                     </div>
                                   </span>
                                 </td>
                               );
                             })}
-                            <td className="p-1 text-center">
-                              <span className={cn("inline-block px-2 py-0.5 rounded-full font-black text-[11px]",
+                            <td className="p-0.5 text-center">
+                              <span className={cn("inline-block px-1.5 py-0.5 rounded-full font-black text-[10px]",
                                 row.pctAlto >= 15 ? "bg-rose-600 text-white" :
                                 row.pctAlto >= 8 ? "bg-orange-400 text-white" : "bg-slate-100 text-slate-500"
                               )}>
@@ -266,33 +295,33 @@ export function PriceProfile({ data }: PriceProfileProps) {
                   {heatmapData.map((row: any, i: number) => {
                     const prof = profileLabel(row.pctAlto);
                     return (
-                      <div key={i} className="p-4 bg-slate-50 rounded-xl border border-slate-100">
-                        <div className="flex items-center justify-between mb-3">
+                      <div key={i} className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                        <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-2">
-                            <span className="text-xs font-black text-slate-400 w-5">{i + 1}</span>
-                            <span className="text-sm font-black text-slate-700">{row.nome}</span>
+                            <span className="text-[10px] font-black text-slate-400 w-4">{i + 1}</span>
+                            <span className="text-xs font-black text-slate-700">{row.nome}</span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className="text-xs text-slate-400">{row.total} notas</span>
-                            <Badge className={cn("border-none text-[10px] font-black", prof.color)}>{prof.label}</Badge>
+                            <span className="text-[10px] text-slate-400">{row.total} notas</span>
+                            <Badge className={cn("border-none text-[9px] font-black px-2 py-0", prof.color)}>{prof.label}</Badge>
                           </div>
                         </div>
-                        <div className="flex gap-1 h-4">
-                          {row.faixas.map((f: any) => {
-                            const fData = FAIXAS.find((fx: typeof FAIXAS[0]) => fx.id === f.id)!;
+                        <div className="flex gap-0.5 h-3">
+                          {row.faixas.map((f: { id: string; count: number; pct: number }) => {
+                            const fData = FAIXAS.find((fx: Faixa) => fx.id === f.id)!;
                             return f.pct > 0 ? (
                               <div key={f.id} className="h-full rounded-sm transition-all" title={`${fData.label}: ${f.pct.toFixed(1)}%`}
                                 style={{ width: `${f.pct}%`, backgroundColor: fData.color }} />
                             ) : null;
                           })}
                         </div>
-                        <div className="flex flex-wrap gap-2 mt-2">
-                          {FAIXAS.map((f: typeof FAIXAS[0]) => {
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {FAIXAS.map((f: Faixa) => {
                             const match = row.faixas.find((ff: any) => ff.id === f.id);
                             if (!match || match.pct === 0) return null;
                             return (
-                              <span key={f.id} className="text-[10px] font-bold text-slate-400">
-                                <span style={{ color: f.color }}>■</span> {f.label} {match.count} ({match.pct.toFixed(0)}%)
+                              <span key={f.id} className="text-[9px] font-bold text-slate-400 border border-slate-100 px-1.5 py-0.5 rounded-md">
+                                <span style={{ color: f.color }}>■</span> {f.label} <span className="text-slate-600">{match.count}</span>
                               </span>
                             );
                           })}
@@ -309,13 +338,13 @@ export function PriceProfile({ data }: PriceProfileProps) {
                     <Info className="w-4 h-4 text-rose-500 mt-0.5 shrink-0" />
                     <p className="text-xs text-rose-700 font-medium">Faixa de preço dominante em cada slot de hora. Produtos caros tendem a ser vendidos em quais horários?</p>
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-1">
                     {horarioData.filter((h: any) => h.total > 0).map((h: any, i: number) => (
-                      <div key={i} className="flex items-center gap-3">
-                        <span className="text-xs font-black text-slate-500 w-8">{h.hora}</span>
-                        <div className="flex-1 flex gap-0.5 h-6 rounded-lg overflow-hidden">
+                      <div key={i} className="flex items-center gap-2">
+                        <span className="text-[10px] font-black text-slate-500 w-6">{h.hora}</span>
+                        <div className="flex-1 flex gap-0.5 h-4 rounded-md overflow-hidden">
                           {h.pcts.map((p: any) => {
-                            const fData = FAIXAS.find((f: typeof FAIXAS[0]) => f.id === p.id)!;
+                            const fData = FAIXAS.find((f: Faixa) => f.id === p.id)!;
                             return p.pct > 0 ? (
                               <div key={p.id} className="h-full transition-all" title={`${fData.label}: ${p.count} notas (${p.pct.toFixed(0)}%)`}
                                 style={{ width: `${p.pct}%`, backgroundColor: fData.color }} />
@@ -323,7 +352,7 @@ export function PriceProfile({ data }: PriceProfileProps) {
                           })}
                         </div>
                         {h.dominante && (
-                          <span className="text-[10px] font-black w-20 text-right" style={{ color: h.dominante.color }}>
+                          <span className="text-[9px] font-black w-12 text-right" style={{ color: h.dominante.color }}>
                             {h.dominante.label}
                           </span>
                         )}
@@ -331,11 +360,11 @@ export function PriceProfile({ data }: PriceProfileProps) {
                       </div>
                     ))}
                   </div>
-                  <div className="flex flex-wrap gap-3 pt-2">
-                    {FAIXAS.map((f: typeof FAIXAS[0]) => (
-                      <div key={f.id} className="flex items-center gap-1.5">
-                        <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: f.color }} />
-                        <span className="text-xs font-bold text-slate-500">{f.label}</span>
+                  <div className="flex flex-wrap gap-2 pt-2">
+                    {FAIXAS.filter((f: Faixa) => annotated.some((s: any) => s.faixa?.id === f.id)).map((f: Faixa) => (
+                      <div key={f.id} className="flex items-center gap-1 bg-slate-50 px-2 py-1 rounded-md border border-slate-100">
+                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: f.color }} />
+                        <span className="text-[9px] font-bold text-slate-500">{f.label}</span>
                       </div>
                     ))}
                   </div>

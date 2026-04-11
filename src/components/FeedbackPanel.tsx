@@ -42,7 +42,8 @@ const GROUPS: Record<string, string> = {
   "ALINE": "Apoio Operação",
   "THAIS": "Apoio Operação",
   "LIDI": "Apoio Operação",
-  "RAFA": "Aprendiz"
+  "RAFA": "Aprendiz",
+  "CATIA": "Aprendiz"
 };
 
 export function FeedbackPanel({ data, vinculos }: FeedbackPanelProps) {

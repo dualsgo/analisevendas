@@ -12,6 +12,8 @@ const SOCIAL_CODES = [
   '5079752', '5106673', '5106671', '5106674', '5106672', '5088519', '5097336', 
   '5097335', '5011918', '5136558'
 ];
+
+const BARALHO_CODES = ['5147797', '5147796'];
 import { 
   TrendingUp, 
   Users, 
@@ -73,6 +75,7 @@ export function ExecutiveSummary({ data, vinculos, onSwitchTab }: ExecutiveSumma
     // Ação Social (Baralhos)
     let totalBaralhos = 0;
     const isBaralho = (it: any) => {
+      if (BARALHO_CODES.includes(it.cProd)) return true;
       const p = it.xProd.toUpperCase();
       return p.includes("BARALHO") || p.includes("ACAO SOCIAL") || p.includes("DOACAO") || p.includes("ALMANAQUE");
     };

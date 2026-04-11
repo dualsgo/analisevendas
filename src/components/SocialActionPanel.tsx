@@ -43,16 +43,21 @@ const SOCIAL_CODES = [
   '5097335', '5011918', '5136558'
 ];
 
+const BARALHO_CODES = ['5147797', '5147796'];
+const SACOLA_CODES = ['5133676', '5113644'];
+
 export function SocialActionPanel({ data }: SocialActionPanelProps) {
   const stats = useMemo(() => {
     const activeSales = data.filter(s => !s.is_cancelada && s.tpNF === 1);
     
     const isBaralho = (it: any) => {
+      if (BARALHO_CODES.includes(it.cProd)) return true;
       const p = it.xProd.toUpperCase();
       return p.includes("BARALHO") || p.includes("ACAO SOCIAL") || p.includes("DOACAO") || p.includes("ALMANAQUE");
     };
     
     const isSacola = (it: any) => {
+      if (SACOLA_CODES.includes(it.cProd)) return true;
       const p = it.xProd.toUpperCase();
       return p.includes("SACOLA");
     };

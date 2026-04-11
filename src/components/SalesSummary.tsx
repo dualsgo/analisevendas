@@ -104,7 +104,6 @@ import { DeliveryPanel } from "./DeliveryPanel";
 import { GapAnalysis } from "./GapAnalysis";
 import { CouponAnalysis } from "./CouponAnalysis";
 import { CollaboratorProductRanking } from "./CollaboratorProductRanking";
-import { CollaboratorProductRanking } from "./CollaboratorProductRanking";
 import { SocialActionPanel } from "./SocialActionPanel";
 import { Calculator, Map, Heart } from "lucide-react";
 

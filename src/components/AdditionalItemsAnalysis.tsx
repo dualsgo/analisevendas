@@ -233,7 +233,7 @@ export function AdditionalItemsAnalysis({ data }: AdditionalItemsAnalysisProps) 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <KPIItem 
               label={activeCategory === 'slp' ? "Total Vendido (Qtd)" : "Total Social (Qtd)"} 
-              value={activeCategory === 'slp' ? currentData.totalQty : `${currentData.totalBaralhos} 🃏 + ${currentData.totalSacolas} 🛍️`} 
+              value={activeCategory === 'slp' ? currentData.totalQty : `${(currentData as any).totalBaralhos} 🃏 + ${(currentData as any).totalSacolas} 🛍️`} 
               subValue="Itens no período" 
               icon={Package} 
               color={activeCategory === 'slp' ? 'text-orange-500' : 'text-rose-500'} 

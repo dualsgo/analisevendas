@@ -179,7 +179,6 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
 
     vinculos.forEach(vinc => {
       const v = vinc.vendedor || "OUTROS";
-      if (IGNORE_LIST.includes(v)) return;
       if (vendors[v]) {
         vendors[v].troca.venda += vinc.valor_diferenca;
         vendors[v].troca.itens += vinc.diferenca_itens;

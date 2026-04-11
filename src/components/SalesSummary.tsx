@@ -104,8 +104,9 @@ import { DeliveryPanel } from "./DeliveryPanel";
 import { GapAnalysis } from "./GapAnalysis";
 import { CouponAnalysis } from "./CouponAnalysis";
 import { CollaboratorProductRanking } from "./CollaboratorProductRanking";
-import { EasterPanel } from "./EasterPanel";
-import { Calculator, Map, Egg as EggIcon } from "lucide-react";
+import { CollaboratorProductRanking } from "./CollaboratorProductRanking";
+import { SocialActionPanel } from "./SocialActionPanel";
+import { Calculator, Map, Heart } from "lucide-react";
 
 interface SalesSummaryProps {
   data: DetailedSaleRow[];
@@ -318,7 +319,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
     { id: "item_ranking", label: "Ranking de Itens", icon: ShoppingCart, category: "Produtos", color: "text-orange-600 font-black" },
     { id: "market_basket", label: "Matriz de Afinidade", icon: Boxes, category: "Produtos", color: "text-indigo-600 font-black" },
     { id: "venda_sugestiva", label: "SLP & Social", icon: ShoppingBag, category: "Produtos", color: "text-orange-600 font-black" },
-    { id: "pascoa", label: "Kits de Páscoa", icon: EggIcon, category: "Produtos", color: "text-orange-500 font-black" },
+    { id: "acao_social", label: "Ação Social (Baralhos)", icon: Heart, category: "Produtos", color: "text-rose-500 font-black" },
     { id: "price_profile", label: "Perfil de Preço", icon: DollarSign, category: "Produtos", color: "text-rose-600 font-black" },
     { id: "elasticidade", label: "Elasticidade Desconto", icon: LineChart, category: "Produtos", color: "text-amber-600" },
 
@@ -504,7 +505,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
       case "geodesic": return <GeographicAnalysis data={data} />;
       case "oportunidades": return <LostOpportunities data={data} vinculos={vinculos} />;
       case "pa": return <AdditionalItemsAnalysis data={data} />;
-      case "pascoa": return <EasterPanel data={data} />;
+      case "acao_social": return <SocialActionPanel data={data} />;
       case "coupon_analysis": return <CouponAnalysis data={data} />;
       case "venda_sugestiva": return <AdditionalItemsAnalysis data={data} />;
       case "colab_ranking_prod": return <CollaboratorProductRanking data={data} />;

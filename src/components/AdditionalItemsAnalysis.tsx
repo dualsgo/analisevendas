@@ -122,9 +122,83 @@ export function AdditionalItemsAnalysis({ data }: AdditionalItemsAnalysisProps) 
       return { vendorRanking, chartData, totalQty, totalValue, totalCouponsWithItem, totalActiveCoupons: activeSales.length };
     };
 
+    const isSocialBaralho = (it: any) => {
+      const p = it.xProd.toUpperCase();
+      return p.includes("BARALHO") || p.includes("ACAO SOCIAL") || p.includes("DOACAO") || p.includes("ALMANAQUE");
+    };
+    
+    const isSocialSacola = (it: any) => {
+      const p = it.xProd.toUpperCase();
+      return p.includes("SACOLA");
+    };
+
+    const processSocial = () => {
+      const vendors: Record<string, any> = {};
+      const daily: Record<string, any> = {};
+      let totalQty = 0;
+      let totalValue = 0;
+      let totalCouponsWithItem = 0;
+      let totalBaralhos = 0;
+      let totalSacolas = 0;
+
+      activeSales.forEach(sale => {
+        const day = sale.dhEmi.substring(0, 10);
+        const matchingItems = sale.itens.filter(it => isSocialItem(it));
+        const vName = sale.vendedor || "OUTROS";
+
+        if (!vendors[vName]) vendors[vName] = { name: vName, qty: 0, value: 0, coupons: 0, totalSales: 0, baralhos: 0, sacolas: 0 };
+        if (!daily[day]) daily[day] = { day, qty: 0, value: 0, baralhos: 0, sacolas: 0 };
+
+        vendors[vName].totalSales++;
+
+        if (matchingItems.length > 0) {
+          const q = matchingItems.reduce((acc, i) => acc + i.qCom, 0);
+          const v = matchingItems.reduce((acc, i) => acc + i.vProd, 0);
+          
+          vendors[vName].qty += q;
+          vendors[vName].value += v;
+          vendors[vName].coupons++;
+          
+          matchingItems.forEach(it => {
+            if (isSocialBaralho(it)) {
+              vendors[vName].baralhos += it.qCom;
+              daily[day].baralhos += it.qCom;
+              totalBaralhos += it.qCom;
+            } else if (isSocialSacola(it)) {
+              vendors[vName].sacolas += it.qCom;
+              daily[day].sacolas += it.qCom;
+              totalSacolas += it.qCom;
+            }
+          });
+
+          daily[day].qty += q;
+          daily[day].value += v;
+          
+          totalQty += q;
+          totalValue += v;
+          totalCouponsWithItem++;
+        }
+      });
+
+      const vendorRanking = Object.values(vendors).map(v => ({
+        ...v,
+        participation: v.totalSales > 0 ? (v.coupons / v.totalSales) * 100 : 0
+      })).sort((a, b) => b.qty - a.qty);
+
+      const chartData = Object.values(daily).sort((a, b) => a.day.localeCompare(b.day)).map(d => ({
+        label: format(parseISO(d.day), "dd/MM"),
+        qty: d.qty,
+        value: d.value,
+        baralhos: d.baralhos,
+        sacolas: d.sacolas
+      }));
+
+      return { vendorRanking, chartData, totalQty, totalValue, totalCouponsWithItem, totalActiveCoupons: activeSales.length, totalBaralhos, totalSacolas };
+    };
+
     return {
       slp: processCategory(isSlpItem),
-      social: processCategory(isSocialItem)
+      social: processSocial()
     };
   }, [data]);
 
@@ -150,14 +224,20 @@ export function AdditionalItemsAnalysis({ data }: AdditionalItemsAnalysisProps) 
             <Star className="w-3.5 h-3.5 mr-2" /> Campanha SLP (Colecionáveis)
           </TabsTrigger>
           <TabsTrigger value="social" className="rounded-xl font-black text-[10px] md:text-xs uppercase data-[state=active]:bg-rose-500 data-[state=active]:text-white">
-            <Heart className="w-3.5 h-3.5 mr-2" /> Ação Social (Baralhos/Sacolas)
+            <Heart className="w-3.5 h-3.5 mr-2" /> Ação Social (🃏 & 🛍️)
           </TabsTrigger>
         </TabsList>
 
         <div className="mt-8 space-y-8">
           {/* KPIs Principais */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <KPIItem label="Total Vendido (Qtd)" value={currentData.totalQty} subValue="Itens no período" icon={Package} color={activeCategory === 'slp' ? 'text-orange-500' : 'text-rose-500'} />
+            <KPIItem 
+              label={activeCategory === 'slp' ? "Total Vendido (Qtd)" : "Total Social (Qtd)"} 
+              value={activeCategory === 'slp' ? currentData.totalQty : `${currentData.totalBaralhos} 🃏 + ${currentData.totalSacolas} 🛍️`} 
+              subValue="Itens no período" 
+              icon={Package} 
+              color={activeCategory === 'slp' ? 'text-orange-500' : 'text-rose-500'} 
+            />
             <KPIItem label="Participação Geral" value={`${globalParticipation.toFixed(1)}%`} subValue="De todos os cupons" icon={TrendingUp} color="text-sky-500" />
             <KPIItem label="Faturamento Extra" value={currentData.totalValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} subValue="Receita Incremental" icon={ShoppingBag} color="text-emerald-500" />
           </div>
@@ -201,7 +281,9 @@ export function AdditionalItemsAnalysis({ data }: AdditionalItemsAnalysisProps) 
                     <div className="flex justify-between items-start mb-3">
                       <div>
                         <p className="text-xs font-black text-slate-800 uppercase leading-none">{v.name}</p>
-                        <p className="text-[9px] font-bold text-slate-400 mt-1.5">{v.qty} itens em {v.coupons} cupons</p>
+                        <p className="text-[9px] font-bold text-slate-400 mt-1.5">
+                          {activeCategory === 'slp' ? `${v.qty} itens` : `🃏${v.baralhos} + 🛍️${v.sacolas}`} em {v.coupons} cupons
+                        </p>
                       </div>
                       {i === 0 && <Award className="w-5 h-5 text-orange-500" />}
                     </div>

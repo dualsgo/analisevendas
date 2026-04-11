@@ -119,9 +119,20 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
         pickupsAtendidas: 0,
         adicionaisFeitos: 0,
         slpQty: 0,
-        socialQty: 0
+        baralhoQty: 0,
+        sacolaQty: 0
       };
     });
+
+    const isBaralho = (it: any) => {
+      const p = it.xProd.toUpperCase();
+      return p.includes("BARALHO") || p.includes("ACAO SOCIAL") || p.includes("DOACAO") || p.includes("ALMANAQUE");
+    };
+    
+    const isSacola = (it: any) => {
+      const p = it.xProd.toUpperCase();
+      return p.includes("SACOLA");
+    };
 
     activeSales.forEach(s => {
       const v = s.vendedor || "OUTROS";
@@ -133,7 +144,11 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
 
       s.itens.forEach(it => {
         if (SLP_CODES.includes(it.cProd)) vendors[v].slpQty += it.qCom;
-        if (SOCIAL_CODES.includes(it.cProd)) vendors[v].socialQty += it.qCom;
+        if (SOCIAL_CODES.includes(it.cProd) || isBaralho(it) || isSacola(it)) {
+          if (isBaralho(it)) vendors[v].baralhoQty += it.qCom;
+          else if (isSacola(it)) vendors[v].sacolaQty += it.qCom;
+          else vendors[v].baralhoQty += it.qCom; // Fallback for codes
+        }
       });
 
       const isIdentified = s.cpf_cnpj_dest && s.cpf_cnpj_dest.trim() !== "";
@@ -354,7 +369,7 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
         <ReportKPI label="Atendimentos" value={totals.cupons} icon={Users} color="text-sky-600" large={isCollapsed} />
         <ReportKPI label="P.A. Médio" value={formatNum(totals.pa)} icon={Target} color="text-orange-600" large={isCollapsed} />
         <ReportKPI label="Ticket Médio" value={formatBRL(totals.tkm)} icon={ShoppingBag} color="text-purple-600" large={isCollapsed} />
-        <ReportKPI label="Retiradas" value={totals.pickups} icon={Smartphone} color="text-slate-500" large={isCollapsed} />
+        <ReportKPI label="Baralhos" value={`🃏 ${reportData.reduce((acc, r) => acc + r.baralhoQty, 0)}`} icon={Heart} color="text-rose-600" large={isCollapsed} />
         <ReportKPI label="Conv. Real" value={`${formatNum(totals.conv, 1)}%`} icon={Zap} color="text-amber-500" large={isCollapsed} />
       </div>
 
@@ -372,7 +387,8 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
               <SortableHead label="PM" sortKey="pm" currentSort={sortConfig} onSort={setSortConfig} className="text-right print:w-[8%]" />
               <SortableHead label="CPF %" sortKey="ident" currentSort={sortConfig} onSort={setSortConfig} className="text-center print:w-[6%]" />
               <TableHead className="text-white print:text-black font-black uppercase text-[8px] md:text-[9px] text-center print:w-[6%]">SLP</TableHead>
-              <TableHead className="text-white print:text-black font-black uppercase text-[8px] md:text-[9px] text-center print:w-[6%]">Social</TableHead>
+              <TableHead className="text-white print:text-black font-black uppercase text-[8px] md:text-[9px] text-center print:w-[6%]">🃏</TableHead>
+              <TableHead className="text-white print:text-black font-black uppercase text-[8px] md:text-[9px] text-center print:w-[6%]">🛍️</TableHead>
               <SortableHead label="Pickups" sortKey="pickups" currentSort={sortConfig} onSort={setSortConfig} className="text-center print:w-[6%]" />
               <SortableHead label="Adicionais" sortKey="adicionais" currentSort={sortConfig} onSort={setSortConfig} className="text-center print:w-[6%]" />
               <SortableHead label="Conv %" sortKey="conv" currentSort={sortConfig} onSort={setSortConfig} className="text-right pr-4 md:pr-8 print:pr-1 print:w-[8%]" />
@@ -446,9 +462,16 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
                   </TableCell>
 
                   <TableCell className="text-center">
-                    <span className="hidden print:inline text-[8px] font-black">{v.socialQty}</span>
-                    <Badge className={cn("print:hidden font-black border-none px-1", v.socialQty > 0 ? "bg-rose-100 text-rose-700" : "bg-slate-50 text-slate-300", isCollapsed ? "text-[11px] h-6" : "text-[8px] md:text-[9px] h-4 md:h-5")}>
-                      <Heart className={cn("fill-current", isCollapsed ? "w-3.5 h-3.5 mr-1.5" : "w-2 md:w-2.5 h-2 md:h-2.5 mr-0.5 md:mr-1")} /> {v.socialQty}
+                    <span className="hidden print:inline text-[8px] font-black">{v.baralhoQty}</span>
+                    <Badge className={cn("print:hidden font-black border-none px-1", v.baralhoQty > 0 ? "bg-rose-100 text-rose-700" : "bg-slate-50 text-slate-300", isCollapsed ? "text-[11px] h-6" : "text-[8px] md:text-[9px] h-4 md:h-5")}>
+                       🃏 {v.baralhoQty}
+                    </Badge>
+                  </TableCell>
+
+                  <TableCell className="text-center">
+                    <span className="hidden print:inline text-[8px] font-black">{v.sacolaQty}</span>
+                    <Badge className={cn("print:hidden font-black border-none px-1", v.sacolaQty > 0 ? "bg-emerald-100 text-emerald-700" : "bg-slate-50 text-slate-300", isCollapsed ? "text-[11px] h-6" : "text-[8px] md:text-[9px] h-4 md:h-5")}>
+                       🛍️ {v.sacolaQty}
                     </Badge>
                   </TableCell>
 
@@ -512,8 +535,12 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
                         <span className="text-sm font-black text-orange-600">{selectedColab.slpQty} ITENS</span>
                      </div>
                      <div className="flex flex-col gap-0.5">
-                        <span className="text-[9px] font-bold text-slate-400 uppercase">Vendas Sociais</span>
-                        <span className="text-sm font-black text-rose-500">{selectedColab.socialQty} ITENS</span>
+                        <span className="text-[9px] font-bold text-slate-400 uppercase">Baralhos 🃏</span>
+                        <span className="text-sm font-black text-rose-600">{selectedColab.baralhoQty} ITENS</span>
+                     </div>
+                     <div className="flex flex-col gap-0.5">
+                        <span className="text-[9px] font-bold text-slate-400 uppercase">Sacolas 🛍️</span>
+                        <span className="text-sm font-black text-emerald-600">{selectedColab.sacolaQty} ITENS</span>
                      </div>
                      <div className="flex flex-col gap-0.5">
                         <span className="text-[9px] font-bold text-slate-400 uppercase">Retiradas</span>

@@ -4,11 +4,13 @@ import React, { useMemo } from "react";
 import { motion } from "framer-motion";
 import { DetailedSaleRow, VinculoTroca } from "@/lib/types";
 import { Card, CardContent } from "@/components/ui/card";
-const CHOCOLATE_CODES = ['5147482', '5142574'];
-const GIFT_CODES = [
-  '5147476', '5147477', '5147459', '5147452', '5147478', '5147480', 
-  '5147454', '5147456', '5147460', '5147461', '5147463', '5147465', 
-  '5147466', '5147467', '5147470', '5147471', '5147473', '5147475'
+const SOCIAL_CODES = [
+  '5057181', '5055875', '5135601', '5129270', '5129271', '5129247', '5129262', 
+  '5122642', '5122641', '5135612', '5122639', '5122638', '5133676', '5113644', 
+  '5113641', '5113642', '5113643', '5129267', '5129255', '5143422', '5139528', 
+  '5143423', '5145833', '5139527', '5147797', '5147796', '5145834', '5079753', 
+  '5079752', '5106673', '5106671', '5106674', '5106672', '5088519', '5097336', 
+  '5097335', '5011918', '5136558'
 ];
 import { 
   TrendingUp, 
@@ -25,7 +27,7 @@ import {
   ChevronRight,
   PieChart,
   BarChart3,
-  Egg
+  Heart
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, parseISO } from "date-fns";
@@ -68,14 +70,19 @@ export function ExecutiveSummary({ data, vinculos, onSwitchTab }: ExecutiveSumma
     });
     const topDay = Object.entries(daySales).sort((a, b) => b[1] - a[1])[0] || ["-", 0];
 
-    // Páscoa
-    let easterKits = 0;
-    let easterGifts = 0;
+    // Ação Social (Baralhos)
+    let totalBaralhos = 0;
+    const isBaralho = (it: any) => {
+      const p = it.xProd.toUpperCase();
+      return p.includes("BARALHO") || p.includes("ACAO SOCIAL") || p.includes("DOACAO") || p.includes("ALMANAQUE");
+    };
+
     activeSales.forEach(sale => {
-      const chocoQty = sale.itens.filter(it => CHOCOLATE_CODES.includes(it.cProd)).reduce((acc, it) => acc + it.qCom, 0);
-      const giftQty = sale.itens.filter(it => GIFT_CODES.includes(it.cProd)).reduce((acc, it) => acc + it.qCom, 0);
-      easterKits += Math.min(chocoQty, giftQty);
-      easterGifts += giftQty;
+      sale.itens.forEach(it => {
+        if (SOCIAL_CODES.includes(it.cProd) || isBaralho(it)) {
+          if (isBaralho(it)) totalBaralhos += it.qCom;
+        }
+      });
     });
 
     // Melhor Mês
@@ -104,7 +111,7 @@ export function ExecutiveSummary({ data, vinculos, onSwitchTab }: ExecutiveSumma
       topDay: { date: topDay[0], value: topDay[1] },
       topMonth: { date: topMonth[0], value: topMonth[1] },
       hasMultipleMonths,
-      easter: { kits: easterKits, conv: easterGifts > 0 ? (easterKits / easterGifts) * 100 : 0 },
+      social: { baralhos: totalBaralhos, participation: totalCupons > 0 ? (totalBaralhos / totalCupons) * 100 : 0 },
       monthList: Object.entries(monthSales).map(([month, venda]) => {
         const monthRows = activeSales.filter(s => s.dhEmi.substring(0, 7) === month);
         const cupons = monthRows.length;
@@ -180,12 +187,12 @@ export function ExecutiveSummary({ data, vinculos, onSwitchTab }: ExecutiveSumma
           color="text-emerald-600" 
         />
         <MetricCard 
-          label="Conv. Kit Páscoa" 
-          value={`${stats.easter.conv.toFixed(1)}%`} 
-          desc={`${stats.easter.kits} Kits Formados`} 
-          icon={Egg} 
-          color="text-orange-600" 
-          tooltip="Percentual de brindes de páscoa que foram vendidos acompanhados de chocolate."
+          label="Part. Baralho" 
+          value={`${stats.social.participation.toFixed(1)}%`} 
+          desc={`${stats.social.baralhos} Itens Sociais`} 
+          icon={Heart} 
+          color="text-rose-600" 
+          tooltip="Percentual de cupons que possuem pelo menos um item da Ação Social (Baralhos)."
         />
         <MetricCard 
           label="Conversão Pickup" 

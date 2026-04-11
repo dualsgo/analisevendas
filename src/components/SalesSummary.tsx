@@ -37,6 +37,7 @@ import {
   History,
   ShoppingBag,
   Sword,
+  UserX,
   ClipboardList,
   ClipboardCheck,
   Flame,
@@ -55,7 +56,8 @@ import {
   AlertTriangle,
   Menu,
   ChevronDown,
-  Sparkles
+  Sparkles,
+  Settings2
 } from "lucide-react";
 import { format, parseISO, min, max } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -72,6 +74,16 @@ import {
   useSidebar,
   SidebarTrigger
 } from "@/components/ui/sidebar";
+import { 
+  Sheet, 
+  SheetContent, 
+  SheetHeader, 
+  SheetTitle, 
+  SheetDescription,
+  SheetTrigger
+} from "@/components/ui/sheet";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { DailyPerformance } from "./DailyPerformance";
 import { ImpactProjection } from './ImpactProjection';
@@ -118,6 +130,40 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
   const { setOpenMobile, state } = useSidebar();
   const isCollapsed = state === "collapsed";
 
+  const [hiddenCollaborators, setHiddenCollaborators] = useState<string[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem("hiddenCollaborators");
+      return saved ? JSON.parse(saved) : ["MAYCON", "RUAN"];
+    }
+    return [];
+  });
+
+  const toggleCollaborator = (name: string) => {
+    const updated = hiddenCollaborators.includes(name)
+      ? hiddenCollaborators.filter(n => n !== name)
+      : [...hiddenCollaborators, name];
+    setHiddenCollaborators(updated);
+    localStorage.setItem("hiddenCollaborators", JSON.stringify(updated));
+  };
+
+  const allCollaborators = useMemo(() => {
+    const vends = new Set<string>();
+    data.forEach(s => {
+      if (s.vendedor) vends.add(s.vendedor);
+    });
+    return Array.from(vends).sort();
+  }, [data]);
+
+  const filteredData = useMemo(() => {
+    if (hiddenCollaborators.length === 0) return data;
+    return data.filter(s => !s.vendedor || !hiddenCollaborators.includes(s.vendedor));
+  }, [data, hiddenCollaborators]);
+
+  const filteredVinculos = useMemo(() => {
+    if (hiddenCollaborators.length === 0) return vinculos;
+    return vinculos.filter(v => !v.vendedor || !hiddenCollaborators.includes(v.vendedor));
+  }, [vinculos, hiddenCollaborators]);
+
   const [selectedChannels, setSelectedChannels] = useState({
     fisica: true,
     online: true,
@@ -134,7 +180,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
   const [periodView, setPeriodView] = useState<'consolidated' | 'monthly' | 'daily'>('consolidated');
 
   const analysisPeriod = useMemo(() => {
-    const saidas = data.filter(r => r.tpNF === 1 && !r.is_cancelada);
+    const saidas = filteredData.filter(r => r.tpNF === 1 && !r.is_cancelada);
     if (saidas.length === 0) return "Sem dados";
     const dates = saidas.map(r => parseISO(r.dhEmi)).filter(d => !isNaN(d.getTime()));
     if (dates.length === 0) return "Período Indefinido";
@@ -151,14 +197,14 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
       return format(start, "MMMM 'de' yyyy", { locale: ptBR }).toUpperCase();
     }
     return `${format(start, "dd/MM/yy")} — ${format(end, "dd/MM/yy")}`;
-  }, [data]);
+  }, [filteredData]);
 
   const toggleChannel = (channel: keyof typeof selectedChannels) => {
     setSelectedChannels(prev => ({ ...prev, [channel]: !prev[channel] }));
   };
 
   const metricsByChannel = useMemo(() => {
-    const saidas = data.filter(r => r.tpNF === 1 && !r.is_devolucao && !r.is_cancelada);
+    const saidas = filteredData.filter(r => r.tpNF === 1 && !r.is_devolucao && !r.is_cancelada);
     
     const fisica    = saidas.filter(r => r.canal === "LOJA_FISICA" && !r.is_troca);
     const online    = saidas.filter(r => r.canal === "RETIRADA_ONLINE");
@@ -182,10 +228,10 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
       };
     };
 
-    const vTroca = vinculos.reduce((acc, v) => acc + v.valor_diferenca, 0);
-    const cTroca = vinculos.length;
-    const iTroca = vinculos.reduce((acc, v) => acc + v.diferenca_itens, 0);
-    const identifiedTroca = vinculos.filter(v => v.cpf_cliente).length;
+    const vTroca = filteredVinculos.reduce((acc, v) => acc + v.valor_diferenca, 0);
+    const cTroca = filteredVinculos.length;
+    const iTroca = filteredVinculos.reduce((acc, v) => acc + v.diferenca_itens, 0);
+    const identifiedTroca = filteredVinculos.filter(v => v.cpf_cliente).length;
 
     return {
       fisica: calcMetrics(fisica),
@@ -202,7 +248,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
         identified: identifiedTroca
       }
     };
-  }, [data, vinculos]);
+  }, [filteredData, filteredVinculos]);
 
   const consolidado = useMemo(() => {
     let v = 0, c = 0, i = 0, iden = 0;
@@ -254,7 +300,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
   const periodBreakdown = useMemo(() => {
     if (periodView === 'consolidated') return null;
 
-    const saidas = data.filter(r => r.tpNF === 1 && !r.is_cancelada);
+    const saidas = filteredData.filter(r => r.tpNF === 1 && !r.is_cancelada);
     const groups: Record<string, DetailedSaleRow[]> = {};
     
     saidas.forEach(r => {
@@ -302,7 +348,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
       const trend = prev.venda > 0 ? ((p.venda - prev.venda) / prev.venda) * 100 : 0;
       return { ...p, trend };
     });
-  }, [data, periodView]);
+  }, [filteredData, periodView]);
 
   const navItems = [
     { id: "executivo", label: "Resumo Executivo", icon: Sparkles, category: "Resultados", color: "text-orange-500 font-black" },
@@ -342,8 +388,8 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
 
   const renderActiveTab = () => {
     switch(activeTab) {
-      case "executivo": return <ExecutiveSummary data={data} vinculos={vinculos} onSwitchTab={handleTabChange} />;
-      case "gap_analise": return <GapAnalysis data={data} />;
+      case "executivo": return <ExecutiveSummary data={filteredData} vinculos={filteredVinculos} onSwitchTab={handleTabChange} />;
+      case "gap_analise": return <GapAnalysis data={filteredData} />;
       case "geral":
         return (
           <motion.div 
@@ -473,41 +519,41 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
             </motion.div>
           </motion.div>
         );
-      case "impacto": return <ImpactProjection data={data} />;
-      case "heatmap": return <HeatmapAnalysis data={data} vinculos={vinculos} />;
-      case "energy": return <SalesEnergy data={data} />;
+      case "impacto": return <ImpactProjection data={filteredData} />;
+      case "heatmap": return <HeatmapAnalysis data={filteredData} vinculos={filteredVinculos} />;
+      case "energy": return <SalesEnergy data={filteredData} />;
       case "basket": return null;
-      case "product_risk": return <ProductRisk data={data} />;
-      case "performance": return <ConsolidatedReport data={data} vinculos={vinculos} />;
-      case "diario": return <DailyPerformance data={data} />;
+      case "product_risk": return <ProductRisk data={filteredData} />;
+      case "performance": return <ConsolidatedReport data={filteredData} vinculos={filteredVinculos} />;
+      case "diario": return <DailyPerformance data={filteredData} />;
       case "composicao": return null;
-      case "radar": return <RiskRadar data={data} />;
-      case "conversao": return <ConversionAudit data={data} />;
-      case "auditoria": return <DiscountAudit data={data} />;
-      case "trocas": return <ExchangeManagement data={data} vinculos={vinculos} />;
-      case "transacoes": return <TransactionList data={data} />;
-      case "pickup_track": return <PickupPanel data={data} />;
-      case "delivery_track": return <DeliveryPanel data={data} />;
-      case "whatsapp": return <WhatsappReports data={data} vinculos={vinculos} />;
-      case "elasticidade": return <ElasticityAnalysis data={data} />;
+      case "radar": return <RiskRadar data={filteredData} />;
+      case "conversao": return <ConversionAudit data={filteredData} />;
+      case "auditoria": return <DiscountAudit data={filteredData} />;
+      case "trocas": return <ExchangeManagement data={filteredData} vinculos={filteredVinculos} />;
+      case "transacoes": return <TransactionList data={filteredData} />;
+      case "pickup_track": return <PickupPanel data={filteredData} />;
+      case "delivery_track": return <DeliveryPanel data={filteredData} />;
+      case "whatsapp": return <WhatsappReports data={filteredData} vinculos={filteredVinculos} />;
+      case "elasticidade": return <ElasticityAnalysis data={filteredData} />;
       case "deep_dive": return null;
-      case "qualidade_avancada": return <QualityAnalysis data={data} vinculos={vinculos} />;
-      case "ritmo_operacional": return <OperationalRhythm data={data} />;
-      case "payment_map": return <PaymentMap data={data} />;
-      case "customer_loyalty": return <CustomerLoyalty data={data} vinculos={vinculos} />;
-      case "price_profile": return <PriceProfile data={data} />;
-      case "item_ranking": return <ItemRanking data={data} />;
+      case "qualidade_avancada": return <QualityAnalysis data={filteredData} vinculos={filteredVinculos} />;
+      case "ritmo_operacional": return <OperationalRhythm data={filteredData} />;
+      case "payment_map": return <PaymentMap data={filteredData} />;
+      case "customer_loyalty": return <CustomerLoyalty data={filteredData} vinculos={filteredVinculos} />;
+      case "price_profile": return <PriceProfile data={filteredData} />;
+      case "item_ranking": return <ItemRanking data={filteredData} />;
       case "pacing": return null;
-      case "market_basket": return <MatrizAfinidade data={data} />;
-      case "sangria": return <RiscoTrocas data={data} />;
+      case "market_basket": return <MatrizAfinidade data={filteredData} />;
+      case "sangria": return <RiscoTrocas data={filteredData} />;
       case "what_if": return null;
-      case "geodesic": return <GeographicAnalysis data={data} />;
-      case "oportunidades": return <LostOpportunities data={data} vinculos={vinculos} />;
-      case "pa": return <AdditionalItemsAnalysis data={data} />;
-      case "acao_social": return <SocialActionPanel data={data} />;
-      case "coupon_analysis": return <CouponAnalysis data={data} />;
-      case "venda_sugestiva": return <AdditionalItemsAnalysis data={data} />;
-      case "colab_ranking_prod": return <CollaboratorProductRanking data={data} />;
+      case "geodesic": return <GeographicAnalysis data={filteredData} />;
+      case "oportunidades": return <LostOpportunities data={filteredData} vinculos={filteredVinculos} />;
+      case "pa": return <AdditionalItemsAnalysis data={filteredData} />;
+      case "acao_social": return <SocialActionPanel data={filteredData} />;
+      case "coupon_analysis": return <CouponAnalysis data={filteredData} />;
+      case "venda_sugestiva": return <AdditionalItemsAnalysis data={filteredData} />;
+      case "colab_ranking_prod": return <CollaboratorProductRanking data={filteredData} />;
       case "gamification": return null;
       case "feedback": return null;
       default: return null;
@@ -580,7 +626,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
               </Badge>
               <div className="w-1 h-1 bg-slate-300 rounded-full" />
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                {data.length} Transações Detectadas
+                {filteredData.length} Transações Detectadas
               </span>
             </div>
             <h1 className="text-xl md:text-3xl font-black text-slate-800 tracking-tight flex items-center gap-3 truncate">
@@ -589,6 +635,56 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
           </div>
           
           <div className="flex items-center gap-2 print:hidden">
+             <Sheet>
+               <SheetTrigger asChild>
+                 <Button variant="outline" size="sm" className="rounded-xl border-slate-200 text-slate-500 font-bold text-[10px] uppercase gap-2">
+                    <Users2 className="w-3.5 h-3.5 text-indigo-500" />
+                    Equipe ({allCollaborators.length - hiddenCollaborators.length}/{allCollaborators.length})
+                 </Button>
+               </SheetTrigger>
+               <SheetContent className="w-full sm:max-w-md bg-white">
+                 <SheetHeader>
+                   <SheetTitle className="text-xl font-black uppercase tracking-tight">Gerenciar Equipe</SheetTitle>
+                   <SheetDescription className="text-xs font-medium text-slate-500">
+                     Desmarque os colaboradores que deseja ocultar de todas as análises (ex: férias ou desligados).
+                   </SheetDescription>
+                 </SheetHeader>
+                 <div className="mt-8 space-y-4">
+                    <div className="flex items-center justify-between pb-4 border-b">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Colaborador</p>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-7 text-[9px] font-black uppercase"
+                        onClick={() => {
+                          setHiddenCollaborators([]);
+                          localStorage.setItem("hiddenCollaborators", JSON.stringify([]));
+                        }}
+                      >
+                        Ativar Todos
+                      </Button>
+                    </div>
+                    <div className="max-h-[60vh] overflow-y-auto pr-2 space-y-2">
+                      {allCollaborators.map(name => (
+                        <div key={name} className="flex items-center justify-between p-3 rounded-xl border border-slate-100 hover:bg-slate-50 transition-colors">
+                          <Label htmlFor={`colab-${name}`} className="flex-1 font-bold text-xs uppercase cursor-pointer py-1">
+                            {name}
+                          </Label>
+                          <Checkbox 
+                            id={`colab-${name}`}
+                            checked={!hiddenCollaborators.includes(name)}
+                            onCheckedChange={() => toggleCollaborator(name)}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <div className="pt-4 border-t italic text-[10px] text-slate-400">
+                      * Ocultar um colaborador remove suas vendas do faturamento total e das médias do grupo.
+                    </div>
+                 </div>
+               </SheetContent>
+             </Sheet>
+
              <SidebarTrigger className="md:hidden" />
              <Button variant="outline" size="sm" onClick={() => window.print()} className="rounded-xl border-slate-200 text-slate-500 font-bold text-[10px] uppercase gap-2">
                 <FileText className="w-3.5 h-3.5" />

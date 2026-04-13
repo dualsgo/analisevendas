@@ -117,6 +117,8 @@ import { GapAnalysis } from "./GapAnalysis";
 import { CouponAnalysis } from "./CouponAnalysis";
 import { CollaboratorProductRanking } from "./CollaboratorProductRanking";
 import { SocialActionPanel } from "./SocialActionPanel";
+import { ConsecutiveCouponAnalysis } from "./ConsecutiveCouponAnalysis";
+import { SundayAnalysis } from "./SundayAnalysis";
 import { Calculator, Map, Heart } from "lucide-react";
 
 interface SalesSummaryProps {
@@ -384,6 +386,8 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
     { id: "oportunidades", label: "Oportunidades", icon: Lightbulb, category: "Auditoria" },
     { id: "sangria", label: "Risco de Trocas", icon: AlertTriangle, category: "Auditoria" },
     { id: "geodesic", label: "Análise Geográfica", icon: Map, category: "Clientes" },
+    { id: "sunday_analise", label: "Análise Domingos", icon: CalendarIcon, category: "Operacional", color: "text-indigo-600 font-black" },
+    { id: "consecutive_cupons", label: "Cupons Fragmentados", icon: Layers, category: "Auditoria", color: "text-rose-600 font-black" },
   ];
 
   const renderActiveTab = () => {
@@ -554,6 +558,8 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
       case "coupon_analysis": return <CouponAnalysis data={filteredData} />;
       case "venda_sugestiva": return <AdditionalItemsAnalysis data={filteredData} />;
       case "colab_ranking_prod": return <CollaboratorProductRanking data={filteredData} />;
+      case "sunday_analise": return <SundayAnalysis data={filteredData} />;
+      case "consecutive_cupons": return <ConsecutiveCouponAnalysis data={filteredData} />;
       case "gamification": return null;
       case "feedback": return null;
       default: return null;

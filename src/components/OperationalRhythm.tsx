@@ -429,8 +429,41 @@ export function OperationalRhythm({ data }: OperationalRhythmProps) {
           <div className="flex flex-wrap gap-3">
             <Stat label="Total de Vendas" value={String(sales.length)} />
             <Stat label="Dias Analisados" value={String(days.length)} />
-            <Stat label="Limiar de Gargalo" value={`${limiarGargalo.toFixed(1)}x`} highlight />
+            <Stat 
+              label="Limiar de Gargalo" 
+              value={`${limiarGargalo.toFixed(1)}x`} 
+              highlight 
+              tooltip="Indica o ponto onde a equipe começa a perder qualidade por excesso de atendimentos simultâneos."
+            />
           </div>
+        </div>
+        
+        {/* Nova seção de Insights Rápidos */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-8 pt-8 border-t border-white/10">
+          <QuickInsight 
+            icon={Users} 
+            title="Concorrência" 
+            desc="Mede quantos clientes cada vendedor atende ao mesmo tempo." 
+            impact="Impacta no TKM e na satisfação do cliente." 
+          />
+          <QuickInsight 
+            icon={Timer} 
+            title="Ritmo" 
+            desc="O tempo médio entre uma venda e outra de cada vendedor." 
+            impact="Revela agilidade ou possíveis ociosidades." 
+          />
+          <QuickInsight 
+            icon={TrendingDown} 
+            title="Gargalos" 
+            desc="Momentos onde a demanda supera a capacidade da equipe." 
+            impact="Causa perda de PA e cadastros de CPF." 
+          />
+          <QuickInsight 
+            icon={Zap} 
+            title="Ondas" 
+            desc="Padrões recorrentes de fluxo por dia e hora." 
+            impact="Essencial para planejar escalas e folgas." 
+          />
         </div>
       </div>
 
@@ -464,13 +497,23 @@ export function OperationalRhythm({ data }: OperationalRhythmProps) {
                     ))}
                   </div>
 
-                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2">
-                    <Info className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
-                    <p className="text-xs text-amber-700 font-medium">
-                      Pressão média: <strong>{pressaoMedia.toFixed(2)}</strong> cupons/colaborador por slot •
-                      Limiar de gargalo: <strong>{limiarGargalo.toFixed(2)}</strong> (média + 1 desvio padrão) •
-                      Barras em <span className="text-orange-600 font-bold">laranja/vermelho</span> = slots de gargalo
-                    </p>
+                  <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl space-y-2">
+                    <div className="flex items-start gap-2">
+                      <Info className="w-5 h-5 text-blue-600 shrink-0" />
+                      <div>
+                        <p className="text-xs text-blue-800 font-black uppercase tracking-tight">O que é a Pressão de Atendimento?</p>
+                        <p className="text-[11px] text-blue-700 leading-relaxed">
+                          É a relação entre o volume de cupons e a quantidade de vendedores ativos. 
+                          Se a pressão é <strong>2.0</strong>, significa que cada vendedor está cuidando de 2 atendimentos simultaneamente no caixa/pista.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="pt-2 border-t border-blue-100 flex flex-wrap gap-x-4 gap-y-1 text-[10px] items-center">
+                       <span className="text-slate-500 font-bold uppercase">Legenda:</span>
+                       <span className="flex items-center gap-1.5 text-emerald-600 font-black"><div className="w-2 h-2 rounded-full bg-emerald-500"/> Saudável (< {limiarGargalo.toFixed(1)}x)</span>
+                       <span className="flex items-center gap-1.5 text-orange-500 font-black"><div className="w-2 h-2 rounded-full bg-orange-500"/> Alerta (> {limiarGargalo.toFixed(1)}x)</span>
+                       <span className="flex items-center gap-1.5 text-red-600 font-black"><div className="w-2 h-2 rounded-full bg-red-600"/> Crítico (> {(limiarGargalo * 1.3).toFixed(1)}x)</span>
+                    </div>
                   </div>
 
                   <ResponsiveContainer width="100%" height={220}>
@@ -598,6 +641,13 @@ export function OperationalRhythm({ data }: OperationalRhythmProps) {
                           </div>
                         </div>
 
+                        <div className="bg-indigo-900/5 p-2 rounded-lg border border-indigo-100">
+                          <p className="text-[9px] font-black text-indigo-700 uppercase tracking-tighter mb-1">Impacto no Fluxo</p>
+                          <p className="text-[10px] text-slate-600 leading-tight">
+                            Este turno representa <strong>{((turno.cupons / (turnosComparacao.reduce((a,b) => a+b.cupons, 0) || 1)) * 100).toFixed(0)}%</strong> do movimento diário.
+                          </p>
+                        </div>
+
                         <div className="grid grid-cols-3 gap-2 mt-2 pt-3 border-t border-slate-100">
                           <div>
                             <p className="text-[9px] font-bold text-emerald-500 uppercase">Adicionais</p>
@@ -672,9 +722,13 @@ export function OperationalRhythm({ data }: OperationalRhythmProps) {
                   <div className="p-3 bg-purple-50 border border-purple-100 rounded-xl flex items-start gap-2">
                     <Info className="w-4 h-4 text-purple-500 mt-0.5 shrink-0" />
                     <p className="text-xs text-purple-700 font-medium">
-                      Intervalo mediano da equipe: <strong>{medianaGeral} min</strong> entre vendas •
-                      Desvio alto = ritmo irregular • Gap máximo = maior pausa do dia
+                      <strong>Entenda o Ritmo:</strong> Mede o tempo de "fôlego" entre vendas. 
+                      Intervalos muito curtos (abaixo de 5 min) podem indicar cupons divididos. 
+                      Intervalos muito longos em horários de pico podem indicar dificuldade na abordagem ou ociosidade.
                     </p>
+                    <div className="mt-2 pt-2 border-t border-purple-100 text-[10px] text-purple-600 font-bold uppercase flex gap-4">
+                       <span>Média Equipe: {medianaGeral} min</span>
+                    </div>
                   </div>
                   {ritmoColaboradores.map((r, i) => {
                     const isLento = r.mediana > medianaGeral * 1.5;
@@ -785,8 +839,8 @@ export function OperationalRhythm({ data }: OperationalRhythmProps) {
                   <div className="p-3 bg-amber-50 border border-amber-100 rounded-xl flex items-start gap-2">
                     <Info className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
                     <p className="text-xs text-amber-700 font-medium">
-                      Comparação de indicadores de qualidade entre slots de gargalo e slots normais.
-                      Queda no TKM e CPF + alta no desconto durante gargalos = evidência de atendimento apressado.
+                      <strong>Evidência de Pressão:</strong> Quando a loja está cheia (Gargalo), os indicadores costumam cair porque o atendimento fica apressado. 
+                      Se o seu <strong>TKM</strong> cai muito no gargalo, você está perdendo vendas de maior valor por falta de tempo para argumentar.
                     </p>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -834,20 +888,45 @@ export function OperationalRhythm({ data }: OperationalRhythmProps) {
   );
 }
 
-function Stat({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+function Stat({ label, value, highlight, tooltip }: { label: string; value: string; highlight?: boolean; tooltip?: string }) {
   return (
-    <div className={cn("px-4 py-2 rounded-2xl text-center", highlight ? "bg-orange-500" : "bg-white/10")}>
-      <p className="text-[10px] font-bold opacity-70 uppercase tracking-widest">{label}</p>
-      <p className="text-lg font-black">{value}</p>
+    <div className={cn("bg-white/10 px-4 py-2 rounded-2xl border border-white/20 transition-all hover:bg-white/15 cursor-help", highlight && "bg-orange-500/20 border-orange-500/40")}>
+      <p className="text-[10px] font-black uppercase text-white/60 tracking-widest leading-none mb-1.5">{label}</p>
+      <div className="flex items-center gap-2">
+        <p className={cn("text-xl font-black", highlight ? "text-orange-400" : "text-white")}>{value}</p>
+        {tooltip && (
+          <div className="group relative">
+            <Info className="w-3 h-3 text-white/30" />
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-slate-900 text-[10px] font-bold text-white rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 shadow-2xl border border-white/10">
+              {tooltip}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function QuickInsight({ icon: Icon, title, desc, impact }: { icon: any, title: string, desc: string, impact: string }) {
+  return (
+    <div className="flex gap-3 items-start">
+      <div className="p-2 bg-white/10 rounded-xl shrink-0">
+        <Icon className="w-4 h-4 text-orange-400" />
+      </div>
+      <div className="space-y-0.5">
+        <h4 className="text-[11px] font-black text-white uppercase tracking-tight">{title}</h4>
+        <p className="text-[10px] text-slate-300 leading-tight">{desc}</p>
+        <p className="text-[9px] text-indigo-300 font-bold italic leading-tight">impacto: {impact}</p>
+      </div>
     </div>
   );
 }
 
 function RitmoStat({ label, value, color }: { label: string; value: string; color: string }) {
   return (
-    <div className="space-y-0.5">
-      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{label}</p>
-      <p className={cn("text-sm font-black", color)}>{value}</p>
+    <div className="flex flex-col">
+      <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">{label}</span>
+      <span className={cn("text-sm font-black", color)}>{value}</span>
     </div>
   );
 }
@@ -855,29 +934,40 @@ function RitmoStat({ label, value, color }: { label: string; value: string; colo
 function QualCard({ label, gargalo, normal, delta, isCurrency, inverseColor }: {
   label: string; gargalo: string; normal: string; delta: number; isCurrency?: boolean; inverseColor?: boolean;
 }) {
-  const isGood = inverseColor ? delta < 0 : delta > 0;
   const isBad = inverseColor ? delta > 0 : delta < 0;
+  const absDelta = Math.abs(delta);
+  const fmtDelta = isCurrency 
+    ? absDelta.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) 
+    : absDelta.toFixed(1) + (typeof gargalo === "string" && gargalo.includes("%") ? "pp" : "");
+
   return (
-    <div className="bg-white border border-slate-100 rounded-2xl p-4 space-y-3 shadow-sm">
-      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</p>
-      <div className="flex items-end justify-between">
-        <div>
-          <p className="text-[9px] font-bold text-rose-400 uppercase">Gargalo</p>
+    <div className="bg-white border border-slate-100 rounded-2xl p-4 space-y-4 shadow-sm group hover:shadow-md transition-all">
+      <div className="flex items-center justify-between border-b border-slate-50 pb-2">
+        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</p>
+      </div>
+      
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-1">
+          <p className="text-[9px] font-bold text-rose-400 uppercase">Em Gargalo</p>
           <p className="text-xl font-black text-rose-600">{gargalo}</p>
         </div>
-        <div className="text-right">
-          <p className="text-[9px] font-bold text-emerald-400 uppercase">Normal</p>
+        <div className="space-y-1">
+          <p className="text-[9px] font-bold text-emerald-400 uppercase">Fluxo Normal</p>
           <p className="text-xl font-black text-emerald-600">{normal}</p>
         </div>
       </div>
-      {delta !== 0 && (
-        <div className={cn("flex items-center gap-1 text-[11px] font-black px-3 py-1.5 rounded-full w-fit",
-          isBad ? "bg-rose-100 text-rose-700" : isGood ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"
-        )}>
-          {isBad ? <TrendingDown className="w-3 h-3" /> : <TrendingUp className="w-3 h-3" />}
-          {delta > 0 ? "+" : ""}{typeof gargalo === "string" && gargalo.includes("%") ? `${delta.toFixed(1)}pp` : delta.toFixed(2)} no gargalo
+
+      <div className={cn("mt-4 p-3 rounded-xl flex items-center gap-3", isBad ? "bg-rose-50 border border-rose-100" : "bg-emerald-50 border border-emerald-100")}>
+        {isBad ? <TrendingDown className="w-5 h-5 text-rose-500" /> : <TrendingUp className="w-5 h-5 text-emerald-500" />}
+        <div className="flex-1">
+          <p className={cn("text-[10px] font-black uppercase", isBad ? "text-rose-700" : "text-emerald-700")}>
+            {isBad ? "Perda de Qualidade" : "Desempenho Estável"}
+          </p>
+          <p className={cn("text-xs font-bold", isBad ? "text-rose-600" : "text-emerald-600")}>
+            {isBad ? "Queda de" : "Ganho de"} {fmtDelta} comparado ao normal
+          </p>
         </div>
-      )}
+      </div>
     </div>
   );
 }

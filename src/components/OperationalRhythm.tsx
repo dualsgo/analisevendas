@@ -510,9 +510,9 @@ export function OperationalRhythm({ data }: OperationalRhythmProps) {
                     </div>
                     <div className="pt-2 border-t border-blue-100 flex flex-wrap gap-x-4 gap-y-1 text-[10px] items-center">
                        <span className="text-slate-500 font-bold uppercase">Legenda:</span>
-                       <span className="flex items-center gap-1.5 text-emerald-600 font-black"><div className="w-2 h-2 rounded-full bg-emerald-500"/> Saudável (< {limiarGargalo.toFixed(1)}x)</span>
-                       <span className="flex items-center gap-1.5 text-orange-500 font-black"><div className="w-2 h-2 rounded-full bg-orange-500"/> Alerta (> {limiarGargalo.toFixed(1)}x)</span>
-                       <span className="flex items-center gap-1.5 text-red-600 font-black"><div className="w-2 h-2 rounded-full bg-red-600"/> Crítico (> {(limiarGargalo * 1.3).toFixed(1)}x)</span>
+                       <span className="flex items-center gap-1.5 text-emerald-600 font-black"><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"/> {'Saudável (<'} {limiarGargalo.toFixed(1)}{'x)'}</span>
+                       <span className="flex items-center gap-1.5 text-orange-500 font-black"><span className="w-2 h-2 rounded-full bg-orange-500 inline-block"/> {'Alerta (>'} {limiarGargalo.toFixed(1)}{'x)'}</span>
+                       <span className="flex items-center gap-1.5 text-red-600 font-black"><span className="w-2 h-2 rounded-full bg-red-600 inline-block"/> {'Crítico (>'} {(limiarGargalo * 1.3).toFixed(1)}{'x)'}</span>
                     </div>
                   </div>
 

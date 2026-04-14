@@ -119,7 +119,8 @@ import { CollaboratorProductRanking } from "./CollaboratorProductRanking";
 import { SocialActionPanel } from "./SocialActionPanel";
 import { ConsecutiveCouponAnalysis } from "./ConsecutiveCouponAnalysis";
 import { SundayAnalysis } from "./SundayAnalysis";
-import { Calculator, Map, Heart } from "lucide-react";
+import { ProductivityDiagnostic } from "./ProductivityDiagnostic";
+import { Calculator, Map, Heart, Brain } from "lucide-react";
 
 interface SalesSummaryProps {
   data: DetailedSaleRow[];
@@ -372,6 +373,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
 
     { id: "customer_loyalty", label: "Fidelidade & Recorrência", icon: Users2, category: "Clientes", color: "text-emerald-600 font-black" },
     { id: "ritmo_operacional", label: "Ritmo Operacional", icon: Timer, category: "Operacional" },
+    { id: "produtividade_diag", label: "Diagnóstico Produtividade", icon: Brain, category: "Operacional", color: "text-indigo-600 font-black" },
     { id: "pickup_track", label: "Monitor Pickup", icon: Smartphone, category: "Operacional", color: "text-sky-600 font-black" },
     { id: "delivery_track", label: "Monitor Delivery", icon: Truck, category: "Operacional", color: "text-rose-600 font-black" },
     { id: "transacoes", label: "Transações", icon: ListFilter, category: "Operacional" },
@@ -543,6 +545,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
       case "deep_dive": return null;
       case "qualidade_avancada": return <QualityAnalysis data={filteredData} vinculos={filteredVinculos} />;
       case "ritmo_operacional": return <OperationalRhythm data={filteredData} />;
+      case "produtividade_diag": return <ProductivityDiagnostic data={filteredData} />;
       case "payment_map": return <PaymentMap data={filteredData} />;
       case "customer_loyalty": return <CustomerLoyalty data={filteredData} vinculos={filteredVinculos} />;
       case "price_profile": return <PriceProfile data={filteredData} />;

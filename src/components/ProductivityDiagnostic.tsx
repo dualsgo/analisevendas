@@ -1,0 +1,1728 @@
+"use client";
+
+import React, { useMemo, useState } from "react";
+import { DetailedSaleRow } from "@/lib/types";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+  Cell,
+  ScatterChart,
+  Scatter,
+  ZAxis,
+  ReferenceLine,
+  LineChart,
+  Line,
+  Legend,
+  ComposedChart,
+  Area,
+} from "recharts";
+import {
+  Activity,
+  Users,
+  AlertTriangle,
+  TrendingDown,
+  TrendingUp,
+  Info,
+  Timer,
+  ChevronDown,
+  ChevronUp,
+  Zap,
+  ShoppingBag,
+  Printer,
+  CreditCard,
+  Gift,
+  Gauge,
+  BarChart3,
+  Brain,
+  Target,
+  Clock,
+  UserCheck,
+  Layers,
+  ArrowRight,
+  CircleAlert,
+  ShieldCheck,
+  Flame,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import {
+  parseISO,
+  getDay,
+  getHours,
+  getMinutes,
+  format,
+  differenceInMinutes,
+  differenceInSeconds,
+} from "date-fns";
+import { ptBR } from "date-fns/locale";
+
+interface ProductivityDiagnosticProps {
+  data: DetailedSaleRow[];
+}
+
+const DAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+
+// ────────────────────────────────────────────────────────────────────────────
+// COMPONENTE PRINCIPAL
+// ────────────────────────────────────────────────────────────────────────────
+export function ProductivityDiagnostic({ data }: ProductivityDiagnosticProps) {
+  const [openSection, setOpenSection] = useState<string>("visao_geral");
+
+  const sales = useMemo(
+    () => data.filter((r) => !r.is_cancelada && r.tpNF === 1 && !r.is_devolucao && r.dhEmi && r.vendedor),
+    [data]
+  );
+
+  // ── 1. ANÁLISE DE RAJADA (Burst Detection) ─────────────────────────────────
+  // Identifica quando um colaborador emite muitas NFs em intervalo curto
+  // Indica que ele está apenas "batendo boleto" em sequência
+  const burstAnalysis = useMemo(() => {
+    const byVendorDay: Record<string, Record<string, DetailedSaleRow[]>> = {};
+
+    sales.forEach((s) => {
+      const v = s.vendedor || "OUTROS";
+      const day = s.dhEmi.split("T")[0];
+      if (!byVendorDay[v]) byVendorDay[v] = {};
+      if (!byVendorDay[v][day]) byVendorDay[v][day] = [];
+      byVendorDay[v][day].push(s);
+    });
+
+    type BurstEvent = {
+      vendor: string;
+      day: string;
+      sales: DetailedSaleRow[];
+      avgInterval: number;
+      avgPA: number;
+      totalValue: number;
+      burstSize: number;
+      startTime: string;
+      endTime: string;
+    };
+
+    const bursts: BurstEvent[] = [];
+    const vendorBurstStats: Record<string, { bursts: number; totalSales: number; salesInBurst: number }> = {};
+
+    Object.entries(byVendorDay).forEach(([vendor, days]) => {
+      if (!vendorBurstStats[vendor]) vendorBurstStats[vendor] = { bursts: 0, totalSales: 0, salesInBurst: 0 };
+
+      Object.entries(days).forEach(([day, daySales]) => {
+        const sorted = daySales.sort((a, b) => a.dhEmi.localeCompare(b.dhEmi));
+        vendorBurstStats[vendor].totalSales += sorted.length;
+
+        // Sliding window: detecta sequências de 3+ vendas com intervalo médio < 5 min
+        let windowStart = 0;
+        while (windowStart < sorted.length) {
+          let windowEnd = windowStart;
+          const windowSales: DetailedSaleRow[] = [sorted[windowStart]];
+
+          while (windowEnd + 1 < sorted.length) {
+            const t1 = parseISO(sorted[windowEnd].dhEmi);
+            const t2 = parseISO(sorted[windowEnd + 1].dhEmi);
+            const diff = Math.abs(differenceInMinutes(t1, t2));
+
+            if (diff <= 5) {
+              windowEnd++;
+              windowSales.push(sorted[windowEnd]);
+            } else {
+              break;
+            }
+          }
+
+          if (windowSales.length >= 3) {
+            const intervals: number[] = [];
+            for (let i = 1; i < windowSales.length; i++) {
+              intervals.push(
+                Math.abs(
+                  differenceInSeconds(
+                    parseISO(windowSales[i - 1].dhEmi),
+                    parseISO(windowSales[i].dhEmi)
+                  )
+                ) / 60
+              );
+            }
+            const avgInterval = intervals.reduce((a, b) => a + b, 0) / intervals.length;
+            const avgPA =
+              windowSales.reduce((acc, s) => acc + parseFloat(s.itens_qtd), 0) / windowSales.length;
+            const totalValue = windowSales.reduce((acc, s) => acc + (parseFloat(s.vNF) || 0), 0);
+
+            bursts.push({
+              vendor,
+              day,
+              sales: windowSales,
+              avgInterval: +avgInterval.toFixed(1),
+              avgPA: +avgPA.toFixed(2),
+              totalValue,
+              burstSize: windowSales.length,
+              startTime: format(parseISO(windowSales[0].dhEmi), "HH:mm"),
+              endTime: format(parseISO(windowSales[windowSales.length - 1].dhEmi), "HH:mm"),
+            });
+
+            vendorBurstStats[vendor].bursts++;
+            vendorBurstStats[vendor].salesInBurst += windowSales.length;
+
+            windowStart = windowEnd + 1;
+          } else {
+            windowStart++;
+          }
+        }
+      });
+    });
+
+    // Comparar PA dentro vs fora das rajadas
+    const salesInBurstIds = new Set<string>();
+    bursts.forEach((b) => b.sales.forEach((s) => salesInBurstIds.add(s.chave)));
+
+    const inBurst = sales.filter((s) => salesInBurstIds.has(s.chave));
+    const outBurst = sales.filter((s) => !salesInBurstIds.has(s.chave));
+
+    const paInBurst =
+      inBurst.length > 0
+        ? inBurst.reduce((acc, s) => acc + parseFloat(s.itens_qtd), 0) / inBurst.length
+        : 0;
+    const paOutBurst =
+      outBurst.length > 0
+        ? outBurst.reduce((acc, s) => acc + parseFloat(s.itens_qtd), 0) / outBurst.length
+        : 0;
+
+    const tkmInBurst =
+      inBurst.length > 0
+        ? inBurst.reduce((acc, s) => acc + (parseFloat(s.vNF) || 0), 0) / inBurst.length
+        : 0;
+    const tkmOutBurst =
+      outBurst.length > 0
+        ? outBurst.reduce((acc, s) => acc + (parseFloat(s.vNF) || 0), 0) / outBurst.length
+        : 0;
+
+    const cpfInBurst =
+      inBurst.length > 0
+        ? (inBurst.filter((s) => s.cpf_cnpj_dest).length / inBurst.length) * 100
+        : 0;
+    const cpfOutBurst =
+      outBurst.length > 0
+        ? (outBurst.filter((s) => s.cpf_cnpj_dest).length / outBurst.length) * 100
+        : 0;
+
+    const vendorRanking = Object.entries(vendorBurstStats)
+      .map(([name, stats]) => ({
+        name,
+        bursts: stats.bursts,
+        totalSales: stats.totalSales,
+        salesInBurst: stats.salesInBurst,
+        burstRate: stats.totalSales > 0 ? (stats.salesInBurst / stats.totalSales) * 100 : 0,
+      }))
+      .filter((v) => v.bursts > 0)
+      .sort((a, b) => b.burstRate - a.burstRate);
+
+    return {
+      bursts,
+      totalBursts: bursts.length,
+      totalSalesInBurst: inBurst.length,
+      percentInBurst: sales.length > 0 ? (inBurst.length / sales.length) * 100 : 0,
+      paInBurst,
+      paOutBurst,
+      paDelta: paOutBurst - paInBurst,
+      tkmInBurst,
+      tkmOutBurst,
+      tkmDelta: tkmOutBurst - tkmInBurst,
+      cpfInBurst,
+      cpfOutBurst,
+      cpfDelta: cpfOutBurst - cpfInBurst,
+      vendorRanking,
+    };
+  }, [sales]);
+
+  // ── 2. ÍNDICE DE ATENDIMENTO CONSULTIVO vs TRANSACIONAL ──────────────────
+  const consultiveIndex = useMemo(() => {
+    // Para cada venda, calcular score de "consultividade"
+    // Critérios positivos: PA >= 2, tem CPF, tem desconto negociado, TKM alto
+    // Critérios negativos: PA=1, sem CPF, intervalo curto com venda anterior
+
+    const byVendor: Record<string, { consultive: number; transactional: number; total: number }> = {};
+    const byHour: Record<number, { consultive: number; transactional: number; total: number }> = {};
+    const byDay: Record<number, { consultive: number; transactional: number; total: number }> = {};
+
+    const vendorTimestamps: Record<string, number[]> = {};
+    sales.forEach((s) => {
+      const v = s.vendedor || "OUTROS";
+      if (!vendorTimestamps[v]) vendorTimestamps[v] = [];
+      try {
+        vendorTimestamps[v].push(parseISO(s.dhEmi).getTime());
+      } catch {}
+    });
+
+    // Sort timestamps
+    Object.values(vendorTimestamps).forEach((ts) => ts.sort((a, b) => a - b));
+
+    sales.forEach((s) => {
+      const v = s.vendedor || "OUTROS";
+      const pa = parseFloat(s.itens_qtd) || 0;
+      const vNF = parseFloat(s.vNF) || 0;
+      const hasCpf = !!s.cpf_cnpj_dest;
+      const hasDiscount = parseFloat(s.desconto_total) > 0;
+
+      // Check interval to previous sale of same vendor
+      const ts = vendorTimestamps[v];
+      let timeToPrev = 999;
+      if (ts) {
+        const idx = ts.indexOf(parseISO(s.dhEmi).getTime());
+        if (idx > 0) {
+          timeToPrev = (ts[idx] - ts[idx - 1]) / 60000; // minutos
+        }
+      }
+
+      // Score: 0 = totalmente transacional, 100 = totalmente consultivo
+      let score = 50; // base
+      if (pa >= 3) score += 20;
+      else if (pa >= 2) score += 10;
+      else if (pa === 1) score -= 15;
+
+      if (hasCpf) score += 10;
+      else score -= 5;
+
+      if (vNF > 150) score += 10;
+      else if (vNF < 30) score -= 10;
+
+      if (timeToPrev < 3) score -= 20;
+      else if (timeToPrev < 5) score -= 10;
+      else if (timeToPrev > 20) score += 5;
+
+      score = Math.max(0, Math.min(100, score));
+      const isConsultive = score >= 55;
+
+      if (!byVendor[v]) byVendor[v] = { consultive: 0, transactional: 0, total: 0 };
+      byVendor[v].total++;
+      if (isConsultive) byVendor[v].consultive++;
+      else byVendor[v].transactional++;
+
+      try {
+        const d = parseISO(s.dhEmi);
+        const h = getHours(d);
+        const dow = getDay(d);
+
+        if (!byHour[h]) byHour[h] = { consultive: 0, transactional: 0, total: 0 };
+        byHour[h].total++;
+        if (isConsultive) byHour[h].consultive++;
+        else byHour[h].transactional++;
+
+        if (!byDay[dow]) byDay[dow] = { consultive: 0, transactional: 0, total: 0 };
+        byDay[dow].total++;
+        if (isConsultive) byDay[dow].consultive++;
+        else byDay[dow].transactional++;
+      } catch {}
+    });
+
+    const vendorData = Object.entries(byVendor)
+      .map(([name, stats]) => ({
+        name,
+        ...stats,
+        consultiveRate: stats.total > 0 ? (stats.consultive / stats.total) * 100 : 0,
+      }))
+      .sort((a, b) => b.consultiveRate - a.consultiveRate);
+
+    const hourData = Array.from({ length: 13 }, (_, i) => {
+      const h = i + 9;
+      const stats = byHour[h] || { consultive: 0, transactional: 0, total: 0 };
+      return {
+        hour: `${h}h`,
+        ...stats,
+        consultiveRate: stats.total > 0 ? +((stats.consultive / stats.total) * 100).toFixed(1) : 0,
+      };
+    });
+
+    const dayData = DAYS.map((label, i) => {
+      const stats = byDay[i] || { consultive: 0, transactional: 0, total: 0 };
+      return {
+        label,
+        ...stats,
+        consultiveRate: stats.total > 0 ? +((stats.consultive / stats.total) * 100).toFixed(1) : 0,
+      };
+    });
+
+    const globalConsultive = sales.length > 0
+      ? Object.values(byVendor).reduce((acc, v) => acc + v.consultive, 0)
+      : 0;
+    const globalRate = sales.length > 0 ? (globalConsultive / sales.length) * 100 : 0;
+
+    return {
+      vendorData,
+      hourData,
+      dayData,
+      globalRate,
+      globalConsultive,
+      globalTransactional: sales.length - globalConsultive,
+    };
+  }, [sales]);
+
+  // ── 3. ANÁLISE DE SOBRECARGA POR SOBREPOSIÇÃO ─────────────────────────────
+  // Quantos colaboradores estão atendendo ao mesmo tempo vs demanda
+  const overlapAnalysis = useMemo(() => {
+    const SLOT_MIN = 15; // slots de 15 min
+    const byDaySlot: Record<
+      string,
+      Record<string, { vendedores: Set<string>; cupons: number; itens: number; vNF: number; cpf: number }>
+    > = {};
+
+    sales.forEach((s) => {
+      const day = s.dhEmi.split("T")[0];
+      try {
+        const d = parseISO(s.dhEmi);
+        const h = getHours(d);
+        const m = getMinutes(d);
+        if (h < 9 || h >= 22) return;
+        const slotIdx = Math.floor(((h - 9) * 60 + m) / SLOT_MIN);
+        const slotH = 9 + Math.floor((slotIdx * SLOT_MIN) / 60);
+        const slotM = (slotIdx * SLOT_MIN) % 60;
+        const slot = `${String(slotH).padStart(2, "0")}:${String(slotM).padStart(2, "0")}`;
+
+        if (!byDaySlot[day]) byDaySlot[day] = {};
+        if (!byDaySlot[day][slot])
+          byDaySlot[day][slot] = { vendedores: new Set(), cupons: 0, itens: 0, vNF: 0, cpf: 0 };
+
+        const cell = byDaySlot[day][slot];
+        cell.vendedores.add(s.vendedor || "DESCONHECIDO");
+        cell.cupons++;
+        cell.itens += parseFloat(s.itens_qtd) || 0;
+        cell.vNF += parseFloat(s.vNF) || 0;
+        if (s.cpf_cnpj_dest) cell.cpf++;
+      } catch {}
+    });
+
+    // Agregar por slot (média de todos os dias)
+    const slotAgg: Record<
+      string,
+      { totalCupons: number; totalVend: number; totalItens: number; totalvNF: number; totalCpf: number; days: number }
+    > = {};
+
+    Object.values(byDaySlot).forEach((slots) => {
+      Object.entries(slots).forEach(([slot, v]) => {
+        if (!slotAgg[slot])
+          slotAgg[slot] = { totalCupons: 0, totalVend: 0, totalItens: 0, totalvNF: 0, totalCpf: 0, days: 0 };
+        slotAgg[slot].totalCupons += v.cupons;
+        slotAgg[slot].totalVend += v.vendedores.size;
+        slotAgg[slot].totalItens += v.itens;
+        slotAgg[slot].totalvNF += v.vNF;
+        slotAgg[slot].totalCpf += v.cpf;
+        slotAgg[slot].days++;
+      });
+    });
+
+    const timeline = Object.entries(slotAgg)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([slot, v]) => {
+        const avgCupons = v.days > 0 ? +(v.totalCupons / v.days).toFixed(1) : 0;
+        const avgVend = v.days > 0 ? +(v.totalVend / v.days).toFixed(1) : 0;
+        const pressure = avgVend > 0 ? +(avgCupons / avgVend).toFixed(2) : 0;
+        const avgPA = v.totalCupons > 0 ? +(v.totalItens / v.totalCupons).toFixed(2) : 0;
+        const avgTKM = v.totalCupons > 0 ? +(v.totalvNF / v.totalCupons).toFixed(0) : 0;
+        const cpfRate = v.totalCupons > 0 ? +((v.totalCpf / v.totalCupons) * 100).toFixed(1) : 0;
+
+        return {
+          slot,
+          cupons: avgCupons,
+          colaboradores: avgVend,
+          pressure,
+          pa: avgPA,
+          tkm: avgTKM,
+          cpfRate,
+        };
+      });
+
+    // PA vs Pressão: correlação
+    const pressurePA = timeline
+      .filter((t) => t.cupons > 0)
+      .map((t) => ({
+        slot: t.slot,
+        pressure: t.pressure,
+        pa: t.pa,
+        tkm: t.tkm,
+        cpfRate: t.cpfRate,
+        cupons: t.cupons,
+      }));
+
+    return { timeline, pressurePA };
+  }, [sales]);
+
+  // ── 4. DIAGNÓSTICO DA JORNADA FÍSICA ───────────────────────────────────────
+  // Análise de limitações físicas: POS, NF, balcão, embrulho
+  const physicalJourney = useMemo(() => {
+    // Análise por colaborador: tempo entre vendas para estimar deslocamento
+    const byVendor: Record<string, DetailedSaleRow[]> = {};
+    sales.forEach((s) => {
+      const v = s.vendedor || "OUTROS";
+      if (!byVendor[v]) byVendor[v] = [];
+      byVendor[v].push(s);
+    });
+
+    const vendorJourney = Object.entries(byVendor).map(([name, vendorSales]) => {
+      const sorted = vendorSales.sort((a, b) => a.dhEmi.localeCompare(b.dhEmi));
+
+      // Calcular intervalos entre vendas
+      const intervals: number[] = [];
+      const shortIntervals: number[] = []; // < 3 min (suspeita de "só boleto")
+      const mediumIntervals: number[] = []; // 3-15 min (atendimento rápido ou POS + NF)
+      const longIntervals: number[] = []; // > 15 min (atendimento consultivo)
+
+      for (let i = 1; i < sorted.length; i++) {
+        const diff = Math.abs(
+          differenceInMinutes(parseISO(sorted[i - 1].dhEmi), parseISO(sorted[i].dhEmi))
+        );
+        if (diff > 0 && diff <= 120) {
+          intervals.push(diff);
+          if (diff < 3) shortIntervals.push(diff);
+          else if (diff <= 15) mediumIntervals.push(diff);
+          else longIntervals.push(diff);
+        }
+      }
+
+      // Vendas com 1 item: proxy de "checkout rápido"
+      const singleItemSales = vendorSales.filter((s) => parseFloat(s.itens_qtd) === 1);
+      const multiItemSales = vendorSales.filter((s) => parseFloat(s.itens_qtd) > 1);
+
+      const avgPASingle = 1;
+      const avgPAMulti =
+        multiItemSales.length > 0
+          ? multiItemSales.reduce((a, s) => a + parseFloat(s.itens_qtd), 0) / multiItemSales.length
+          : 0;
+
+      return {
+        name,
+        totalSales: vendorSales.length,
+        shortCount: shortIntervals.length,
+        mediumCount: mediumIntervals.length,
+        longCount: longIntervals.length,
+        shortPct: intervals.length > 0 ? (shortIntervals.length / intervals.length) * 100 : 0,
+        mediumPct: intervals.length > 0 ? (mediumIntervals.length / intervals.length) * 100 : 0,
+        longPct: intervals.length > 0 ? (longIntervals.length / intervals.length) * 100 : 0,
+        singleItemPct: vendorSales.length > 0 ? (singleItemSales.length / vendorSales.length) * 100 : 0,
+        avgPAMulti,
+        medianInterval:
+          intervals.length > 0
+            ? intervals.slice().sort((a, b) => a - b)[Math.floor(intervals.length / 2)]
+            : 0,
+      };
+    });
+
+    return vendorJourney.sort((a, b) => b.shortPct - a.shortPct);
+  }, [sales]);
+
+  // ── 5. CAPACIDADE VS DEMANDA ──────────────────────────────────────────────
+  const capacityAnalysis = useMemo(() => {
+    // Estimar capacidade ideal: se cada atendimento consultivo leva ~12 min (POS + NF + conversa)
+    // e cada transacional leva ~3 min
+    const CONSULTIVE_TIME = 12; // minutos
+    const TRANSACTIONAL_TIME = 3; // minutos
+
+    // Por slot de 30 min, calcular demanda vs capacidade
+    const SLOT_MIN = 30;
+    const byDaySlot: Record<string, Record<string, { vendedores: Set<string>; cupons: number; pa1: number; paMulti: number }>> = {};
+
+    sales.forEach((s) => {
+      const day = s.dhEmi.split("T")[0];
+      try {
+        const d = parseISO(s.dhEmi);
+        const h = getHours(d);
+        const m = getMinutes(d);
+        if (h < 9 || h >= 22) return;
+        const slotIdx = Math.floor(((h - 9) * 60 + m) / SLOT_MIN);
+        const slotH = 9 + Math.floor((slotIdx * SLOT_MIN) / 60);
+        const slotM = (slotIdx * SLOT_MIN) % 60;
+        const slot = `${String(slotH).padStart(2, "0")}:${String(slotM).padStart(2, "0")}`;
+
+        if (!byDaySlot[day]) byDaySlot[day] = {};
+        if (!byDaySlot[day][slot])
+          byDaySlot[day][slot] = { vendedores: new Set(), cupons: 0, pa1: 0, paMulti: 0 };
+
+        const cell = byDaySlot[day][slot];
+        cell.vendedores.add(s.vendedor || "DESCONHECIDO");
+        cell.cupons++;
+        if (parseFloat(s.itens_qtd) === 1) cell.pa1++;
+        else cell.paMulti++;
+      } catch {}
+    });
+
+    const slotCapacity: Record<string, { demandMin: number; capacityMin: number; gap: number; count: number }> = {};
+
+    Object.values(byDaySlot).forEach((slots) => {
+      Object.entries(slots).forEach(([slot, v]) => {
+        if (!slotCapacity[slot]) slotCapacity[slot] = { demandMin: 0, capacityMin: 0, gap: 0, count: 0 };
+
+        // Demanda em minutos: vendas PA=1 são transacionais, PA>1 são mais consultivas
+        const demandaMinutos = v.pa1 * TRANSACTIONAL_TIME + v.paMulti * CONSULTIVE_TIME;
+        // Capacidade: vendedores × 30 min (slot) mas com overhead de deslocamento POS/NF (~20%)
+        const capacidadeMinutos = v.vendedores.size * SLOT_MIN * 0.8; // 80% eficiência
+
+        slotCapacity[slot].demandMin += demandaMinutos;
+        slotCapacity[slot].capacityMin += capacidadeMinutos;
+        slotCapacity[slot].count++;
+      });
+    });
+
+    const capacityTimeline = Object.entries(slotCapacity)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([slot, v]) => ({
+        slot,
+        demanda: v.count > 0 ? +(v.demandMin / v.count).toFixed(0) : 0,
+        capacidade: v.count > 0 ? +(v.capacityMin / v.count).toFixed(0) : 0,
+        utilizacao:
+          v.capacityMin > 0 ? +((v.demandMin / v.capacityMin) * 100).toFixed(0) : 0,
+      }));
+
+    const avgUtilization =
+      capacityTimeline.length > 0
+        ? capacityTimeline.reduce((a, c) => a + c.utilizacao, 0) / capacityTimeline.length
+        : 0;
+
+    const overloadedSlots = capacityTimeline.filter((s) => s.utilizacao > 100);
+
+    return { capacityTimeline, avgUtilization, overloadedSlots };
+  }, [sales]);
+
+  // ── 6. DIAGNÓSTICO FINAL ──────────────────────────────────────────────────
+  const diagnostic = useMemo(() => {
+    const burstPct = burstAnalysis.percentInBurst;
+    const consultiveRate = consultiveIndex.globalRate;
+    const avgUtilization = capacityAnalysis.avgUtilization;
+
+    let diagnosis: "critico" | "alerta" | "saudavel";
+    let title: string;
+    let description: string;
+    const recommendations: string[] = [];
+
+    if (burstPct > 30 && consultiveRate < 40) {
+      diagnosis = "critico";
+      title = "Operação em Modo Transacional";
+      description = `A equipe está operando majoritariamente como "batedora de boleto". ${burstPct.toFixed(0)}% das vendas ocorrem em rajadas (3+ vendas em ≤5 min), e apenas ${consultiveRate.toFixed(0)}% dos atendimentos são consultivos. A limitação física (POS, NF, balcão) está forçando os colaboradores a empilharem finalizações.`;
+    } else if (burstPct > 15 || consultiveRate < 55) {
+      diagnosis = "alerta";
+      title = "Pressão Sobre Atendimento Consultivo";
+      description = `Há sinais de sobrecarga operacional. ${burstPct.toFixed(0)}% das vendas estão em rajadas e a taxa consultiva é de ${consultiveRate.toFixed(0)}%. Em horários de pico, a equipe prioriza a finalização rápida ao invés do atendimento completo.`;
+    } else {
+      diagnosis = "saudavel";
+      title = "Equipe em Ritmo Consultivo";
+      description = `A operação mostra bom equilíbrio. Apenas ${burstPct.toFixed(0)}% das vendas estão em rajada e ${consultiveRate.toFixed(0)}% dos atendimentos são consultivos. A equipe consegue atender ponta-a-ponta na maioria dos casos.`;
+    }
+
+    // Recomendações baseadas nos dados
+    if (burstPct > 15)
+      recommendations.push(
+        "Distribuir melhor a fila de finalização: quando possível, escalonar um colaborador fixo para caixa nos horários de pico identificados."
+      );
+
+    if (burstAnalysis.paDelta > 0.5)
+      recommendations.push(
+        `O PA cai ${burstAnalysis.paDelta.toFixed(2)} itens durante rajadas. Treinar a venda sugestiva mesmo na finalização rápida (SLP de balcão).`
+      );
+
+    if (burstAnalysis.cpfDelta > 10)
+      recommendations.push(
+        `O cadastro de CPF cai ${burstAnalysis.cpfDelta.toFixed(0)}pp durante rajadas. Simplificar o fluxo de identificação do cliente no POS.`
+      );
+
+    if (capacityAnalysis.overloadedSlots.length > 3)
+      recommendations.push(
+        `${capacityAnalysis.overloadedSlots.length} slots operam acima de 100% da capacidade. Considerar reforço nessas janelas ou redistribuir tarefas não-venda (separação, organização) para fora do pico.`
+      );
+
+    const highBurstVendors = burstAnalysis.vendorRanking.filter((v) => v.burstRate > 30);
+    if (highBurstVendors.length > 0)
+      recommendations.push(
+        `${highBurstVendors.map((v) => v.name).join(", ")} concentram rajadas. Verificar se estão posicionados fixamente no balcão/caixa ou se estão sendo direcionados para lá por acúmulo.`
+      );
+
+    if (avgUtilization > 85)
+      recommendations.push(
+        "A utilização média está acima de 85%. Considerar POS adicional ou checkout mobile para descentralizar a finalização."
+      );
+
+    if (recommendations.length === 0)
+      recommendations.push("Manter o ritmo atual e acompanhar semanalmente.");
+
+    return { diagnosis, title, description, recommendations };
+  }, [burstAnalysis, consultiveIndex, capacityAnalysis]);
+
+  const fmtBRL = (v: number) =>
+    v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+  const sections = [
+    {
+      id: "visao_geral",
+      label: "Visão Geral Consultivo vs Transacional",
+      icon: Brain,
+      color: "text-indigo-600",
+    },
+    {
+      id: "rajadas",
+      label: "Detecção de Rajadas (Burst)",
+      icon: Flame,
+      color: "text-rose-600",
+    },
+    {
+      id: "pressao_pa",
+      label: "Pressão × Qualidade do Atendimento",
+      icon: Gauge,
+      color: "text-amber-600",
+    },
+    {
+      id: "jornada_fisica",
+      label: "Jornada Física do Colaborador",
+      icon: Timer,
+      color: "text-purple-600",
+    },
+    {
+      id: "capacidade",
+      label: "Capacidade vs Demanda Real",
+      icon: BarChart3,
+      color: "text-sky-600",
+    },
+  ];
+
+  if (sales.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-32 gap-4 text-slate-400">
+        <Brain className="w-16 h-16 opacity-30" />
+        <p className="text-sm font-bold uppercase tracking-widest">
+          Carregue XMLs para analisar a produtividade
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4 animate-in fade-in duration-500 pb-20">
+      {/* ═══════════════════════════════════════════════════════════════════════
+          HERO HEADER COM DIAGNÓSTICO
+      ═══════════════════════════════════════════════════════════════════════ */}
+      <div
+        className={cn(
+          "rounded-[2rem] p-6 md:p-8 text-white relative overflow-hidden shadow-2xl",
+          diagnostic.diagnosis === "critico"
+            ? "bg-gradient-to-br from-rose-700 to-rose-900"
+            : diagnostic.diagnosis === "alerta"
+            ? "bg-gradient-to-br from-amber-600 to-amber-800"
+            : "bg-gradient-to-br from-emerald-700 to-emerald-900"
+        )}
+      >
+        <div className="absolute top-0 right-0 w-72 h-72 bg-white/5 blur-[80px] -mr-24 -mt-24" />
+        <div className="absolute bottom-0 left-0 w-48 h-48 bg-black/10 blur-[60px] -ml-16 -mb-16" />
+
+        <div className="relative z-10 space-y-6">
+          <div className="flex flex-col md:flex-row md:items-start gap-6">
+            <div
+              className={cn(
+                "p-4 rounded-2xl w-fit shrink-0",
+                diagnostic.diagnosis === "critico"
+                  ? "bg-rose-500/30"
+                  : diagnostic.diagnosis === "alerta"
+                  ? "bg-amber-500/30"
+                  : "bg-emerald-500/30"
+              )}
+            >
+              {diagnostic.diagnosis === "critico" ? (
+                <AlertTriangle className="w-8 h-8" />
+              ) : diagnostic.diagnosis === "alerta" ? (
+                <CircleAlert className="w-8 h-8" />
+              ) : (
+                <ShieldCheck className="w-8 h-8" />
+              )}
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-3 mb-2">
+                <Badge
+                  className={cn(
+                    "text-[10px] font-black uppercase tracking-widest border-none",
+                    diagnostic.diagnosis === "critico"
+                      ? "bg-rose-400/30 text-rose-100"
+                      : diagnostic.diagnosis === "alerta"
+                      ? "bg-amber-400/30 text-amber-100"
+                      : "bg-emerald-400/30 text-emerald-100"
+                  )}
+                >
+                  {diagnostic.diagnosis === "critico"
+                    ? "ATENÇÃO CRÍTICA"
+                    : diagnostic.diagnosis === "alerta"
+                    ? "ALERTA OPERACIONAL"
+                    : "OPERAÇÃO SAUDÁVEL"}
+                </Badge>
+              </div>
+              <h2 className="text-2xl md:text-3xl font-black tracking-tighter uppercase">
+                {diagnostic.title}
+              </h2>
+              <p className="text-white/80 text-sm font-medium mt-2 leading-relaxed max-w-3xl">
+                {diagnostic.description}
+              </p>
+            </div>
+          </div>
+
+          {/* KPIs rápidos */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <HeroStat
+              label="Taxa Consultiva"
+              value={`${consultiveIndex.globalRate.toFixed(0)}%`}
+              icon={<Brain className="w-4 h-4" />}
+            />
+            <HeroStat
+              label="Vendas em Rajada"
+              value={`${burstAnalysis.percentInBurst.toFixed(0)}%`}
+              icon={<Flame className="w-4 h-4" />}
+            />
+            <HeroStat
+              label="PA Consultivo"
+              value={burstAnalysis.paOutBurst.toFixed(2)}
+              icon={<ShoppingBag className="w-4 h-4" />}
+            />
+            <HeroStat
+              label="PA em Rajada"
+              value={burstAnalysis.paInBurst.toFixed(2)}
+              icon={<TrendingDown className="w-4 h-4" />}
+              isAlert={burstAnalysis.paDelta > 0.3}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* ═══════════════════════════════════════════════════════════════════════
+          CONTEXTO OPERACIONAL
+      ═══════════════════════════════════════════════════════════════════════ */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+        <ContextCard
+          icon={<CreditCard className="w-5 h-5 text-sky-600" />}
+          title="POS Móvel"
+          desc="O pagamento requer POS móvel. Quando múltiplos clientes pagam ao mesmo tempo, forma-se fila no equipamento."
+          impact="Empilha finalizações no mesmo colaborador"
+          color="bg-sky-50 border-sky-100"
+        />
+        <ContextCard
+          icon={<Printer className="w-5 h-5 text-violet-600" />}
+          title="Impressão de NF"
+          desc="A NF precisa ser impressa em equipamento separado. Após o pagamento, o colaborador precisa se deslocar."
+          impact="Adiciona ~1-2 min por atendimento finalizado"
+          color="bg-violet-50 border-violet-100"
+        />
+        <ContextCard
+          icon={<Gift className="w-5 h-5 text-pink-600" />}
+          title="Embrulho p/ Presente"
+          desc="Nem sempre há alguém fixo. O mesmo colaborador que vendeu pode embalar, adicionando mais tempo ao ciclo."
+          impact="Ponta-a-ponta pode ultrapassar 15 min"
+          color="bg-pink-50 border-pink-100"
+        />
+        <ContextCard
+          icon={<Target className="w-5 h-5 text-amber-600" />}
+          title="Balcão = Caixa"
+          desc="Sem checkout separado, o cliente vai direto ao balcão para pagar. Perde-se a oportunidade de cross-sell na pista."
+          impact="Reduz conversão e oportunidade de PA++"
+          color="bg-amber-50 border-amber-100"
+        />
+      </div>
+
+      {/* ═══════════════════════════════════════════════════════════════════════
+          SEÇÕES EXPANSÍVEIS
+      ═══════════════════════════════════════════════════════════════════════ */}
+      {sections.map(({ id, label, icon: Icon, color }) => (
+        <div
+          key={id}
+          className="bg-white rounded-[1.5rem] shadow-sm border border-slate-100 overflow-hidden"
+        >
+          <button
+            onClick={() => setOpenSection((prev) => (prev === id ? "" : id))}
+            className="w-full flex items-center justify-between p-5 hover:bg-slate-50 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-slate-100">
+                <Icon className={cn("w-5 h-5", color)} />
+              </div>
+              <span className="font-black text-slate-700 uppercase tracking-tight text-sm">
+                {label}
+              </span>
+            </div>
+            {openSection === id ? (
+              <ChevronUp className="w-4 h-4 text-slate-400" />
+            ) : (
+              <ChevronDown className="w-4 h-4 text-slate-400" />
+            )}
+          </button>
+
+          {openSection === id && (
+            <div className="px-5 pb-6 space-y-5 border-t border-slate-100 pt-5">
+              {/* ── VISÃO GERAL CONSULTIVO vs TRANSACIONAL ── */}
+              {id === "visao_geral" && (
+                <div className="space-y-6">
+                  <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-xl space-y-3">
+                    <div className="flex items-start gap-2">
+                      <Info className="w-5 h-5 text-indigo-600 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-xs text-indigo-800 font-black uppercase tracking-tight mb-1">
+                          O que é Atendimento Consultivo vs Transacional?
+                        </p>
+                        <p className="text-[11px] text-indigo-700 leading-relaxed">
+                          <strong>Consultivo:</strong> O colaborador apresenta opções, sugere
+                          complementos, negocia e identifica o cliente. Resulta em PA ≥ 2, TKM
+                          maior e CPF cadastrado.
+                          <br />
+                          <strong>Transacional:</strong> O colaborador apenas finaliza (passa no POS,
+                          imprime NF). Típico quando a fila acumula e ele precisa "despachar" o
+                          balcão.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="pt-2 border-t border-indigo-100 text-[10px] text-indigo-600 font-bold">
+                      O score considera: PA, TKM, CPF, intervalo entre vendas e presença de
+                      desconto negociado.
+                    </div>
+                  </div>
+
+                  {/* Gauge visual */}
+                  <div className="bg-slate-900 rounded-2xl p-6 text-white">
+                    <div className="flex flex-col md:flex-row items-center gap-6">
+                      <div className="flex-1 w-full">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">
+                          Índice de Atendimento Consultivo
+                        </p>
+                        <div className="relative h-4 bg-slate-700 rounded-full overflow-hidden">
+                          <div
+                            className={cn(
+                              "h-full rounded-full transition-all duration-1000",
+                              consultiveIndex.globalRate >= 60
+                                ? "bg-emerald-500"
+                                : consultiveIndex.globalRate >= 40
+                                ? "bg-amber-500"
+                                : "bg-rose-500"
+                            )}
+                            style={{ width: `${Math.min(consultiveIndex.globalRate, 100)}%` }}
+                          />
+                        </div>
+                        <div className="flex justify-between mt-2 text-[10px] font-bold text-slate-500">
+                          <span>Transacional</span>
+                          <span>Consultivo</span>
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-center bg-white/5 border border-white/10 rounded-2xl p-5 min-w-[180px]">
+                        <p className="text-5xl font-black">
+                          {consultiveIndex.globalRate.toFixed(0)}%
+                        </p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+                          Taxa Consultiva Global
+                        </p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 mt-6">
+                      <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 text-center">
+                        <p className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">
+                          Atendimentos Consultivos
+                        </p>
+                        <p className="text-2xl font-black text-emerald-400">
+                          {consultiveIndex.globalConsultive}
+                        </p>
+                      </div>
+                      <div className="bg-rose-500/10 border border-rose-500/20 rounded-xl p-4 text-center">
+                        <p className="text-[10px] font-bold text-rose-400 uppercase tracking-widest">
+                          Atendimentos Transacionais
+                        </p>
+                        <p className="text-2xl font-black text-rose-400">
+                          {consultiveIndex.globalTransactional}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Por colaborador */}
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">
+                      🏆 Ranking Consultivo por Colaborador
+                    </p>
+                    <div className="space-y-2">
+                      {consultiveIndex.vendorData.slice(0, 12).map((v, i) => (
+                        <div
+                          key={i}
+                          className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100"
+                        >
+                          <span className="text-sm font-black text-slate-300 w-6 text-right">
+                            {i + 1}
+                          </span>
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-xs font-black text-slate-700 uppercase">
+                                {v.name}
+                              </span>
+                              <span
+                                className={cn(
+                                  "text-xs font-black",
+                                  v.consultiveRate >= 60
+                                    ? "text-emerald-600"
+                                    : v.consultiveRate >= 40
+                                    ? "text-amber-600"
+                                    : "text-rose-600"
+                                )}
+                              >
+                                {v.consultiveRate.toFixed(0)}% consultivo
+                              </span>
+                            </div>
+                            <div className="flex h-2 bg-slate-200 rounded-full overflow-hidden">
+                              <div
+                                className="bg-emerald-500 h-full transition-all"
+                                style={{ width: `${v.consultiveRate}%` }}
+                              />
+                              <div
+                                className="bg-rose-400 h-full transition-all"
+                                style={{ width: `${100 - v.consultiveRate}%` }}
+                              />
+                            </div>
+                          </div>
+                          <span className="text-[10px] text-slate-400 font-bold whitespace-nowrap">
+                            {v.total} vendas
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Por hora */}
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">
+                      📊 Taxa Consultiva por Horário
+                    </p>
+                    <ResponsiveContainer width="100%" height={250}>
+                      <ComposedChart data={consultiveIndex.hourData}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                        <XAxis dataKey="hour" tick={{ fontSize: 10, fill: "#94a3b8" }} />
+                        <YAxis
+                          yAxisId="left"
+                          tick={{ fontSize: 10, fill: "#94a3b8" }}
+                          domain={[0, "auto"]}
+                        />
+                        <YAxis
+                          yAxisId="right"
+                          orientation="right"
+                          tick={{ fontSize: 10, fill: "#94a3b8" }}
+                          domain={[0, 100]}
+                          unit="%"
+                        />
+                        <Tooltip
+                          contentStyle={{
+                            borderRadius: "12px",
+                            border: "none",
+                            boxShadow: "0 4px 24px rgba(0,0,0,0.12)",
+                            fontSize: 11,
+                          }}
+                        />
+                        <Legend wrapperStyle={{ fontSize: 10 }} />
+                        <Bar
+                          yAxisId="left"
+                          dataKey="consultive"
+                          name="Consultivos"
+                          fill="#22c55e"
+                          radius={[4, 4, 0, 0]}
+                          stackId="a"
+                        />
+                        <Bar
+                          yAxisId="left"
+                          dataKey="transactional"
+                          name="Transacionais"
+                          fill="#f43f5e"
+                          radius={[4, 4, 0, 0]}
+                          stackId="a"
+                        />
+                        <Line
+                          yAxisId="right"
+                          type="monotone"
+                          dataKey="consultiveRate"
+                          name="% Consultivo"
+                          stroke="#6366f1"
+                          strokeWidth={2}
+                          dot={false}
+                        />
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              )}
+
+              {/* ── DETECÇÃO DE RAJADAS ── */}
+              {id === "rajadas" && (
+                <div className="space-y-6">
+                  <div className="p-4 bg-rose-50 border border-rose-100 rounded-xl space-y-3">
+                    <div className="flex items-start gap-2">
+                      <Info className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-xs text-rose-800 font-black uppercase tracking-tight mb-1">
+                          O que é uma Rajada?
+                        </p>
+                        <p className="text-[11px] text-rose-700 leading-relaxed">
+                          Uma rajada ocorre quando o mesmo colaborador emite{" "}
+                          <strong>3 ou mais notas fiscais em sequência com menos de 5 minutos de intervalo</strong>.
+                          Isso sugere que ele está posicionado no balcão/caixa apenas finalizando
+                          pagamentos (POS → NF) sem tempo para atendimento consultivo.
+                          O cliente chega ao balcão já decidido e o colaborador apenas "bate o boleto".
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Impacto comparativo */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <CompareCard
+                      label="PA (Peças/Atend.)"
+                      inBurst={burstAnalysis.paInBurst.toFixed(2)}
+                      outBurst={burstAnalysis.paOutBurst.toFixed(2)}
+                      delta={-burstAnalysis.paDelta}
+                      isNegativeBad
+                    />
+                    <CompareCard
+                      label="Ticket Médio (TKM)"
+                      inBurst={fmtBRL(burstAnalysis.tkmInBurst)}
+                      outBurst={fmtBRL(burstAnalysis.tkmOutBurst)}
+                      delta={-burstAnalysis.tkmDelta}
+                      isNegativeBad
+                      isCurrency
+                    />
+                    <CompareCard
+                      label="% CPF Identificado"
+                      inBurst={`${burstAnalysis.cpfInBurst.toFixed(1)}%`}
+                      outBurst={`${burstAnalysis.cpfOutBurst.toFixed(1)}%`}
+                      delta={-burstAnalysis.cpfDelta}
+                      isNegativeBad
+                    />
+                  </div>
+
+                  {/* Ranking de quem mais opera em rajada */}
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">
+                      Colaboradores com maior % de vendas em rajada
+                    </p>
+                    <div className="space-y-2">
+                      {burstAnalysis.vendorRanking.slice(0, 10).map((v, i) => (
+                        <div
+                          key={i}
+                          className={cn(
+                            "flex items-center gap-3 p-3 rounded-xl border",
+                            v.burstRate > 30
+                              ? "bg-rose-50 border-rose-100"
+                              : v.burstRate > 15
+                              ? "bg-amber-50 border-amber-100"
+                              : "bg-slate-50 border-slate-100"
+                          )}
+                        >
+                          <span className="text-xs font-black text-slate-700 flex-1 uppercase">
+                            {v.name}
+                          </span>
+                          <div className="w-32">
+                            <Progress
+                              value={Math.min(v.burstRate, 100)}
+                              className={cn(
+                                "h-2",
+                                v.burstRate > 30
+                                  ? "[&>div]:bg-rose-500"
+                                  : v.burstRate > 15
+                                  ? "[&>div]:bg-amber-500"
+                                  : "[&>div]:bg-slate-400"
+                              )}
+                            />
+                          </div>
+                          <span
+                            className={cn(
+                              "text-xs font-black w-16 text-right",
+                              v.burstRate > 30
+                                ? "text-rose-600"
+                                : v.burstRate > 15
+                                ? "text-amber-600"
+                                : "text-slate-500"
+                            )}
+                          >
+                            {v.burstRate.toFixed(0)}%
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-bold w-20 text-right">
+                            {v.salesInBurst}/{v.totalSales}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Últimas rajadas detectadas */}
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">
+                      💥 Últimas Rajadas Detectadas
+                    </p>
+                    <div className="max-h-[350px] overflow-y-auto space-y-2">
+                      {burstAnalysis.bursts
+                        .sort((a, b) => b.day.localeCompare(a.day))
+                        .slice(0, 15)
+                        .map((b, i) => (
+                          <div
+                            key={i}
+                            className="p-3 bg-white border border-slate-100 rounded-xl flex items-center justify-between hover:bg-slate-50 transition-colors"
+                          >
+                            <div className="space-y-1">
+                              <p className="text-xs font-black text-slate-800 uppercase">
+                                {b.vendor}
+                              </p>
+                              <p className="text-[10px] text-slate-400 font-bold">
+                                {format(parseISO(b.day), "dd/MM (EEE)", { locale: ptBR })} •{" "}
+                                {b.startTime}–{b.endTime}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Badge
+                                variant="outline"
+                                className="text-[9px] font-black border-indigo-100 text-indigo-600"
+                              >
+                                {b.burstSize} vendas
+                              </Badge>
+                              <Badge
+                                variant="outline"
+                                className="text-[9px] font-black border-slate-100 text-slate-500"
+                              >
+                                ~{b.avgInterval}min
+                              </Badge>
+                              <Badge
+                                className={cn(
+                                  "text-[9px] font-black border-none",
+                                  b.avgPA < 1.5 ? "bg-rose-100 text-rose-700" : "bg-emerald-100 text-emerald-700"
+                                )}
+                              >
+                                PA {b.avgPA}
+                              </Badge>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ── PRESSÃO × QUALIDADE ── */}
+              {id === "pressao_pa" && (
+                <div className="space-y-6">
+                  <div className="p-4 bg-amber-50 border border-amber-100 rounded-xl">
+                    <div className="flex items-start gap-2">
+                      <Info className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-xs text-amber-800 font-black uppercase tracking-tight mb-1">
+                          Como a sobrecarga impacta a qualidade?
+                        </p>
+                        <p className="text-[11px] text-amber-700 leading-relaxed">
+                          Quando muitos clientes chegam ao balcão simultaneamente, o colaborador entra em modo "despacho":
+                          finaliza rápido, não oferece adicionais, pula CPF, não sugere embrulho.
+                          O gráfico abaixo mostra como o <strong>PA</strong> e o <strong>% CPF</strong> se comportam conforme
+                          a pressão de atendimentos sobe em cada janela de 15 min.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">
+                      PA vs Pressão por Slot de 15 min
+                    </p>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <ComposedChart data={overlapAnalysis.timeline}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                        <XAxis dataKey="slot" tick={{ fontSize: 9, fill: "#94a3b8" }} interval={3} />
+                        <YAxis
+                          yAxisId="left"
+                          tick={{ fontSize: 10, fill: "#94a3b8" }}
+                          domain={[0, "auto"]}
+                          label={{
+                            value: "PA",
+                            angle: -90,
+                            position: "insideLeft",
+                            style: { fontSize: 10, fill: "#94a3b8" },
+                          }}
+                        />
+                        <YAxis
+                          yAxisId="right"
+                          orientation="right"
+                          tick={{ fontSize: 10, fill: "#94a3b8" }}
+                          domain={[0, "auto"]}
+                          label={{
+                            value: "Pressão",
+                            angle: 90,
+                            position: "insideRight",
+                            style: { fontSize: 10, fill: "#94a3b8" },
+                          }}
+                        />
+                        <Tooltip
+                          contentStyle={{
+                            borderRadius: "12px",
+                            border: "none",
+                            boxShadow: "0 4px 24px rgba(0,0,0,0.12)",
+                            fontSize: 11,
+                          }}
+                          formatter={(value: number, name: string) => {
+                            if (name === "PA") return [value.toFixed(2), "PA"];
+                            if (name === "Pressão") return [value.toFixed(2) + "x", "Pressão"];
+                            return [value, name];
+                          }}
+                        />
+                        <Legend wrapperStyle={{ fontSize: 10 }} />
+                        <Area
+                          yAxisId="right"
+                          type="monotone"
+                          dataKey="pressure"
+                          name="Pressão"
+                          fill="#fef3c7"
+                          stroke="#f59e0b"
+                          strokeWidth={2}
+                          fillOpacity={0.4}
+                        />
+                        <Line
+                          yAxisId="left"
+                          type="monotone"
+                          dataKey="pa"
+                          name="PA"
+                          stroke="#6366f1"
+                          strokeWidth={3}
+                          dot={{ r: 3 }}
+                        />
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                    <p className="text-[10px] text-slate-400 font-medium italic mt-2 text-center">
+                      Observe como o PA tende a cair nos horários de maior pressão (picos da
+                      área amarela)
+                    </p>
+                  </div>
+
+                  {/* Tabela de períodos críticos */}
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">
+                      Slots onde a pressão degrada mais a qualidade
+                    </p>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs border-collapse">
+                        <thead>
+                          <tr className="bg-slate-50">
+                            <th className="p-3 text-left font-black text-slate-500 uppercase text-[10px]">
+                              Slot
+                            </th>
+                            <th className="p-3 text-center font-black text-slate-500 uppercase text-[10px]">
+                              Cupons/slot
+                            </th>
+                            <th className="p-3 text-center font-black text-slate-500 uppercase text-[10px]">
+                              Pressão
+                            </th>
+                            <th className="p-3 text-center font-black text-slate-500 uppercase text-[10px]">
+                              PA
+                            </th>
+                            <th className="p-3 text-center font-black text-slate-500 uppercase text-[10px]">
+                              % CPF
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {overlapAnalysis.timeline
+                            .filter((t) => t.pressure > 1.5)
+                            .sort((a, b) => b.pressure - a.pressure)
+                            .slice(0, 10)
+                            .map((t, i) => (
+                              <tr key={i} className="border-b border-slate-50 hover:bg-slate-50">
+                                <td className="p-3 font-black text-sm text-slate-700">{t.slot}</td>
+                                <td className="p-3 text-center font-bold text-slate-600">
+                                  {t.cupons}
+                                </td>
+                                <td className="p-3 text-center">
+                                  <Badge
+                                    className={cn(
+                                      "text-[10px] font-black border-none",
+                                      t.pressure > 2.5
+                                        ? "bg-rose-100 text-rose-700"
+                                        : t.pressure > 1.8
+                                        ? "bg-amber-100 text-amber-700"
+                                        : "bg-emerald-100 text-emerald-700"
+                                    )}
+                                  >
+                                    {t.pressure.toFixed(1)}x
+                                  </Badge>
+                                </td>
+                                <td className="p-3 text-center font-black text-indigo-600">
+                                  {t.pa}
+                                </td>
+                                <td className="p-3 text-center font-bold text-slate-600">
+                                  {t.cpfRate}%
+                                </td>
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ── JORNADA FÍSICA ── */}
+              {id === "jornada_fisica" && (
+                <div className="space-y-6">
+                  <div className="p-4 bg-purple-50 border border-purple-100 rounded-xl">
+                    <div className="flex items-start gap-2">
+                      <Info className="w-5 h-5 text-purple-600 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-xs text-purple-800 font-black uppercase tracking-tight mb-1">
+                          Perfil de Intervalos entre Vendas
+                        </p>
+                        <p className="text-[11px] text-purple-700 leading-relaxed">
+                          Analisa o tempo entre uma finalização e outra de cada colaborador.
+                          <br />
+                          <strong className="text-rose-600">{"<"} 3 min (Curto)</strong>: Provavelmente
+                          apenas finalizando no balcão. Sem tempo para consultoria.
+                          <br />
+                          <strong className="text-amber-600">3–15 min (Médio)</strong>: Atendimento
+                          rápido com POS + NF ou cliente decidido + finalização.
+                          <br />
+                          <strong className="text-emerald-600">{"> "}15 min (Longo)</strong>: Atendimento
+                          consultivo completo (apresentação + negociação + POS + NF + embrulho).
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    {physicalJourney.map((v, i) => (
+                      <div
+                        key={i}
+                        className={cn(
+                          "p-4 rounded-xl border",
+                          v.shortPct > 40
+                            ? "bg-rose-50 border-rose-100"
+                            : v.shortPct > 20
+                            ? "bg-amber-50 border-amber-100"
+                            : "bg-slate-50 border-slate-100"
+                        )}
+                      >
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-black text-slate-700 uppercase">
+                              {v.name}
+                            </span>
+                            {v.shortPct > 40 && (
+                              <Badge className="bg-rose-100 text-rose-700 border-none text-[9px] font-black">
+                                ALTA RAJADA
+                              </Badge>
+                            )}
+                          </div>
+                          <span className="text-[10px] text-slate-400 font-bold">
+                            {v.totalSales} vendas • Mediana {v.medianInterval} min
+                          </span>
+                        </div>
+                        {/* Barra empilhada de intervalos */}
+                        <div className="flex h-4 rounded-full overflow-hidden bg-slate-200 mb-2">
+                          <div
+                            className="bg-rose-500 h-full transition-all"
+                            style={{ width: `${v.shortPct}%` }}
+                            title={`< 3 min: ${v.shortPct.toFixed(0)}%`}
+                          />
+                          <div
+                            className="bg-amber-400 h-full transition-all"
+                            style={{ width: `${v.mediumPct}%` }}
+                            title={`3-15 min: ${v.mediumPct.toFixed(0)}%`}
+                          />
+                          <div
+                            className="bg-emerald-500 h-full transition-all"
+                            style={{ width: `${v.longPct}%` }}
+                            title={`> 15 min: ${v.longPct.toFixed(0)}%`}
+                          />
+                        </div>
+                        <div className="flex gap-4 text-[10px] font-bold">
+                          <span className="text-rose-600">
+                            Curto: {v.shortPct.toFixed(0)}% ({v.shortCount})
+                          </span>
+                          <span className="text-amber-600">
+                            Médio: {v.mediumPct.toFixed(0)}% ({v.mediumCount})
+                          </span>
+                          <span className="text-emerald-600">
+                            Longo: {v.longPct.toFixed(0)}% ({v.longCount})
+                          </span>
+                          <span className="text-slate-400 ml-auto">
+                            PA=1: {v.singleItemPct.toFixed(0)}%
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* ── CAPACIDADE VS DEMANDA ── */}
+              {id === "capacidade" && (
+                <div className="space-y-6">
+                  <div className="p-4 bg-sky-50 border border-sky-100 rounded-xl">
+                    <div className="flex items-start gap-2">
+                      <Info className="w-5 h-5 text-sky-600 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-xs text-sky-800 font-black uppercase tracking-tight mb-1">
+                          Estimativa de Capacidade
+                        </p>
+                        <p className="text-[11px] text-sky-700 leading-relaxed">
+                          Estima quantos minutos de trabalho a equipe precisa em cada slot vs
+                          quantos minutos estão disponíveis (colaboradores × 30 min × 80% eficiência).
+                          Um atendimento transacional (PA=1) consome ~3 min; um consultivo consome
+                          ~12 min (POS + NF + conversa + possível embrulho).
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Utilização geral */}
+                  <div className="bg-slate-900 rounded-2xl p-6 text-white">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                          Utilização Média da Equipe
+                        </p>
+                        <p className="text-4xl font-black">
+                          {capacityAnalysis.avgUtilization.toFixed(0)}%
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                          Slots Sobrecarregados
+                        </p>
+                        <p className="text-2xl font-black text-rose-400">
+                          {capacityAnalysis.overloadedSlots.length}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="relative h-4 bg-slate-700 rounded-full overflow-hidden">
+                      <div
+                        className={cn(
+                          "h-full rounded-full transition-all duration-1000",
+                          capacityAnalysis.avgUtilization > 100
+                            ? "bg-rose-500"
+                            : capacityAnalysis.avgUtilization > 80
+                            ? "bg-amber-500"
+                            : "bg-emerald-500"
+                        )}
+                        style={{
+                          width: `${Math.min(capacityAnalysis.avgUtilization, 100)}%`,
+                        }}
+                      />
+                    </div>
+                    <div className="flex justify-between mt-2 text-[10px] font-bold text-slate-500">
+                      <span>0%</span>
+                      <span>Ideal: 70-85%</span>
+                      <span>100%</span>
+                    </div>
+                  </div>
+
+                  {/* Gráfico de capacidade vs demanda */}
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">
+                      Demanda vs Capacidade por Slot (30 min)
+                    </p>
+                    <ResponsiveContainer width="100%" height={280}>
+                      <ComposedChart data={capacityAnalysis.capacityTimeline}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                        <XAxis dataKey="slot" tick={{ fontSize: 9, fill: "#94a3b8" }} interval={1} />
+                        <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} unit=" min" />
+                        <Tooltip
+                          contentStyle={{
+                            borderRadius: "12px",
+                            border: "none",
+                            boxShadow: "0 4px 24px rgba(0,0,0,0.12)",
+                            fontSize: 11,
+                          }}
+                          formatter={(v: number, name: string) => [
+                            `${v} min`,
+                            name,
+                          ]}
+                        />
+                        <Legend wrapperStyle={{ fontSize: 10 }} />
+                        <Bar
+                          dataKey="demanda"
+                          name="Demanda (min)"
+                          radius={[4, 4, 0, 0]}
+                        >
+                          {capacityAnalysis.capacityTimeline.map((entry, i) => (
+                            <Cell
+                              key={i}
+                              fill={
+                                entry.utilizacao > 100
+                                  ? "#ef4444"
+                                  : entry.utilizacao > 80
+                                  ? "#f59e0b"
+                                  : "#22c55e"
+                              }
+                            />
+                          ))}
+                        </Bar>
+                        <Line
+                          type="stepAfter"
+                          dataKey="capacidade"
+                          name="Capacidade (min)"
+                          stroke="#6366f1"
+                          strokeWidth={2}
+                          strokeDasharray="5 3"
+                          dot={false}
+                        />
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                    <p className="text-[10px] text-slate-400 font-medium italic mt-2 text-center">
+                      Barras vermelhas = demanda superior à capacidade. Linha pontilhada = capacidade
+                      disponível.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      ))}
+
+      {/* ═══════════════════════════════════════════════════════════════════════
+          PLANO DE AÇÃO
+      ═══════════════════════════════════════════════════════════════════════ */}
+      <div className="bg-slate-900 rounded-[2rem] p-8 text-white">
+        <div className="flex items-center gap-4 mb-6">
+          <div className="w-12 h-12 bg-indigo-500 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
+            <Target className="w-6 h-6 text-white" />
+          </div>
+          <div>
+            <h3 className="text-lg font-black uppercase tracking-tight">
+              Plano de Ação Recomendado
+            </h3>
+            <p className="text-slate-400 text-xs font-medium">
+              Baseado na análise dos padrões detectados e nas limitações físicas da operação.
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          {diagnostic.recommendations.map((rec, i) => (
+            <div
+              key={i}
+              className="flex gap-4 p-4 bg-white/5 border border-white/10 rounded-2xl items-start hover:bg-white/10 transition-colors"
+            >
+              <div className="w-8 h-8 rounded-full bg-indigo-500/30 text-indigo-300 flex items-center justify-center font-black shrink-0 text-sm">
+                {i + 1}
+              </div>
+              <p className="text-sm font-medium text-slate-200 pt-1">{rec}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// COMPONENTES AUXILIARES
+// ────────────────────────────────────────────────────────────────────────────
+
+function HeroStat({
+  label,
+  value,
+  icon,
+  isAlert,
+}: {
+  label: string;
+  value: string;
+  icon: React.ReactNode;
+  isAlert?: boolean;
+}) {
+  return (
+    <div
+      className={cn(
+        "bg-white/10 border border-white/15 rounded-2xl p-4 flex items-center gap-3",
+        isAlert && "bg-rose-500/20 border-rose-400/30"
+      )}
+    >
+      <div className="p-2 bg-white/10 rounded-xl">{icon}</div>
+      <div>
+        <p className="text-[9px] font-black uppercase tracking-widest text-white/50">{label}</p>
+        <p className={cn("text-xl font-black", isAlert ? "text-rose-300" : "text-white")}>
+          {value}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function ContextCard({
+  icon,
+  title,
+  desc,
+  impact,
+  color,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  desc: string;
+  impact: string;
+  color: string;
+}) {
+  return (
+    <div className={cn("p-5 rounded-2xl border space-y-3", color)}>
+      <div className="flex items-center gap-3">
+        <div className="p-2 bg-white rounded-xl shadow-sm">{icon}</div>
+        <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight">{title}</h4>
+      </div>
+      <p className="text-[11px] text-slate-600 leading-relaxed font-medium">{desc}</p>
+      <div className="flex items-center gap-2 pt-2 border-t border-black/5">
+        <ArrowRight className="w-3 h-3 text-slate-400 shrink-0" />
+        <p className="text-[10px] font-bold text-slate-500 italic">{impact}</p>
+      </div>
+    </div>
+  );
+}
+
+function CompareCard({
+  label,
+  inBurst,
+  outBurst,
+  delta,
+  isNegativeBad,
+  isCurrency,
+}: {
+  label: string;
+  inBurst: string;
+  outBurst: string;
+  delta: number;
+  isNegativeBad?: boolean;
+  isCurrency?: boolean;
+}) {
+  const isBad = isNegativeBad ? delta < 0 : delta > 0;
+  const absDelta = Math.abs(delta);
+  const fmtDelta = isCurrency
+    ? absDelta.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+    : absDelta.toFixed(1) + (label.includes("%") ? "pp" : "");
+
+  return (
+    <div className="bg-white border border-slate-100 rounded-2xl p-4 space-y-4 shadow-sm">
+      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</p>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1">
+          <p className="text-[9px] font-bold text-rose-400 uppercase">Em Rajada</p>
+          <p className="text-xl font-black text-rose-600">{inBurst}</p>
+        </div>
+        <div className="space-y-1">
+          <p className="text-[9px] font-bold text-emerald-400 uppercase">Ritmo Normal</p>
+          <p className="text-xl font-black text-emerald-600">{outBurst}</p>
+        </div>
+      </div>
+      <div
+        className={cn(
+          "p-3 rounded-xl flex items-center gap-2",
+          isBad ? "bg-rose-50 border border-rose-100" : "bg-emerald-50 border border-emerald-100"
+        )}
+      >
+        {isBad ? (
+          <TrendingDown className="w-4 h-4 text-rose-500" />
+        ) : (
+          <TrendingUp className="w-4 h-4 text-emerald-500" />
+        )}
+        <p
+          className={cn(
+            "text-[10px] font-black uppercase",
+            isBad ? "text-rose-700" : "text-emerald-700"
+          )}
+        >
+          {isBad ? "Perda" : "Ganho"} de {fmtDelta}
+        </p>
+      </div>
+    </div>
+  );
+}

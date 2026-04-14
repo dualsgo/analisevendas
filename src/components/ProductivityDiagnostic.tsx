@@ -50,6 +50,7 @@ import {
   CircleAlert,
   ShieldCheck,
   Flame,
+  UserCog,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -584,7 +585,183 @@ export function ProductivityDiagnostic({ data }: ProductivityDiagnosticProps) {
     return { capacityTimeline, avgUtilization, overloadedSlots };
   }, [sales]);
 
-  // ── 6. DIAGNÓSTICO FINAL ──────────────────────────────────────────────────
+  // ── 6. DESEMPENHO INDIVIDUAL: PICO vs FORA DE PICO ────────────────────────
+  // Compara indicadores de cada colaborador em slots sob pressão vs slots normais
+  const peakPerformance = useMemo(() => {
+    // Primeiro: calcular pressão de cada slot por dia (cupons/vendedores)
+    const SLOT_MIN = 30;
+    const slotPressure: Record<string, Record<string, { cupons: number; vendedores: Set<string> }>> = {};
+
+    sales.forEach((s) => {
+      const day = s.dhEmi.split("T")[0];
+      try {
+        const d = parseISO(s.dhEmi);
+        const h = getHours(d);
+        const m = getMinutes(d);
+        if (h < 9 || h >= 22) return;
+        const slotIdx = Math.floor(((h - 9) * 60 + m) / SLOT_MIN);
+        const slotH = 9 + Math.floor((slotIdx * SLOT_MIN) / 60);
+        const slotM = (slotIdx * SLOT_MIN) % 60;
+        const slot = `${String(slotH).padStart(2, "0")}:${String(slotM).padStart(2, "0")}`;
+        const key = `${day}_${slot}`;
+
+        if (!slotPressure[day]) slotPressure[day] = {};
+        if (!slotPressure[day][slot]) slotPressure[day][slot] = { cupons: 0, vendedores: new Set() };
+        slotPressure[day][slot].cupons++;
+        slotPressure[day][slot].vendedores.add(s.vendedor || "DESCONHECIDO");
+      } catch {}
+    });
+
+    // Calcular limiar de pressão (média + 0.5*stddev)
+    const allPressures: number[] = [];
+    Object.values(slotPressure).forEach((daySlots) => {
+      Object.values(daySlots).forEach((v) => {
+        if (v.vendedores.size > 0) {
+          allPressures.push(v.cupons / v.vendedores.size);
+        }
+      });
+    });
+    const avgPressure = allPressures.length > 0 ? allPressures.reduce((a, b) => a + b, 0) / allPressures.length : 1;
+    const stdPressure = allPressures.length > 1
+      ? Math.sqrt(allPressures.map((p) => (p - avgPressure) ** 2).reduce((a, b) => a + b, 0) / allPressures.length)
+      : 0;
+    const pressureThreshold = avgPressure + stdPressure * 0.5;
+
+    // Classificar cada venda como "pico" ou "normal"
+    type VendorPeakStats = {
+      peak: { vendas: number; itens: number; vNF: number; cpf: number; desconto: number; pa1: number };
+      normal: { vendas: number; itens: number; vNF: number; cpf: number; desconto: number; pa1: number };
+    };
+
+    const vendorPeakMap: Record<string, VendorPeakStats> = {};
+
+    // Para gráfico por hora: acumular indicadores separados
+    const hourPeak: Record<number, { vendas: number; itens: number; vNF: number; cpf: number }> = {};
+    const hourNormal: Record<number, { vendas: number; itens: number; vNF: number; cpf: number }> = {};
+
+    sales.forEach((s) => {
+      const v = s.vendedor || "OUTROS";
+      const day = s.dhEmi.split("T")[0];
+      try {
+        const d = parseISO(s.dhEmi);
+        const h = getHours(d);
+        const m = getMinutes(d);
+        if (h < 9 || h >= 22) return;
+        const slotIdx = Math.floor(((h - 9) * 60 + m) / SLOT_MIN);
+        const slotH = 9 + Math.floor((slotIdx * SLOT_MIN) / 60);
+        const slotM = (slotIdx * SLOT_MIN) % 60;
+        const slot = `${String(slotH).padStart(2, "0")}:${String(slotM).padStart(2, "0")}`;
+
+        const cell = slotPressure[day]?.[slot];
+        if (!cell) return;
+        const pressure = cell.vendedores.size > 0 ? cell.cupons / cell.vendedores.size : 0;
+        const isPeak = pressure >= pressureThreshold;
+
+        if (!vendorPeakMap[v]) {
+          vendorPeakMap[v] = {
+            peak: { vendas: 0, itens: 0, vNF: 0, cpf: 0, desconto: 0, pa1: 0 },
+            normal: { vendas: 0, itens: 0, vNF: 0, cpf: 0, desconto: 0, pa1: 0 },
+          };
+        }
+
+        const bucket = isPeak ? vendorPeakMap[v].peak : vendorPeakMap[v].normal;
+        bucket.vendas++;
+        bucket.itens += parseFloat(s.itens_qtd) || 0;
+        bucket.vNF += parseFloat(s.vNF) || 0;
+        if (s.cpf_cnpj_dest) bucket.cpf++;
+        if (parseFloat(s.desconto_total) > 0) bucket.desconto++;
+        if (parseFloat(s.itens_qtd) === 1) bucket.pa1++;
+
+        // Hora
+        const hourBucket = isPeak ? hourPeak : hourNormal;
+        if (!hourBucket[h]) hourBucket[h] = { vendas: 0, itens: 0, vNF: 0, cpf: 0 };
+        hourBucket[h].vendas++;
+        hourBucket[h].itens += parseFloat(s.itens_qtd) || 0;
+        hourBucket[h].vNF += parseFloat(s.vNF) || 0;
+        if (s.cpf_cnpj_dest) hourBucket[h].cpf++;
+      } catch {}
+    });
+
+    // Construir ranking de colaboradores
+    const vendorComparison = Object.entries(vendorPeakMap)
+      .map(([name, stats]) => {
+        const p = stats.peak;
+        const n = stats.normal;
+        const paPeak = p.vendas > 0 ? p.itens / p.vendas : 0;
+        const paNormal = n.vendas > 0 ? n.itens / n.vendas : 0;
+        const tkmPeak = p.vendas > 0 ? p.vNF / p.vendas : 0;
+        const tkmNormal = n.vendas > 0 ? n.vNF / n.vendas : 0;
+        const cpfPeak = p.vendas > 0 ? (p.cpf / p.vendas) * 100 : 0;
+        const cpfNormal = n.vendas > 0 ? (n.cpf / n.vendas) * 100 : 0;
+        const pa1PctPeak = p.vendas > 0 ? (p.pa1 / p.vendas) * 100 : 0;
+        const pa1PctNormal = n.vendas > 0 ? (n.pa1 / n.vendas) * 100 : 0;
+        const descPctPeak = p.vendas > 0 ? (p.desconto / p.vendas) * 100 : 0;
+        const descPctNormal = n.vendas > 0 ? (n.desconto / n.vendas) * 100 : 0;
+
+        return {
+          name,
+          peakSales: p.vendas,
+          normalSales: n.vendas,
+          paPeak: +paPeak.toFixed(2),
+          paNormal: +paNormal.toFixed(2),
+          paDelta: +(paNormal - paPeak).toFixed(2),
+          tkmPeak: +tkmPeak.toFixed(2),
+          tkmNormal: +tkmNormal.toFixed(2),
+          tkmDelta: +(tkmNormal - tkmPeak).toFixed(2),
+          cpfPeak: +cpfPeak.toFixed(1),
+          cpfNormal: +cpfNormal.toFixed(1),
+          cpfDelta: +(cpfNormal - cpfPeak).toFixed(1),
+          pa1PctPeak: +pa1PctPeak.toFixed(0),
+          pa1PctNormal: +pa1PctNormal.toFixed(0),
+          descPctPeak: +descPctPeak.toFixed(1),
+          descPctNormal: +descPctNormal.toFixed(1),
+        };
+      })
+      .filter((v) => v.peakSales >= 3 && v.normalSales >= 3) // mínimo de vendas para ser significativo
+      .sort((a, b) => b.paDelta - a.paDelta); // quem mais sofre no pico
+
+    // Construir gráfico por hora
+    const hourComparison = Array.from({ length: 13 }, (_, i) => {
+      const h = i + 9;
+      const pk = hourPeak[h] || { vendas: 0, itens: 0, vNF: 0, cpf: 0 };
+      const nm = hourNormal[h] || { vendas: 0, itens: 0, vNF: 0, cpf: 0 };
+      return {
+        hour: `${h}h`,
+        paPico: pk.vendas > 0 ? +(pk.itens / pk.vendas).toFixed(2) : 0,
+        paNormal: nm.vendas > 0 ? +(nm.itens / nm.vendas).toFixed(2) : 0,
+        tkmPico: pk.vendas > 0 ? +(pk.vNF / pk.vendas).toFixed(0) : 0,
+        tkmNormal: nm.vendas > 0 ? +(nm.vNF / nm.vendas).toFixed(0) : 0,
+        vendasPico: pk.vendas,
+        vendasNormal: nm.vendas,
+      };
+    });
+
+    // Totais globais pico vs normal
+    const totalPeak = { vendas: 0, itens: 0, vNF: 0, cpf: 0, pa1: 0 };
+    const totalNormal = { vendas: 0, itens: 0, vNF: 0, cpf: 0, pa1: 0 };
+    Object.values(vendorPeakMap).forEach((stats) => {
+      totalPeak.vendas += stats.peak.vendas;
+      totalPeak.itens += stats.peak.itens;
+      totalPeak.vNF += stats.peak.vNF;
+      totalPeak.cpf += stats.peak.cpf;
+      totalPeak.pa1 += stats.peak.pa1;
+      totalNormal.vendas += stats.normal.vendas;
+      totalNormal.itens += stats.normal.itens;
+      totalNormal.vNF += stats.normal.vNF;
+      totalNormal.cpf += stats.normal.cpf;
+      totalNormal.pa1 += stats.normal.pa1;
+    });
+
+    return {
+      vendorComparison,
+      hourComparison,
+      pressureThreshold: +pressureThreshold.toFixed(2),
+      totalPeak,
+      totalNormal,
+    };
+  }, [sales]);
+
+  // ── 7. DIAGNÓSTICO FINAL ──────────────────────────────────────────────────
   const diagnostic = useMemo(() => {
     const burstPct = burstAnalysis.percentInBurst;
     const consultiveRate = consultiveIndex.globalRate;
@@ -680,6 +857,12 @@ export function ProductivityDiagnostic({ data }: ProductivityDiagnosticProps) {
       label: "Capacidade vs Demanda Real",
       icon: BarChart3,
       color: "text-sky-600",
+    },
+    {
+      id: "desempenho_pico",
+      label: "Desempenho no Pico vs Fora do Pico",
+      icon: UserCog,
+      color: "text-teal-600",
     },
   ];
 
@@ -1567,6 +1750,232 @@ export function ProductivityDiagnostic({ data }: ProductivityDiagnosticProps) {
                   </div>
                 </div>
               )}
+
+              {/* ── DESEMPENHO PICO VS FORA DE PICO ── */}
+              {id === "desempenho_pico" && (
+                <div className="space-y-6">
+                  <div className="p-4 bg-teal-50 border border-teal-100 rounded-xl space-y-3">
+                    <div className="flex items-start gap-2">
+                      <Info className="w-5 h-5 text-teal-600 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-xs text-teal-800 font-black uppercase tracking-tight mb-1">
+                          O que é esta análise?
+                        </p>
+                        <p className="text-[11px] text-teal-700 leading-relaxed">
+                          Compara os indicadores <strong>individuais</strong> de cada colaborador em dois cenários distintos:
+                          slots de <strong className="text-rose-600">alta pressão</strong> (quando a razão cupons/vendedores ultrapassa {peakPerformance.pressureThreshold}x)
+                          vs slots de <strong className="text-emerald-600">fluxo normal</strong>.
+                          Isso revela quanto cada pessoa perde de qualidade quando o balcão está lotado e ele precisa
+                          apenas finalizar ao invés de atender consultivamente.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="pt-2 border-t border-teal-100 flex flex-wrap gap-4 text-[10px] font-bold">
+                      <span className="text-teal-600">Limiar de pressão: {peakPerformance.pressureThreshold}x</span>
+                      <span className="text-rose-500">Vendas em pico: {peakPerformance.totalPeak.vendas}</span>
+                      <span className="text-emerald-600">Vendas fora do pico: {peakPerformance.totalNormal.vendas}</span>
+                    </div>
+                  </div>
+
+                  {/* KPIs globais Pico vs Normal */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <PeakCompareKPI
+                      label="PA"
+                      peakVal={peakPerformance.totalPeak.vendas > 0 ? (peakPerformance.totalPeak.itens / peakPerformance.totalPeak.vendas).toFixed(2) : "0"}
+                      normalVal={peakPerformance.totalNormal.vendas > 0 ? (peakPerformance.totalNormal.itens / peakPerformance.totalNormal.vendas).toFixed(2) : "0"}
+                    />
+                    <PeakCompareKPI
+                      label="TKM"
+                      peakVal={peakPerformance.totalPeak.vendas > 0 ? (peakPerformance.totalPeak.vNF / peakPerformance.totalPeak.vendas).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : "R$ 0"}
+                      normalVal={peakPerformance.totalNormal.vendas > 0 ? (peakPerformance.totalNormal.vNF / peakPerformance.totalNormal.vendas).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : "R$ 0"}
+                    />
+                    <PeakCompareKPI
+                      label="% CPF"
+                      peakVal={peakPerformance.totalPeak.vendas > 0 ? ((peakPerformance.totalPeak.cpf / peakPerformance.totalPeak.vendas) * 100).toFixed(0) + "%" : "0%"}
+                      normalVal={peakPerformance.totalNormal.vendas > 0 ? ((peakPerformance.totalNormal.cpf / peakPerformance.totalNormal.vendas) * 100).toFixed(0) + "%" : "0%"}
+                    />
+                    <PeakCompareKPI
+                      label="% PA=1"
+                      peakVal={peakPerformance.totalPeak.vendas > 0 ? ((peakPerformance.totalPeak.pa1 / peakPerformance.totalPeak.vendas) * 100).toFixed(0) + "%" : "0%"}
+                      normalVal={peakPerformance.totalNormal.vendas > 0 ? ((peakPerformance.totalNormal.pa1 / peakPerformance.totalNormal.vendas) * 100).toFixed(0) + "%" : "0%"}
+                      invertColors
+                    />
+                  </div>
+
+                  {/* Gráfico: PA Pico vs Normal por hora */}
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">
+                      📊 PA por Horário — Pico vs Fluxo Normal
+                    </p>
+                    <ResponsiveContainer width="100%" height={260}>
+                      <ComposedChart data={peakPerformance.hourComparison}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                        <XAxis dataKey="hour" tick={{ fontSize: 10, fill: "#94a3b8" }} />
+                        <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} domain={[0, "auto"]} />
+                        <Tooltip
+                          contentStyle={{ borderRadius: "12px", border: "none", boxShadow: "0 4px 24px rgba(0,0,0,0.12)", fontSize: 11 }}
+                          formatter={(v: number, name: string) => {
+                            if (name.includes("PA")) return [v.toFixed(2), name];
+                            return [v, name];
+                          }}
+                        />
+                        <Legend wrapperStyle={{ fontSize: 10 }} />
+                        <Bar dataKey="vendasPico" name="Volume Pico" fill="#fecaca" radius={[4, 4, 0, 0]} opacity={0.5} />
+                        <Bar dataKey="vendasNormal" name="Volume Normal" fill="#bbf7d0" radius={[4, 4, 0, 0]} opacity={0.5} />
+                        <Line type="monotone" dataKey="paPico" name="PA no Pico" stroke="#ef4444" strokeWidth={3} dot={{ r: 3, fill: "#ef4444" }} />
+                        <Line type="monotone" dataKey="paNormal" name="PA Normal" stroke="#22c55e" strokeWidth={3} dot={{ r: 3, fill: "#22c55e" }} />
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                    <p className="text-[10px] text-slate-400 font-medium italic mt-2 text-center">
+                      Barras = volume de vendas (opaco). Linhas = PA médio no período. Quanto maior a distância entre as linhas, maior o impacto da pressão.
+                    </p>
+                  </div>
+
+                  {/* Tabela individual por colaborador */}
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">
+                      👤 Comparativo Individual — Quem mais perde qualidade no pico?
+                    </p>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs border-collapse min-w-[700px]">
+                        <thead>
+                          <tr className="bg-slate-900 text-white">
+                            <th className="p-3 text-left font-black uppercase text-[10px] tracking-wider rounded-tl-xl">Colaborador</th>
+                            <th className="p-3 text-center font-black uppercase text-[10px] tracking-wider" colSpan={2}>PA</th>
+                            <th className="p-3 text-center font-black uppercase text-[10px] tracking-wider" colSpan={2}>TKM</th>
+                            <th className="p-3 text-center font-black uppercase text-[10px] tracking-wider" colSpan={2}>% CPF</th>
+                            <th className="p-3 text-center font-black uppercase text-[10px] tracking-wider" colSpan={2}>% PA=1</th>
+                            <th className="p-3 text-center font-black uppercase text-[10px] tracking-wider rounded-tr-xl">Vendas</th>
+                          </tr>
+                          <tr className="bg-slate-100">
+                            <th className="p-2"></th>
+                            <th className="p-2 text-center text-[9px] font-bold text-rose-500">Pico</th>
+                            <th className="p-2 text-center text-[9px] font-bold text-emerald-600">Normal</th>
+                            <th className="p-2 text-center text-[9px] font-bold text-rose-500">Pico</th>
+                            <th className="p-2 text-center text-[9px] font-bold text-emerald-600">Normal</th>
+                            <th className="p-2 text-center text-[9px] font-bold text-rose-500">Pico</th>
+                            <th className="p-2 text-center text-[9px] font-bold text-emerald-600">Normal</th>
+                            <th className="p-2 text-center text-[9px] font-bold text-rose-500">Pico</th>
+                            <th className="p-2 text-center text-[9px] font-bold text-emerald-600">Normal</th>
+                            <th className="p-2 text-center text-[9px] font-bold text-slate-500">P / N</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {peakPerformance.vendorComparison.map((v, i) => (
+                            <tr key={i} className={cn(
+                              "border-b border-slate-50 hover:bg-slate-50 transition-colors",
+                              v.paDelta > 0.5 && "bg-rose-50/50"
+                            )}>
+                              <td className="p-3 font-black text-slate-700 uppercase text-xs">
+                                <div className="flex items-center gap-2">
+                                  {v.name}
+                                  {v.paDelta > 0.5 && (
+                                    <Badge className="bg-rose-100 text-rose-700 border-none text-[8px] font-black">
+                                      -{v.paDelta} PA
+                                    </Badge>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="p-3 text-center">
+                                <span className={cn("font-black", v.paPeak < v.paNormal ? "text-rose-600" : "text-slate-700")}>
+                                  {v.paPeak}
+                                </span>
+                              </td>
+                              <td className="p-3 text-center">
+                                <span className="font-black text-emerald-600">{v.paNormal}</span>
+                              </td>
+                              <td className="p-3 text-center">
+                                <span className={cn("font-bold", v.tkmPeak < v.tkmNormal ? "text-rose-500" : "text-slate-600")}>
+                                  {v.tkmPeak.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                </span>
+                              </td>
+                              <td className="p-3 text-center">
+                                <span className="font-bold text-emerald-600">{v.tkmNormal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                              </td>
+                              <td className="p-3 text-center">
+                                <span className={cn("font-bold", v.cpfPeak < v.cpfNormal ? "text-rose-500" : "text-slate-600")}>
+                                  {v.cpfPeak}%
+                                </span>
+                              </td>
+                              <td className="p-3 text-center">
+                                <span className="font-bold text-emerald-600">{v.cpfNormal}%</span>
+                              </td>
+                              <td className="p-3 text-center">
+                                <span className={cn("font-bold", v.pa1PctPeak > v.pa1PctNormal ? "text-rose-500" : "text-slate-600")}>
+                                  {v.pa1PctPeak}%
+                                </span>
+                              </td>
+                              <td className="p-3 text-center">
+                                <span className="font-bold text-emerald-600">{v.pa1PctNormal}%</span>
+                              </td>
+                              <td className="p-3 text-center text-[10px] font-bold text-slate-400">
+                                {v.peakSales} / {v.normalSales}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    {peakPerformance.vendorComparison.length === 0 && (
+                      <div className="py-8 text-center text-slate-400 text-sm font-bold">
+                        Dados insuficientes para comparação (mínimo 3 vendas em cada cenário).
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Cards individuais detalhados para os que mais perdem */}
+                  {peakPerformance.vendorComparison.filter(v => v.paDelta > 0.3).length > 0 && (
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">
+                        ⚠️ Colaboradores com maior impacto no pico (ΔPA {'>'} 0.3)
+                      </p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {peakPerformance.vendorComparison.filter(v => v.paDelta > 0.3).slice(0, 6).map((v, i) => (
+                          <div key={i} className="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
+                            <div className="bg-slate-900 text-white p-4 flex items-center justify-between">
+                              <span className="font-black uppercase text-sm tracking-tight">{v.name}</span>
+                              <Badge className="bg-rose-500/20 text-rose-300 border-none text-[9px] font-black">
+                                Perde {v.paDelta} PA no pico
+                              </Badge>
+                            </div>
+                            <div className="p-4 space-y-3">
+                              {/* Mini barras comparativas */}
+                              <VendorMetricBar label="PA" peakVal={v.paPeak} normalVal={v.paNormal} maxVal={Math.max(v.paPeak, v.paNormal) * 1.2 || 3} />
+                              <VendorMetricBar label="TKM" peakVal={v.tkmPeak} normalVal={v.tkmNormal} maxVal={Math.max(v.tkmPeak, v.tkmNormal) * 1.2 || 200} isCurrency />
+                              <VendorMetricBar label="CPF" peakVal={v.cpfPeak} normalVal={v.cpfNormal} maxVal={100} suffix="%" />
+
+                              <div className="pt-3 border-t border-slate-50 grid grid-cols-2 gap-3 text-center">
+                                <div>
+                                  <p className="text-[9px] font-bold text-rose-400 uppercase">No Pico</p>
+                                  <p className="text-lg font-black text-slate-700">{v.peakSales}</p>
+                                  <p className="text-[9px] text-slate-400 font-bold">vendas • {v.pa1PctPeak}% PA=1</p>
+                                </div>
+                                <div>
+                                  <p className="text-[9px] font-bold text-emerald-500 uppercase">Fora do Pico</p>
+                                  <p className="text-lg font-black text-slate-700">{v.normalSales}</p>
+                                  <p className="text-[9px] text-slate-400 font-bold">vendas • {v.pa1PctNormal}% PA=1</p>
+                                </div>
+                              </div>
+
+                              {/* Interpretação */}
+                              <div className="bg-amber-50 border border-amber-100 rounded-xl p-3">
+                                <p className="text-[10px] text-amber-800 font-medium leading-relaxed">
+                                  {v.paDelta > 0.8
+                                    ? `${v.name} perde muita qualidade sob pressão. No pico, o PA cai ${v.paDelta} itens e o % sem CPF sobe. Provavelmente está preso no balcão finalizando e não consegue oferecer adicionais.`
+                                    : v.cpfDelta > 15
+                                    ? `${v.name} mantém razoável o PA, mas o cadastro de CPF cai ${v.cpfDelta.toFixed(0)}pp no pico. A pressa na finalização faz pular a identificação.`
+                                    : `${v.name} apresenta queda moderada no pico. Há espaço para melhoria na venda sugestiva durante a finalização rápida.`
+                                  }
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -1726,3 +2135,84 @@ function CompareCard({
     </div>
   );
 }
+
+function PeakCompareKPI({
+  label,
+  peakVal,
+  normalVal,
+  invertColors,
+}: {
+  label: string;
+  peakVal: string;
+  normalVal: string;
+  invertColors?: boolean;
+}) {
+  return (
+    <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm space-y-2">
+      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{label}</p>
+      <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-0.5">
+          <p className="text-[8px] font-bold text-rose-400 uppercase">Pico</p>
+          <p className={cn("text-lg font-black", invertColors ? "text-rose-600" : "text-rose-600")}>
+            {peakVal}
+          </p>
+        </div>
+        <div className="space-y-0.5">
+          <p className="text-[8px] font-bold text-emerald-500 uppercase">Normal</p>
+          <p className="text-lg font-black text-emerald-600">{normalVal}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function VendorMetricBar({
+  label,
+  peakVal,
+  normalVal,
+  maxVal,
+  isCurrency,
+  suffix,
+}: {
+  label: string;
+  peakVal: number;
+  normalVal: number;
+  maxVal: number;
+  isCurrency?: boolean;
+  suffix?: string;
+}) {
+  const fmtVal = (v: number) => {
+    if (isCurrency) return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+    return v.toFixed(suffix ? 0 : 2) + (suffix || "");
+  };
+  const peakPct = maxVal > 0 ? Math.min((peakVal / maxVal) * 100, 100) : 0;
+  const normalPct = maxVal > 0 ? Math.min((normalVal / maxVal) * 100, 100) : 0;
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between">
+        <span className="text-[9px] font-black text-slate-500 uppercase tracking-wider">{label}</span>
+        <div className="flex gap-3 text-[10px] font-bold">
+          <span className="text-rose-500">{fmtVal(peakVal)}</span>
+          <span className="text-slate-300">vs</span>
+          <span className="text-emerald-600">{fmtVal(normalVal)}</span>
+        </div>
+      </div>
+      <div className="space-y-1">
+        <div className="flex items-center gap-2">
+          <span className="text-[8px] font-bold text-rose-400 w-6">P</span>
+          <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+            <div className="h-full bg-rose-400 rounded-full transition-all" style={{ width: `${peakPct}%` }} />
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-[8px] font-bold text-emerald-500 w-6">N</span>
+          <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+            <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${normalPct}%` }} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+

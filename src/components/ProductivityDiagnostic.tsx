@@ -1455,17 +1455,35 @@ export function ProductivityDiagnostic({ data }: ProductivityDiagnosticProps) {
                                </div>
                                
                                <div className="pt-2 border-t border-slate-100">
-                                  <p className="text-[9px] font-black uppercase text-slate-400 mb-2">Cupons Fragmentados (Destaque PA=1)</p>
-                                  <div className="grid grid-cols-2 gap-2">
+                                  <p className="text-[9px] font-black uppercase text-slate-400 mb-2 flex items-center justify-between">
+                                     <span>Cupons Fragmentados (Destaque PA=1)</span>
+                                     <span className="text-[8px] italic font-medium normal-case">Diferenciando Venda Loja vs Digital</span>
+                                  </p>
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                                      {sales
                                        .filter(s => s.vendedor === v.name && parseFloat(s.itens_qtd) === 1)
                                        .slice(0, 10)
-                                       .map((s, sIdx) => (
-                                          <div key={sIdx} className="flex justify-between items-center p-2 bg-rose-50/50 rounded-lg border border-rose-100/50">
-                                             <span className="text-[9px] font-bold text-slate-500">{format(parseISO(s.dhEmi), "dd/MM HH:mm")}</span>
-                                             <span className="text-[10px] font-black text-rose-600">{fmtBRL(parseFloat(s.vNF))}</span>
-                                          </div>
-                                       ))}
+                                       .map((s, sIdx) => {
+                                          const isDigitalAddon = s.is_retirada_online || s.is_adicional;
+                                          return (
+                                             <div key={sIdx} className={cn(
+                                                "flex flex-col p-2 rounded-lg border",
+                                                isDigitalAddon ? "bg-indigo-50/50 border-indigo-100" : "bg-rose-50/50 border-rose-100/50"
+                                             )}>
+                                                <div className="flex justify-between items-center mb-1">
+                                                   <span className="text-[9px] font-black text-slate-500">{format(parseISO(s.dhEmi), "dd/MM HH:mm")}</span>
+                                                   <span className={cn("text-[10px] font-black", isDigitalAddon ? "text-indigo-600" : "text-rose-600")}>
+                                                      {fmtBRL(parseFloat(s.vNF))}
+                                                   </span>
+                                                </div>
+                                                <div className="flex gap-1">
+                                                   {s.is_retirada_online && <Badge className="bg-indigo-600 text-[7px] h-3 px-1 border-none text-white">RETIRADA</Badge>}
+                                                   {s.is_adicional && <Badge className="bg-amber-500 text-[7px] h-3 px-1 border-none text-white">ADICIONAL DIGITAL</Badge>}
+                                                   {!isDigitalAddon && <Badge className="bg-rose-400 text-[7px] h-3 px-1 border-none text-white">VENDA LOJA</Badge>}
+                                                </div>
+                                             </div>
+                                          );
+                                       })}
                                   </div>
                                </div>
                             </div>

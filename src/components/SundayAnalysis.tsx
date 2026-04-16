@@ -158,7 +158,10 @@ export function SundayAnalysis({ data }: SundayAnalysisProps) {
         global: avgMetrics.global
       },
       isEarlyWorth: (totals.earlyVNF / totals.vNF) > 0.08,
-      riskClosing: fullClosingMetrics.cupons > (fullEarlyMetrics.cupons * 1.1) // Risco se o volume de fechamento é maior que o de abertura
+      riskClosing: fullClosingMetrics.cupons > (fullEarlyMetrics.cupons * 1.1),
+      // Produtividade: Venda por pessoa (considerando 2 pessoas às 12h e 4 às 20h)
+      prodEarly: totals.earlyVNF / 2,
+      prodClosing: totals.closingVNF / 4
     };
   }, [data]);
 
@@ -320,6 +323,29 @@ export function SundayAnalysis({ data }: SundayAnalysisProps) {
                        </div>
                     </div>
                   </div>
+
+                  <div className="p-6 pt-0 space-y-6">
+                    <div className="space-y-4">
+                       <h4 className="text-[10px] font-black uppercase text-amber-500 tracking-widest flex items-center gap-2">
+                          <Briefcase className="w-3 h-3" /> Produtividade (Venda/Pessoa)
+                       </h4>
+                       <div className="grid grid-cols-2 gap-4">
+                          <div className="bg-amber-50/50 p-3 rounded-xl border border-amber-100">
+                             <p className="text-[9px] font-bold text-amber-600 uppercase">12h (2 pessoas)</p>
+                             <p className="text-sm font-black text-amber-700">{formatBRL(analytics.prodEarly)}</p>
+                          </div>
+                          <div className="bg-amber-50/50 p-3 rounded-xl border border-amber-100">
+                             <p className="text-[9px] font-bold text-amber-600 uppercase">20h (4 pessoas)</p>
+                             <p className="text-sm font-black text-amber-700">{formatBRL(analytics.prodClosing)}</p>
+                          </div>
+                       </div>
+                       <p className="text-[8px] text-slate-400 italic font-medium leading-tight">
+                         {analytics.prodClosing > analytics.prodEarly 
+                           ? "O fechamento exige mais de cada consultor do que a abertura." 
+                           : "A abertura gera mais faturamento por pessoa que o fechamento."}
+                       </p>
+                    </div>
+                  </div>
               </CardContent>
            </Card>
 
@@ -352,10 +378,11 @@ export function SundayAnalysis({ data }: SundayAnalysisProps) {
                     <div className="flex gap-3">
                        <div className="bg-white/10 w-2 h-2 rounded-full mt-1.5 shrink-0" />
                        <p className="text-[11px] font-medium leading-tight">
-                          <strong>Eficiência Financeira:</strong> A hora extra das 12h traz {formatBRL(analytics.totals.earlyVNF)}. 
-                          {analytics.avgMetrics.early.tkm > analytics.avgMetrics.closing.tkm 
-                           ? " É uma hora mais qualificadora (TKM alto)." 
-                           : " Porém, o fechamento retém maior volume bruto."}
+                          <strong>Eficiência Financeira:</strong> A abertura (2 pessoas) rende {formatBRL(analytics.prodEarly)}/pessoa. 
+                          O fechamento (4 pessoas) rende {formatBRL(analytics.prodClosing)}/pessoa. 
+                          {analytics.prodClosing > analytics.prodEarly * 1.2 
+                           ? " O fechamento está sobrecarregado (rajada), sugerindo que manter as 6 pessoas até o fim traria mais conversão que abrir cedo." 
+                           : " A produtividade está equilibrada entre os turnos."}
                        </p>
                     </div>
                  </div>
@@ -393,7 +420,7 @@ export function SundayAnalysis({ data }: SundayAnalysisProps) {
                 {analytics.dayList.map((d, i) => (
                   <tr key={i} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
                     <td className="p-4 font-black text-slate-700 uppercase">{d.displayDate}</td>
-                    <td className="p-4 font-bold text-slate-600">{formatBRL(d.total)}</td>
+                    <td className="p-4 font-bold text-slate-600">{formatBRL(d.total.vNF)}</td>
                     <td className="p-4 text-center font-bold text-slate-600">
                       <span className="text-indigo-600">{d.early.cupons}</span> | <span className="text-rose-600">{d.closing.cupons}</span>
                     </td>

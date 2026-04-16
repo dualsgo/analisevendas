@@ -14,7 +14,13 @@ import {
   ArrowRight,
   Target,
   Clock,
-  Briefcase
+  Briefcase,
+  Users,
+  ChevronDown,
+  ChevronUp,
+  Search,
+  Zap,
+  Activity
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { parseISO, getDay, getHours, format, isSameDay } from "date-fns";
@@ -39,6 +45,7 @@ interface SundayAnalysisProps {
 
 export function SundayAnalysis({ data }: SundayAnalysisProps) {
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const [expandedOp, setExpandedOp] = useState<string | null>(null);
 
   const analytics = useMemo(() => {
     const activeSales = data.filter(s => !s.is_cancelada && s.tpNF === 1);
@@ -109,6 +116,57 @@ export function SundayAnalysis({ data }: SundayAnalysisProps) {
       return { ...stats, tkm, pa, pm };
     };
 
+    // Detalhes por Operador no Fechamento (20h)
+    const operatorsClosing: Record<string, { 
+      vNF: number, 
+      cupons: number, 
+      itens: number, 
+      sales: DetailedSaleRow[] 
+    }> = {};
+
+    targetSales.forEach(s => {
+      const h = getHours(parseISO(s.dhEmi));
+      if (h === 20) {
+        const op = s.vendedor || "Não Identificado";
+        if (!operatorsClosing[op]) operatorsClosing[op] = { vNF: 0, cupons: 0, itens: 0, sales: [] };
+        operatorsClosing[op].vNF += parseFloat(s.vNF);
+        operatorsClosing[op].cupons++;
+        operatorsClosing[op].itens += parseFloat(s.itens_qtd || "0");
+        operatorsClosing[op].sales.push(s);
+      }
+    });
+
+    const operatorList = Object.entries(operatorsClosing).map(([name, stats]) => ({
+      name,
+      ...calculateMetrics(stats as any),
+      sales: stats.sales
+    })).sort((a, b) => b.vNF - a.vNF);
+
+    // Análise de Pressão de Grupo (Picos em janelas de 10 min entre 20h e 21h)
+    const timeBuckets: Record<number, { cupons: number, vendedores: Set<string>, vNF: number }> = {};
+    for (let i = 0; i < 6; i++) timeBuckets[i] = { cupons: 0, vendedores: new Set(), vNF: 0 };
+
+    targetSales.forEach(s => {
+      const date = parseISO(s.dhEmi);
+      if (getHours(date) === 20) {
+        const min = date.getMinutes();
+        const bucketIdx = Math.floor(min / 10);
+        const b = timeBuckets[bucketIdx];
+        b.cupons++;
+        b.vendedores.add(s.vendedor || "N/I");
+        b.vNF += parseFloat(s.vNF);
+      }
+    });
+
+    const pressureWindows = Object.entries(timeBuckets).map(([idx, stats]) => ({
+      window: `${20}:${idx}0 - ${20}:${idx}9`,
+      ...stats,
+      vendedoresCount: stats.vendedores.size,
+      intensity: stats.cupons / 10 // cupons por minuto na janela
+    }));
+
+    const peakWindow = [...pressureWindows].sort((a, b) => b.cupons - a.cupons)[0];
+
     const dayList = Object.entries(byDay).map(([date, stats]) => {
       const early = calculateMetrics(stats.earlySlot);
       const closing = calculateMetrics(stats.closingSlot);
@@ -122,7 +180,7 @@ export function SundayAnalysis({ data }: SundayAnalysisProps) {
         total,
         participationEarly: total.vNF > 0 ? (early.vNF / total.vNF) * 100 : 0,
         participationClosing: total.vNF > 0 ? (closing.vNF / total.vNF) * 100 : 0,
-        isBurstClosing: closing.cupons > (early.cupons * 1.2) // Se fecha com 20% mais cupons que abre, é rajada
+        isBurstClosing: closing.cupons > (early.cupons * 1.2)
       };
     }).sort((a, b) => b.date.localeCompare(a.date));
 
@@ -137,12 +195,11 @@ export function SundayAnalysis({ data }: SundayAnalysisProps) {
     }), { vNF: 0, cupons: 0, itens: 0, earlyVNF: 0, earlyCupons: 0, closingVNF: 0, closingCupons: 0 });
 
     const avgMetrics = {
-      early: calculateMetrics({ vNF: totals.earlyVNF, cupons: totals.earlyCupons, itens: 0 }), // Itens calculation simplified for totals
+      early: calculateMetrics({ vNF: totals.earlyVNF, cupons: totals.earlyCupons, itens: 0 }),
       closing: calculateMetrics({ vNF: totals.closingVNF, cupons: totals.closingCupons, itens: 0 }),
       global: calculateMetrics({ vNF: totals.vNF, cupons: totals.cupons, itens: totals.itens })
     };
 
-    // Recalcular PA e PM do total de forma correta
     const aggregateEarlyItens = dayList.reduce((acc, d) => acc + d.early.itens, 0);
     const aggregateClosingItens = dayList.reduce((acc, d) => acc + d.closing.itens, 0);
 
@@ -152,6 +209,9 @@ export function SundayAnalysis({ data }: SundayAnalysisProps) {
     return {
       dayList,
       totals,
+      operatorList,
+      pressureWindows,
+      peakWindow,
       avgMetrics: {
         early: fullEarlyMetrics,
         closing: fullClosingMetrics,
@@ -159,7 +219,6 @@ export function SundayAnalysis({ data }: SundayAnalysisProps) {
       },
       isEarlyWorth: (totals.earlyVNF / totals.vNF) > 0.08,
       riskClosing: fullClosingMetrics.cupons > (fullEarlyMetrics.cupons * 1.1),
-      // Produtividade: Venda por pessoa (considerando 2 pessoas às 12h e 4 às 20h)
       prodEarly: totals.earlyVNF / 2,
       prodClosing: totals.closingVNF / 4
     };
@@ -395,6 +454,176 @@ export function SundayAnalysis({ data }: SundayAnalysisProps) {
               </CardContent>
            </Card>
         </div>
+      </div>
+
+      {/* Análise de Rajadas por Operador às 20h */}
+      <Card className="ri-card border-none shadow-sm overflow-hidden bg-white">
+        <CardHeader className="bg-slate-50 border-b p-6 flex flex-row items-center justify-between">
+           <div>
+              <CardTitle className="text-xs font-black uppercase flex items-center gap-2">
+                 <Zap className="w-4 h-4 text-amber-500" /> Detecção de Rajada por Operador (20h às 21h)
+              </CardTitle>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">Quem atendeu o maior volume no fechamento crítico</p>
+           </div>
+        </CardHeader>
+        <CardContent className="p-0">
+           <div className="divide-y divide-slate-100">
+              {analytics.operatorList.map((op) => (
+                 <div key={op.name} className="animate-in fade-in slide-in-from-top-1 duration-300">
+                    <button 
+                       onClick={() => setExpandedOp(expandedOp === op.name ? null : op.name)}
+                       className={cn(
+                          "w-full p-4 flex items-center justify-between hover:bg-slate-50 transition-colors text-left",
+                          expandedOp === op.name && "bg-slate-50 border-l-4 border-indigo-500"
+                       )}
+                    >
+                       <div className="flex items-center gap-4">
+                          <div className="bg-indigo-100 p-2 rounded-lg">
+                             <Users className="w-4 h-4 text-indigo-600" />
+                          </div>
+                          <div>
+                             <p className="text-sm font-black text-slate-800 uppercase leading-none mb-1">{op.name}</p>
+                             <div className="flex gap-3 items-center">
+                                <Badge variant="outline" className="text-[9px] font-bold border-indigo-200 text-indigo-600">
+                                   {op.cupons} CUPONS
+                                </Badge>
+                                <span className="text-[10px] font-bold text-slate-400">{formatBRL(op.vNF)}</span>
+                             </div>
+                          </div>
+                       </div>
+                       <div className="flex items-center gap-6">
+                          <div className="text-right hidden sm:block">
+                             <p className="text-[9px] font-black text-slate-400 uppercase">PA</p>
+                             <p className="text-xs font-black text-slate-700">{op.pa.toFixed(2)}</p>
+                          </div>
+                          {expandedOp === op.name ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+                       </div>
+                    </button>
+
+                    {expandedOp === op.name && (
+                       <div className="bg-slate-50/50 p-6 border-t border-slate-100 animate-in slide-in-from-top-2 duration-300">
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                             <div className="bg-white p-3 rounded-xl border border-slate-200">
+                                <p className="text-[8px] font-black text-slate-400 uppercase">Total Peças</p>
+                                <p className="text-sm font-black text-slate-800">{op.itens}</p>
+                             </div>
+                             <div className="bg-white p-3 rounded-xl border border-slate-200">
+                                <p className="text-[8px] font-black text-slate-400 uppercase">Preço Médio</p>
+                                <p className="text-sm font-black text-slate-800">{formatBRL(op.pm)}</p>
+                             </div>
+                             <div className="bg-white p-3 rounded-xl border border-slate-200">
+                                <p className="text-[8px] font-black text-slate-400 uppercase">TKM</p>
+                                <p className="text-sm font-black text-slate-800">{formatBRL(op.tkm)}</p>
+                             </div>
+                             <div className="bg-white p-3 rounded-xl border border-slate-200">
+                                <p className="text-[8px] font-black text-slate-400 uppercase">Intensidade</p>
+                                <p className="text-sm font-black text-indigo-600">{(op.cupons / 1).toFixed(1)} cup/h</p>
+                             </div>
+                          </div>
+
+                          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                             <table className="w-full text-left text-[10px]">
+                                <thead>
+                                   <tr className="bg-slate-50 border-b border-slate-100">
+                                      <th className="p-3 font-black text-slate-500 uppercase">Hora</th>
+                                      <th className="p-3 font-black text-slate-500 uppercase">NF</th>
+                                      <th className="p-3 font-black text-slate-500 uppercase text-center">Itens</th>
+                                      <th className="p-3 font-black text-slate-500 uppercase text-right">Valor</th>
+                                   </tr>
+                                </thead>
+                                <tbody>
+                                   {op.sales.sort((a,b) => b.dhEmi.localeCompare(a.dhEmi)).map((s, idx) => (
+                                      <tr key={idx} className="border-b border-slate-50 hover:bg-indigo-50/30 transition-colors">
+                                         <td className="p-3 font-medium text-slate-500">
+                                            {format(parseISO(s.dhEmi), "HH:mm")}
+                                         </td>
+                                         <td className="p-3 font-black text-slate-700">{s.nf}</td>
+                                         <td className="p-3 text-center font-bold text-slate-600">{s.itens_qtd}</td>
+                                         <td className="p-3 text-right font-black text-indigo-600">{formatBRL(parseFloat(s.vNF))}</td>
+                                      </tr>
+                                   ))}
+                                </tbody>
+                             </table>
+                          </div>
+                       </div>
+                    )}
+                 </div>
+              ))}
+           </div>
+        </CardContent>
+      </Card>
+
+      {/* Análise de Sincronismo (Rajada de Grupo) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+         <Card className="ri-card border-none shadow-sm overflow-hidden bg-white">
+            <CardHeader className="bg-slate-900 text-white p-6">
+               <CardTitle className="text-xs font-black uppercase flex items-center gap-2">
+                  <Activity className="w-4 h-4 text-indigo-400" /> Sincronismo de Caixas (20h às 21h)
+               </CardTitle>
+               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">Rajada em Grupo: concentração de demanda por minuto</p>
+            </CardHeader>
+            <CardContent className="p-6">
+               <div className="h-[200px] w-full mb-6">
+                  <ResponsiveContainer width="100%" height="100%">
+                     <BarChart data={analytics.pressureWindows}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                        <XAxis dataKey="window" tick={{ fontSize: 9, fill: "#94a3b8" }} />
+                        <YAxis tick={{ fontSize: 9, fill: "#94a3b8" }} />
+                        <Tooltip 
+                           cursor={{ fill: '#f8fafc' }}
+                           contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', fontSize: '10px' }}
+                        />
+                        <Bar dataKey="cupons" fill="#6366f1" radius={[4, 4, 0, 0]}>
+                           {analytics.pressureWindows.map((entry, index) => (
+                              <Cell 
+                                 key={`cell-${index}`} 
+                                 fill={entry.cupons === analytics.peakWindow.cupons ? "#f43f5e" : "#6366f1"} 
+                              />
+                           ))}
+                        </Bar>
+                     </BarChart>
+                  </ResponsiveContainer>
+               </div>
+
+               <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 italic">
+                  <p className="text-[11px] text-slate-600 font-medium leading-relaxed">
+                     <strong>Detecção de Pico:</strong> Na janela de <strong>{analytics.peakWindow.window}</strong>, houve a emissão de <strong>{analytics.peakWindow.cupons} notas</strong> simultâneas por <strong>{analytics.peakWindow.vendedoresCount} colaboradores</strong>. 
+                     Isso representa uma cadência de <strong>{analytics.peakWindow.intensity.toFixed(1)} atendimento(s) por minuto</strong>.
+                  </p>
+               </div>
+            </CardContent>
+         </Card>
+
+         <Card className="ri-card border-none shadow-sm bg-slate-900 text-white flex flex-col justify-center p-8 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 blur-[80px] -mr-32 -mt-32" />
+            <div className="relative z-10 space-y-6">
+               <div>
+                  <h3 className="text-xl font-black uppercase text-indigo-400">Argumento de Sincronismo</h3>
+                  <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">Impacto na Jornada do Cliente</p>
+               </div>
+               
+               <div className="space-y-4">
+                  <div className="p-4 bg-white/5 rounded-2xl border border-white/10">
+                     <p className="text-xs font-medium leading-relaxed">
+                        "Enquanto a análise individual foca no volume bruto, o <strong>Sincronismo</strong> revela que a demanda às 20h não é linear. Temos janelas de 10 minutos onde a equipe de 4 pessoas precisa processar o dobro da cadência normal."
+                     </p>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                     <div>
+                        <p className="text-[9px] font-black text-slate-500 uppercase">Colaboradores Ativos no Pico</p>
+                        <p className="text-xl font-black text-white">{analytics.peakWindow.vendedoresCount} / 4</p>
+                     </div>
+                     <div>
+                        <p className="text-[9px] font-black text-slate-500 uppercase">Capacidade de Entrega</p>
+                        <p className={cn("text-xl font-black", analytics.peakWindow.vendedoresCount >= 4 ? "text-amber-400" : "text-emerald-400")}>
+                           {analytics.peakWindow.vendedoresCount >= 4 ? "Limite Atingido" : "Suportada"}
+                        </p>
+                     </div>
+                  </div>
+               </div>
+            </div>
+         </Card>
       </div>
 
       {/* Tabela de Detalhes por Data */}

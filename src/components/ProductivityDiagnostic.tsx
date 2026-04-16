@@ -75,6 +75,7 @@ const DAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 // ────────────────────────────────────────────────────────────────────────────
 export function ProductivityDiagnostic({ data }: ProductivityDiagnosticProps) {
   const [openSection, setOpenSection] = useState<string>("visao_geral");
+  const [expandedVendorBurst, setExpandedVendorBurst] = useState<string | null>(null);
 
   const sales = useMemo(
     () => data.filter((r) => !r.is_cancelada && r.tpNF === 1 && !r.is_devolucao && r.dhEmi && r.vendedor),
@@ -210,6 +211,51 @@ export function ProductivityDiagnostic({ data }: ProductivityDiagnosticProps) {
         ? (outBurst.filter((s) => s.cpf_cnpj_dest).length / outBurst.length) * 100
         : 0;
 
+    // ── 1.1 ANÁLISE DE RAJADA EM GRUPO (Sincronismo de Caixas) ───────────────
+    const teamBursts: { day: string, window: string, sales: DetailedSaleRow[], vendorCount: number }[] = [];
+    const salesByDay: Record<string, DetailedSaleRow[]> = {};
+    sales.forEach(s => {
+      const day = s.dhEmi.split("T")[0];
+      if (!salesByDay[day]) salesByDay[day] = [];
+      salesByDay[day].push(s);
+    });
+
+    Object.entries(salesByDay).forEach(([day, daySales]) => {
+      const sorted = daySales.sort((a, b) => a.dhEmi.localeCompare(b.dhEmi));
+      let windowStart = 0;
+      while (windowStart < sorted.length) {
+        let windowEnd = windowStart;
+        const windowSales: DetailedSaleRow[] = [sorted[windowStart]];
+        const vendors = new Set([sorted[windowStart].vendedor]);
+
+        while (windowEnd + 1 < sorted.length) {
+          const t1 = parseISO(sorted[windowEnd].dhEmi);
+          const t2 = parseISO(sorted[windowEnd + 1].dhEmi);
+          const diff = Math.abs(differenceInMinutes(t1, t2));
+
+          if (diff <= 3) { // Janela curta de 3 min para sincronismo
+            windowEnd++;
+            windowSales.push(sorted[windowEnd]);
+            vendors.add(sorted[windowEnd].vendedor);
+          } else {
+            break;
+          }
+        }
+
+        if (windowSales.length >= 8 && vendors.size >= 2) {
+          teamBursts.push({
+            day,
+            window: `${format(parseISO(windowSales[0].dhEmi), "HH:mm")} - ${format(parseISO(windowSales[windowSales.length-1].dhEmi), "HH:mm")}`,
+            sales: windowSales,
+            vendorCount: vendors.size
+          });
+          windowStart = windowEnd + 1;
+        } else {
+          windowStart++;
+        }
+      }
+    });
+
     const vendorRanking = Object.entries(vendorBurstStats)
       .map(([name, stats]) => ({
         name,
@@ -220,6 +266,57 @@ export function ProductivityDiagnostic({ data }: ProductivityDiagnosticProps) {
       }))
       .filter((v) => v.bursts > 0)
       .sort((a, b) => b.burstRate - a.burstRate);
+
+    // ── 1.2 CLASSIFICAÇÃO POR POSIÇÕES OPERACIONAIS ────────────────────────
+    const positionClassification = {
+      pos2: [] as typeof vendorRanking,
+      hybrid: [] as typeof vendorRanking,
+      pos3: [] as typeof vendorRanking
+    };
+
+    vendorRanking.forEach(v => {
+      if (v.burstRate > 20) positionClassification.pos3.push(v);
+      else if (v.burstRate >= 10) positionClassification.hybrid.push(v);
+      else positionClassification.pos2.push(v);
+    });
+
+    // ── 1.3 SUGESTÃO DE ALOCAÇÃO POR PERFIL (ENGINE) ────────────────────────
+    const vnfThreshold = totals.vNF / (Object.keys(operatorsClosing).length || 1); // Média de venda/pessoa
+    const paThreshold = aggregateClosingItens / (totals.closingCupons || 1); // Média de PA
+
+    const allocationSuggestions = vendorRanking.map(v => {
+      // Usar a melhor métrica disponível (global ou closing)
+      const pa = v.salesInBurst > 0 ? v.salesInBurst / v.bursts : v.totalSales > 0 ? v.totalSales / 1 : 0; // fallback
+      // Na verdade, vamos usar os dados do ranking que já tem bursts etc.
+      // Vou buscar o PA global desse vendedor para ser mais justo
+      const vendorSales = sales.filter(s => s.vendedor === v.name);
+      const avgPA = vendorSales.length > 0 ? vendorSales.reduce((acc, s) => acc + parseFloat(s.itens_qtd), 0) / vendorSales.length : 0;
+      const totalVNF = vendorSales.reduce((acc, s) => acc + parseFloat(s.vNF), 0);
+      
+      let suggestion = "Acompanhamento";
+      let reasoning = "";
+      let targetPos = "";
+
+      if (totalVNF >= vnfThreshold && avgPA >= paThreshold) {
+        suggestion = "Alta Performance (Venda Direta)";
+        reasoning = "Entrega volume com qualidade de PA. Deve ficar no meio de loja capturando vendas complexas.";
+        targetPos = "P2";
+      } else if (totalVNF < vnfThreshold && avgPA < paThreshold) {
+        suggestion = "Recepção / Direcionamento";
+        reasoning = "Baixo volume e PA. Perfil ideal para triagem na entrada e organização sem travar o caixa.";
+        targetPos = "P1";
+      } else if (totalVNF < vnfThreshold && avgPA >= paThreshold) {
+        suggestion = "Apoio / Conversão de Balcão";
+        reasoning = "Consegue aumentar o PA mesmo em vendas menores. Ideal para apoio no caixa/embrulho fazendo cross-sell.";
+        targetPos = "P3";
+      } else {
+        suggestion = "Fluxo / Finalização Rápida";
+        reasoning = "Garante o faturamento mas perde PA. Ideal para momentos de alta rajada no caixa para manter a vazão.";
+        targetPos = "P3";
+      }
+
+      return { name: v.name, suggestion, reasoning, targetPos, pa: avgPA, vnf: totalVNF };
+    }).sort((a,b) => b.vnf - a.vnf);
 
     return {
       bursts,
@@ -236,6 +333,9 @@ export function ProductivityDiagnostic({ data }: ProductivityDiagnosticProps) {
       cpfOutBurst,
       cpfDelta: cpfOutBurst - cpfInBurst,
       vendorRanking,
+      teamBursts: teamBursts.sort((a,b) => b.day.localeCompare(a.day)).slice(0, 10),
+      positionClassification,
+      allocationSuggestions
     };
   }, [sales]);
 
@@ -864,6 +964,12 @@ export function ProductivityDiagnostic({ data }: ProductivityDiagnosticProps) {
       icon: UserCog,
       color: "text-teal-600",
     },
+    {
+      id: "posicoes",
+      label: "Estrutura de Posições (GPD)",
+      icon: Layers,
+      color: "text-indigo-500",
+    },
   ];
 
   if (sales.length === 0) {
@@ -1280,55 +1386,78 @@ export function ProductivityDiagnostic({ data }: ProductivityDiagnosticProps) {
                     </p>
                     <div className="space-y-2">
                       {burstAnalysis.vendorRanking.slice(0, 10).map((v, i) => (
-                        <div
-                          key={i}
-                          className={cn(
-                            "flex items-center gap-3 p-3 rounded-xl border",
-                            v.burstRate > 30
-                              ? "bg-rose-50 border-rose-100"
-                              : v.burstRate > 15
-                              ? "bg-amber-50 border-amber-100"
-                              : "bg-slate-50 border-slate-100"
-                          )}
-                        >
-                          <span className="text-xs font-black text-slate-700 flex-1 uppercase">
-                            {v.name}
-                          </span>
-                          <div className="w-32">
-                            <Progress
-                              value={Math.min(v.burstRate, 100)}
-                              className={cn(
-                                "h-2",
-                                v.burstRate > 30
-                                  ? "[&>div]:bg-rose-500"
-                                  : v.burstRate > 15
-                                  ? "[&>div]:bg-amber-500"
-                                  : "[&>div]:bg-slate-400"
-                              )}
-                            />
-                          </div>
-                          <span
+                        <div key={i} className="animate-in fade-in slide-in-from-top-1">
+                          <button
+                            onClick={() => setExpandedVendorBurst(expandedVendorBurst === v.name ? null : v.name)}
                             className={cn(
-                              "text-xs font-black w-16 text-right",
+                              "w-full flex items-center gap-3 p-3 rounded-xl border transition-all text-left",
                               v.burstRate > 30
-                                ? "text-rose-600"
+                                ? "bg-rose-50 border-rose-100"
                                 : v.burstRate > 15
-                                ? "text-amber-600"
-                                : "text-slate-500"
+                                ? "bg-amber-50 border-amber-100"
+                                : "bg-slate-50 border-slate-100",
+                              expandedVendorBurst === v.name && "ring-2 ring-indigo-500 ring-offset-2"
                             )}
                           >
-                            {v.burstRate.toFixed(0)}%
-                          </span>
-                          <span className="text-[10px] text-slate-400 font-bold w-20 text-right">
-                            {v.salesInBurst}/{v.totalSales}
-                          </span>
+                            <span className="text-xs font-black text-slate-700 flex-1 uppercase">
+                              {v.name}
+                            </span>
+                            <div className="w-32">
+                              <Progress
+                                value={Math.min(v.burstRate, 100)}
+                                className={cn(
+                                  "h-2",
+                                  v.burstRate > 30
+                                    ? "[&>div]:bg-rose-500"
+                                    : v.burstRate > 15
+                                    ? "[&>div]:bg-amber-500"
+                                    : "[&>div]:bg-slate-400"
+                                )}
+                              />
+                            </div>
+                            <span
+                              className={cn(
+                                "text-xs font-black w-16 text-right",
+                                v.burstRate > 30
+                                  ? "text-rose-600"
+                                  : v.burstRate > 15
+                                  ? "text-amber-600"
+                                  : "text-slate-500"
+                              )}
+                            >
+                              {v.burstRate.toFixed(0)}%
+                            </span>
+                          </button>
+
+                          {expandedVendorBurst === v.name && (
+                            <div className="mt-2 p-4 bg-white rounded-xl border border-slate-200 space-y-3 animate-in fade-in zoom-in-95 duration-200">
+                               <p className="text-[10px] font-black uppercase text-slate-400">Histórico de Rajadas de {v.name}</p>
+                               <div className="space-y-2">
+                                  {burstAnalysis.bursts
+                                    .filter(b => b.vendor === v.name)
+                                    .slice(0, 5)
+                                    .map((b, idx) => (
+                                       <div key={idx} className="flex items-center justify-between p-2 bg-slate-50 rounded-lg">
+                                          <div className="text-[10px]">
+                                             <p className="font-bold text-slate-700">{format(parseISO(b.day), "dd/MM")}</p>
+                                             <p className="text-slate-400">{b.startTime} - {b.endTime}</p>
+                                          </div>
+                                          <div className="flex gap-2">
+                                             <Badge variant="outline" className="text-[9px] border-indigo-100 text-indigo-600">{b.burstSize} notas</Badge>
+                                             <Badge variant="outline" className="text-[9px] border-rose-100 text-rose-600">PA {b.avgPA}</Badge>
+                                          </div>
+                                       </div>
+                                    ))}
+                               </div>
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
                   </div>
 
                   {/* Últimas rajadas detectadas */}
-                  <div>
+                  <div className="pb-4 border-b border-slate-100">
                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">
                       💥 Últimas Rajadas Detectadas
                     </p>
@@ -1376,8 +1505,200 @@ export function ProductivityDiagnostic({ data }: ProductivityDiagnosticProps) {
                         ))}
                     </div>
                   </div>
+
+                  {/* Rajadas de Grupo (Sincronismo) */}
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3 flex items-center gap-2">
+                       <Users className="w-3 h-3 text-indigo-500" /> Sincronismo de Caixas (Team Bursts)
+                    </p>
+                    <div className="space-y-3">
+                       {burstAnalysis.teamBursts.length > 0 ? (
+                          burstAnalysis.teamBursts.map((tb, idx) => (
+                             <div key={idx} className="p-4 bg-indigo-50 border border-indigo-100 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                <div>
+                                   <div className="flex items-center gap-2 mb-1">
+                                      <span className="text-xs font-black text-indigo-700 uppercase">Pico de Grupo</span>
+                                      <Badge className="bg-white text-indigo-700 border-indigo-200 text-[9px] font-black">
+                                         {tb.vendorCount} OPERADORES ATIVOS
+                                      </Badge>
+                                   </div>
+                                   <p className="text-[10px] text-indigo-500 font-bold">
+                                      {format(parseISO(tb.day), "dd/MM (EEE)", { locale: ptBR })} • {tb.window}
+                                   </p>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                   <div className="text-right">
+                                      <p className="text-[9px] font-black text-slate-400 uppercase">Fluxo Total</p>
+                                      <p className="text-sm font-black text-slate-700">{tb.sales.length} NOTAS</p>
+                                   </div>
+                                   <div className="bg-indigo-200/50 w-px h-8" />
+                                   <div className="text-right">
+                                      <p className="text-[9px] font-black text-slate-400 uppercase">Intensidade</p>
+                                      <p className="text-sm font-black text-indigo-600">{(tb.sales.length / 3).toFixed(1)} cup/min</p>
+                                   </div>
+                                </div>
+                             </div>
+                          ))
+                       ) : (
+                          <div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                             <p className="text-[10px] font-bold text-slate-400 uppercase">Nenhum pico de grupo detectado</p>
+                          </div>
+                       )}
+                    </div>
+                  </div>
                 </div>
               )}
+
+               {/* ── ESTRUTURA DE POSIÇÕES (GPD) ── */}
+               {id === "posicoes" && (
+                 <div className="space-y-8">
+                   <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-2xl">
+                     <div className="flex items-start gap-2">
+                       <Info className="w-5 h-5 text-indigo-600 shrink-0 mt-0.5" />
+                       <div>
+                         <p className="text-xs text-indigo-800 font-black uppercase tracking-tight mb-1">
+                           Mecânica de Posições Operacionais
+                         </p>
+                         <p className="text-[11px] text-indigo-700 leading-relaxed">
+                           A separação por posições organiza a equipe pelo papel predominante no fluxo da jornada do cliente. 
+                           A classificação é automática baseada no <strong>% de Rajada</strong>: maior exposição ao caixa gera maior rajada e menor PA estrutural.
+                         </p>
+                       </div>
+                     </div>
+                   </div>
+
+                   {/* Recomendação de Alocação Inteligente */}
+                   <div className="space-y-4">
+                     <div className="flex items-center gap-2 mb-2">
+                        <UserCheck className="w-4 h-4 text-indigo-600" />
+                        <h4 className="text-xs font-black uppercase text-slate-700 tracking-tight">Sugestão de Alocação por Performance</h4>
+                     </div>
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {burstAnalysis.allocationSuggestions.slice(0, 8).map((s, i) => (
+                           <div key={i} className="bg-slate-50 border border-slate-100 p-4 rounded-2xl flex items-start gap-4 hover:shadow-md transition-all">
+                              <div className={cn(
+                                 "p-2 rounded-xl shrink-0 mt-1",
+                                 s.targetPos === "P1" ? "bg-slate-200" :
+                                 s.targetPos === "P2" ? "bg-emerald-100" : "bg-indigo-100"
+                              )}>
+                                 {s.targetPos === "P2" ? <Target className="w-4 h-4 text-emerald-600" /> : <Users className="w-4 h-4 text-slate-600" />}
+                              </div>
+                              <div className="space-y-1">
+                                 <div className="flex items-center gap-2">
+                                    <span className="text-xs font-black text-slate-800 uppercase">{s.name}</span>
+                                    <Badge variant="outline" className="text-[8px] font-black border-slate-200 text-slate-500">{s.targetPos}</Badge>
+                                 </div>
+                                 <p className="text-[10px] font-black text-indigo-600 leading-none">{s.suggestion}</p>
+                                 <p className="text-[9px] text-slate-500 leading-tight italic">{s.reasoning}</p>
+                                 <div className="flex gap-3 pt-1">
+                                    <span className="text-[8px] font-bold text-slate-400">PA: {s.pa.toFixed(2)}</span>
+                                    <span className="text-[8px] font-bold text-slate-400">VENDA: {fmtBRL(s.vnf)}</span>
+                                 </div>
+                              </div>
+                           </div>
+                        ))}
+                     </div>
+                   </div>
+
+                   {/* Posição 2: Atendimento Consultivo */}
+                   <div className="space-y-4">
+                     <div className="flex items-center justify-between border-b border-emerald-100 pb-2">
+                        <div className="flex items-center gap-2">
+                           <div className="p-1.5 bg-emerald-100 rounded-lg">
+                              <Target className="w-3 h-3 text-emerald-600" />
+                           </div>
+                           <h3 className="text-xs font-black uppercase text-emerald-700 tracking-wider">Posição 2 – Atendimento Consultivo</h3>
+                        </div>
+                        <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] font-black">RAJADA {"<"} 10%</Badge>
+                     </div>
+                     <p className="text-[10px] text-slate-500 font-medium italic">Foco em sondagem, demonstração e aumento de PA antes do fechamento.</p>
+                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {burstAnalysis.positionClassification.pos2.map((v, i) => (
+                           <div key={i} className="p-4 bg-white border border-slate-100 rounded-2xl shadow-sm hover:border-emerald-200 transition-all">
+                              <p className="text-sm font-black text-slate-800 uppercase mb-2">{v.name}</p>
+                              <div className="flex justify-between items-end">
+                                 <div>
+                                    <p className="text-[8px] font-black text-slate-400 uppercase">Rajada</p>
+                                    <p className="text-xs font-black text-emerald-600">{v.burstRate.toFixed(1)}%</p>
+                                 </div>
+                                 <Badge className="bg-emerald-500/10 text-emerald-600 border-none text-[9px] font-black">PERFIL CONSULTOR</Badge>
+                              </div>
+                           </div>
+                        ))}
+                        {burstAnalysis.positionClassification.pos2.length === 0 && (
+                           <p className="text-[10px] text-slate-400 italic">Nenhum colaborador nesta posição no período.</p>
+                        )}
+                     </div>
+                   </div>
+
+                   {/* Perfil Híbrido: Transição */}
+                   <div className="space-y-4">
+                     <div className="flex items-center justify-between border-b border-amber-100 pb-2">
+                        <div className="flex items-center gap-2">
+                           <div className="p-1.5 bg-amber-100 rounded-lg">
+                              <Activity className="w-3 h-3 text-amber-600" />
+                           </div>
+                           <h3 className="text-xs font-black uppercase text-amber-700 tracking-wider">Perfil Híbrido – Transição</h3>
+                        </div>
+                        <Badge className="bg-amber-50 text-amber-700 border-amber-200 text-[10px] font-black">RAJADA 10% – 20%</Badge>
+                     </div>
+                     <p className="text-[10px] text-slate-500 font-medium italic">Alternam entre venda e operação. Maior oportunidade de ganho de execução.</p>
+                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {burstAnalysis.positionClassification.hybrid.map((v, i) => (
+                           <div key={i} className="p-4 bg-white border border-slate-100 rounded-2xl shadow-sm hover:border-amber-200 transition-all">
+                              <p className="text-sm font-black text-slate-800 uppercase mb-2">{v.name}</p>
+                              <div className="flex justify-between items-end">
+                                 <div>
+                                    <p className="text-[8px] font-black text-slate-400 uppercase">Rajada</p>
+                                    <p className="text-xs font-black text-amber-600">{v.burstRate.toFixed(1)}%</p>
+                                 </div>
+                                 <Badge className="bg-amber-500/10 text-amber-600 border-none text-[9px] font-black">TRANSICAO</Badge>
+                              </div>
+                           </div>
+                        ))}
+                     </div>
+                   </div>
+
+                   {/* Posição 3: Finalização (Caixa) */}
+                   <div className="space-y-4">
+                     <div className="flex items-center justify-between border-b border-rose-100 pb-2">
+                        <div className="flex items-center gap-2">
+                           <div className="p-1.5 bg-rose-100 rounded-lg">
+                              <CreditCard className="w-3 h-3 text-rose-600" />
+                           </div>
+                           <h3 className="text-xs font-black uppercase text-rose-700 tracking-wider">Posição 3 – Finalização (Caixa)</h3>
+                        </div>
+                        <Badge className="bg-rose-50 text-rose-700 border-rose-200 text-[10px] font-black">RAJADA {">"} 20%</Badge>
+                     </div>
+                     <p className="text-[10px] text-slate-500 font-medium italic">Forte volume e exposição operacional. O PA é impactado estruturalmente.</p>
+                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {burstAnalysis.positionClassification.pos3.map((v, i) => (
+                           <div key={i} className="p-4 bg-white border border-slate-100 rounded-2xl shadow-sm hover:border-rose-200 transition-all">
+                              <p className="text-sm font-black text-slate-800 uppercase mb-2">{v.name}</p>
+                              <div className="flex justify-between items-end">
+                                 <div>
+                                    <p className="text-[8px] font-black text-slate-400 uppercase">Rajada</p>
+                                    <p className="text-xs font-black text-rose-600">{v.burstRate.toFixed(1)}%</p>
+                                 </div>
+                                 <Badge className="bg-rose-500/10 text-rose-600 border-none text-[9px] font-black">OPERACIONAL</Badge>
+                              </div>
+                           </div>
+                        ))}
+                     </div>
+                   </div>
+
+                   {/* Resumo Estratégico GPD */}
+                   <div className="bg-slate-900 rounded-[2rem] p-8 text-white relative overflow-hidden">
+                      <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/20 blur-[100px] -mr-32 -mt-32" />
+                      <div className="relative z-10 space-y-4">
+                         <h4 className="text-xl font-black uppercase text-indigo-400">Síntese Estratégica</h4>
+                         <p className="text-xs text-slate-400 leading-relaxed font-medium">
+                            A performance não é uniforme. Colaboradores na <strong>Posição 3</strong> (Caixa) não devem ser comparados em PA diretamente com a <strong>Posição 2</strong> sem descontar o impacto da rajada. Se um híbrido subir para a Posição 2 e não aumentar seu PA, o problema é execução; se o PA subir, o problema anterior era puramente estrutural.
+                         </p>
+                      </div>
+                   </div>
+                 </div>
+               )}
 
               {/* ── PRESSÃO × QUALIDADE ── */}
               {id === "pressao_pa" && (

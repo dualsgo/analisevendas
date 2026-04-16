@@ -5,8 +5,6 @@ import { useState } from "react";
 import { UploadZone } from "@/components/UploadZone";
 import { SalesSummary } from "@/components/SalesSummary";
 import { UploadDiagnosis } from "@/components/UploadDiagnosis";
-import { Toaster } from "@/components/ui/toaster";
-import { SidebarProvider } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
 import { Loader2, LayoutDashboard, ArrowRight } from "lucide-react";
 import { Header } from "@/components/Header";
@@ -31,7 +29,6 @@ export default function Home() {
   } = useSalesProcessor();
 
   return (
-    <SidebarProvider>
       <main className="h-screen w-full bg-slate-50 font-body flex flex-col overflow-hidden">
         <Header 
           status={processorStatus as any} 
@@ -161,8 +158,6 @@ export default function Home() {
             )}
           </AnimatePresence>
         </div>
-        <Toaster />
       </main>
-    </SidebarProvider>
   );
 }

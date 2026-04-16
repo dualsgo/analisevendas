@@ -7,6 +7,9 @@ export const metadata: Metadata = {
   description: 'Gestão Estratégica de Vendas, Adicionais e Trocas',
 };
 
+import { SidebarProvider } from "@/components/ui/sidebar";
+import { Toaster } from "@/components/ui/toaster";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -19,7 +22,12 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
       </head>
-      <body className="font-body antialiased bg-slate-50">{children}</body>
+      <body className="font-body antialiased bg-slate-50">
+        <SidebarProvider>
+          {children}
+          <Toaster />
+        </SidebarProvider>
+      </body>
     </html>
   );
 }

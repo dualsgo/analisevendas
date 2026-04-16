@@ -281,8 +281,12 @@ export function ProductivityDiagnostic({ data }: ProductivityDiagnosticProps) {
     });
 
     // ── 1.3 SUGESTÃO DE ALOCAÇÃO POR PERFIL (ENGINE) ────────────────────────
-    const vnfThreshold = totals.vNF / (Object.keys(operatorsClosing).length || 1); // Média de venda/pessoa
-    const paThreshold = aggregateClosingItens / (totals.closingCupons || 1); // Média de PA
+    // Cálculos locais para evitar ReferenceError
+    const totalVNF = sales.reduce((acc, s) => acc + (parseFloat(s.vNF) || 0), 0);
+    const totalCupons = sales.length;
+    const totalItens = sales.reduce((acc, s) => acc + (parseFloat(s.itens_qtd) || 0), 0);
+    const vnfThreshold = totalCupons > 0 ? totalVNF / (Object.keys(vendorBurstStats).length || 1) : 0;
+    const paThreshold = totalCupons > 0 ? totalItens / totalCupons : 0;
 
     const allocationSuggestions = vendorRanking.map(v => {
       // Usar a melhor métrica disponível (global ou closing)
@@ -1448,6 +1452,21 @@ export function ProductivityDiagnostic({ data }: ProductivityDiagnosticProps) {
                                           </div>
                                        </div>
                                     ))}
+                               </div>
+                               
+                               <div className="pt-2 border-t border-slate-100">
+                                  <p className="text-[9px] font-black uppercase text-slate-400 mb-2">Cupons Fragmentados (Destaque PA=1)</p>
+                                  <div className="grid grid-cols-2 gap-2">
+                                     {sales
+                                       .filter(s => s.vendedor === v.name && parseFloat(s.itens_qtd) === 1)
+                                       .slice(0, 10)
+                                       .map((s, sIdx) => (
+                                          <div key={sIdx} className="flex justify-between items-center p-2 bg-rose-50/50 rounded-lg border border-rose-100/50">
+                                             <span className="text-[9px] font-bold text-slate-500">{format(parseISO(s.dhEmi), "dd/MM HH:mm")}</span>
+                                             <span className="text-[10px] font-black text-rose-600">{fmtBRL(parseFloat(s.vNF))}</span>
+                                          </div>
+                                       ))}
+                                  </div>
                                </div>
                             </div>
                           )}

@@ -24,8 +24,8 @@ interface OperationalRhythmProps {
 }
 
 const DAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
-const SLOT_MINUTES = 30;
-const SLOTS_PER_DAY = Math.ceil((22 - 9) * 60 / SLOT_MINUTES); // 09h–22h = 26 slots
+const SLOT_MINUTES = 10;
+const SLOTS_PER_DAY = Math.ceil((22 - 9) * 60 / SLOT_MINUTES); // 09h–22h = 78 slots
 
 function toSlotKey(dhEmi: string): string | null {
   try {

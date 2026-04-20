@@ -58,28 +58,18 @@ interface ConsolidatedReportProps {
   vinculos: VinculoTroca[];
 }
 
-// Grupos de Afinidade para Comparação Justa
-const GROUPS: Record<string, string> = {
-  "RENATA": "Vendedores",
-  "BARBOSA": "Vendedores",
-  "LUIZ": "Vendedores",
-  "CAREN": "Vendedores",
-  "BIANCA": "Vendedores",
-  "ERIKA": "Apoio Venda",
-  "LUIZA": "Apoio Venda",
-  "CAROL": "Apoio Venda",
-  "ALINE": "Apoio Operação",
-  "THAIS": "Apoio Operação",
-  "LIDI": "Apoio Operação",
-  "RAFA": "Aprendiz"
-};
+// Removido mapeamento fixo de grupos. Agora a separação é dinâmica por faixa de volume de cupons.
+const COUPON_RANGES = [
+  { id: "1-10", label: "Volume Baixo (1-10)", min: 1, max: 10, color: "bg-slate-100 text-slate-600" },
+  { id: "11-30", label: "Volume Médio (11-30)", min: 11, max: 30, color: "bg-sky-100 text-sky-700" },
+  { id: "31-60", label: "Volume Alto (31-60)", min: 31, max: 60, color: "bg-indigo-100 text-indigo-700" },
+  { id: "61+", label: "Volume Crítico (61+)", min: 61, max: 10000, color: "bg-rose-100 text-rose-700" }
+];
 
-const GROUP_COLORS: Record<string, string> = {
-  "Vendedores": "bg-orange-50/40",
-  "Apoio Venda": "bg-sky-50/40",
-  "Apoio Operação": "bg-emerald-50/40",
-  "Aprendiz": "bg-slate-50/40"
-};
+function getCouponRangeLabel(count: number) {
+  const range = COUPON_RANGES.find(r => count >= r.min && count <= r.max);
+  return range ? range.label : "Nenhum";
+}
 
 
 
@@ -113,7 +103,7 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
     vendorNames.forEach(name => {
       vendors[name] = {
         name,
-        group: GROUPS[name] || "Outros",
+        group: "",
         base: { venda: 0, cupons: 0, itens: 0, ident: 0 },
         extra: { venda: 0, cupons: 0, itens: 0, ident: 0 },
         troca: { venda: 0, itens: 0, ident: 0 },
@@ -205,8 +195,14 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
         conv: v.pickupsAtendidas > 0 ? (v.adicionaisFeitos / v.pickupsAtendidas) * 100 : 0
       };
 
+      const range = COUPON_RANGES.find(r => totalCupons >= r.min && totalCupons <= r.max);
+      const groupLabel = range ? range.label : "Nenhum";
+      const groupColor = range ? range.color : "bg-white";
+
       return {
         ...v,
+        group: groupLabel,
+        groupColor: groupColor,
         current: { venda: totalVenda, cupons: totalCupons, itens: totalItens },
         metrics,
         deltas: {
@@ -281,7 +277,7 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
 
   const handlePrint = () => window.print();
 
-  const groupsAvailable = ["Vendedores", "Apoio Venda", "Apoio Operação", "Aprendiz"];
+  const groupsAvailable = COUPON_RANGES.map(r => r.label);
 
   return (
     <div className={cn(
@@ -314,7 +310,7 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
           </div>;
           {/* Novo Filtro de Grupo */}
           <div className="flex flex-col gap-1.5 mr-4">
-            <Label className="text-[9px] font-black uppercase text-slate-400 px-1">Filtrar Perfil</Label>
+            <Label className="text-[9px] font-black uppercase text-slate-400 px-1">Faixa de Volume</Label>
             <Select value={selectedGroup} onValueChange={setSelectedGroup}>
               <SelectTrigger className="h-9 w-[180px] rounded-xl border-slate-200 bg-white font-black text-[10px] uppercase">
                 <div className="flex items-center gap-2">
@@ -323,7 +319,7 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
                 </div>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all" className="text-xs font-bold uppercase">Todos os Perfis</SelectItem>
+                <SelectItem value="all" className="text-xs font-bold uppercase">Todas as Faixas</SelectItem>
                 {groupsAvailable.map(g => (
                   <SelectItem key={g} value={g} className="text-xs font-bold uppercase">{g}</SelectItem>
                 ))}
@@ -400,7 +396,7 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
               const isAbovePA = v.metrics.pa >= v.groupAverages.pa;
               const isAboveTKM = v.metrics.tkm >= v.groupAverages.tkm;
               const isAboveIdent = v.metrics.ident >= v.groupAverages.ident;
-              const rowColor = GROUP_COLORS[v.group] || "bg-white";
+              const rowColor = v.groupColor || "bg-white";
 
               return (
                 <TableRow 

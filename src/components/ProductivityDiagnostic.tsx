@@ -635,7 +635,7 @@ export function ProductivityDiagnostic({ data }: ProductivityDiagnosticProps) {
     const TRANSACTIONAL_TIME = 3; // minutos
 
     // Por slot de 30 min, calcular demanda vs capacidade
-    const SLOT_MIN = 30;
+    const SLOT_MIN = 10;
     const byDaySlot: Record<string, Record<string, { vendedores: Set<string>; cupons: number; pa1: number; paMulti: number }>> = {};
 
     sales.forEach((s) => {
@@ -703,7 +703,7 @@ export function ProductivityDiagnostic({ data }: ProductivityDiagnosticProps) {
   // Compara indicadores de cada colaborador em slots sob pressão vs slots normais
   const peakPerformance = useMemo(() => {
     // Primeiro: calcular pressão de cada slot por dia (cupons/vendedores)
-    const SLOT_MIN = 30;
+    const SLOT_MIN = 10;
     const slotPressure: Record<string, Record<string, { cupons: number; vendedores: Set<string> }>> = {};
 
     sales.forEach((s) => {

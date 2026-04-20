@@ -12,7 +12,8 @@ import {
 } from "recharts";
 import {
   Activity, Users, AlertTriangle, Zap, TrendingDown,
-  TrendingUp, Info, Flame, UserX, Timer, ChevronDown, ChevronUp
+  TrendingUp, Info, Flame, UserX, Timer, ChevronDown, ChevronUp,
+  Brain, Target, ArrowRight
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { parseISO, getDay, getHours, getMinutes, format } from "date-fns";
@@ -41,7 +42,7 @@ function toDayKey(dhEmi: string): string | null {
   try { return format(parseISO(dhEmi), "yyyy-MM-dd"); } catch { return null; }
 }
 
-const SECTION_IDS = ["concorrencia", "turnos", "almoco", "ritmo", "ondas", "morto", "qualidade"] as const;
+const SECTION_IDS = ["concorrencia", "turnos", "almoco", "ritmo", "ondas", "morto", "qualidade", "causa_raiz"] as const;
 type SectionId = typeof SECTION_IDS[number];
 
 export function OperationalRhythm({ data }: OperationalRhythmProps) {
@@ -241,8 +242,8 @@ export function OperationalRhythm({ data }: OperationalRhythmProps) {
 
   // ── 5. Qualidade nos gargalos ──────────────────────────────────────────────
   const qualidadeComparacao = useMemo(() => {
-    const gargalo = { vNF: 0, cupons: 0, desconto: 0, cpf: 0 };
-    const normal = { vNF: 0, cupons: 0, desconto: 0, cpf: 0 };
+    const gargalo = { vNF: 0, cupons: 0, desconto: 0, cpf: 0, itens: 0 };
+    const normal = { vNF: 0, cupons: 0, desconto: 0, cpf: 0, itens: 0 };
     for (const s of sales) {
       const slot = toSlotKey(s.dhEmi);
       const day = toDayKey(s.dhEmi);
@@ -255,23 +256,149 @@ export function OperationalRhythm({ data }: OperationalRhythmProps) {
       bucket.vNF += parseFloat(s.vNF) || 0;
       if (parseFloat(s.desconto_total) > 0) bucket.desconto++;
       if (s.cpf_cnpj_dest) bucket.cpf++;
+      bucket.itens += parseFloat(s.itens_qtd) || 0;
     }
     const safe = (n: number, d: number) => d > 0 ? +(n / d).toFixed(2) : 0;
     return {
       gargalo: {
         tkm: safe(gargalo.vNF, gargalo.cupons),
+        pa: safe(gargalo.itens, gargalo.cupons),
         pDesconto: gargalo.cupons > 0 ? +((gargalo.desconto / gargalo.cupons) * 100).toFixed(1) : 0,
         pCpf: gargalo.cupons > 0 ? +((gargalo.cpf / gargalo.cupons) * 100).toFixed(1) : 0,
         cupons: gargalo.cupons,
       },
       normal: {
         tkm: safe(normal.vNF, normal.cupons),
+        pa: safe(normal.itens, normal.cupons),
         pDesconto: normal.cupons > 0 ? +((normal.desconto / normal.cupons) * 100).toFixed(1) : 0,
         pCpf: normal.cupons > 0 ? +((normal.cpf / normal.cupons) * 100).toFixed(1) : 0,
         cupons: normal.cupons,
       },
     };
   }, [sales, slotData, limiarGargalo]);
+
+  // ── 6. Diagnóstico de Causa-Raiz por Colaborador ──────────────────────────
+  // Divide o desempenho de cada colaborador em 3 níveis de pressão:
+  //   GARGALO (> limiar): pressão alta, colaborador sobrecarregado
+  //   MÉDIO (0.7x–1x limiar): pressão moderada
+  //   LIVRE (<0.7x limiar): ritmo livre, sem pressão
+  // Se PA/TKM cai só no gargalo → PRESSÃO OPERACIONAL (causa externa)
+  // Se PA/TKM é baixo até no ritmo livre → HABILIDADE/ENGAJAMENTO (causa interna)
+  const causaRaizDiagnostico = useMemo(() => {
+    type Bucket = { cupons: number; vNF: number; itens: number; cpf: number };
+    const byVendor: Record<string, { gargalo: Bucket; medio: Bucket; livre: Bucket }> = {};
+
+    for (const s of sales) {
+      if (!s.vendedor || s.vendedor === "COLABORADOR NÃO IDENTIFICADO") continue;
+      const slot = toSlotKey(s.dhEmi);
+      const day = toDayKey(s.dhEmi);
+      if (!slot || !day) continue;
+      const cell = slotData[day]?.[slot];
+      if (!cell) continue;
+
+      const pressao = cell.cupons / (cell.vendedores.size || 1);
+      const limMedio = limiarGargalo * 0.7;
+
+      const nivel: "gargalo" | "medio" | "livre" =
+        pressao > limiarGargalo ? "gargalo" :
+        pressao > limMedio ? "medio" : "livre";
+
+      if (!byVendor[s.vendedor]) {
+        byVendor[s.vendedor] = {
+          gargalo: { cupons: 0, vNF: 0, itens: 0, cpf: 0 },
+          medio: { cupons: 0, vNF: 0, itens: 0, cpf: 0 },
+          livre: { cupons: 0, vNF: 0, itens: 0, cpf: 0 },
+        };
+      }
+
+      const bucket = byVendor[s.vendedor][nivel];
+      bucket.cupons++;
+      bucket.vNF += parseFloat(s.vNF) || 0;
+      bucket.itens += parseFloat(s.itens_qtd) || 0;
+      if (s.cpf_cnpj_dest) bucket.cpf++;
+    }
+
+    const safe = (n: number, d: number) => d > 0 ? n / d : null as null | number;
+
+    return Object.entries(byVendor)
+      .map(([nome, buckets]) => {
+        const g = buckets.gargalo;
+        const m = buckets.medio;
+        const l = buckets.livre;
+
+        const paGargalo = safe(g.itens, g.cupons);
+        const paMedio = safe(m.itens, m.cupons);
+        const paLivre = safe(l.itens, l.cupons);
+
+        const tkmGargalo = safe(g.vNF, g.cupons);
+        const tkmMedio = safe(m.vNF, m.cupons);
+        const tkmLivre = safe(l.vNF, l.cupons);
+
+        const cpfGargalo = g.cupons > 0 ? (g.cpf / g.cupons) * 100 : null;
+        const cpfLivre = l.cupons > 0 ? (l.cpf / l.cupons) * 100 : null;
+
+        // Causa-raiz: comparar PA/TKM no livre vs gargalo
+        // Se no ritmo livre já é baixo → causa interna
+        // Global PA (todos os níveis combinados)
+        const totalCupons = g.cupons + m.cupons + l.cupons;
+        const totalItens = g.itens + m.itens + l.itens;
+        const paGlobal = totalCupons > 0 ? totalItens / totalCupons : 0;
+
+        // Determinar causa–raiz
+        let causaLabel: "pressao" | "misto" | "interno" | "desconhecido" = "desconhecido";
+        let causaScore = 0; // positivo = mais pressao, negativo = mais interno
+        let causaRazao = "";
+
+        if (paLivre !== null && paGargalo !== null) {
+          const deltaPressao = paLivre - paGargalo; // quanto cai no gargalo
+          const paLivreRelGlobal = paLivre / (paGlobal || 1);
+
+          if (deltaPressao > 0.5 && paLivreRelGlobal >= 0.9) {
+            // Boa performance no livre, queda no gargalo → pressão operacional
+            causaLabel = "pressao";
+            causaScore = deltaPressao;
+            causaRazao = `PA cai ${deltaPressao.toFixed(1)} pts no gargalo mas fica em ${paLivre.toFixed(1)} no ritmo livre.`;
+          } else if (paLivreRelGlobal < 0.8 && paLivre < 1.8) {
+            // Baixo até no livre → causa interna
+            causaLabel = "interno";
+            causaScore = -(1 - paLivreRelGlobal);
+            causaRazao = `PA de ${paLivre.toFixed(1)} mesmo no ritmo livre (sem pressão de fila).`;
+          } else {
+            causaLabel = "misto";
+            causaRazao = `VA livre: PA ${paLivre.toFixed(1)}, em gargalo: PA ${paGargalo.toFixed(1)}.`;
+          }
+        } else if (paGlobal < 1.5) {
+          causaLabel = "interno";
+          causaRazao = "Poucos dados por nível de pressão, mas PA global abaixo de 1.5.";
+        }
+
+        return {
+          nome,
+          totalCupons,
+          paGlobal: +paGlobal.toFixed(2),
+          paGargalo: paGargalo !== null ? +paGargalo.toFixed(2) : null,
+          paMedio: paMedio !== null ? +paMedio.toFixed(2) : null,
+          paLivre: paLivre !== null ? +paLivre.toFixed(2) : null,
+          tkmGargalo: tkmGargalo !== null ? +tkmGargalo.toFixed(2) : null,
+          tkmMedio: tkmMedio !== null ? +tkmMedio.toFixed(2) : null,
+          tkmLivre: tkmLivre !== null ? +tkmLivre.toFixed(2) : null,
+          cpfGargalo: cpfGargalo !== null ? +cpfGargalo.toFixed(1) : null,
+          cpfLivre: cpfLivre !== null ? +cpfLivre.toFixed(1) : null,
+          cuponsGargalo: g.cupons,
+          cuponsLivre: l.cupons,
+          causaLabel,
+          causaScore,
+          causaRazao,
+        };
+      })
+      .filter(v => v.totalCupons >= 5)
+      .sort((a, b) => {
+        // Ordenar: internos primeiro (mais actionable), depois mistos, depois pressão
+        const order = { interno: 0, misto: 1, pressao: 2, desconhecido: 3 };
+        return order[a.causaLabel] - order[b.causaLabel];
+      });
+  }, [sales, slotData, limiarGargalo]);
+
 
   const SLP_CODES = ['5135238', '5135269', '5135270', '5135273', '5146458', '5146469', '5146470', '5146471', '5146472', '5146473', '5146474', '5146475', '5146476', '5146501', '5146504', '5146505', '5141894', '5141895', '5141896', '5141897', '5141898', '5141899', '5141900', '5141902', '5141903', '5141904', '5141905', '5141907', '5141909', '5141910', '5141911', '5141912', '5141913', '5141914', '5141915', '5141916', '5141917', '5141920', '5141949', '5141978', '5140469', '5140475', '5140476', '5140477', '5140478', '5140479', '5146477', '5146478', '5146502', '5146503'];
   const SOCIAL_CODES = ['5057181', '5055875', '5135601', '5129270', '5129271', '5129247', '5129262', '5122642', '5122641', '5135612', '5122639', '5122638', '5133676', '5113644', '5113641', '5113642', '5113643', '5129267', '5129255', '5143422', '5139528', '5143423', '5145833', '5139527', '5147797', '5147796', '5145834', '5079753', '5079752', '5106673', '5106671', '5106674', '5106672', '5088519', '5097336', '5097335', '5011918', '5136558'];
@@ -400,6 +527,7 @@ export function OperationalRhythm({ data }: OperationalRhythmProps) {
     { id: "ondas", label: "Ondas de Demanda Recorrentes", icon: Flame, color: "text-orange-500" },
     { id: "morto", label: "Ausências em Horário de Pico", icon: UserX, color: "text-rose-600" },
     { id: "qualidade", label: "Impacto do Gargalo na Qualidade", icon: TrendingDown, color: "text-amber-600" },
+    { id: "causa_raiz", label: "Diagnóstico de Causa-Raiz por Colaborador", icon: Brain, color: "text-violet-600" },
   ];
 
   if (sales.length === 0) {
@@ -843,13 +971,19 @@ export function OperationalRhythm({ data }: OperationalRhythmProps) {
                       Se o seu <strong>TKM</strong> cai muito no gargalo, você está perdendo vendas de maior valor por falta de tempo para argumentar.
                     </p>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <QualCard
                       label="Ticket Médio (TKM)"
                       gargalo={fmtBRL(qualidadeComparacao.gargalo.tkm)}
                       normal={fmtBRL(qualidadeComparacao.normal.tkm)}
                       delta={qualidadeComparacao.gargalo.tkm - qualidadeComparacao.normal.tkm}
                       isCurrency
+                    />
+                    <QualCard
+                      label="PA (Peças/Atend.)"
+                      gargalo={qualidadeComparacao.gargalo.pa.toFixed(2)}
+                      normal={qualidadeComparacao.normal.pa.toFixed(2)}
+                      delta={qualidadeComparacao.gargalo.pa - qualidadeComparacao.normal.pa}
                     />
                     <QualCard
                       label="% de Desconto Aplicado"
@@ -879,7 +1013,184 @@ export function OperationalRhythm({ data }: OperationalRhythmProps) {
                   </div>
                 </div>
               )}
+              {/* ── Causa-Raiz ── */}
+              {id === "causa_raiz" && (
+                <div className="space-y-4">
+                  <div className="p-4 bg-violet-50 border border-violet-100 rounded-xl flex items-start gap-2">
+                    <Brain className="w-5 h-5 text-violet-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-xs text-violet-800 font-black uppercase tracking-tight mb-1">
+                        Como lemos a Causa-Raiz?
+                      </p>
+                      <p className="text-[11px] text-violet-700 leading-relaxed">
+                        Cada colaborador é avaliado em <strong>3 contextos de pressão</strong>:
+                        {" "}<span className="text-rose-600 font-black">Gargalo</span> (alta demanda),
+                        {" "}<span className="text-amber-600 font-black">Moderado</span> e
+                        {" "}<span className="text-emerald-600 font-black">Ritmo Livre</span> (baixa pressão).
+                        {" "}Se PA/TKM é bom no livre mas cai no gargalo → <strong>causa operacional</strong> (estrutural).
+                        {" "}Se PA/TKM é baixo mesmo no ritmo livre → <strong>causa comportamental</strong> (habilidade/engajamento).
+                      </p>
+                    </div>
+                  </div>
 
+                  {/* Legendas de causa */}
+                  <div className="flex flex-wrap gap-3">
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-rose-50 border border-rose-100">
+                      <div className="w-2.5 h-2.5 rounded-full bg-rose-500" />
+                      <span className="text-[10px] font-black text-rose-700 uppercase">Causa Operacional</span>
+                      <span className="text-[10px] text-rose-500">— queda só no gargalo, bom no livre</span>
+                    </div>
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-50 border border-amber-100">
+                      <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                      <span className="text-[10px] font-black text-amber-700 uppercase">Padrão Misto</span>
+                      <span className="text-[10px] text-amber-500">— pressão contribui mas não é único fator</span>
+                    </div>
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-violet-50 border border-violet-100">
+                      <div className="w-2.5 h-2.5 rounded-full bg-violet-500" />
+                      <span className="text-[10px] font-black text-violet-700 uppercase">Causa Interna</span>
+                      <span className="text-[10px] text-violet-500">— baixo desempenho mesmo sem pressão</span>
+                    </div>
+                  </div>
+
+                  {/* Cards por colaborador */}
+                  <div className="space-y-3">
+                    {causaRaizDiagnostico.length === 0 ? (
+                      <div className="py-10 text-center text-slate-400">
+                        <Brain className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                        <p className="text-sm font-bold">Dados insuficientes para diagnóstico</p>
+                      </div>
+                    ) : causaRaizDiagnostico.map((v, i) => {
+                      const causaConfig = {
+                        pressao: { bg: "bg-rose-50 border-rose-200", badge: "bg-rose-100 text-rose-700", label: "PRESSÃO OPERACIONAL", icon: "🏭" },
+                        misto:   { bg: "bg-amber-50 border-amber-200", badge: "bg-amber-100 text-amber-700", label: "PADRÃO MISTO", icon: "⚡" },
+                        interno: { bg: "bg-violet-50 border-violet-200", badge: "bg-violet-100 text-violet-700", label: "CAUSA INTERNA", icon: "💡" },
+                        desconhecido: { bg: "bg-slate-50 border-slate-200", badge: "bg-slate-100 text-slate-500", label: "SEM DADOS", icon: "❓" },
+                      }[v.causaLabel];
+
+                      return (
+                        <div key={i} className={cn("rounded-2xl border p-4 space-y-4 transition-all hover:shadow-sm", causaConfig.bg)}>
+                          {/* Header */}
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-sm font-black text-slate-800 uppercase">{v.nome}</span>
+                                <span className={cn("text-[9px] font-black px-2 py-0.5 rounded-full", causaConfig.badge)}>
+                                  {causaConfig.icon} {causaConfig.label}
+                                </span>
+                              </div>
+                              <p className="text-[10px] text-slate-500 font-medium italic leading-snug max-w-lg">{v.causaRazao}</p>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <p className="text-[8px] font-black text-slate-400 uppercase">Total</p>
+                              <p className="text-sm font-black text-slate-600">{v.totalCupons} NFs</p>
+                            </div>
+                          </div>
+
+                          {/* Grid de PA por nível de pressão */}
+                          <div>
+                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">PA (Peças/Atend.) por Nível de Pressão</p>
+                            <div className="grid grid-cols-3 gap-2">
+                              {/* GARGALO */}
+                              <div className="text-center p-3 bg-rose-100/60 rounded-xl">
+                                <p className="text-[8px] font-black text-rose-500 uppercase mb-1">Gargalo</p>
+                                <p className={cn("text-xl font-black", v.paGargalo !== null ? (v.paGargalo < 1.5 ? "text-rose-600" : v.paGargalo >= 2.5 ? "text-emerald-600" : "text-amber-600") : "text-slate-300")}>
+                                  {v.paGargalo !== null ? v.paGargalo.toFixed(1) : "—"}
+                                </p>
+                                <p className="text-[8px] text-rose-400 font-bold">{v.cuponsGargalo} NFs</p>
+                              </div>
+                              {/* MÉDIO */}
+                              <div className="text-center p-3 bg-amber-100/60 rounded-xl">
+                                <p className="text-[8px] font-black text-amber-600 uppercase mb-1">Moderado</p>
+                                <p className={cn("text-xl font-black", v.paMedio !== null ? (v.paMedio < 1.5 ? "text-rose-600" : v.paMedio >= 2.5 ? "text-emerald-600" : "text-amber-600") : "text-slate-300")}>
+                                  {v.paMedio !== null ? v.paMedio.toFixed(1) : "—"}
+                                </p>
+                              </div>
+                              {/* LIVRE */}
+                              <div className="text-center p-3 bg-emerald-100/60 rounded-xl">
+                                <p className="text-[8px] font-black text-emerald-600 uppercase mb-1">Ritmo Livre</p>
+                                <p className={cn("text-xl font-black", v.paLivre !== null ? (v.paLivre < 1.5 ? "text-rose-600" : v.paLivre >= 2.5 ? "text-emerald-600" : "text-amber-600") : "text-slate-300")}>
+                                  {v.paLivre !== null ? v.paLivre.toFixed(1) : "—"}
+                                </p>
+                                <p className="text-[8px] text-emerald-500 font-bold">{v.cuponsLivre} NFs</p>
+                              </div>
+                            </div>
+
+                            {/* Barra visual PA Livre → Gargalo */}
+                            {v.paLivre !== null && v.paGargalo !== null && (
+                              <div className="mt-2 flex items-center gap-2">
+                                <span className="text-[9px] text-emerald-600 font-black w-8 text-right">{v.paLivre.toFixed(1)}</span>
+                                <div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden relative">
+                                  <div
+                                    className="h-full bg-gradient-to-r from-emerald-500 to-rose-500 rounded-full"
+                                    style={{ width: `${Math.min((v.paLivre / 5) * 100, 100)}%` }}
+                                  />
+                                  <div
+                                    className="absolute top-0 h-full bg-rose-500/30 rounded-r-full border-l-2 border-rose-500"
+                                    style={{
+                                      left: `${Math.min((v.paGargalo / 5) * 100, 100)}%`,
+                                      width: `${Math.max(0, Math.min((v.paLivre / 5) * 100 - (v.paGargalo / 5) * 100, 100))}%`
+                                    }}
+                                  />
+                                </div>
+                                <span className="text-[9px] text-rose-500 font-black w-8">{v.paGargalo.toFixed(1)}</span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* TKM por nível */}
+                          <div className="grid grid-cols-3 gap-2 pt-2 border-t border-black/5">
+                            <div className="text-center">
+                              <p className="text-[8px] font-black text-slate-400 uppercase">TKM Gargalo</p>
+                              <p className="text-xs font-black text-rose-500">{v.tkmGargalo !== null ? fmtBRL(v.tkmGargalo) : "—"}</p>
+                            </div>
+                            <div className="text-center">
+                              <p className="text-[8px] font-black text-slate-400 uppercase">TKM Moderado</p>
+                              <p className="text-xs font-black text-amber-600">{v.tkmMedio !== null ? fmtBRL(v.tkmMedio) : "—"}</p>
+                            </div>
+                            <div className="text-center">
+                              <p className="text-[8px] font-black text-slate-400 uppercase">TKM Livre</p>
+                              <p className="text-xs font-black text-emerald-600">{v.tkmLivre !== null ? fmtBRL(v.tkmLivre) : "—"}</p>
+                            </div>
+                          </div>
+
+                          {/* CPF por contexto */}
+                          {(v.cpfGargalo !== null || v.cpfLivre !== null) && (
+                            <div className="flex gap-4 pt-1 border-t border-black/5 text-[10px]">
+                              <span className="text-slate-400 font-bold">CPF:</span>
+                              {v.cpfGargalo !== null && <span>Gargalo: <strong className="text-rose-600">{v.cpfGargalo.toFixed(0)}%</strong></span>}
+                              {v.cpfLivre !== null && <span>Livre: <strong className="text-emerald-600">{v.cpfLivre.toFixed(0)}%</strong></span>}
+                            </div>
+                          )}
+
+                          {/* Recomendação contextual */}
+                          <div className={cn(
+                            "p-3 rounded-xl border text-[10px] font-medium leading-relaxed",
+                            v.causaLabel === "pressao" ? "bg-rose-900/5 border-rose-200 text-rose-700" :
+                            v.causaLabel === "interno" ? "bg-violet-900/5 border-violet-200 text-violet-700" :
+                            "bg-amber-900/5 border-amber-200 text-amber-700"
+                          )}>
+                            <div className="flex items-start gap-2">
+                              <ArrowRight className="w-3 h-3 mt-0.5 shrink-0" />
+                              {v.causaLabel === "pressao" && (
+                                <span>Este colaborador tem potencial técnico — <strong>a queda vem da carga operacional</strong>. Prioridade: reposicioná-lo fora do balcão nos horários de gargalo para que possa fazer atendimento consultivo.</span>
+                              )}
+                              {v.causaLabel === "interno" && (
+                                <span>O desempenho é consistentemente baixo <strong>independente da pressão</strong>. Requer capacitação ativa, acompanhamento de atendimento ou revisão de engajamento (meta, feedback, desafios técnicos).</span>
+                              )}
+                              {v.causaLabel === "misto" && (
+                                <span>Há impacto operacional mas o PA livre também tem espaço de melhora. Ação dupla: <strong>reduzir exposição ao gargalo</strong> e trabalhar consultividade no ritmo livre.</span>
+                              )}
+                              {v.causaLabel === "desconhecido" && (
+                                <span>Dados insuficientes por nível de pressão. Acompanhar por mais dias para diagnóstico conclusivo.</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

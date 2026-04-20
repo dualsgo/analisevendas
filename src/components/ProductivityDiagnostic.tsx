@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useCallback } from "react";
 import { DetailedSaleRow } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -51,6 +51,13 @@ import {
   ShieldCheck,
   Flame,
   UserCog,
+  X,
+  Package,
+  User,
+  Search,
+  Cpu,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -73,9 +80,23 @@ const DAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 // ────────────────────────────────────────────────────────────────────────────
 // COMPONENTE PRINCIPAL
 // ────────────────────────────────────────────────────────────────────────────
+// ── BurstEvent type (shared)
+type BurstEvent = {
+  vendor: string;
+  day: string;
+  sales: DetailedSaleRow[];
+  avgInterval: number;
+  avgPA: number;
+  totalValue: number;
+  burstSize: number;
+  startTime: string;
+  endTime: string;
+};
+
 export function ProductivityDiagnostic({ data }: ProductivityDiagnosticProps) {
   const [openSection, setOpenSection] = useState<string>("visao_geral");
   const [expandedVendorBurst, setExpandedVendorBurst] = useState<string | null>(null);
+  const [selectedBurst, setSelectedBurst] = useState<BurstEvent | null>(null);
 
   const sales = useMemo(
     () => data.filter((r) => !r.is_cancelada && r.tpNF === 1 && !r.is_devolucao && r.dhEmi && r.vendedor),
@@ -96,17 +117,6 @@ export function ProductivityDiagnostic({ data }: ProductivityDiagnosticProps) {
       byVendorDay[v][day].push(s);
     });
 
-    type BurstEvent = {
-      vendor: string;
-      day: string;
-      sales: DetailedSaleRow[];
-      avgInterval: number;
-      avgPA: number;
-      totalValue: number;
-      burstSize: number;
-      startTime: string;
-      endTime: string;
-    };
 
     const bursts: BurstEvent[] = [];
     const vendorBurstStats: Record<string, { bursts: number; totalSales: number; salesInBurst: number }> = {};
@@ -988,6 +998,7 @@ export function ProductivityDiagnostic({ data }: ProductivityDiagnosticProps) {
   }
 
   return (
+    <>
     <div className="space-y-4 animate-in fade-in duration-500 pb-20">
       {/* ═══════════════════════════════════════════════════════════════════════
           HERO HEADER COM DIAGNÓSTICO
@@ -1435,56 +1446,39 @@ export function ProductivityDiagnostic({ data }: ProductivityDiagnosticProps) {
 
                           {expandedVendorBurst === v.name && (
                             <div className="mt-2 p-4 bg-white rounded-xl border border-slate-200 space-y-3 animate-in fade-in zoom-in-95 duration-200">
-                               <p className="text-[10px] font-black uppercase text-slate-400">Histórico de Rajadas de {v.name}</p>
+                               <p className="text-[10px] font-black uppercase text-slate-400">Rajadas de {v.name} — clique para detalhar</p>
                                <div className="space-y-2">
                                   {burstAnalysis.bursts
                                     .filter(b => b.vendor === v.name)
-                                    .slice(0, 5)
-                                    .map((b, idx) => (
-                                       <div key={idx} className="flex items-center justify-between p-2 bg-slate-50 rounded-lg">
+                                    .sort((a, b) => b.day.localeCompare(a.day))
+                                    .slice(0, 8)
+                                    .map((b, idx) => {
+                                      const pa1Pct = b.sales.filter(s => parseFloat(s.itens_qtd) === 1).length / b.sales.length * 100;
+                                      const hasAllSingle = pa1Pct === 100;
+                                      return (
+                                        <button
+                                          key={idx}
+                                          onClick={() => setSelectedBurst(b)}
+                                          className={cn(
+                                            "w-full flex items-center justify-between p-3 rounded-xl border text-left transition-all hover:shadow-sm hover:scale-[1.01]",
+                                            hasAllSingle
+                                              ? "bg-rose-50 border-rose-200 hover:border-rose-400"
+                                              : "bg-slate-50 border-slate-200 hover:border-indigo-300"
+                                          )}
+                                        >
                                           <div className="text-[10px]">
-                                             <p className="font-bold text-slate-700">{format(parseISO(b.day), "dd/MM")}</p>
-                                             <p className="text-slate-400">{b.startTime} - {b.endTime}</p>
+                                            <p className="font-black text-slate-700">{format(parseISO(b.day), "dd/MM (EEE)", { locale: ptBR })}</p>
+                                            <p className="text-slate-400">{b.startTime} → {b.endTime}</p>
                                           </div>
-                                          <div className="flex gap-2">
-                                             <Badge variant="outline" className="text-[9px] border-indigo-100 text-indigo-600">{b.burstSize} notas</Badge>
-                                             <Badge variant="outline" className="text-[9px] border-rose-100 text-rose-600">PA {b.avgPA}</Badge>
+                                          <div className="flex gap-2 items-center">
+                                            <Badge variant="outline" className="text-[9px] border-indigo-100 text-indigo-600">{b.burstSize} NFs</Badge>
+                                            <Badge variant="outline" className={cn("text-[9px]", b.avgPA < 1.5 ? "border-rose-200 text-rose-600" : "border-emerald-200 text-emerald-600")}>PA {b.avgPA}</Badge>
+                                            {hasAllSingle && <Badge className="bg-rose-500 text-white text-[8px] border-none">⚠ FILA</Badge>}
+                                            <ArrowRight className="w-3 h-3 text-slate-300" />
                                           </div>
-                                       </div>
-                                    ))}
-                               </div>
-                               
-                               <div className="pt-2 border-t border-slate-100">
-                                  <p className="text-[9px] font-black uppercase text-slate-400 mb-2 flex items-center justify-between">
-                                     <span>Cupons Fragmentados (Destaque PA=1)</span>
-                                     <span className="text-[8px] italic font-medium normal-case">Diferenciando Venda Loja vs Digital</span>
-                                  </p>
-                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                     {sales
-                                       .filter(s => s.vendedor === v.name && parseFloat(s.itens_qtd) === 1)
-                                       .slice(0, 10)
-                                       .map((s, sIdx) => {
-                                          const isDigitalAddon = s.is_retirada_online || s.is_adicional;
-                                          return (
-                                             <div key={sIdx} className={cn(
-                                                "flex flex-col p-2 rounded-lg border",
-                                                isDigitalAddon ? "bg-indigo-50/50 border-indigo-100" : "bg-rose-50/50 border-rose-100/50"
-                                             )}>
-                                                <div className="flex justify-between items-center mb-1">
-                                                   <span className="text-[9px] font-black text-slate-500">{format(parseISO(s.dhEmi), "dd/MM HH:mm")}</span>
-                                                   <span className={cn("text-[10px] font-black", isDigitalAddon ? "text-indigo-600" : "text-rose-600")}>
-                                                      {fmtBRL(parseFloat(s.vNF))}
-                                                   </span>
-                                                </div>
-                                                <div className="flex gap-1">
-                                                   {s.is_retirada_online && <Badge className="bg-indigo-600 text-[7px] h-3 px-1 border-none text-white">RETIRADA</Badge>}
-                                                   {s.is_adicional && <Badge className="bg-amber-500 text-[7px] h-3 px-1 border-none text-white">ADICIONAL DIGITAL</Badge>}
-                                                   {!isDigitalAddon && <Badge className="bg-rose-400 text-[7px] h-3 px-1 border-none text-white">VENDA LOJA</Badge>}
-                                                </div>
-                                             </div>
-                                          );
-                                       })}
-                                  </div>
+                                        </button>
+                                      );
+                                    })}
                                </div>
                             </div>
                           )}
@@ -1496,50 +1490,67 @@ export function ProductivityDiagnostic({ data }: ProductivityDiagnosticProps) {
                   {/* Últimas rajadas detectadas */}
                   <div className="pb-4 border-b border-slate-100">
                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">
-                      💥 Últimas Rajadas Detectadas
+                      💥 Últimas Rajadas Detectadas — clique para ver detalhe
                     </p>
-                    <div className="max-h-[350px] overflow-y-auto space-y-2">
+                    <div className="max-h-[420px] overflow-y-auto space-y-2 pr-1">
                       {burstAnalysis.bursts
                         .sort((a, b) => b.day.localeCompare(a.day))
-                        .slice(0, 15)
-                        .map((b, i) => (
-                          <div
-                            key={i}
-                            className="p-3 bg-white border border-slate-100 rounded-xl flex items-center justify-between hover:bg-slate-50 transition-colors"
-                          >
-                            <div className="space-y-1">
-                              <p className="text-xs font-black text-slate-800 uppercase">
-                                {b.vendor}
-                              </p>
-                              <p className="text-[10px] text-slate-400 font-bold">
-                                {format(parseISO(b.day), "dd/MM (EEE)", { locale: ptBR })} •{" "}
-                                {b.startTime}–{b.endTime}
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Badge
-                                variant="outline"
-                                className="text-[9px] font-black border-indigo-100 text-indigo-600"
-                              >
-                                {b.burstSize} vendas
-                              </Badge>
-                              <Badge
-                                variant="outline"
-                                className="text-[9px] font-black border-slate-100 text-slate-500"
-                              >
-                                ~{b.avgInterval}min
-                              </Badge>
-                              <Badge
-                                className={cn(
-                                  "text-[9px] font-black border-none",
-                                  b.avgPA < 1.5 ? "bg-rose-100 text-rose-700" : "bg-emerald-100 text-emerald-700"
+                        .slice(0, 20)
+                        .map((b, i) => {
+                          const pa1Pct = b.sales.filter(s => parseFloat(s.itens_qtd) === 1).length / b.sales.length * 100;
+                          const allSingle = pa1Pct === 100;
+                          const hasCpf = b.sales.some(s => !!s.cpf_cnpj_dest);
+                          return (
+                            <button
+                              key={i}
+                              onClick={() => setSelectedBurst(b)}
+                              className={cn(
+                                "w-full p-3 rounded-xl flex items-center justify-between text-left transition-all hover:shadow-md hover:scale-[1.005]",
+                                allSingle
+                                  ? "bg-rose-50 border border-rose-200 hover:border-rose-400"
+                                  : "bg-white border border-slate-100 hover:border-indigo-300"
+                              )}
+                            >
+                              <div className="space-y-1">
+                                <p className="text-xs font-black text-slate-800 uppercase">
+                                  {b.vendor}
+                                </p>
+                                <p className="text-[10px] text-slate-400 font-bold">
+                                  {format(parseISO(b.day), "dd/MM (EEE)", { locale: ptBR })} •{" "}
+                                  {b.startTime}–{b.endTime}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {allSingle && (
+                                  <Badge className="bg-rose-500 text-white text-[8px] font-black border-none">
+                                    ⚠ POSSÍVEL FILA
+                                  </Badge>
                                 )}
-                              >
-                                PA {b.avgPA}
-                              </Badge>
-                            </div>
-                          </div>
-                        ))}
+                                <Badge
+                                  variant="outline"
+                                  className="text-[9px] font-black border-indigo-100 text-indigo-600"
+                                >
+                                  {b.burstSize} NFs
+                                </Badge>
+                                <Badge
+                                  variant="outline"
+                                  className="text-[9px] font-black border-slate-100 text-slate-500"
+                                >
+                                  ~{b.avgInterval}min
+                                </Badge>
+                                <Badge
+                                  className={cn(
+                                    "text-[9px] font-black border-none",
+                                    b.avgPA < 1.5 ? "bg-rose-100 text-rose-700" : "bg-emerald-100 text-emerald-700"
+                                  )}
+                                >
+                                  PA {b.avgPA}
+                                </Badge>
+                                <ArrowRight className="w-3 h-3 text-slate-300" />
+                              </div>
+                            </button>
+                          );
+                        })}
                     </div>
                   </div>
 
@@ -2369,6 +2380,371 @@ export function ProductivityDiagnostic({ data }: ProductivityDiagnosticProps) {
               <p className="text-sm font-medium text-slate-200 pt-1">{rec}</p>
             </div>
           ))}
+        </div>
+      </div>
+    </div>
+
+      {/* ═══ MODAL DE DETALHE DA RAJADA ═══ */}
+      {selectedBurst && (
+        <BurstDetailModal
+          burst={selectedBurst}
+          onClose={() => setSelectedBurst(null)}
+        />
+      )}
+    </>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// MODAL DE DETALHE DA RAJADA
+// ────────────────────────────────────────────────────────────────────────────
+
+function BurstDetailModal({
+  burst,
+  onClose,
+}: {
+  burst: {
+    vendor: string;
+    day: string;
+    sales: DetailedSaleRow[];
+    avgInterval: number;
+    avgPA: number;
+    totalValue: number;
+    burstSize: number;
+    startTime: string;
+    endTime: string;
+  };
+  onClose: () => void;
+}) {
+  const fmtBRL = (v: number) =>
+    v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+  // Ordenar vendas por horário
+  const sortedSales = [...burst.sales].sort((a, b) => a.dhEmi.localeCompare(b.dhEmi));
+
+  // Heurística: é fila de autoatendimento?
+  // Critérios para identificar "atendimento de fila" vs consultivo:
+  //   - Intervalo < 2 min entre NFs
+  //   - PA = 1 (item único)
+  //   - Sem CPF cadastrado
+  //   - Valor baixo (< R$80)
+  const classifySale = (s: DetailedSaleRow, prevSale: DetailedSaleRow | null) => {
+    const pa = parseFloat(s.itens_qtd) || 0;
+    const vNF = parseFloat(s.vNF) || 0;
+    const hasCpf = !!s.cpf_cnpj_dest;
+    const hasDiscount = parseFloat(s.desconto_total) > 0;
+    const isDigital = s.is_retirada_online || s.is_adicional;
+
+    let intervalSec = null as number | null;
+    if (prevSale) {
+      intervalSec = Math.abs(
+        (parseISO(s.dhEmi).getTime() - parseISO(prevSale.dhEmi).getTime()) / 1000
+      );
+    }
+
+    let score = 0; // 0 = fila/transacional, positivo = consultivo
+    if (pa >= 3) score += 3;
+    else if (pa >= 2) score += 2;
+    else score -= 2; // PA=1 é forte indicativo de fila
+
+    if (hasCpf) score += 2;
+    if (hasDiscount) score += 1;
+    if (vNF > 120) score += 2;
+    else if (vNF < 50) score -= 1;
+    if (isDigital) score += 2; // retirada digital: justificado ser PA=1
+
+    if (intervalSec !== null) {
+      if (intervalSec < 90) score -= 3; // < 1.5 min: quase impossível ser consultivo
+      else if (intervalSec < 180) score -= 1;
+    }
+
+    const label = score >= 2
+      ? "consultivo"
+      : score >= 0
+      ? "misto"
+      : "fila";
+
+    return { score, label, intervalSec };
+  };
+
+  // Estatísticas da rajada
+  const totalVal = sortedSales.reduce((a, s) => a + (parseFloat(s.vNF) || 0), 0);
+  const avgPA = sortedSales.reduce((a, s) => a + (parseFloat(s.itens_qtd) || 0), 0) / sortedSales.length;
+  const cpfCount = sortedSales.filter(s => !!s.cpf_cnpj_dest).length;
+  const pa1Count = sortedSales.filter(s => parseFloat(s.itens_qtd) === 1).length;
+
+  const classifiedSales = sortedSales.map((s, idx) => ({
+    sale: s,
+    classif: classifySale(s, idx > 0 ? sortedSales[idx - 1] : null),
+  }));
+
+  const filaCount = classifiedSales.filter(c => c.classif.label === "fila").length;
+  const consultiveCount = classifiedSales.filter(c => c.classif.label === "consultivo").length;
+  const overallLabel = filaCount > consultiveCount * 1.5
+    ? "fila"
+    : consultiveCount >= filaCount
+    ? "consultivo"
+    : "misto";
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end md:items-center justify-center"
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+
+      {/* Panel */}
+      <div className="relative bg-white rounded-t-[2rem] md:rounded-[2rem] w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl animate-in slide-in-from-bottom-8 duration-300 md:mx-4">
+        {/* Header */}
+        <div className={cn(
+          "px-6 pt-6 pb-4 rounded-t-[2rem] text-white",
+          overallLabel === "fila"
+            ? "bg-gradient-to-br from-rose-600 to-rose-800"
+            : overallLabel === "consultivo"
+            ? "bg-gradient-to-br from-emerald-600 to-emerald-800"
+            : "bg-gradient-to-br from-amber-600 to-amber-800"
+        )}>
+          <div className="flex items-start justify-between">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                {overallLabel === "fila" ? (
+                  <Badge className="bg-white/20 text-white border-none text-[9px] font-black">⚠ POSSÍVEL FILA DE AUTOATENDIMENTO</Badge>
+                ) : overallLabel === "consultivo" ? (
+                  <Badge className="bg-white/20 text-white border-none text-[9px] font-black">✓ ATENDIMENTO CONSULTIVO</Badge>
+                ) : (
+                  <Badge className="bg-white/20 text-white border-none text-[9px] font-black">⚡ PADRÃO MISTO</Badge>
+                )}
+              </div>
+              <h2 className="text-xl font-black uppercase tracking-tight">{burst.vendor}</h2>
+              <p className="text-white/70 text-xs font-bold">
+                {format(parseISO(burst.day), "dd/MM/yyyy (EEEE)", { locale: ptBR })} • {burst.startTime} → {burst.endTime}
+              </p>
+            </div>
+            <button
+              onClick={onClose}
+              className="p-2 rounded-xl bg-white/15 hover:bg-white/25 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* KPIs rápidos */}
+          <div className="grid grid-cols-4 gap-3 mt-4">
+            <div className="bg-white/10 rounded-xl p-3 text-center">
+              <p className="text-[8px] font-black uppercase text-white/60">NFs</p>
+              <p className="text-xl font-black">{sortedSales.length}</p>
+            </div>
+            <div className="bg-white/10 rounded-xl p-3 text-center">
+              <p className="text-[8px] font-black uppercase text-white/60">PA Médio</p>
+              <p className="text-xl font-black">{avgPA.toFixed(2)}</p>
+            </div>
+            <div className="bg-white/10 rounded-xl p-3 text-center">
+              <p className="text-[8px] font-black uppercase text-white/60">TKM</p>
+              <p className="text-xl font-black">{fmtBRL(totalVal / sortedSales.length)}</p>
+            </div>
+            <div className="bg-white/10 rounded-xl p-3 text-center">
+              <p className="text-[8px] font-black uppercase text-white/60">CPF</p>
+              <p className="text-xl font-black">{cpfCount}/{sortedSales.length}</p>
+            </div>
+          </div>
+
+          {/* Barra de classificação */}
+          <div className="mt-3 flex gap-2 items-center">
+            <span className="text-[9px] font-black text-white/60 uppercase">Qualidade da Rajada:</span>
+            <div className="flex-1 h-2 bg-white/20 rounded-full overflow-hidden flex">
+              <div className="bg-emerald-400 h-full transition-all" style={{ width: `${(consultiveCount / sortedSales.length) * 100}%` }} />
+              <div className="bg-amber-400 h-full transition-all" style={{ width: `${(classifiedSales.filter(c => c.classif.label === 'misto').length / sortedSales.length) * 100}%` }} />
+              <div className="bg-rose-400 h-full transition-all" style={{ width: `${(filaCount / sortedSales.length) * 100}%` }} />
+            </div>
+            <span className="text-[9px] font-bold text-white/70">{filaCount} fila • {consultiveCount} consul.</span>
+          </div>
+        </div>
+
+        {/* Aviso contextual */}
+        {overallLabel === "fila" && (
+          <div className="mx-4 mt-3 p-3 bg-rose-50 border border-rose-200 rounded-xl">
+            <div className="flex items-start gap-2">
+              <CircleAlert className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+              <p className="text-[10px] text-rose-700 font-medium leading-relaxed">
+                <strong>Padrão de fila identificado.</strong> A maioria das NFs desta rajada tem PA=1, intervalo baixo e sem CPF —
+                características típicas de clientes que vieram do autoatendimento/fila e precisaram ser atendidos pelo colaborador
+                apenas para finalizar (POS + NF). Não houve oportunidade de atendimento consultivo.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Lista de NFs com detalhe */}
+        <div className="flex-1 overflow-y-auto px-4 pb-6 mt-3 space-y-3">
+          <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-1">
+            Atendimentos Detalhados · {sortedSales.length} NFs
+          </p>
+          {classifiedSales.map(({ sale: s, classif }, idx) => {
+            const pa = parseFloat(s.itens_qtd) || 0;
+            const vNF = parseFloat(s.vNF) || 0;
+            const hasCpf = !!s.cpf_cnpj_dest;
+            const isDigital = s.is_retirada_online || s.is_adicional;
+            const hasDiscount = parseFloat(s.desconto_total) > 0;
+
+            return (
+              <div
+                key={idx}
+                className={cn(
+                  "rounded-xl border overflow-hidden",
+                  classif.label === "fila"
+                    ? "border-rose-200 bg-rose-50/30"
+                    : classif.label === "consultivo"
+                    ? "border-emerald-200 bg-emerald-50/30"
+                    : "border-amber-200 bg-amber-50/30"
+                )}
+              >
+                {/* NF Header */}
+                <div className={cn(
+                  "flex items-center justify-between px-4 py-2.5",
+                  classif.label === "fila"
+                    ? "bg-rose-100/60"
+                    : classif.label === "consultivo"
+                    ? "bg-emerald-100/60"
+                    : "bg-amber-100/60"
+                )}>
+                  <div className="flex items-center gap-3">
+                    <span className={cn(
+                      "text-[9px] font-black rounded-full w-5 h-5 flex items-center justify-center text-white",
+                      classif.label === "fila" ? "bg-rose-500" : classif.label === "consultivo" ? "bg-emerald-500" : "bg-amber-500"
+                    )}>{idx + 1}</span>
+                    <div>
+                      <p className="text-xs font-black text-slate-800">
+                        {format(parseISO(s.dhEmi), "HH:mm:ss")}
+                        {classif.intervalSec !== null && (
+                          <span className={cn(
+                            "ml-2 text-[9px] font-bold",
+                            classif.intervalSec < 90 ? "text-rose-500" : classif.intervalSec < 180 ? "text-amber-500" : "text-slate-400"
+                          )}>
+                            (+{classif.intervalSec < 60
+                              ? `${Math.round(classif.intervalSec)}s`
+                              : `${(classif.intervalSec / 60).toFixed(1)}min`})
+                          </span>
+                        )}
+                      </p>
+                      <p className="text-[9px] text-slate-500 font-medium">NF {s.nf}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {isDigital && <Badge className="bg-indigo-500 text-white text-[8px] border-none h-4 px-1.5">DIGITAL</Badge>}
+                    {classif.label === "fila" && <Badge className="bg-rose-500 text-white text-[8px] border-none h-4 px-1.5">FILA</Badge>}
+                    {classif.label === "consultivo" && <Badge className="bg-emerald-600 text-white text-[8px] border-none h-4 px-1.5">CONSULTIVO</Badge>}
+                    {classif.label === "misto" && <Badge className="bg-amber-500 text-white text-[8px] border-none h-4 px-1.5">MISTO</Badge>}
+                  </div>
+                </div>
+
+                {/* Indicadores */}
+                <div className="grid grid-cols-4 divide-x divide-slate-200 border-b border-slate-200">
+                  <div className="px-3 py-2 text-center">
+                    <p className="text-[8px] font-black text-slate-400 uppercase">PA</p>
+                    <p className={cn("text-sm font-black", pa === 1 ? "text-rose-600" : pa >= 3 ? "text-emerald-600" : "text-amber-600")}>
+                      {pa}
+                    </p>
+                  </div>
+                  <div className="px-3 py-2 text-center">
+                    <p className="text-[8px] font-black text-slate-400 uppercase">TKM</p>
+                    <p className="text-sm font-black text-slate-700">{fmtBRL(vNF)}</p>
+                  </div>
+                  <div className="px-3 py-2 text-center">
+                    <p className="text-[8px] font-black text-slate-400 uppercase">CPF</p>
+                    <p className={cn("text-sm font-black", hasCpf ? "text-emerald-600" : "text-slate-300")}>
+                      {hasCpf ? (
+                        <span title={s.cpf_cnpj_dest} className="flex items-center justify-center">
+                          <User className="w-3 h-3" />
+                        </span>
+                      ) : "—"}
+                    </p>
+                  </div>
+                  <div className="px-3 py-2 text-center">
+                    <p className="text-[8px] font-black text-slate-400 uppercase">Desc.</p>
+                    <p className={cn("text-sm font-black", hasDiscount ? "text-indigo-600" : "text-slate-300")}>
+                      {hasDiscount
+                        ? `${parseFloat(s.percentual_desconto).toFixed(0)}%`
+                        : "—"}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Itens */}
+                {s.itens && s.itens.length > 0 ? (
+                  <div className="px-4 py-2.5 space-y-1">
+                    {s.itens.map((item, iIdx) => (
+                      <div key={iIdx} className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <Package className="w-3 h-3 text-slate-300 shrink-0" />
+                          <span className="text-[10px] text-slate-600 font-medium truncate">{item.xProd}</span>
+                        </div>
+                        <div className="flex items-center gap-3 shrink-0">
+                          <span className="text-[9px] font-bold text-slate-400">x{item.qCom}</span>
+                          <span className="text-[10px] font-black text-slate-700">
+                            {item.vProd.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                          </span>
+                          {item.vDesc > 0 && (
+                            <span className="text-[8px] font-black text-indigo-500">
+                              -{item.vDesc.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="px-4 py-2 text-[10px] text-slate-400 italic">Itens não disponíveis</div>
+                )}
+              </div>
+            );
+          })}
+
+          {/* Resumo final */}
+          <div className="mt-4 p-4 bg-slate-900 text-white rounded-2xl">
+            <p className="text-[9px] font-black uppercase text-slate-400 mb-3">Resumo da Rajada</p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div>
+                <p className="text-[8px] text-slate-400 font-bold">Total Faturado</p>
+                <p className="text-sm font-black text-white">{fmtBRL(totalVal)}</p>
+              </div>
+              <div>
+                <p className="text-[8px] text-slate-400 font-bold">PA Médio</p>
+                <p className={cn("text-sm font-black", avgPA < 1.5 ? "text-rose-400" : "text-emerald-400")}>{avgPA.toFixed(2)}</p>
+              </div>
+              <div>
+                <p className="text-[8px] text-slate-400 font-bold">Identificação CPF</p>
+                <p className={cn("text-sm font-black", cpfCount === 0 ? "text-rose-400" : "text-emerald-400")}>{cpfCount}/{sortedSales.length}</p>
+              </div>
+              <div>
+                <p className="text-[8px] text-slate-400 font-bold">Itens PA=1</p>
+                <p className={cn("text-sm font-black", pa1Count === sortedSales.length ? "text-rose-400" : "text-amber-400")}>{pa1Count}/{sortedSales.length}</p>
+              </div>
+            </div>
+            <div className={cn(
+              "mt-3 p-3 rounded-xl border text-[10px] leading-relaxed font-medium",
+              overallLabel === "fila"
+                ? "bg-rose-900/40 border-rose-700/50 text-rose-200"
+                : overallLabel === "consultivo"
+                ? "bg-emerald-900/40 border-emerald-700/50 text-emerald-200"
+                : "bg-amber-900/30 border-amber-700/50 text-amber-200"
+            )}>
+              {overallLabel === "fila" && (
+                <>Esta rajada apresenta forte padrão de <strong>finalização de fila</strong>: média {avgPA.toFixed(1)} itens/NF, {pa1Count} NFs com 1 item,
+                apenas {cpfCount} CPFs de {sortedSales.length} clientes. O colaborador estava provavelmente no balcão
+                apenas finalizando pagamentos de clientes que vieram da fila (autoatendimento forçado pela operação sem caixa tradicional).</>
+              )}
+              {overallLabel === "consultivo" && (
+                <>Padrão <strong>consultivo identificado</strong>: apesar do volume, o colaborador manteve PA {avgPA.toFixed(1)} e
+                identificou {cpfCount} de {sortedSales.length} clientes com CPF. Os produtos mostram variedade, indicando
+                atendimento ativo com sugestão.</>
+              )}
+              {overallLabel === "misto" && (
+                <>Padrão <strong>misto</strong>: ajuda de fila alternada com atendimento consultivo. {filaCount} atendimentos
+                têm características de fila e {consultiveCount} mantiveram qualidade consultiva.</>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>

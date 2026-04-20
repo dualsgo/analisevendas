@@ -58,17 +58,26 @@ interface ConsolidatedReportProps {
   vinculos: VinculoTroca[];
 }
 
-// Removido mapeamento fixo de grupos. Agora a separação é dinâmica por faixa de volume de cupons.
-const COUPON_RANGES = [
-  { id: "1-10", label: "Volume Baixo (1-10)", min: 1, max: 10, color: "bg-slate-100 text-slate-600" },
-  { id: "11-30", label: "Volume Médio (11-30)", min: 11, max: 30, color: "bg-sky-100 text-sky-700" },
-  { id: "31-60", label: "Volume Alto (31-60)", min: 31, max: 60, color: "bg-indigo-100 text-indigo-700" },
-  { id: "61+", label: "Volume Crítico (61+)", min: 61, max: 10000, color: "bg-rose-100 text-rose-700" }
+// Helper para cores dinâmicas
+const BUCKET_COLORS = [
+  "bg-slate-100 text-slate-600",
+  "bg-sky-100 text-sky-700",
+  "bg-indigo-100 text-indigo-700",
+  "bg-rose-100 text-rose-700",
+  "bg-amber-100 text-amber-700",
+  "bg-emerald-100 text-emerald-700",
+  "bg-purple-100 text-purple-700"
 ];
 
-function getCouponRangeLabel(count: number) {
-  const range = COUPON_RANGES.find(r => count >= r.min && count <= r.max);
-  return range ? range.label : "Nenhum";
+function getDynamicGroupInfo(count: number, step: number) {
+  if (count <= 0) return { label: "Nenhum", color: "bg-white" };
+  const bucketIdx = Math.floor((count - 1) / step);
+  const start = bucketIdx * step + 1;
+  const end = (bucketIdx + 1) * step;
+  return {
+    label: `Volume ${start}-${end}`,
+    color: BUCKET_COLORS[bucketIdx % BUCKET_COLORS.length]
+  };
 }
 
 
@@ -90,6 +99,7 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
   });
   const { state } = useSidebar();
   const isCollapsed = state === "collapsed";
+  const [rangeStep, setRangeStep] = useState(50);
 
   const formatBRL = (val: number) => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   const formatNum = (val: number, precision = 2) => val.toLocaleString('pt-BR', { minimumFractionDigits: precision, maximumFractionDigits: precision });
@@ -195,9 +205,7 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
         conv: v.pickupsAtendidas > 0 ? (v.adicionaisFeitos / v.pickupsAtendidas) * 100 : 0
       };
 
-      const range = COUPON_RANGES.find(r => totalCupons >= r.min && totalCupons <= r.max);
-      const groupLabel = range ? range.label : "Nenhum";
-      const groupColor = range ? range.color : "bg-white";
+      const { label: groupLabel, color: groupColor } = getDynamicGroupInfo(totalCupons, rangeStep);
 
       return {
         ...v,
@@ -277,7 +285,16 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
 
   const handlePrint = () => window.print();
 
-  const groupsAvailable = COUPON_RANGES.map(r => r.label);
+  const groupsAvailable = useMemo(() => {
+    const labels = new Set(reportData.map(r => r.group));
+    return Array.from(labels).sort((a, b) => {
+      if (a === "Nenhum") return 1;
+      if (b === "Nenhum") return -1;
+      const numA = parseInt(a.split(" ")[1]?.split("-")[0] || "0");
+      const numB = parseInt(b.split(" ")[1]?.split("-")[0] || "0");
+      return numA - numB;
+    });
+  }, [reportData]);
 
   return (
     <div className={cn(
@@ -310,7 +327,22 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
           </div>;
           {/* Novo Filtro de Grupo */}
           <div className="flex flex-col gap-1.5 mr-4">
-            <Label className="text-[9px] font-black uppercase text-slate-400 px-1">Faixa de Volume</Label>
+            <Label className="text-[9px] font-black uppercase text-slate-400 px-1">Granularidade</Label>
+            <Select value={rangeStep.toString()} onValueChange={(v) => { setRangeStep(parseInt(v)); setSelectedGroup("all"); }}>
+              <SelectTrigger className="h-9 w-[100px] rounded-xl border-slate-200 bg-white font-black text-[10px] uppercase">
+                 <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="10" className="text-xs font-bold uppercase">De 10 em 10</SelectItem>
+                <SelectItem value="25" className="text-xs font-bold uppercase">De 25 em 25</SelectItem>
+                <SelectItem value="50" className="text-xs font-bold uppercase">De 50 em 50</SelectItem>
+                <SelectItem value="100" className="text-xs font-bold uppercase">De 100 em 100</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex flex-col gap-1.5 mr-4">
+            <Label className="text-[9px] font-black uppercase text-slate-400 px-1">Filtrar Faixa</Label>
             <Select value={selectedGroup} onValueChange={setSelectedGroup}>
               <SelectTrigger className="h-9 w-[180px] rounded-xl border-slate-200 bg-white font-black text-[10px] uppercase">
                 <div className="flex items-center gap-2">

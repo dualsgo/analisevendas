@@ -72,13 +72,18 @@ export function ConsecutiveCouponAnalysis({ data }: ConsecutiveCouponAnalysisPro
           const q2 = parseInt(s2.itens_qtd);
           
           if (q1 === 1 && q2 === 1) {
+            // Exige mesmo CPF (não vazio) para confirmar que é o mesmo cliente
+            const cpf1 = s1.cpf_cnpj_dest?.trim();
+            const cpf2 = s2.cpf_cnpj_dest?.trim();
+            if (!cpf1 || !cpf2 || cpf1 !== cpf2) continue;
+
             const t1 = parseISO(s1.dhEmi);
             const t2 = parseISO(s2.dhEmi);
             const diff = Math.abs(differenceInMinutes(t1, t2));
             
-            // Critério: 2 cupons seguidos de 1 item em menos de 10 minutos
+            // Critério: 2 cupons seguidos de 1 item do mesmo cliente em menos de 10 minutos
             if (diff <= 10) {
-              occurrences.push({ vendor, day, s1, s2, diff });
+              occurrences.push({ vendor, day, s1, s2, diff, cpf: cpf1 });
               vendorStats[vendor].count++;
               
               const hr = getHours(t1);
@@ -129,7 +134,7 @@ export function ConsecutiveCouponAnalysis({ data }: ConsecutiveCouponAnalysisPro
           <div className="flex-1">
             <h2 className="text-2xl md:text-3xl font-black tracking-tighter uppercase">Análise de Cupons Fragmentados</h2>
             <p className="text-rose-100 text-sm font-medium mt-1 leading-relaxed">
-              Identificação de cupons seguidos com <strong>apenas 1 item</strong> vendidos em curto intervalo (≤ 10 min) pelo mesmo colaborador.
+              Identificação de cupons seguidos com <strong>apenas 1 item</strong> do <strong>mesmo cliente (CPF)</strong> em curto intervalo (≤ 10 min) pelo mesmo colaborador.
             </p>
           </div>
           <div className="bg-white/10 px-6 py-4 rounded-2xl border border-white/20 text-center min-w-[140px]">
@@ -258,6 +263,7 @@ export function ConsecutiveCouponAnalysis({ data }: ConsecutiveCouponAnalysisPro
                     <p className="text-[10px] text-slate-400 font-bold uppercase">{format(parseISO(occ.s1.dhEmi), "dd/MM 'às' HH:mm")} • Intervalo: {occ.diff} min</p>
                   </div>
                   <div className="flex items-center gap-2">
+                    <span className="text-[9px] font-bold text-slate-400">{occ.cpf ? `CPF: ${occ.cpf.slice(0,3)}·····${occ.cpf.slice(-2)}` : ''}</span>
                     <Badge variant="outline" className="text-[9px] font-black border-rose-100 text-rose-600 uppercase">FRAGMENTADO</Badge>
                   </div>
                 </div>

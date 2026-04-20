@@ -42,7 +42,7 @@ function toDayKey(dhEmi: string): string | null {
   try { return format(parseISO(dhEmi), "yyyy-MM-dd"); } catch { return null; }
 }
 
-const SECTION_IDS = ["concorrencia", "turnos", "almoco", "ritmo", "ondas", "morto", "qualidade", "causa_raiz"] as const;
+const SECTION_IDS = ["concorrencia", "turnos", "almoco", "ritmo", "ondas", "morto", "qualidade", "causa_raiz", "isolamento"] as const;
 type SectionId = typeof SECTION_IDS[number];
 
 export function OperationalRhythm({ data }: OperationalRhythmProps) {
@@ -399,6 +399,203 @@ export function OperationalRhythm({ data }: OperationalRhythmProps) {
       });
   }, [sales, slotData, limiarGargalo]);
 
+  // ── 7a. Dispersão de PA entre colaboradores no mesmo slot ──────────────────────
+  // Se dois colaboradores dividem o mesmo slot/horário e um faz PA 3 e outro PA 1,
+  // o ambiente não explica a diferença — isola o fator humano.
+  const paDispersao = useMemo(() => {
+    const slotVendorPA: Record<string, Record<string, { itens: number; cupons: number }>> = {};
+
+    for (const s of sales) {
+      if (!s.vendedor || s.vendedor === "COLABORADOR NÃO IDENTIFICADO") continue;
+      const slot = toSlotKey(s.dhEmi);
+      const day = toDayKey(s.dhEmi);
+      if (!slot || !day) continue;
+      const key = `${day}||${slot}`;
+      if (!slotVendorPA[key]) slotVendorPA[key] = {};
+      if (!slotVendorPA[key][s.vendedor]) slotVendorPA[key][s.vendedor] = { itens: 0, cupons: 0 };
+      slotVendorPA[key][s.vendedor].itens += parseFloat(s.itens_qtd) || 0;
+      slotVendorPA[key][s.vendedor].cupons++;
+    }
+
+    type SlotDispersao = { key: string; day: string; slot: string; vendors: { nome: string; pa: number; cupons: number }[]; maxPA: number; minPA: number; delta: number; pressao: number; };
+    const dispersaoSlots: SlotDispersao[] = [];
+
+    for (const [key, vendors] of Object.entries(slotVendorPA)) {
+      const parts = key.split('||');
+      const day = parts[0];
+      const slot = parts[1];
+      const cell = slotData[day]?.[slot];
+      const pressao = cell ? cell.cupons / (cell.vendedores.size || 1) : 0;
+
+      const vendorList = Object.entries(vendors)
+        .filter(([, v]) => v.cupons >= 2)
+        .map(([nome, v]) => ({ nome, pa: v.cupons > 0 ? v.itens / v.cupons : 0, cupons: v.cupons }));
+
+      if (vendorList.length < 2) continue;
+      const pas = vendorList.map(v => v.pa);
+      const maxPA = Math.max(...pas);
+      const minPA = Math.min(...pas);
+      const delta = maxPA - minPA;
+      if (delta >= 0.7) {
+        dispersaoSlots.push({
+          key, day, slot,
+          vendors: vendorList.sort((a, b) => b.pa - a.pa),
+          maxPA: +maxPA.toFixed(2), minPA: +minPA.toFixed(2),
+          delta: +delta.toFixed(2), pressao: +pressao.toFixed(2),
+        });
+      }
+    }
+
+    // Por colaborador: quantas vezes foi o "mais baixo" num slot compartilhado
+    const vendorLow: Record<string, { low: number; total: number; deltaTotal: number }> = {};
+    for (const s of dispersaoSlots) {
+      const lowestVendor = s.vendors[s.vendors.length - 1];
+      const highestVendor = s.vendors[0];
+      for (const v of s.vendors) {
+        if (!vendorLow[v.nome]) vendorLow[v.nome] = { low: 0, total: 0, deltaTotal: 0 };
+        vendorLow[v.nome].total++;
+        vendorLow[v.nome].deltaTotal += s.delta;
+        if (v.nome === lowestVendor.nome) vendorLow[v.nome].low++;
+      }
+    }
+
+    const vendorDispersao = Object.entries(vendorLow)
+      .map(([nome, s]) => ({ nome, lowRate: s.total > 0 ? (s.low / s.total) * 100 : 0, lowCount: s.low, total: s.total }))
+      .filter(v => v.total >= 3)
+      .sort((a, b) => b.lowRate - a.lowRate);
+
+    return {
+      dispersaoSlots: dispersaoSlots.sort((a, b) => b.delta - a.delta).slice(0, 15),
+      vendorDispersao,
+      totalSlots: dispersaoSlots.length,
+      highPressureDispersao: dispersaoSlots.filter(s => s.pressao > limiarGargalo).length,
+      lowPressureDispersao: dispersaoSlots.filter(s => s.pressao <= limiarGargalo).length,
+    };
+  }, [sales, slotData, limiarGargalo]);
+
+  // ── 7b. Correlação tamanho da equipe × PA médio do dia ─────────────────────────
+  const correlacaoEquipePa = useMemo(() => {
+    const byDay: Record<string, { teamSize: number; totalItens: number; cupons: number; vNF: number }> = {};
+
+    for (const day of days) {
+      const daySlots = slotData[day];
+      if (!daySlots) continue;
+      const allVendors = new Set<string>();
+      let cupons = 0; let itens = 0; let vNF = 0;
+      for (const slot of Object.values(daySlots)) {
+        slot.vendedores.forEach(v => allVendors.add(v));
+        cupons += slot.cupons;
+        vNF += slot.vNF;
+        slot.vendas.forEach(s => { itens += parseFloat(s.itens_qtd) || 0; });
+      }
+      if (cupons >= 3) byDay[day] = { teamSize: allVendors.size, totalItens: itens, cupons, vNF };
+    }
+
+    const points = Object.entries(byDay).map(([day, v]) => ({
+      day,
+      teamSize: v.teamSize,
+      pa: +(v.totalItens / v.cupons).toFixed(2),
+      tkm: +(v.vNF / v.cupons).toFixed(2),
+      cupons: v.cupons,
+    }));
+
+    // Agrupar por tamanho de equipe
+    const bySize: Record<number, { totalPA: number; count: number; totalTKM: number }> = {};
+    for (const p of points) {
+      if (!bySize[p.teamSize]) bySize[p.teamSize] = { totalPA: 0, count: 0, totalTKM: 0 };
+      bySize[p.teamSize].totalPA += p.pa;
+      bySize[p.teamSize].totalTKM += p.tkm;
+      bySize[p.teamSize].count++;
+    }
+    const teamSizeGroups = Object.entries(bySize)
+      .map(([size, v]) => ({ teamSize: parseInt(size), avgPA: +(v.totalPA / v.count).toFixed(2), avgTKM: +(v.totalTKM / v.count).toFixed(2), dias: v.count }))
+      .sort((a, b) => a.teamSize - b.teamSize);
+
+    // Correlação de Pearson equipe x PA
+    const n = points.length;
+    let correlation = 0;
+    if (n >= 3) {
+      const mx = points.reduce((a, b) => a + b.teamSize, 0) / n;
+      const my = points.reduce((a, b) => a + b.pa, 0) / n;
+      const num = points.reduce((s, p) => s + (p.teamSize - mx) * (p.pa - my), 0);
+      const dx = Math.sqrt(points.reduce((s, p) => s + (p.teamSize - mx) ** 2, 0));
+      const dy = Math.sqrt(points.reduce((s, p) => s + (p.pa - my) ** 2, 0));
+      correlation = dx > 0 && dy > 0 ? +(num / (dx * dy)).toFixed(2) : 0;
+    }
+
+    // Dias com equipe reduzida (abaixo da mediana)
+    const sizes = points.map(p => p.teamSize).sort((a, b) => a - b);
+    const medianSize = sizes[Math.floor(sizes.length / 2)] || 1;
+    const diasReduzida = points.filter(p => p.teamSize < medianSize);
+    const diasNormal = points.filter(p => p.teamSize >= medianSize);
+    const paReduzida = diasReduzida.length > 0 ? diasReduzida.reduce((a, p) => a + p.pa, 0) / diasReduzida.length : 0;
+    const paNormal = diasNormal.length > 0 ? diasNormal.reduce((a, p) => a + p.pa, 0) / diasNormal.length : 0;
+
+    return { teamSizeGroups, correlation, medianSize, paReduzida: +paReduzida.toFixed(2), paNormal: +paNormal.toFixed(2), points: points.slice(0, 30) };
+  }, [sales, slotData, days]);
+
+  // ── 7c. Consistência intra-colaborador (variação de PA por dia vs pressão) ──────
+  const consistenciaColaborador = useMemo(() => {
+    type DayBucket = { itens: number; cupons: number; pressaoTotal: number; slots: number };
+    const byVendorDay: Record<string, Record<string, DayBucket>> = {};
+
+    for (const s of sales) {
+      if (!s.vendedor || s.vendedor === "COLABORADOR NÃO IDENTIFICADO") continue;
+      const slot = toSlotKey(s.dhEmi);
+      const day = toDayKey(s.dhEmi);
+      if (!slot || !day) continue;
+      const cell = slotData[day]?.[slot];
+      const pressao = cell ? cell.cupons / (cell.vendedores.size || 1) : 0;
+      if (!byVendorDay[s.vendedor]) byVendorDay[s.vendedor] = {};
+      if (!byVendorDay[s.vendedor][day]) byVendorDay[s.vendedor][day] = { itens: 0, cupons: 0, pressaoTotal: 0, slots: 0 };
+      byVendorDay[s.vendedor][day].itens += parseFloat(s.itens_qtd) || 0;
+      byVendorDay[s.vendedor][day].cupons++;
+      byVendorDay[s.vendedor][day].pressaoTotal += pressao;
+      byVendorDay[s.vendedor][day].slots++;
+    }
+
+    type PerfilType = "pressionado" | "inconsistente" | "consistente_alto" | "consistente_baixo";
+
+    return Object.entries(byVendorDay).map(([nome, dayMap]) => {
+      const dayPoints = Object.entries(dayMap)
+        .filter(([, v]) => v.cupons >= 3)
+        .map(([day, v]) => ({
+          day,
+          pa: v.itens / v.cupons,
+          pressao: v.slots > 0 ? v.pressaoTotal / v.slots : 0,
+          cupons: v.cupons,
+        }));
+
+      if (dayPoints.length < 3) return null;
+
+      const pas = dayPoints.map(d => d.pa);
+      const meanPA = pas.reduce((a, b) => a + b, 0) / pas.length;
+      const stdPA = Math.sqrt(pas.map(p => (p - meanPA) ** 2).reduce((a, b) => a + b, 0) / pas.length);
+      const minPA = Math.min(...pas);
+      const maxPA = Math.max(...pas);
+
+      // Correlação pressão do dia × PA do dia (negativa = pressão derruba PA)
+      const pressoes = dayPoints.map(d => d.pressao);
+      const meanP = pressoes.reduce((a, b) => a + b, 0) / pressoes.length;
+      const num = dayPoints.reduce((s, d) => s + (d.pressao - meanP) * (d.pa - meanPA), 0);
+      const dp = Math.sqrt(pressoes.reduce((s, p) => s + (p - meanP) ** 2, 0));
+      const dpa = Math.sqrt(pas.reduce((s, p) => s + (p - meanPA) ** 2, 0));
+      const corrPressaoPA = dp > 0 && dpa > 0 ? +(num / (dp * dpa)).toFixed(2) : 0;
+
+      let perfil: PerfilType;
+      if (corrPressaoPA < -0.4) perfil = "pressionado";
+      else if (stdPA > 0.7 && corrPressaoPA > -0.2) perfil = "inconsistente";
+      else if (meanPA >= 2.5) perfil = "consistente_alto";
+      else perfil = "consistente_baixo";
+
+      return { nome, meanPA: +meanPA.toFixed(2), stdPA: +stdPA.toFixed(2), minPA: +minPA.toFixed(2), maxPA: +maxPA.toFixed(2), corrPressaoPA, perfil, diasAnalisados: dayPoints.length, dayPoints };
+    })
+    .filter((v): v is NonNullable<typeof v> => v !== null && v.diasAnalisados >= 3)
+    .sort((a, b) => {
+      const order: Record<PerfilType, number> = { inconsistente: 0, consistente_baixo: 1, pressionado: 2, consistente_alto: 3 };
+      return order[a.perfil] - order[b.perfil];
+    });
+  }, [sales, slotData]);
 
   const SLP_CODES = ['5135238', '5135269', '5135270', '5135273', '5146458', '5146469', '5146470', '5146471', '5146472', '5146473', '5146474', '5146475', '5146476', '5146501', '5146504', '5146505', '5141894', '5141895', '5141896', '5141897', '5141898', '5141899', '5141900', '5141902', '5141903', '5141904', '5141905', '5141907', '5141909', '5141910', '5141911', '5141912', '5141913', '5141914', '5141915', '5141916', '5141917', '5141920', '5141949', '5141978', '5140469', '5140475', '5140476', '5140477', '5140478', '5140479', '5146477', '5146478', '5146502', '5146503'];
   const SOCIAL_CODES = ['5057181', '5055875', '5135601', '5129270', '5129271', '5129247', '5129262', '5122642', '5122641', '5135612', '5122639', '5122638', '5133676', '5113644', '5113641', '5113642', '5113643', '5129267', '5129255', '5143422', '5139528', '5143423', '5145833', '5139527', '5147797', '5147796', '5145834', '5079753', '5079752', '5106673', '5106671', '5106674', '5106672', '5088519', '5097336', '5097335', '5011918', '5136558'];
@@ -528,6 +725,7 @@ export function OperationalRhythm({ data }: OperationalRhythmProps) {
     { id: "morto", label: "Ausências em Horário de Pico", icon: UserX, color: "text-rose-600" },
     { id: "qualidade", label: "Impacto do Gargalo na Qualidade", icon: TrendingDown, color: "text-amber-600" },
     { id: "causa_raiz", label: "Diagnóstico de Causa-Raiz por Colaborador", icon: Brain, color: "text-violet-600" },
+    { id: "isolamento", label: "Isolar Causa: Pressão × Equipe × Fator Humano", icon: Target, color: "text-indigo-600" },
   ];
 
   if (sales.length === 0) {
@@ -1191,6 +1389,185 @@ export function OperationalRhythm({ data }: OperationalRhythmProps) {
                   </div>
                 </div>
               )}
+
+              {/* ── Isolamento de Causa ── */}
+              {id === "isolamento" && (
+                <div className="space-y-8">
+                  <div className="p-4 bg-indigo-50 border border-indigo-200 rounded-2xl flex items-start gap-3">
+                    <Target className="w-5 h-5 text-indigo-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-xs font-black text-indigo-800 uppercase tracking-tight mb-1">Como usar este painel</p>
+                      <p className="text-[11px] text-indigo-700 leading-relaxed">
+                        Três lentes para separar o que é <strong>estrutural</strong> (pressão, equipe reduzida)
+                        do que é <strong>comportamental</strong> (habilidade, engajamento). Use as três em conjunto para uma conclusão mais robusta.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* LENTE 1: Dispersão entre pares */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
+                      <div className="w-6 h-6 rounded-lg bg-violet-100 flex items-center justify-center shrink-0">
+                        <Users className="w-3.5 h-3.5 text-violet-600" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-black text-slate-700 uppercase tracking-tight">Lente 1 — Dispersão entre Pares no Mesmo Slot</p>
+                        <p className="text-[10px] text-slate-400">Se dois colaboradores dividem o mesmo horário e um vai muito melhor, o ambiente não explica — é fator humano.</p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 text-center">
+                        <p className="text-[9px] font-black text-slate-400 uppercase">Slots c/ Dispersão</p>
+                        <p className="text-2xl font-black text-slate-700">{paDispersao.totalSlots}</p>
+                      </div>
+                      <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 text-center">
+                        <p className="text-[9px] font-black text-amber-500 uppercase">Sob Pressão</p>
+                        <p className="text-2xl font-black text-amber-600">{paDispersao.highPressureDispersao}</p>
+                        <p className="text-[8px] text-amber-400">ambíguo</p>
+                      </div>
+                      <div className="bg-violet-50 border border-violet-100 rounded-xl p-3 text-center">
+                        <p className="text-[9px] font-black text-violet-500 uppercase">Ritmo Livre</p>
+                        <p className="text-2xl font-black text-violet-600">{paDispersao.lowPressureDispersao}</p>
+                        <p className="text-[8px] text-violet-400">⚠ forte sinal humano</p>
+                      </div>
+                    </div>
+                    {paDispersao.vendorDispersao.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Quem sistematicamente fica abaixo dos colegas no mesmo horário</p>
+                        {paDispersao.vendorDispersao.slice(0, 6).map((v, i) => (
+                          <div key={i} className="flex items-center gap-3 p-3 bg-white border border-slate-100 rounded-xl">
+                            <div className={cn("w-2.5 h-2.5 rounded-full shrink-0", v.lowRate > 70 ? "bg-rose-500" : v.lowRate > 40 ? "bg-amber-400" : "bg-slate-300")} />
+                            <span className="text-sm font-black text-slate-700 flex-1 uppercase">{v.nome}</span>
+                            <div className="w-24 h-2 bg-slate-100 rounded-full overflow-hidden">
+                              <div className={cn("h-full rounded-full", v.lowRate > 70 ? "bg-rose-500" : v.lowRate > 40 ? "bg-amber-400" : "bg-slate-400")} style={{ width: `${v.lowRate}%` }} />
+                            </div>
+                            <span className={cn("text-sm font-black w-10 text-right", v.lowRate > 70 ? "text-rose-600" : v.lowRate > 40 ? "text-amber-600" : "text-slate-500")}>{v.lowRate.toFixed(0)}%</span>
+                            <span className="text-[10px] text-slate-400">{v.lowCount}/{v.total}</span>
+                            {v.lowRate > 60 && <span className="text-[9px] font-black bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full">CONSISTENTE</span>}
+                          </div>
+                        ))}
+                        {paDispersao.vendorDispersao[0]?.lowRate > 60 && (
+                          <div className="p-3 bg-violet-50 border border-violet-100 rounded-xl text-[10px] text-violet-700 flex items-start gap-2">
+                            <ArrowRight className="w-3 h-3 mt-0.5 shrink-0" />
+                            <span>Colaboradores que ficam consistentemente abaixo no mesmo horário são candidatos diretos a acompanhamento de técnica de venda.</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {paDispersao.totalSlots === 0 && <p className="py-4 text-center text-slate-400 text-sm">Poucos slots em simultaneidade — aguardar mais dados.</p>}
+                  </div>
+
+                  {/* LENTE 2: Equipe × PA */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
+                      <div className="w-6 h-6 rounded-lg bg-blue-100 flex items-center justify-center shrink-0">
+                        <Activity className="w-3.5 h-3.5 text-blue-600" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-black text-slate-700 uppercase tracking-tight">Lente 2 — Tamanho da Equipe × PA do Dia</p>
+                        <p className="text-[10px] text-slate-400">Se dias com menos pessoas têm PA bem menor, o problema é de escala. Se não há correlação, outro fator explica.</p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="col-span-2 bg-slate-50 border border-slate-100 rounded-xl p-4">
+                        <p className="text-[9px] font-black text-slate-400 uppercase mb-3">PA médio por tamanho de equipe</p>
+                        <div className="space-y-2">
+                          {correlacaoEquipePa.teamSizeGroups.map((g, i) => {
+                            const maxPA = Math.max(...correlacaoEquipePa.teamSizeGroups.map(x => x.avgPA), 1);
+                            return (
+                              <div key={i} className="flex items-center gap-3">
+                                <span className="text-[10px] font-black text-slate-500 w-20 shrink-0">{g.teamSize}p ({g.dias}d)</span>
+                                <div className="flex-1 h-6 bg-slate-200 rounded-lg overflow-hidden">
+                                  <div className={cn("h-full rounded-lg flex items-center pl-2", g.avgPA >= 2.5 ? "bg-emerald-400" : g.avgPA >= 1.8 ? "bg-amber-400" : "bg-rose-400")} style={{ width: `${Math.max((g.avgPA / maxPA) * 100, 12)}%` }}>
+                                    <span className="text-[9px] font-black text-white">PA {g.avgPA.toFixed(1)}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <div className={cn("rounded-xl p-3 text-center border flex-1", correlacaoEquipePa.correlation > 0.4 ? "bg-blue-50 border-blue-200" : "bg-slate-50 border-slate-200")}>
+                          <p className="text-[8px] font-black uppercase text-slate-400 mb-1">Correlação Pearson</p>
+                          <p className={cn("text-3xl font-black", correlacaoEquipePa.correlation > 0.4 ? "text-blue-600" : "text-slate-500")}>{correlacaoEquipePa.correlation > 0 ? "+" : ""}{correlacaoEquipePa.correlation}</p>
+                          <p className="text-[8px] text-slate-400 mt-1">{correlacaoEquipePa.correlation > 0.5 ? "Escala explica muito" : correlacaoEquipePa.correlation > 0.2 ? "Impacto moderado" : "Pouco impacto da escala"}</p>
+                        </div>
+                        <div className="bg-rose-50 border border-rose-100 rounded-xl p-2 text-center"><p className="text-[8px] font-black text-rose-400 uppercase">PA equipe reduzida</p><p className="text-xl font-black text-rose-500">{correlacaoEquipePa.paReduzida.toFixed(1)}</p></div>
+                        <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-2 text-center"><p className="text-[8px] font-black text-emerald-500 uppercase">PA equipe normal</p><p className="text-xl font-black text-emerald-600">{correlacaoEquipePa.paNormal.toFixed(1)}</p></div>
+                      </div>
+                    </div>
+                    <div className={cn("p-3 rounded-xl border text-[10px] leading-relaxed flex items-start gap-2", correlacaoEquipePa.correlation > 0.4 ? "bg-blue-50 border-blue-200 text-blue-700" : "bg-slate-50 border-slate-200 text-slate-600")}>
+                      <ArrowRight className="w-3 h-3 mt-0.5 shrink-0" />
+                      <span>{correlacaoEquipePa.correlation > 0.4 ? <><strong>Alta correlação: escala impacta diretamente o PA.</strong> Garantir escala mínima nos picos e revisar política de folgas.</> : correlacaoEquipePa.correlation > 0.2 ? <>Correlação moderada — a equipe contribui mas não explica sozinha. Combine com as outras lentes.</> : <><strong>Tamanho da equipe não explica a variação de PA.</strong> O resultado oscila independente de quantas pessoas estão — fator humano é o candidato principal.</>}</span>
+                    </div>
+                  </div>
+
+                  {/* LENTE 3: Consistência individual */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
+                      <div className="w-6 h-6 rounded-lg bg-amber-100 flex items-center justify-center shrink-0">
+                        <Zap className="w-3.5 h-3.5 text-amber-600" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-black text-slate-700 uppercase tracking-tight">Lente 3 — Consistência Individual por Dia</p>
+                        <p className="text-[10px] text-slate-400">Alta variação de PA entre dias sem correlação com pressão = engajamento irregular.</p>
+                      </div>
+                    </div>
+                    {consistenciaColaborador.length === 0 ? (
+                      <p className="py-6 text-center text-slate-400 text-sm font-bold">Dados insuficientes — necessário ≥3 dias por colaborador.</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {consistenciaColaborador.map((c, i) => {
+                          const cfg = {
+                            inconsistente:     { bg: "bg-amber-50 border-amber-200",     badge: "bg-amber-100 text-amber-700",     icon: "⚡", label: "INCONSISTENTE",      desc: "PA varia muito entre dias sem relação com pressão — engajamento irregular." },
+                            consistente_baixo: { bg: "bg-violet-50 border-violet-200",   badge: "bg-violet-100 text-violet-700",   icon: "💡", label: "BAIXO CONSTANTE",    desc: "PA consistentemente baixo — padrão estabelecido, requer desenvolvimento ativo." },
+                            pressionado:       { bg: "bg-rose-50 border-rose-200",       badge: "bg-rose-100 text-rose-700",       icon: "🏭", label: "SENSÍVEL À PRESSÃO",  desc: "PA cai nos dias de maior pressão — a operação está impactando diretamente." },
+                            consistente_alto:  { bg: "bg-emerald-50 border-emerald-200", badge: "bg-emerald-100 text-emerald-700", icon: "⭐", label: "CONSISTENTE ALTO",    desc: "Mantém PA estável independente da pressão — referência de atendimento consultivo." },
+                          }[c.perfil];
+                          return (
+                            <div key={i} className={cn("rounded-2xl border p-4 space-y-3 hover:shadow-sm transition-all", cfg.bg)}>
+                              <div className="flex items-start justify-between">
+                                <div>
+                                  <div className="flex items-center gap-2 mb-0.5">
+                                    <span className="text-sm font-black text-slate-800 uppercase">{c.nome}</span>
+                                    <span className={cn("text-[9px] font-black px-2 py-0.5 rounded-full", cfg.badge)}>{cfg.icon} {cfg.label}</span>
+                                  </div>
+                                  <p className="text-[10px] text-slate-500 italic">{cfg.desc}</p>
+                                </div>
+                                <span className="text-[9px] text-slate-400 shrink-0">{c.diasAnalisados} dias</span>
+                              </div>
+                              <div className="grid grid-cols-4 gap-2">
+                                {[
+                                  { label: "PA Médio", value: c.meanPA.toFixed(1), color: c.meanPA >= 2.5 ? "text-emerald-600" : c.meanPA >= 1.8 ? "text-amber-600" : "text-rose-600" },
+                                  { label: "Desvio", value: `±${c.stdPA.toFixed(1)}`, color: c.stdPA > 0.7 ? "text-amber-600" : "text-slate-500" },
+                                  { label: "Min→Max", value: `${c.minPA.toFixed(1)}→${c.maxPA.toFixed(1)}`, color: "text-slate-600" },
+                                  { label: "Corr×Pressão", value: `${c.corrPressaoPA > 0 ? "+" : ""}${c.corrPressaoPA}`, color: c.corrPressaoPA < -0.4 ? "text-rose-600" : "text-slate-500" },
+                                ].map((m, mi) => (
+                                  <div key={mi} className="text-center bg-white/70 rounded-xl p-2 border border-white">
+                                    <p className="text-[8px] font-black text-slate-400 uppercase">{m.label}</p>
+                                    <p className={cn("text-sm font-black", m.color)}>{m.value}</p>
+                                  </div>
+                                ))}
+                              </div>
+                              <div>
+                                <p className="text-[8px] font-black text-slate-400 uppercase mb-1">PA por dia (últimos {Math.min(c.dayPoints.length, 15)})</p>
+                                <div className="flex items-end gap-0.5 h-8">
+                                  {c.dayPoints.slice(-15).map((d, di) => {
+                                    const maxPa = Math.max(...c.dayPoints.map(x => x.pa), 1);
+                                    return <div key={di} className={cn("flex-1 rounded-sm min-h-[3px]", d.pa >= 2.5 ? "bg-emerald-400" : d.pa >= 1.8 ? "bg-amber-400" : "bg-rose-400")} style={{ height: `${Math.max((d.pa / maxPa) * 100, 8)}%` }} title={`${d.day}: PA ${d.pa.toFixed(1)}`} />;
+                                  })}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
             </div>
           )}
         </div>
@@ -1198,6 +1575,7 @@ export function OperationalRhythm({ data }: OperationalRhythmProps) {
     </div>
   );
 }
+
 
 function Stat({ label, value, highlight, tooltip }: { label: string; value: string; highlight?: boolean; tooltip?: string }) {
   return (

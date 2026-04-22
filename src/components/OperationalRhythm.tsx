@@ -3,6 +3,7 @@
 
 import React, { useMemo, useState } from "react";
 import { DetailedSaleRow } from "@/lib/types";
+import { AnalysisHelp } from "./AnalysisHelp";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -753,13 +754,13 @@ export function OperationalRhythm({ data }: OperationalRhythmProps) {
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
-            <Stat label="Total de Vendas" value={String(sales.length)} />
-            <Stat label="Dias Analisados" value={String(days.length)} />
+            <Stat label="Total de Vendas" value={String(sales.length)} description="Quantidade total de cupons emitidos no período analisado." />
+            <Stat label="Dias Analisados" value={String(days.length)} description="Número de dias diferentes identificados nos arquivos XML." />
             <Stat 
               label="Limiar de Gargalo" 
               value={`${limiarGargalo.toFixed(1)}x`} 
               highlight 
-              tooltip="Indica o ponto onde a equipe começa a perder qualidade por excesso de atendimentos simultâneos."
+              description="Indica o ponto onde a equipe começa a ficar sobrecarregada. Se o valor for 2.0x, significa que há 2 clientes por vendedor no mesmo momento."
             />
           </div>
         </div>
@@ -1577,13 +1578,23 @@ export function OperationalRhythm({ data }: OperationalRhythmProps) {
 }
 
 
-function Stat({ label, value, highlight, tooltip }: { label: string; value: string; highlight?: boolean; tooltip?: string }) {
+function Stat({ label, value, highlight, tooltip, description }: { label: string; value: string; highlight?: boolean; tooltip?: string; description?: string }) {
   return (
-    <div className={cn("bg-white/10 px-4 py-2 rounded-2xl border border-white/20 transition-all hover:bg-white/15 cursor-help", highlight && "bg-orange-500/20 border-orange-500/40")}>
-      <p className="text-[10px] font-black uppercase text-white/60 tracking-widest leading-none mb-1.5">{label}</p>
+    <div className={cn("bg-white/10 px-4 py-2 rounded-2xl border border-white/20 transition-all hover:bg-white/15 cursor-help min-w-[120px]", highlight && "bg-orange-500/20 border-orange-500/40")}>
+      <div className="flex items-center gap-1.5 mb-1.5">
+        <p className="text-[10px] font-black uppercase text-white/60 tracking-widest leading-none">{label}</p>
+        {description && (
+          <AnalysisHelp 
+            title={label} 
+            description={description} 
+            className="text-white/20 hover:text-white/50" 
+            iconClassName="w-3 h-3"
+          />
+        )}
+      </div>
       <div className="flex items-center gap-2">
         <p className={cn("text-xl font-black", highlight ? "text-orange-400" : "text-white")}>{value}</p>
-        {tooltip && (
+        {tooltip && !description && (
           <div className="group relative">
             <Info className="w-3 h-3 text-white/30" />
             <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-slate-900 text-[10px] font-bold text-white rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 shadow-2xl border border-white/10">

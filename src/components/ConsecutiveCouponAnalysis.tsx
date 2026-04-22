@@ -2,6 +2,7 @@
 
 import React, { useMemo } from "react";
 import { DetailedSaleRow } from "@/lib/types";
+import { AnalysisHelp } from "./AnalysisHelp";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -132,9 +133,16 @@ export function ConsecutiveCouponAnalysis({ data }: ConsecutiveCouponAnalysisPro
             <AlertTriangle className="w-8 h-8 text-rose-200" />
           </div>
           <div className="flex-1">
-            <h2 className="text-2xl md:text-3xl font-black tracking-tighter uppercase">Análise de Cupons Fragmentados</h2>
+            <h2 className="text-2xl md:text-3xl font-black tracking-tighter uppercase flex items-center gap-2">
+              Vendas Unidas Divididas (Fragmentadas)
+              <AnalysisHelp 
+                title="Vendas Fragmentadas" 
+                description="Ocorre quando um cliente compra vários itens, mas o vendedor registra cada item em um cupom separado. Isso costuma ser feito para aumentar artificialmente o número de atendimentos." 
+                className="text-white/40 hover:text-white/70"
+              />
+            </h2>
             <p className="text-rose-100 text-sm font-medium mt-1 leading-relaxed">
-              Identificação de cupons seguidos com <strong>apenas 1 item</strong> do <strong>mesmo cliente (CPF)</strong> em curto intervalo (≤ 10 min) pelo mesmo colaborador.
+              Identificação de vendas seguidas com <strong>apenas 1 item</strong> para o <strong>mesmo cliente</strong> em intervalo curto (≤ 10 min).
             </p>
           </div>
           <div className="bg-white/10 px-6 py-4 rounded-2xl border border-white/20 text-center min-w-[140px]">
@@ -177,7 +185,13 @@ export function ConsecutiveCouponAnalysis({ data }: ConsecutiveCouponAnalysisPro
         <Card className="ri-card border-none shadow-sm overflow-hidden">
           <CardHeader className="bg-slate-900 text-white p-6">
             <CardTitle className="text-xs font-black uppercase flex items-center gap-2 tracking-widest">
-              <Users className="w-4 h-4 text-rose-400" /> Ranking por Colaborador
+              <Users className="w-4 h-4 text-rose-400" /> 
+              Ranking de Inchaço de Cupons
+              <AnalysisHelp 
+                title="Ranking de Fragmentação" 
+                description="Lista dos colaboradores que mais dividem vendas de um mesmo cliente em vários cupons." 
+                className="text-white/30 hover:text-white/60"
+              />
             </CardTitle>
           </CardHeader>
           <CardContent className="p-6">

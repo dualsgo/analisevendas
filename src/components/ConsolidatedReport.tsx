@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState } from "react";
 import { DetailedSaleRow, VinculoTroca } from "@/lib/types";
+import { AnalysisHelp } from "./AnalysisHelp";
 import {
   Table,
   TableBody,
@@ -408,13 +409,13 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
           <TableHeader className="bg-slate-900 print:bg-slate-200">
             <TableRow className="hover:bg-slate-900 border-none h-10 md:h-12 print:h-7 print:border-b print:border-black">
               <TableHead className="text-white print:text-black font-black uppercase text-[8px] md:text-[9px] pl-4 md:pl-8 print:pl-1 print:w-[15%]">Colaborador</TableHead>
-              <SortableHead label="Venda Total" sortKey="venda" currentSort={sortConfig} onSort={setSortConfig} className="text-right print:w-[10%]" />
-              <SortableHead label="Cps" sortKey="cupons" currentSort={sortConfig} onSort={setSortConfig} className="text-center print:w-[5%]" />
-              <SortableHead label="Its" sortKey="itens" currentSort={sortConfig} onSort={setSortConfig} className="text-center print:w-[5%]" />
-              <SortableHead label="PA" sortKey="pa" currentSort={sortConfig} onSort={setSortConfig} className="text-center print:w-[6%]" />
-              <SortableHead label="TKM" sortKey="tkm" currentSort={sortConfig} onSort={setSortConfig} className="text-right print:w-[8%]" />
-              <SortableHead label="PM" sortKey="pm" currentSort={sortConfig} onSort={setSortConfig} className="text-right print:w-[8%]" />
-              <SortableHead label="CPF %" sortKey="ident" currentSort={sortConfig} onSort={setSortConfig} className="text-center print:w-[6%]" />
+              <SortableHead label="Venda Total" sortKey="venda" currentSort={sortConfig} onSort={setSortConfig} className="text-right print:w-[10%]" description="Soma de todo o faturamento faturado pelo colaborador." />
+              <SortableHead label="Cps" sortKey="cupons" currentSort={sortConfig} onSort={setSortConfig} className="text-center print:w-[5%]" description="Total de Cupons (Tickets) emitidos." />
+              <SortableHead label="Its" sortKey="itens" currentSort={sortConfig} onSort={setSortConfig} className="text-center print:w-[5%]" description="Total de itens (peças) vendidos." />
+              <SortableHead label="PA" sortKey="pa" currentSort={sortConfig} onSort={setSortConfig} className="text-center print:w-[6%]" description="Peças por Atendimento: Média de quantos produtos saem em cada venda." />
+              <SortableHead label="TKM" sortKey="tkm" currentSort={sortConfig} onSort={setSortConfig} className="text-right print:w-[8%]" description="Ticket Médio: Valor médio de cada venda realizada." />
+              <SortableHead label="PM" sortKey="pm" currentSort={sortConfig} onSort={setSortConfig} className="text-right print:w-[8%]" description="Preço Médio: Valor médio de cada item vendido." />
+              <SortableHead label="CPF %" sortKey="ident" currentSort={sortConfig} onSort={setSortConfig} className="text-center print:w-[6%]" description="Percentual de vendas em que o cliente foi identificado com CPF." />
               <TableHead className="text-white print:text-black font-black uppercase text-[8px] md:text-[9px] text-center print:w-[6%]">SLP</TableHead>
               <TableHead className="text-white print:text-black font-black uppercase text-[8px] md:text-[9px] text-center print:w-[6%]">🃏</TableHead>
               <TableHead className="text-white print:text-black font-black uppercase text-[8px] md:text-[9px] text-center print:w-[6%]">🛍️</TableHead>
@@ -604,6 +605,12 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
         <div className="flex items-center gap-2">
           <Info className="w-3 h-3 print:hidden" />
           <p>Média Relativa por Grupo Ativada • Auditoria Interna Ri Happy</p>
+          <AnalysisHelp 
+            title="Média Relativa por Grupo" 
+            description="Os colaboradores são comparados apenas com outros que atendem volume similar. Isso garante uma comparação justa entre quem fica no balcão e quem fica no meio de loja." 
+            className="text-slate-400 hover:text-slate-600"
+            iconClassName="w-3 h-3"
+          />
         </div>
         <p>RESTRITO: USO GERENCIAL</p>
       </div>
@@ -720,7 +727,7 @@ function ReportKPI({ label, value, icon: Icon, color, large }: any) {
   );
 }
 
-function SortableHead({ label, sortKey, currentSort, onSort, className }: any) {
+function SortableHead({ label, sortKey, currentSort, onSort, className, description }: any) {
   const isActive = currentSort.key === sortKey;
   const handleSort = () => {
     onSort({
@@ -731,17 +738,26 @@ function SortableHead({ label, sortKey, currentSort, onSort, className }: any) {
 
   return (
     <TableHead 
-      onClick={handleSort}
       className={cn(
-        "text-white print:text-black font-black uppercase text-[8px] md:text-[9px] cursor-pointer hover:bg-slate-800 transition-colors",
+        "text-white print:text-black font-black uppercase text-[8px] md:text-[9px] transition-colors",
         className
       )}
     >
       <div className={cn("flex items-center gap-1.5", className?.includes("text-right") ? "justify-end" : className?.includes("text-center") ? "justify-center" : "")}>
-        {label}
-        <div className="flex flex-col">
-          <ArrowUpRight className={cn("w-2 h-2 transition-all", isActive && currentSort.direction === 'asc' ? "text-orange-500" : "text-white/20")} />
-        </div>
+        <button onClick={handleSort} className="hover:text-orange-500 flex items-center gap-1.5 focus:outline-none">
+          {label}
+          <div className="flex flex-col">
+            <ArrowUpRight className={cn("w-2 h-2 transition-all", isActive ? (currentSort.direction === 'asc' ? "text-orange-500" : "text-orange-500 opacity-50") : "text-white/20")} />
+          </div>
+        </button>
+        {description && (
+          <AnalysisHelp 
+            title={label} 
+            description={description} 
+            className="text-white/20 hover:text-white/50" 
+            iconClassName="w-2.5 h-2.5"
+          />
+        )}
       </div>
     </TableHead>
   );

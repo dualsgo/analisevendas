@@ -120,7 +120,8 @@ import { SocialActionPanel } from "./SocialActionPanel";
 import { ConsecutiveCouponAnalysis } from "./ConsecutiveCouponAnalysis";
 import { SundayAnalysis } from "./SundayAnalysis";
 import { ProductivityDiagnostic } from "./ProductivityDiagnostic";
-import { Calculator, Map, Heart, Brain } from "lucide-react";
+import { Calculator, Map, Heart, Brain, HelpCircle } from "lucide-react";
+import { AnalysisHelp } from "./AnalysisHelp";
 
 interface SalesSummaryProps {
   data: DetailedSaleRow[];
@@ -372,8 +373,8 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
     { id: "elasticidade", label: "Elasticidade Desconto", icon: LineChart, category: "Produtos", color: "text-amber-600" },
 
     { id: "customer_loyalty", label: "Fidelidade & Recorrência", icon: Users2, category: "Clientes", color: "text-emerald-600 font-black" },
-    { id: "ritmo_operacional", label: "Ritmo Operacional", icon: Timer, category: "Operacional" },
-    { id: "produtividade_diag", label: "Diagnóstico Produtividade", icon: Brain, category: "Operacional", color: "text-indigo-600 font-black" },
+    { id: "ritmo_operacional", label: "Ritmo de Atendimento", icon: Timer, category: "Operacional" },
+    { id: "produtividade_diag", label: "Diagnóstico de Produtividade", icon: Brain, category: "Operacional", color: "text-indigo-600 font-black" },
     { id: "pickup_track", label: "Monitor Pickup", icon: Smartphone, category: "Operacional", color: "text-sky-600 font-black" },
     { id: "delivery_track", label: "Monitor Delivery", icon: Truck, category: "Operacional", color: "text-rose-600 font-black" },
     { id: "transacoes", label: "Transações", icon: ListFilter, category: "Operacional" },
@@ -388,8 +389,8 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
     { id: "oportunidades", label: "Oportunidades", icon: Lightbulb, category: "Auditoria" },
     { id: "sangria", label: "Risco de Trocas", icon: AlertTriangle, category: "Auditoria" },
     { id: "geodesic", label: "Análise Geográfica", icon: Map, category: "Clientes" },
-    { id: "sunday_analise", label: "Análise Domingos", icon: CalendarIcon, category: "Operacional", color: "text-indigo-600 font-black" },
-    { id: "consecutive_cupons", label: "Cupons Fragmentados", icon: Layers, category: "Auditoria", color: "text-rose-600 font-black" },
+    { id: "sunday_analise", label: "Análise de Domingos", icon: CalendarIcon, category: "Operacional", color: "text-indigo-600 font-black" },
+    { id: "consecutive_cupons", label: "Vendas Divididas (Fragmentadas)", icon: Layers, category: "Auditoria", color: "text-rose-600 font-black" },
   ];
 
   const renderActiveTab = () => {
@@ -464,10 +465,32 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
                     </div>
 
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 w-full px-4 md:px-10">
-                      <QuickMetric label="Cupons" value={consolidado.cupons} large={isCollapsed} />
-                      <QuickMetric label="Peças" value={consolidado.itens} large={isCollapsed} />
-                      <QuickMetric label="Ticket Médio" value={formatCurrency(consolidado.tkm, true)} color="text-indigo-600" large={isCollapsed} />
-                      <QuickMetric label="P.A. Geral" value={consolidado.pa.toFixed(2)} color="text-sky-600" large={isCollapsed} />
+                      <QuickMetric 
+                        label="Cupons" 
+                        value={consolidado.cupons} 
+                        large={isCollapsed} 
+                        description="Quantidade total de vendas realizadas no período."
+                      />
+                      <QuickMetric 
+                        label="Peças" 
+                        value={consolidado.itens} 
+                        large={isCollapsed} 
+                        description="Total de produtos vendidos em todos os cupons."
+                      />
+                      <QuickMetric 
+                        label="Ticket Médio" 
+                        value={formatCurrency(consolidado.tkm, true)} 
+                        color="text-indigo-600" 
+                        large={isCollapsed} 
+                        description="Valor médio vendido em cada cupom (Faturamento / Cupons)."
+                      />
+                      <QuickMetric 
+                        label="P.A. Geral" 
+                        value={consolidado.pa.toFixed(2)} 
+                        color="text-sky-600" 
+                        large={isCollapsed} 
+                        description="Peças por Atendimento: Volume médio de itens por venda."
+                      />
                     </div>
                   </CardContent>
                 </Card>
@@ -721,10 +744,22 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
   );
 }
 
-function QuickMetric({ label, value, color, large }: any) {
+function QuickMetric({ label, value, color, large, description }: any) {
   return (
     <div className="space-y-2 text-center flex flex-col items-center justify-center">
-      <p className={cn("font-bold text-slate-400 uppercase tracking-widest leading-none mb-1", large ? "text-[12px]" : "text-[10px]")}>{label}</p>
+      <div className="flex items-center gap-1.5 mb-1">
+        <p className={cn("font-bold text-slate-400 uppercase tracking-widest leading-none", large ? "text-[12px]" : "text-[10px]")}>
+          {label}
+        </p>
+        {description && (
+          <AnalysisHelp 
+            title={label} 
+            description={description} 
+            className="text-slate-300 hover:text-slate-500" 
+            iconClassName="w-3 h-3"
+          />
+        )}
+      </div>
       <p className={cn(
         "font-black leading-none transition-all duration-300", 
         color || "text-slate-700",

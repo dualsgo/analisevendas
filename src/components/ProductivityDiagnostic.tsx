@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState, useCallback } from "react";
 import { DetailedSaleRow } from "@/lib/types";
+import { AnalysisHelp } from "./AnalysisHelp";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -947,42 +948,49 @@ export function ProductivityDiagnostic({ data }: ProductivityDiagnosticProps) {
       label: "Visão Geral Consultivo vs Transacional",
       icon: Brain,
       color: "text-indigo-600",
+      description: "Diferencia vendas com atendimento completo (consultivo) de vendas rápidas apenas para fechar o cupom (transacional)."
     },
     {
       id: "rajadas",
-      label: "Detecção de Rajadas (Burst)",
+      label: "Vendas em Rajada (Burst Detection)",
       icon: Flame,
       color: "text-rose-600",
+      description: "Identifica momentos em que o colaborador emite muitas notas fiscais em sequência muito rápida, indicando acúmulo no caixa/balcão."
     },
     {
       id: "pressao_pa",
-      label: "Pressão × Qualidade do Atendimento",
+      label: "Impacto da Fila na Qualidade",
       icon: Gauge,
       color: "text-amber-600",
+      description: "Analisa como o aumento do fluxo de clientes afeta a média de itens por venda (PA)."
     },
     {
       id: "jornada_fisica",
       label: "Jornada Física do Colaborador",
       icon: Timer,
       color: "text-purple-600",
+      description: "Estuda o tempo entre vendas para estimar o esforço de deslocamento e finalização na loja."
     },
     {
       id: "capacidade",
       label: "Capacidade vs Demanda Real",
       icon: BarChart3,
       color: "text-sky-600",
+      description: "Calcula se a quantidade de vendedores ativos é suficiente para atender a demanda de clientes sem perder qualidade."
     },
     {
       id: "desempenho_pico",
-      label: "Desempenho no Pico vs Fora do Pico",
+      label: "Desempenho no Pico vs Normal",
       icon: UserCog,
       color: "text-teal-600",
+      description: "Compara os resultados de cada vendedor em momentos de loja cheia versus momentos tranquilos."
     },
     {
       id: "posicoes",
       label: "Estrutura de Posições (GPD)",
       icon: Layers,
       color: "text-indigo-500",
+      description: "Classifica os colaboradores em perfis operacionais (P1, P2, P3) com base no comportamento de venda."
     },
   ];
 
@@ -1070,22 +1078,26 @@ export function ProductivityDiagnostic({ data }: ProductivityDiagnosticProps) {
               label="Taxa Consultiva"
               value={`${consultiveIndex.globalRate.toFixed(0)}%`}
               icon={<Brain className="w-4 h-4" />}
+              description="Percentual de vendas que tiveram um atendimento completo (com conversa, sugestão de produtos e identificação do cliente)."
             />
             <HeroStat
               label="Vendas em Rajada"
               value={`${burstAnalysis.percentInBurst.toFixed(0)}%`}
               icon={<Flame className="w-4 h-4" />}
+              description="Vendas feitas muito rápido em sequência (ex: no caixa). Indica quando a equipe está apenas 'despachando' o balcão."
             />
             <HeroStat
               label="PA Consultivo"
               value={burstAnalysis.paOutBurst.toFixed(2)}
               icon={<ShoppingBag className="w-4 h-4" />}
+              description="Média de itens por venda quando o atendimento é feito com tempo e qualidade (fora do pico)."
             />
             <HeroStat
               label="PA em Rajada"
               value={burstAnalysis.paInBurst.toFixed(2)}
               icon={<TrendingDown className="w-4 h-4" />}
               isAlert={burstAnalysis.paDelta > 0.3}
+              description="Média de itens por venda durante momentos de correria. Geralmente é menor porque não sobra tempo para vendas adicionais."
             />
           </div>
         </div>
@@ -1141,9 +1153,16 @@ export function ProductivityDiagnostic({ data }: ProductivityDiagnosticProps) {
               <div className="p-2 rounded-xl bg-slate-100">
                 <Icon className={cn("w-5 h-5", color)} />
               </div>
-              <span className="font-black text-slate-700 uppercase tracking-tight text-sm">
-                {label}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="font-black text-slate-700 uppercase tracking-tight text-sm">
+                  {label}
+                </span>
+                <AnalysisHelp 
+                  title={label} 
+                  description={(sections.find(s => s.id === id) as any)?.description || ""} 
+                  className="text-slate-300 hover:text-slate-500"
+                />
+              </div>
             </div>
             {openSection === id ? (
               <ChevronUp className="w-4 h-4 text-slate-400" />
@@ -2760,22 +2779,34 @@ function HeroStat({
   value,
   icon,
   isAlert,
+  description,
 }: {
   label: string;
   value: string;
   icon: React.ReactNode;
   isAlert?: boolean;
+  description?: string;
 }) {
   return (
     <div
       className={cn(
-        "bg-white/10 border border-white/15 rounded-2xl p-4 flex items-center gap-3",
+        "bg-white/10 border border-white/15 rounded-2xl p-4 flex items-center gap-3 relative group",
         isAlert && "bg-rose-500/20 border-rose-400/30"
       )}
     >
       <div className="p-2 bg-white/10 rounded-xl">{icon}</div>
-      <div>
-        <p className="text-[9px] font-black uppercase tracking-widest text-white/50">{label}</p>
+      <div className="flex-1">
+        <div className="flex items-center gap-1.5">
+          <p className="text-[9px] font-black uppercase tracking-widest text-white/50">{label}</p>
+          {description && (
+            <AnalysisHelp 
+              title={label} 
+              description={description} 
+              className="text-white/30 hover:text-white/60" 
+              iconClassName="w-3 h-3"
+            />
+          )}
+        </div>
         <p className={cn("text-xl font-black", isAlert ? "text-rose-300" : "text-white")}>
           {value}
         </p>

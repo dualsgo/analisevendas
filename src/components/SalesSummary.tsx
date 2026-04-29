@@ -603,15 +603,15 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
   return (
     <div className="flex-1 flex flex-col md:flex-row h-full overflow-hidden">
       <Sidebar className="border-r border-slate-200 bg-slate-50 print:hidden" collapsible="icon">
-        <SidebarContent className="p-3 md:p-4">
+        <SidebarContent className="p-2 md:p-3">
           {["Resultados", "Pessoas", "Produtos", "Clientes", "Auditoria", "Operacional"].map((cat) => (
-            <SidebarGroup key={cat} className="mb-4">
-              <SidebarGroupLabel className="text-[10px] font-black uppercase text-slate-400 tracking-[0.15em] mb-3 px-2 group-data-[collapsible=icon]:hidden flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-indigo-500/20" />
+            <SidebarGroup key={cat} className="mb-1">
+              <SidebarGroupLabel className="text-[9px] font-black uppercase text-slate-400 tracking-[0.15em] mb-0.5 px-2 group-data-[collapsible=icon]:hidden flex items-center gap-1.5">
+                <span className="w-1 h-1 rounded-full bg-indigo-500/30" />
                 {cat}
               </SidebarGroupLabel>
               <SidebarGroupContent>
-                <SidebarMenu className="gap-1">
+                <SidebarMenu className="gap-0.5">
                   {navItems
                     .filter((item) => item.category === cat)
                     .map((item) => (
@@ -621,14 +621,14 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
                           onClick={() => handleTabChange(item.id)}
                           tooltip={item.label}
                           className={cn(
-                            "rounded-xl py-4 px-3 transition-all duration-200 h-auto",
+                            "rounded-lg py-1.5 px-2.5 transition-all duration-150 h-auto",
                             activeTab === item.id 
                               ? "bg-white text-indigo-700 shadow-sm border border-slate-200 font-bold" 
-                              : "hover:bg-white text-slate-600 font-medium border border-transparent"
+                              : "hover:bg-white/80 text-slate-600 font-medium border border-transparent"
                           )}
                         >
-                          <item.icon className={cn("w-4 h-4 mr-2.5 shrink-0", activeTab !== item.id && (item.color || "text-slate-400"))} />
-                          <span className="text-[13px] tracking-tight group-data-[collapsible=icon]:hidden truncate">{item.label}</span>
+                          <item.icon className={cn("w-3.5 h-3.5 mr-2 shrink-0", activeTab !== item.id && (item.color || "text-slate-400"))} />
+                          <span className="text-[12px] tracking-tight group-data-[collapsible=icon]:hidden truncate">{item.label}</span>
                         </SidebarMenuButton>
                       </SidebarMenuItem>
                     ))}
@@ -637,8 +637,8 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
             </SidebarGroup>
           ))}
         </SidebarContent>
-        <div className="mt-auto p-4 border-t border-slate-200 group-data-[collapsible=icon]:hidden">
-          <div className="flex flex-col gap-1">
+        <div className="mt-auto p-3 border-t border-slate-200 group-data-[collapsible=icon]:hidden">
+          <div className="flex flex-col gap-0.5">
             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Versão Atual</p>
             <p className="text-[10px] font-bold text-slate-500 uppercase">09/03/2026 • 21:03</p>
           </div>
@@ -646,11 +646,11 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
       </Sidebar>
 
       <div className={cn(
-        "flex-1 overflow-y-auto bg-slate-50 p-4 md:p-6 flex flex-col gap-6 scrollbar-hide print:p-0 print:bg-white transition-all duration-300",
+        "flex-1 overflow-y-auto bg-slate-50 p-3 md:p-5 flex flex-col gap-4 scrollbar-hide print:p-0 print:bg-white transition-all duration-300",
         isCollapsed ? "text-mode-large" : ""
       )}>
         {/* Dashboard Header with Period Info */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 shrink-0 px-2 lg:px-4">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-3 shrink-0">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
               <Badge variant="outline" className="bg-indigo-50/50 text-indigo-600 border-indigo-100 font-bold text-[10px] uppercase tracking-widest px-2 py-0">

@@ -120,6 +120,7 @@ import { SocialActionPanel } from "./SocialActionPanel";
 import { ConsecutiveCouponAnalysis } from "./ConsecutiveCouponAnalysis";
 import { SundayAnalysis } from "./SundayAnalysis";
 import { ProductivityDiagnostic } from "./ProductivityDiagnostic";
+import { CashReconciliation } from "./CashReconciliation";
 import { Calculator, Map, Heart, Brain, HelpCircle } from "lucide-react";
 import { AnalysisHelp } from "./AnalysisHelp";
 
@@ -379,6 +380,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
     { id: "delivery_track", label: "Monitor Delivery", icon: Truck, category: "Operacional", color: "text-rose-600 font-black" },
     { id: "transacoes", label: "Transações", icon: ListFilter, category: "Operacional" },
     { id: "payment_map", label: "Mapa de Pagamentos", icon: CreditCard, category: "Operacional" },
+    { id: "cash_reconcile", label: "Conciliação de Dinheiro", icon: Calculator, category: "Operacional", color: "text-emerald-600 font-black" },
     { id: "qualidade_avancada", label: "Qualidade da Venda", icon: Target, category: "Operacional" },
     { id: "radar", label: "Radar de Alertas", icon: ShieldAlert, category: "Auditoria" },
     { id: "auditoria", label: "Auditoria de Descontos", icon: Percent, category: "Auditoria" },
@@ -570,6 +572,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
       case "ritmo_operacional": return <OperationalRhythm data={filteredData} />;
       case "produtividade_diag": return <ProductivityDiagnostic data={filteredData} />;
       case "payment_map": return <PaymentMap data={filteredData} />;
+      case "cash_reconcile": return <CashReconciliation data={filteredData} />;
       case "customer_loyalty": return <CustomerLoyalty data={filteredData} vinculos={filteredVinculos} />;
       case "price_profile": return <PriceProfile data={filteredData} />;
       case "item_ranking": return <ItemRanking data={filteredData} />;

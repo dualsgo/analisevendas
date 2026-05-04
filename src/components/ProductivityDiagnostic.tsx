@@ -1145,9 +1145,17 @@ export function ProductivityDiagnostic({ data }: ProductivityDiagnosticProps) {
           key={id}
           className="bg-white rounded-[1.5rem] shadow-sm border border-slate-100 overflow-hidden"
         >
-          <button
+          <div
+            role="button"
+            tabIndex={0}
             onClick={() => setOpenSection((prev) => (prev === id ? "" : id))}
-            className="w-full flex items-center justify-between p-5 hover:bg-slate-50 transition-colors"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                setOpenSection((prev) => (prev === id ? "" : id));
+              }
+            }}
+            className="w-full flex items-center justify-between p-5 hover:bg-slate-50 transition-colors cursor-pointer select-none outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
           >
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-xl bg-slate-100">
@@ -1169,7 +1177,7 @@ export function ProductivityDiagnostic({ data }: ProductivityDiagnosticProps) {
             ) : (
               <ChevronDown className="w-4 h-4 text-slate-400" />
             )}
-          </button>
+          </div>
 
           {openSection === id && (
             <div className="px-5 pb-6 space-y-5 border-t border-slate-100 pt-5">

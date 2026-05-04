@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useMemo, useState, useRef, useCallback } from "react";
-import html2canvas from "html2canvas";
 import { DetailedSaleRow, VinculoTroca } from "@/lib/types";
 import { AnalysisHelp } from "./AnalysisHelp";
 import {
@@ -51,9 +50,7 @@ import {
   Info,
   Filter,
   Search,
-  ChevronRight,
-  Download,
-  Loader2
+  ChevronRight
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -104,46 +101,8 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
   const { state } = useSidebar();
   const isCollapsed = state === "collapsed";
   const [rangeStep, setRangeStep] = useState(50);
-  const [isExporting, setIsExporting] = useState(false);
-  const captureRef = useRef<HTMLDivElement>(null);
 
-  const handleExportPNG = useCallback(async () => {
-    if (!captureRef.current) return;
-    setIsExporting(true);
-    try {
-      const element = captureRef.current;
-      const canvas = await html2canvas(element, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: "#f8fafc",
-        logging: false,
-        width: element.scrollWidth,
-        height: element.scrollHeight,
-        windowWidth: element.scrollWidth + 100,
-        windowHeight: element.scrollHeight + 100,
-        scrollX: 0,
-        scrollY: 0,
-        onclone: (clonedDoc) => {
-          const area = clonedDoc.querySelector('[data-capture-area="true"]') as HTMLElement;
-          if (area) {
-            area.style.overflow = "visible";
-            area.style.height = "auto";
-            area.style.padding = "40px";
-            area.style.width = "fit-content";
-            area.style.minWidth = "1200px"; // Ensure a minimum width for the table
-          }
-        }
-      });
-      const link = document.createElement("a");
-      link.download = `performance_${new Date().toLocaleDateString("pt-BR").replace(/\//g, "-")}.png`;
-      link.href = canvas.toDataURL("image/png", 1.0);
-      link.click();
-    } catch (err) {
-      console.error("Erro ao exportar PNG:", err);
-    } finally {
-      setIsExporting(false);
-    }
-  }, []);
+
 
   const formatBRL = (val: number) => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   const formatNum = (val: number, precision = 2) => val.toLocaleString('pt-BR', { minimumFractionDigits: precision, maximumFractionDigits: precision });
@@ -368,39 +327,6 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-          </div>;
-          {/* Novo Filtro de Grupo */}
-          <div className="flex flex-col gap-1.5 mr-4">
-            <Label className="text-[9px] font-black uppercase text-slate-400 px-1">Granularidade</Label>
-            <Select value={rangeStep.toString()} onValueChange={(v) => { setRangeStep(parseInt(v)); setSelectedGroup("all"); }}>
-              <SelectTrigger className="h-9 w-[100px] rounded-xl border-slate-200 bg-white font-black text-[10px] uppercase">
-                 <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="10" className="text-xs font-bold uppercase">De 10 em 10</SelectItem>
-                <SelectItem value="25" className="text-xs font-bold uppercase">De 25 em 25</SelectItem>
-                <SelectItem value="50" className="text-xs font-bold uppercase">De 50 em 50</SelectItem>
-                <SelectItem value="100" className="text-xs font-bold uppercase">De 100 em 100</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex flex-col gap-1.5 mr-4">
-            <Label className="text-[9px] font-black uppercase text-slate-400 px-1">Filtrar Faixa</Label>
-            <Select value={selectedGroup} onValueChange={setSelectedGroup}>
-              <SelectTrigger className="h-9 w-[180px] rounded-xl border-slate-200 bg-white font-black text-[10px] uppercase">
-                <div className="flex items-center gap-2">
-                  <Filter className="w-3 h-3 text-orange-500" />
-                  <SelectValue />
-                </div>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all" className="text-xs font-bold uppercase">Todas as Faixas</SelectItem>
-                {groupsAvailable.map(g => (
-                  <SelectItem key={g} value={g} className="text-xs font-bold uppercase">{g}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
 
           <div className="flex items-center gap-3">
@@ -420,14 +346,7 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
             <Button onClick={handlePrint} variant="outline" className="rounded-xl font-black text-[10px] gap-2 border-slate-200 hover:bg-white hover:text-orange-500 shadow-sm">
               <Printer className="w-4 h-4" /> IMPRIMIR
             </Button>
-            <Button
-              onClick={handleExportPNG}
-              disabled={isExporting}
-              className="rounded-xl font-black text-[10px] gap-2 bg-slate-900 hover:bg-slate-700 text-white shadow-sm"
-            >
-              {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-              {isExporting ? "GERANDO..." : "BAIXAR PNG"}
-            </Button>
+
           </div>
         </div>
       </div>
@@ -446,10 +365,7 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
         </div>
       </div>
 
-      {/* ÁREA CAPTURÁVEL PARA PNG */}
       <div 
-        ref={captureRef} 
-        data-capture-area="true"
         className="space-y-8 rounded-[2rem] bg-slate-50 p-8 border border-slate-100"
       >
 

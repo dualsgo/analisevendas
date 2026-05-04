@@ -106,9 +106,9 @@ export function CashReconciliation({ data }: CashReconciliationProps) {
       
       if (cashValue > 0) {
         stats[colab].totalCash += cashValue;
+        stats[colab].cupons += 1;
       }
       stats[colab].totalSales += totalSaleValue;
-      stats[colab].cupons += 1;
     });
     
     return Object.entries(stats)

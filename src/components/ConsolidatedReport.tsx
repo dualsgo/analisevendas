@@ -111,16 +111,35 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
     if (!captureRef.current) return;
     setIsExporting(true);
     try {
-      const canvas = await html2canvas(captureRef.current, {
-        scale: 3,
+      const element = captureRef.current;
+      const canvas = await html2canvas(element, {
+        scale: 2,
         useCORS: true,
         backgroundColor: "#f8fafc",
         logging: false,
+        width: element.scrollWidth,
+        height: element.scrollHeight,
+        windowWidth: element.scrollWidth + 100,
+        windowHeight: element.scrollHeight + 100,
+        scrollX: 0,
+        scrollY: 0,
+        onclone: (clonedDoc) => {
+          const area = clonedDoc.querySelector('[data-capture-area="true"]') as HTMLElement;
+          if (area) {
+            area.style.overflow = "visible";
+            area.style.height = "auto";
+            area.style.padding = "40px";
+            area.style.width = "fit-content";
+            area.style.minWidth = "1200px"; // Ensure a minimum width for the table
+          }
+        }
       });
       const link = document.createElement("a");
       link.download = `performance_${new Date().toLocaleDateString("pt-BR").replace(/\//g, "-")}.png`;
-      link.href = canvas.toDataURL("image/png");
+      link.href = canvas.toDataURL("image/png", 1.0);
       link.click();
+    } catch (err) {
+      console.error("Erro ao exportar PNG:", err);
     } finally {
       setIsExporting(false);
     }
@@ -428,7 +447,11 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
       </div>
 
       {/* ÁREA CAPTURÁVEL PARA PNG */}
-      <div ref={captureRef} className="space-y-4 rounded-2xl overflow-hidden bg-slate-50 p-4">
+      <div 
+        ref={captureRef} 
+        data-capture-area="true"
+        className="space-y-8 rounded-[2rem] bg-slate-50 p-8 border border-slate-100"
+      >
 
       {/* KPI TOTALIZADORES */}
       <div className="grid grid-cols-3 lg:grid-cols-6 gap-3 print:flex print:items-center print:justify-between print:gap-4 print:p-2 print:bg-slate-50 print:mb-4 print:border-none">

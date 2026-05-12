@@ -272,7 +272,6 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     const vendedorRaw = extractVendedor(infCpl);
 
     // --- LOGICA DE CLASSIFICAÇÃO UNIFICADA ---
-    const isOperacaoInternet = indPres === 2 || indPres === 3 || indPres === 9;
     
     // --- DETECÇÃO DE ENDEREÇO DA LOJA (LÓGICA UNIVERSAL) ---
     // Verifica se o destino da nota é a própria loja através de CEP, Logradouro ou CNPJ

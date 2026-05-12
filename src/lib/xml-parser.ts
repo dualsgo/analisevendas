@@ -66,15 +66,6 @@ function getMedian(nums: number[]): number {
   return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
-function normalizeStreet(s: string): string {
-  if (!s) return "";
-  return s.toUpperCase()
-    .replace(/AVENIDA|AV\.|RUA|R\.|ESTRADA|EST\.|TRAVESSA|TRAV\.|RODOVIA|ROD\./g, "")
-    .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Remove acentos
-    .replace(/[^A-Z0-9]/g, "") // Mantém apenas letras e números
-    .trim();
-}
-
 export function parseXml(xmlString: string): DetailedSaleRow | null {
   try {
     const parser = new DOMParser();
@@ -127,7 +118,7 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     const indPres = parseInt(getElement(ide, "indPres")?.textContent || "0");
 
     const dest = getElement(infNFe, "dest");
-    const cpf_cnpj = dest ? (getElement(dest, "CPF")?.textContent || getElement(dest, "CNPJ")?.textContent || "").replace(/\D/g, "") : "";
+    const cpf_cnpj = dest ? (getElement(dest, "CPF")?.textContent || getElement(dest, "CNPJ")?.textContent || "") : "";
     const nome_dest = dest ? (getElement(dest, "xNome")?.textContent || "") : "";
     const enderDest = dest ? getElement(dest, "enderDest") : null;
     const cep_dest = enderDest ? (getElement(enderDest, "CEP")?.textContent || "").replace(/\D/g, "") : "";
@@ -144,15 +135,11 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     const xNomeEmit = emit ? getElement(emit, "xNome")?.textContent || "" : "";
     const cnpjEmit = emit ? getElement(emit, "CNPJ")?.textContent || "" : "";
     const ieEmit = emit ? getElement(emit, "IE")?.textContent || "" : "";
-    const xLgr_emit = enderEmit ? (getElement(enderEmit, "xLgr")?.textContent || "") : "";
-    const enderEmitFull = enderEmit ? `${xLgr_emit}, ${getElement(enderEmit, "nro")?.textContent} - ${getElement(enderEmit, "xBairro")?.textContent}` : "";
+    const enderEmitFull = enderEmit ? `${getElement(enderEmit, "xLgr")?.textContent}, ${getElement(enderEmit, "nro")?.textContent} - ${getElement(enderEmit, "xBairro")?.textContent}` : "";
 
     const total = getElement(infNFe, "total");
     const icmsTot = total ? getElement(total, "ICMSTot") : null;
     const vNFValue = icmsTot ? dec(getElement(icmsTot, "vNF")?.textContent) : 0;
-    
-    const isIdentificado = !!cpf_cnpj && nome_dest.length > 5;
-    const temEnderecoDestino = !!xLgr_dest || !!cep_dest;
 
     const itemsList: Item[] = [];
     let nearFreeCount = 0;
@@ -281,64 +268,65 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     const vendedorRaw = extractVendedor(infCpl);
 
     // --- LOGICA DE CLASSIFICAÇÃO UNIFICADA ---
+    const isOperacaoInternet = indPres === 2 || indPres === 3 || indPres === 9;
     
-    // --- DETECÇÃO DE ENDEREÇO DA LOJA (LÓGICA UNIVERSAL) ---
-    // Verifica se o destino da nota é a própria loja através de CEP, Logradouro ou CNPJ
-    const isMesmoCEP = !!cep_dest && cep_dest === cep_loja;
-    const normLgrDest = normalizeStreet(xLgr_dest);
-    const normLgrEmit = normalizeStreet(xLgr_emit);
-    const isMesmaRua = !!normLgrDest && !!normLgrEmit && (
-      normLgrDest.includes(normLgrEmit) || 
-      normLgrEmit.includes(normLgrDest)
-    );
-    const isMesmoCNPJ = !!cpf_cnpj && cpf_cnpj === cnpjEmit;
-    
-    const isEnderecoLoja = isMesmoCEP || isMesmaRua || isMesmoCNPJ;
+    // --- DETECÇÃO DE ENDEREÇO DA LOJA ---
+    // Aceita tanto o CEP do Site (21211007) quanto o CEP físico (21210623) como destino na loja
+    const isEnderecoLoja = (!!cep_dest && (cep_dest === "21211007" || cep_dest === "21210623" || cep_dest === cep_loja)) || 
+      /VICENTE\s+DE\s+CARVALHO/i.test(xLgr_dest);
 
-    // --- DETECÇÃO DE INDICADORES ---
-    
-    // 1. Pagamento e Troco
+    // Identificação de pagamento digital pelo site pela tag (Sem varredura textural)
+    // tpIntegra = 2 (Não Integrado com TEF físico da loja), tPag = 99 (Outros), 90 (Sem pagamento)
     const temPagamentoSite = pagamentosDet.some(p => p.tpIntegra === "2" || p.tPag === "99" || p.tPag === "90");
     const temDinheiro = pagamentosDet.some(p => p.tPag === "01");
-    const isBalcaoBlocked = hasSymbolicItem || temDinheiro || vTrocoPag > 0;
 
-    // 2. Operação e Cliente
-    const isOperacaoInternet = indPres === 2 || indPres === 3 || indPres === 9;
-    const temIdentificacaoCliente = !!nome_dest && !!cpf_cnpj;
-    const temCartaoSemDados = pagamentosDet.some(p => p.tpIntegra === "2" && !p.tBand && !p.cNPJCard);
-    const isIndicioIFood = temIdentificacaoCliente && temCartaoSemDados;
-
-    // 3. Classificação de Potencial Digital
-    // Se tem endereço de destino preenchido, é um forte indício de operação online (balcão raramente preenche endereço)
-    const isPotencialDigital = (isOperacaoInternet || temPagamentoSite || isIndicioIFood || temEnderecoDestino) && !isBalcaoBlocked;
-
-    const termosRetirada = ["RETIRADA", "PICKUP", "CLICK & COLLECT", "RETIRA NO LOCAL", "RETIRA NA LOJA"];
-    const isRetiradaPorTexto = termosRetirada.some(t => infCpl.toUpperCase().includes(t));
+    // BLOQUEIOS DE BALCÃO
+    const isBalcaoBlocked =
+      hasSymbolicItem ||
+      temDinheiro ||
+      vTrocoPag > 0;
 
     const vTrocaCredito = pagamentosDet.filter(p => p.tPag === "05").reduce((acc, p) => acc + p.vPag, 0);
     const isTroca = vTrocaCredito > 0;
     const dif_troca = vNFValue - vTrocaCredito;
 
+    // DEFINIÇÃO DE CEPs (Carioca Shopping)
+    const SITE_STORE_CEP = "21211007"; // CEP cadastrado no site (Oficial de Pickup)
+    const PHYSICAL_STORE_CEP = "21210623"; // CEP físico da loja (Digitado manualmente no iFood)
+
+    // --- PASSO 0: Identificação de indícios (Refinamento iFood) ---
+    // Se tiver nome e CPF mas não possuir bandeira nem CNPJ da credenciadora no cartão tpIntegra 2
+    const temIdentificacaoCliente = !!nome_dest && !!cpf_cnpj;
+    const temCartaoSemDados = pagamentosDet.some(p => p.tpIntegra === "2" && !p.tBand && !p.cNPJCard);
+    const isIndicioIFood = temIdentificacaoCliente && temCartaoSemDados;
+
+    // --- PASSO 1: Classificação Primária (Digital vs Presencial) ---
+    // Identifica se a venda tem natureza digital (Pagamento Site, Operação Internet, tpIntegra 2 ou Indício iFood)
+    const isPotencialDigital = (isOperacaoInternet || temPagamentoSite || isIndicioIFood) && !isBalcaoBlocked;
+
     let canalFinal = isTroca ? "TROCA" : "LOJA_FISICA";
     let isRetiradaOnlineFinal = false;
 
-    if (!isTroca) {
-      // Regra de Ouro: Se o endereço de destino coincide com a loja ou há indicação textual explícita
-      if (isEnderecoLoja || isRetiradaPorTexto) {
+    if (!isTroca && isPotencialDigital) {
+      // Se é digital, verificamos se é Retirada (Pickup) ou Entrega (Delivery/iFood)
+      // Critério de Pickup: Endereço da loja + CEP oficial do site
+      if (isEnderecoLoja && cep_dest === SITE_STORE_CEP) {
         canalFinal = "RETIRADA_ONLINE";
         isRetiradaOnlineFinal = true;
-      } 
-      // Se não houve match de endereço, mas possui indícios técnicos de operação digital
-      else if (isPotencialDigital) {
-        canalFinal = "ENTREGA_DELIVERY";
+      } else {
+        // Se tem indicação digital mas não é Pickup, deveria ser DELIVERY (iFood/Rappi)
+        // EXCEÇÃO: Se possui metadados de cartão físico (Bandeira, CNPJ), NÃO pode ser Delivery genuíno. 
+        // Representa uma venda presencial lançada manualmente com erro operacional, caindo de volta pro Balcão.
+        const temErrosPOS = pagamentosDet.some(p => !!p.tBand || !!p.cNPJCard || !!p.nAut);
+        
+        if (temErrosPOS) {
+          canalFinal = "LOJA_FISICA";
+          isRetiradaOnlineFinal = false;
+        } else {
+          canalFinal = "DELIVERY";
+          isRetiradaOnlineFinal = false;
+        }
       }
-    }
-
-    // --- SEGUNDA ANÁLISE: Lógica de Suspeição (Capturar a diferença residual) ---
-    // Se ainda está como Loja Física, mas tem cliente identificado com endereço e sem indícios de balcão (dinheiro/troco)
-    let isSuspeitoOnline = false;
-    if (canalFinal === "LOJA_FISICA" && !isTroca && isIdentificado && temEnderecoDestino && !temDinheiro && vTrocoPag === 0) {
-       isSuspeitoOnline = true;
     }
 
     const valorTotalProds = itemsList.reduce((acc, it) => acc + it.vProd, 0);
@@ -386,9 +374,7 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
       is_troca: isTroca, vTroca: vTrocaCredito.toFixed(2), dif_troca: dif_troca.toFixed(2),
       is_devolucao: tpNF === 0 && (finNFe === 4 || natOp.toLowerCase().includes("devolucao")),
       refNFe: refNFes, refNFe_normalizadas: refNFes.map(r => r.replace(/\D/g, "")),
-      is_retirada_online: isRetiradaOnlineFinal, vTroco: vTrocoPag.toFixed(2), is_presencial_por_troco: vTrocoPag > 0,
-      is_suspeito_online: isSuspeitoOnline,
-      tpIntegra: tpIntegraValue,
+      is_retirada_online: isRetiradaOnlineFinal, vTroco: vTrocoPag.toFixed(2), is_presencial_por_troco: canalFinal === "LOJA_FISICA", tpIntegra: tpIntegraValue,
       tem_desconto: descontoTotal > 0, tipo_desconto: tipoDescontoFinal,
       status_auditoria: statusAuditoriaFinal,
       cep_dest, cep_loja, is_cep_diferente_da_loja: !!cep_dest && cep_dest !== cep_loja,

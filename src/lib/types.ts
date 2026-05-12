@@ -62,7 +62,6 @@ export interface DetailedSaleRow {
   pickup_match_fields: number;
   is_nome_minusculo?: boolean;
   has_symbolic_item?: boolean;
-  is_suspeito_online?: boolean;
   
   // Auditoria
   tem_desconto: boolean;

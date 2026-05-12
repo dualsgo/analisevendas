@@ -51,8 +51,8 @@ export function ExecutiveSummary({ data, vinculos, onSwitchTab }: ExecutiveSumma
     const identified = activeSales.filter(s => s.cpf_cnpj_dest && s.cpf_cnpj_dest.trim() !== "").length;
 
     // Canais
-    const fisica = activeSales.filter(s => s.canal === "LOJA_FISICA" && !s.is_adicional && !s.is_adicional_suspeito && !s.is_suspeito_online);
-    const pickup = activeSales.filter(s => s.canal === "RETIRADA_ONLINE" || s.canal === "ENTREGA_DELIVERY" || s.is_suspeito_online);
+    const fisica = activeSales.filter(s => s.canal === "LOJA_FISICA" && !s.is_adicional && !s.is_adicional_suspeito);
+    const pickup = activeSales.filter(s => s.canal === "RETIRADA_ONLINE");
     const adicional = activeSales.filter(s => s.canal === "RETIRADA_ADICIONAL" || s.is_adicional || s.is_adicional_suspeito);
     const trocaVal = vinculos.reduce((acc, v) => acc + v.valor_diferenca, 0);
 

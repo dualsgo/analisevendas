@@ -285,38 +285,29 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     
     const isEnderecoLoja = isMesmoCEP || isMesmaRua || isMesmoCNPJ;
 
-    // --- REFINAMENTO DE POTENCIAL DIGITAL ---
-    // Se tem endereço de destino preenchido, é um forte indício de operação online (balcão raramente preenche endereço)
-    const isPotencialDigital = (isOperacaoInternet || temPagamentoSite || isIndicioIFood || temEnderecoDestino) && !isBalcaoBlocked;
-    const termosRetirada = ["RETIRADA", "PICKUP", "CLICK & COLLECT", "RETIRA NO LOCAL", "RETIRA NA LOJA"];
-    const isRetiradaPorTexto = termosRetirada.some(t => infCpl.toUpperCase().includes(t));
-
-    // Identificação de pagamento digital pelo site pela tag (Sem varredura textural)
-    // tpIntegra = 2 (Não Integrado com TEF físico da loja), tPag = 99 (Outros), 90 (Sem pagamento)
+    // --- DETECÇÃO DE INDICADORES ---
+    
+    // 1. Pagamento e Troco
     const temPagamentoSite = pagamentosDet.some(p => p.tpIntegra === "2" || p.tPag === "99" || p.tPag === "90");
     const temDinheiro = pagamentosDet.some(p => p.tPag === "01");
+    const isBalcaoBlocked = hasSymbolicItem || temDinheiro || vTrocoPag > 0;
 
-    // BLOQUEIOS DE BALCÃO
-    const isBalcaoBlocked =
-      hasSymbolicItem ||
-      temDinheiro ||
-      vTrocoPag > 0;
-
-    const vTrocaCredito = pagamentosDet.filter(p => p.tPag === "05").reduce((acc, p) => acc + p.vPag, 0);
-    const isTroca = vTrocaCredito > 0;
-    const dif_troca = vNFValue - vTrocaCredito;
-
-    // REMOVIDO: Definição de CEPs fixos (Agora é dinâmico)
-
-    // --- PASSO 0: Identificação de indícios (Refinamento iFood) ---
-    // Se tiver nome e CPF mas não possuir bandeira nem CNPJ da credenciadora no cartão tpIntegra 2
+    // 2. Operação e Cliente
+    const isOperacaoInternet = indPres === 2 || indPres === 3 || indPres === 9;
     const temIdentificacaoCliente = !!nome_dest && !!cpf_cnpj;
     const temCartaoSemDados = pagamentosDet.some(p => p.tpIntegra === "2" && !p.tBand && !p.cNPJCard);
     const isIndicioIFood = temIdentificacaoCliente && temCartaoSemDados;
 
-    // --- PASSO 1: Classificação Primária (Digital vs Presencial) ---
-    // Identifica se a venda tem natureza digital (Pagamento Site, Operação Internet, tpIntegra 2 ou Indício iFood)
-    const isPotencialDigital = (isOperacaoInternet || temPagamentoSite || isIndicioIFood) && !isBalcaoBlocked;
+    // 3. Classificação de Potencial Digital
+    // Se tem endereço de destino preenchido, é um forte indício de operação online (balcão raramente preenche endereço)
+    const isPotencialDigital = (isOperacaoInternet || temPagamentoSite || isIndicioIFood || temEnderecoDestino) && !isBalcaoBlocked;
+
+    const termosRetirada = ["RETIRADA", "PICKUP", "CLICK & COLLECT", "RETIRA NO LOCAL", "RETIRA NA LOJA"];
+    const isRetiradaPorTexto = termosRetirada.some(t => infCpl.toUpperCase().includes(t));
+
+    const vTrocaCredito = pagamentosDet.filter(p => p.tPag === "05").reduce((acc, p) => acc + p.vPag, 0);
+    const isTroca = vTrocaCredito > 0;
+    const dif_troca = vNFValue - vTrocaCredito;
 
     let canalFinal = isTroca ? "TROCA" : "LOJA_FISICA";
     let isRetiradaOnlineFinal = false;

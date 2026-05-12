@@ -243,6 +243,7 @@ export function TransactionList({ data }: TransactionListProps) {
                   <SelectItem value="all" className="text-xs font-medium">Todos os Canais</SelectItem>
                   <SelectItem value="VENDA_LOJA" className="text-xs font-medium">Venda Loja Física</SelectItem>
                   <SelectItem value="RETIRADA_ONLINE" className="text-xs font-medium">Retirada Online (Pickup)</SelectItem>
+                  <SelectItem value="ENTREGA_DELIVERY" className="text-xs font-medium">Entrega (Delivery)</SelectItem>
                   <SelectItem value="RETIRADA_ADICIONAL" className="text-xs font-medium">Adicional de Pickup</SelectItem>
                   <SelectItem value="TROCA" className="text-xs font-medium">Troca</SelectItem>
                 </SelectContent>
@@ -298,6 +299,9 @@ export function TransactionList({ data }: TransactionListProps) {
                     <div className="flex items-center gap-2">
                        {getChannelIcon(t.canal_consolidado)}
                        <span className="text-xs font-bold text-slate-600 uppercase">{t.canal_consolidado.replace("_", " ")}</span>
+                       {t.is_suspeito_online && (
+                         <Badge className="bg-amber-100 text-amber-700 text-[8px] h-4 border-amber-200">SUSPEITO</Badge>
+                       )}
                     </div>
                   </TableCell>
                   <TableCell>
@@ -494,6 +498,7 @@ function getChannelIcon(channel: string) {
     case "VENDA_LOJA": return <Store className="w-3 h-3 text-slate-400" />;
     case "RETIRADA_ONLINE": return <Smartphone className="w-3 h-3 text-sky-400" />;
     case "RETIRADA_ADICIONAL": return <Zap className="w-3 h-3 text-emerald-500" />;
+    case "ENTREGA_DELIVERY": return <Package className="w-3 h-3 text-amber-500" />;
     case "TROCA": return <ArrowRightLeft className="w-3 h-3 text-purple-400" />;
     default: return <FileText className="w-3 h-3 text-slate-300" />;
   }

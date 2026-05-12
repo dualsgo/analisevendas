@@ -167,7 +167,7 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
       }
 
       // Retirada Online (Extra)
-      if (s.canal === "RETIRADA_ONLINE" || s.is_suspeito_online) {
+      if (s.canal === "RETIRADA_ONLINE" || s.canal === "ENTREGA_DELIVERY" || s.is_suspeito_online) {
         vendors[v].extra.venda += val;
         vendors[v].extra.cupons += 1;
         vendors[v].extra.itens += qItens;

@@ -135,7 +135,8 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     const xNomeEmit = emit ? getElement(emit, "xNome")?.textContent || "" : "";
     const cnpjEmit = emit ? getElement(emit, "CNPJ")?.textContent || "" : "";
     const ieEmit = emit ? getElement(emit, "IE")?.textContent || "" : "";
-    const enderEmitFull = enderEmit ? `${getElement(enderEmit, "xLgr")?.textContent}, ${getElement(enderEmit, "nro")?.textContent} - ${getElement(enderEmit, "xBairro")?.textContent}` : "";
+    const xLgr_emit = enderEmit ? (getElement(enderEmit, "xLgr")?.textContent || "") : "";
+    const enderEmitFull = enderEmit ? `${xLgr_emit}, ${getElement(enderEmit, "nro")?.textContent} - ${getElement(enderEmit, "xBairro")?.textContent}` : "";
 
     const total = getElement(infNFe, "total");
     const icmsTot = total ? getElement(total, "ICMSTot") : null;
@@ -270,10 +271,20 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     // --- LOGICA DE CLASSIFICAÇÃO UNIFICADA ---
     const isOperacaoInternet = indPres === 2 || indPres === 3 || indPres === 9;
     
-    // --- DETECÇÃO DE ENDEREÇO DA LOJA ---
-    // Aceita tanto o CEP do Site (21211007) quanto o CEP físico (21210623) como destino na loja
-    const isEnderecoLoja = (!!cep_dest && (cep_dest === "21211007" || cep_dest === "21210623" || cep_dest === cep_loja)) || 
-      /VICENTE\s+DE\s+CARVALHO/i.test(xLgr_dest);
+    // --- DETECÇÃO DE ENDEREÇO DA LOJA (LÓGICA UNIVERSAL) ---
+    // Verifica se o destino da nota é a própria loja através de CEP, Logradouro ou CNPJ
+    const isMesmoCEP = !!cep_dest && cep_dest === cep_loja;
+    const isMesmaRua = !!xLgr_dest && !!xLgr_emit && (
+      xLgr_dest.toUpperCase().includes(xLgr_emit.toUpperCase()) || 
+      xLgr_emit.toUpperCase().includes(xLgr_dest.toUpperCase())
+    );
+    const isMesmoCNPJ = !!cpf_cnpj && cpf_cnpj === cnpjEmit;
+    
+    const isEnderecoLoja = isMesmoCEP || isMesmaRua || isMesmoCNPJ;
+
+    // Identificação textural de retirada no infCpl
+    const termosRetirada = ["RETIRADA", "PICKUP", "CLICK & COLLECT", "RETIRA NO LOCAL", "RETIRA NA LOJA"];
+    const isRetiradaPorTexto = termosRetirada.some(t => infCpl.toUpperCase().includes(t));
 
     // Identificação de pagamento digital pelo site pela tag (Sem varredura textural)
     // tpIntegra = 2 (Não Integrado com TEF físico da loja), tPag = 99 (Outros), 90 (Sem pagamento)
@@ -290,9 +301,7 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     const isTroca = vTrocaCredito > 0;
     const dif_troca = vNFValue - vTrocaCredito;
 
-    // DEFINIÇÃO DE CEPs (Carioca Shopping)
-    const SITE_STORE_CEP = "21211007"; // CEP cadastrado no site (Oficial de Pickup)
-    const PHYSICAL_STORE_CEP = "21210623"; // CEP físico da loja (Digitado manualmente no iFood)
+    // REMOVIDO: Definição de CEPs fixos (Agora é dinâmico)
 
     // --- PASSO 0: Identificação de indícios (Refinamento iFood) ---
     // Se tiver nome e CPF mas não possuir bandeira nem CNPJ da credenciadora no cartão tpIntegra 2
@@ -309,8 +318,8 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
 
     if (!isTroca && isPotencialDigital) {
       // Se é digital, verificamos se é Retirada (Pickup) ou Entrega (Delivery/iFood)
-      // Critério de Pickup: Endereço da loja + CEP oficial do site
-      if (isEnderecoLoja && cep_dest === SITE_STORE_CEP) {
+      // Critério de Pickup: Endereço da loja OU indicação textual de retirada
+      if (isEnderecoLoja || isRetiradaPorTexto) {
         canalFinal = "RETIRADA_ONLINE";
         isRetiradaOnlineFinal = true;
       } else {

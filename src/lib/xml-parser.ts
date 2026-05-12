@@ -66,6 +66,15 @@ function getMedian(nums: number[]): number {
   return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
+function normalizeStreet(s: string): string {
+  if (!s) return "";
+  return s.toUpperCase()
+    .replace(/AVENIDA|AV\.|RUA|R\.|ESTRADA|EST\.|TRAVESSA|TRAV\.|RODOVIA|ROD\./g, "")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Remove acentos
+    .replace(/[^A-Z0-9]/g, "") // Mantém apenas letras e números
+    .trim();
+}
+
 export function parseXml(xmlString: string): DetailedSaleRow | null {
   try {
     const parser = new DOMParser();
@@ -276,9 +285,11 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     // --- DETECÇÃO DE ENDEREÇO DA LOJA (LÓGICA UNIVERSAL) ---
     // Verifica se o destino da nota é a própria loja através de CEP, Logradouro ou CNPJ
     const isMesmoCEP = !!cep_dest && cep_dest === cep_loja;
-    const isMesmaRua = !!xLgr_dest && !!xLgr_emit && (
-      xLgr_dest.toUpperCase().includes(xLgr_emit.toUpperCase()) || 
-      xLgr_emit.toUpperCase().includes(xLgr_dest.toUpperCase())
+    const normLgrDest = normalizeStreet(xLgr_dest);
+    const normLgrEmit = normalizeStreet(xLgr_emit);
+    const isMesmaRua = !!normLgrDest && !!normLgrEmit && (
+      normLgrDest.includes(normLgrEmit) || 
+      normLgrEmit.includes(normLgrDest)
     );
     const isMesmoCNPJ = !!cpf_cnpj && cpf_cnpj === cnpjEmit;
     

@@ -2,10 +2,11 @@
 import { DetailedSaleRow, VinculoTroca } from "./types";
 
 export function detectarAdicionaisSuspeitos(rows: DetailedSaleRow[]): DetailedSaleRow[] {
-  const retiradas = rows.filter(r => r.canal === "RETIRADA_ONLINE" && !r.is_cancelada);
+  const retiradas = rows.filter(r => (r.canal === "RETIRADA_ONLINE" || r.canal === "ENTREGA_DELIVERY" || r.is_suspeito_online) && !r.is_cancelada);
   const candidatos = rows.filter(r =>
     r.tpNF === 1 &&
-    r.canal === "LOJA_FISICA" && // Somente vendas de balcão (físicas) podem ser consideradas "Adicionais" a uma retirada
+    r.canal === "LOJA_FISICA" && 
+    !r.is_suspeito_online && // Vendas já marcadas como suspeitas digitais não são adicionais, são a própria retirada
     !r.is_cancelada &&
     !r.is_troca &&
     !r.tem_suspeita_preco_errado

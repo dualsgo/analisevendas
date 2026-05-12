@@ -25,39 +25,56 @@ export function detectarAdicionaisSuspeitos(rows: DetailedSaleRow[]): DetailedSa
     if (!cpf) return;
 
     const pickupsDoCliente = pickupsPorCpf.get(cpf) || [];
-    // Evita bug de fuso horário UTC extraindo a data local diretamente da string de emissão
     const dateNotaStr = nota.dhEmi.split('T')[0];
 
-    // Vínculo por CPF + Data (Regra solicitada: CPF é o fator principal)
-    const pickupVinculada = pickupsDoCliente.find(p => {
-      const datePickupStr = p.dhEmi.split('T')[0];
-      return dateNotaStr === datePickupStr;
-    });
+    // 1. Match por CPF + Data (Cenário Ideal)
+    const pickupVinculada = pickupsDoCliente.find(p => p.dhEmi.split('T')[0] === dateNotaStr);
 
     if (pickupVinculada) {
-      const tAdicional = new Date(nota.dhEmi).getTime();
-      const tPickup = new Date(pickupVinculada.dhEmi).getTime();
-
-      nota.chave_retirada_associada = pickupVinculada.chave;
-      nota.data_retirada_associada = pickupVinculada.dhEmi;
-      nota.tipo_retirada_associada = tAdicional < tPickup ? "ANTES" : "DEPOIS";
-      nota.canal = "RETIRADA_ADICIONAL";
-      nota.canal_consolidado = "RETIRADA_ADICIONAL";
-
+      vincularAdicional(nota, pickupVinculada, "CPF");
+    } else {
+      // 2. Match por Vendedor + Data + Desconto 10% (Cenário de Visita Dupla sem CPF na 2ª nota)
       const perc = parseFloat(nota.percentual_desconto);
-      const temDescontoEstrategico = perc >= 0.08 && perc <= 0.12;
+      const temDesconto10 = perc >= 0.08 && perc <= 0.12;
 
-      nota.is_adicional = true;
-      if (temDescontoEstrategico) {
-        nota.tipo_desconto = "ADICIONAL";
-        nota.status_auditoria = "ADICIONAL CONFIRMADO (CPF + DESCONTO 10% NO DIA)";
-      } else {
-        nota.status_auditoria = "ADICIONAL PROVÁVEL (MESMO CPF NO DIA DA RETIRADA)";
+      if (temDesconto10) {
+        const pickupMesmoVendedorMesmoDia = retiradas.find(p => 
+          p.vendedor === nota.vendedor && 
+          p.dhEmi.split('T')[0] === dateNotaStr
+        );
+
+        if (pickupMesmoVendedorMesmoDia) {
+          vincularAdicional(nota, pickupMesmoVendedorMesmoDia, "Vendedor + Desconto 10%");
+        }
       }
     }
   });
 
   return rows;
+}
+
+function vincularAdicional(nota: DetailedSaleRow, pickup: DetailedSaleRow, metodo: string) {
+  const tAdicional = new Date(nota.dhEmi).getTime();
+  const tPickup = new Date(pickup.dhEmi).getTime();
+
+  nota.chave_retirada_associada = pickup.chave;
+  nota.data_retirada_associada = pickup.dhEmi;
+  nota.tipo_retirada_associada = tAdicional < tPickup ? "ANTES" : "DEPOIS";
+  nota.canal = "RETIRADA_ADICIONAL";
+  nota.canal_consolidado = "RETIRADA_ADICIONAL";
+  nota.is_adicional = true;
+
+  const perc = parseFloat(nota.percentual_desconto);
+  const temDesconto10 = perc >= 0.08 && perc <= 0.12;
+
+  if (metodo === "CPF") {
+    nota.status_auditoria = temDesconto10 
+      ? "ADICIONAL CONFIRMADO (CPF + DESCONTO 10%)" 
+      : "ADICIONAL PROVÁVEL (MESMO CPF NA DATA)";
+  } else {
+    nota.status_auditoria = `ADICIONAL SUSPEITO (${metodo})`;
+    nota.is_adicional_suspeito = true;
+  }
 }
 
 export function vincularTrocas(rows: DetailedSaleRow[]): VinculoTroca[] {

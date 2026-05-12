@@ -127,7 +127,7 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     const indPres = parseInt(getElement(ide, "indPres")?.textContent || "0");
 
     const dest = getElement(infNFe, "dest");
-    const cpf_cnpj = dest ? (getElement(dest, "CPF")?.textContent || getElement(dest, "CNPJ")?.textContent || "") : "";
+    const cpf_cnpj = dest ? (getElement(dest, "CPF")?.textContent || getElement(dest, "CNPJ")?.textContent || "").replace(/\D/g, "") : "";
     const nome_dest = dest ? (getElement(dest, "xNome")?.textContent || "") : "";
     const enderDest = dest ? getElement(dest, "enderDest") : null;
     const cep_dest = enderDest ? (getElement(enderDest, "CEP")?.textContent || "").replace(/\D/g, "") : "";

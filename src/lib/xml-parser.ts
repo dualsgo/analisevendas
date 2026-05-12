@@ -309,8 +309,8 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
 
     if (!isTroca && isPotencialDigital) {
       // Se é digital, verificamos se é Retirada (Pickup) ou Entrega (Delivery/iFood)
-      // Critério de Pickup: Endereço da loja + CEP oficial do site
-      if (isEnderecoLoja && cep_dest === SITE_STORE_CEP) {
+      // Critério de Pickup: Endereço da loja + CEP oficial do site (ou CEP físico da loja em vendas digitais)
+      if (isEnderecoLoja && (cep_dest === SITE_STORE_CEP || cep_dest === PHYSICAL_STORE_CEP)) {
         canalFinal = "RETIRADA_ONLINE";
         isRetiradaOnlineFinal = true;
       } else {
@@ -356,7 +356,7 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
       tipoDescontoFinal = "AJUSTE DE PREÇO";
       statusAuditoriaFinal = "SUSPEITA DE AJUSTE MANUAL";
     } else if (percentualDesconto >= 0.08 && percentualDesconto <= 0.12) {
-      tipoDescontoFinal = "ADICIONAL";
+      tipoDescontoFinal = "ESTRATÉGICO (10%)";
       statusAuditoriaFinal = "DESCONTO ESTRATÉGICO (10%)";
       isDescontoEstrategico = true;
     } else if (percentualDesconto >= 0.045 && percentualDesconto <= 0.055) {

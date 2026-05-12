@@ -86,10 +86,11 @@ export function PickupPanel({ data }: PickupPanelProps) {
     retiradas.forEach(r => {
       const dateStr = r.dhEmi ? r.dhEmi.split("T")[0] : "unknown";
       const cpf = r.cpf_cnpj_dest || "__sem_cpf__" + r.chave;
-      const key = `${cpf}__${dateStr}`;
+      // Chave do grupo: CPF + Data da Retirada (para manter o agrupamento por dia da operação de retirada)
+      const groupKey = `${cpf}__${dateStr}`;
       
-      if (!groupMap.has(key)) {
-        groupMap.set(key, {
+      if (!groupMap.has(groupKey)) {
+        groupMap.set(groupKey, {
           cpf,
           nome: r.nome_dest || "Consumidor",
           date: dateStr,
@@ -97,23 +98,36 @@ export function PickupPanel({ data }: PickupPanelProps) {
           adicionais: [],
         });
       }
-      groupMap.get(key)!.retiradas.push(r);
+      groupMap.get(groupKey)!.retiradas.push(r);
     });
 
-    // Depois, percorremos todas as outras vendas e as "puxamos" para os grupos de retirada
+    // Depois, percorremos todas as outras vendas e as vinculamos aos grupos
     outrasVendasNoDia.forEach(v => {
-      // Ignora notas sem CPF para vínculo opcional (só vinculamos se tiver CPF)
-      if (!v.cpf_cnpj_dest) return;
-      
-      const dateStr = v.dhEmi ? v.dhEmi.split("T")[0] : "unknown";
-      const key = `${v.cpf_cnpj_dest}__${dateStr}`;
+      // 1. Se a venda já foi marcada como adicional pelo processador, usamos o vínculo explícito
+      if (v.is_adicional && v.chave_retirada_associada && v.data_retirada_associada) {
+        const cpf = v.cpf_cnpj_dest;
+        const dateRef = v.data_retirada_associada.split("T")[0];
+        const groupKey = `${cpf}__${dateRef}`;
 
-      // Se existir um grupo de retirada para esse CPF e Data, vinculamos como "Adicional"
-      if (groupMap.has(key)) {
-        const group = groupMap.get(key)!;
-        // Evita duplicidade se a mesma nota já estiver lá (pela chave)
-        if (!group.adicionais.some(a => a.chave === v.chave)) {
-          group.adicionais.push(v);
+        if (groupMap.has(groupKey)) {
+          const group = groupMap.get(groupKey)!;
+          if (!group.adicionais.some(a => a.chave === v.chave)) {
+            group.adicionais.push(v);
+          }
+          return;
+        }
+      }
+
+      // 2. Fallback: Se não tem flag mas é no mesmo dia e CPF (Vínculo implícito)
+      if (v.cpf_cnpj_dest) {
+        const dateStr = v.dhEmi ? v.dhEmi.split("T")[0] : "unknown";
+        const groupKey = `${v.cpf_cnpj_dest}__${dateStr}`;
+
+        if (groupMap.has(groupKey)) {
+          const group = groupMap.get(groupKey)!;
+          if (!group.adicionais.some(a => a.chave === v.chave)) {
+            group.adicionais.push(v);
+          }
         }
       }
     });

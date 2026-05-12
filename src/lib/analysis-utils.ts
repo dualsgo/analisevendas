@@ -24,35 +24,57 @@ export function detectarAdicionaisSuspeitos(rows: DetailedSaleRow[]): DetailedSa
     if (!cpf) return;
 
     const pickupsDoCliente = pickupsPorCpf.get(cpf) || [];
-    // Evita bug de fuso horário UTC extraindo a data local diretamente da string de emissão
-    const dateNotaStr = nota.dhEmi.split('T')[0];
+    if (pickupsDoCliente.length === 0) return;
 
-    // Vínculo por CPF + Data (Regra solicitada: CPF é o fator principal)
-    const pickupVinculada = pickupsDoCliente.find(p => {
-      const datePickupStr = p.dhEmi.split('T')[0];
-      return dateNotaStr === datePickupStr;
+    const dateNotaStr = nota.dhEmi.split('T')[0];
+    const tNota = new Date(nota.dhEmi).getTime();
+    
+    // Encontrar a retirada mais próxima (pode ser antes ou depois)
+    let pickupVinculada = pickupsDoCliente[0];
+    let minDiff = Math.abs(new Date(pickupVinculada.dhEmi).getTime() - tNota);
+
+    pickupsDoCliente.forEach(p => {
+      const diff = Math.abs(new Date(p.dhEmi).getTime() - tNota);
+      if (diff < minDiff) {
+        minDiff = diff;
+        pickupVinculada = p;
+      }
     });
 
-    if (pickupVinculada) {
-      const tAdicional = new Date(nota.dhEmi).getTime();
+    const perc = parseFloat(nota.percentual_desconto);
+    const temDesconto10 = perc >= 0.08 && perc <= 0.12;
+    const ehMesmoDia = pickupVinculada.dhEmi.split('T')[0] === dateNotaStr;
+
+    // Se tem desconto de 10% e o CPF bate com uma retirada, classificamos como adicional
+    // Ou se é no mesmo dia (vínculo temporal forte)
+    if (temDesconto10 || ehMesmoDia) {
       const tPickup = new Date(pickupVinculada.dhEmi).getTime();
 
       nota.chave_retirada_associada = pickupVinculada.chave;
       nota.data_retirada_associada = pickupVinculada.dhEmi;
-      nota.tipo_retirada_associada = tAdicional < tPickup ? "ANTES" : "DEPOIS";
+      nota.tipo_retirada_associada = tNota < tPickup ? "ANTES" : "DEPOIS";
       nota.canal = "RETIRADA_ADICIONAL";
       nota.canal_consolidado = "RETIRADA_ADICIONAL";
-
-      const perc = parseFloat(nota.percentual_desconto);
-      const temDescontoEstrategico = perc >= 0.08 && perc <= 0.12;
-
       nota.is_adicional = true;
-      if (temDescontoEstrategico) {
+
+      if (temDesconto10) {
         nota.tipo_desconto = "ADICIONAL";
-        nota.status_auditoria = "ADICIONAL CONFIRMADO (CPF + DESCONTO 10% NO DIA)";
+        nota.status_auditoria = ehMesmoDia 
+          ? "ADICIONAL CONFIRMADO (CPF + DESCONTO 10% NO MESMO DIA)" 
+          : "ADICIONAL IDENTIFICADO (CPF + DESCONTO 10% EM DIA DISTINTO)";
       } else {
         nota.status_auditoria = "ADICIONAL PROVÁVEL (MESMO CPF NO DIA DA RETIRADA)";
       }
+    }
+  });
+
+  // 3. Pós-processamento: Identifica descontos "ADICIONAL" (10%) que NÃO possuem retirada vinculada
+  // Isso indica um possível uso indevido do desconto de adicional sem uma retirada real.
+  rows.forEach(nota => {
+    if (nota.tipo_desconto === "ADICIONAL" && !nota.is_adicional && !nota.is_cancelada) {
+      nota.is_adicional_suspeito = true;
+      nota.motivo_adicional = "DESCONTO_SEM_RETIRADA";
+      nota.status_auditoria = "ALERTA: DESCONTO 10% SEM RETIRADA IDENTIFICADA";
     }
   });
 

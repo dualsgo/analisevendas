@@ -159,7 +159,7 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
       const isIdentified = s.cpf_cnpj_dest && s.cpf_cnpj_dest.trim() !== "";
 
       // Venda Física/Adicional (Base)
-      if (s.canal === "LOJA_FISICA" || s.canal === "RETIRADA_ADICIONAL" || s.is_adicional || s.is_adicional_suspeito) {
+      if ((s.canal === "LOJA_FISICA" && !s.is_suspeito_online) || s.canal === "RETIRADA_ADICIONAL" || s.is_adicional || s.is_adicional_suspeito) {
         vendors[v].base.venda += val;
         vendors[v].base.cupons += 1;
         vendors[v].base.itens += qItens;
@@ -167,7 +167,7 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
       }
 
       // Retirada Online (Extra)
-      if (s.canal === "RETIRADA_ONLINE") {
+      if (s.canal === "RETIRADA_ONLINE" || s.is_suspeito_online) {
         vendors[v].extra.venda += val;
         vendors[v].extra.cupons += 1;
         vendors[v].extra.itens += qItens;

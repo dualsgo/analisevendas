@@ -141,6 +141,9 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     const total = getElement(infNFe, "total");
     const icmsTot = total ? getElement(total, "ICMSTot") : null;
     const vNFValue = icmsTot ? dec(getElement(icmsTot, "vNF")?.textContent) : 0;
+    
+    const isIdentificado = !!cpf_cnpj && nome_dest.length > 5;
+    const temEnderecoDestino = !!xLgr_dest || !!cep_dest;
 
     const itemsList: Item[] = [];
     let nearFreeCount = 0;
@@ -282,7 +285,9 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     
     const isEnderecoLoja = isMesmoCEP || isMesmaRua || isMesmoCNPJ;
 
-    // Identificação textural de retirada no infCpl
+    // --- REFINAMENTO DE POTENCIAL DIGITAL ---
+    // Se tem endereço de destino preenchido, é um forte indício de operação online (balcão raramente preenche endereço)
+    const isPotencialDigital = (isOperacaoInternet || temPagamentoSite || isIndicioIFood || temEnderecoDestino) && !isBalcaoBlocked;
     const termosRetirada = ["RETIRADA", "PICKUP", "CLICK & COLLECT", "RETIRA NO LOCAL", "RETIRA NA LOJA"];
     const isRetiradaPorTexto = termosRetirada.some(t => infCpl.toUpperCase().includes(t));
 
@@ -316,26 +321,23 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     let canalFinal = isTroca ? "TROCA" : "LOJA_FISICA";
     let isRetiradaOnlineFinal = false;
 
-    if (!isTroca && isPotencialDigital) {
-      // Se é digital, verificamos se é Retirada (Pickup) ou Entrega (Delivery/iFood)
-      // Critério de Pickup: Endereço da loja OU indicação textual de retirada
+    if (!isTroca) {
+      // Regra de Ouro: Se o endereço de destino coincide com a loja ou há indicação textual explícita
       if (isEnderecoLoja || isRetiradaPorTexto) {
         canalFinal = "RETIRADA_ONLINE";
         isRetiradaOnlineFinal = true;
-      } else {
-        // Se tem indicação digital mas não é Pickup, deveria ser DELIVERY (iFood/Rappi)
-        // EXCEÇÃO: Se possui metadados de cartão físico (Bandeira, CNPJ), NÃO pode ser Delivery genuíno. 
-        // Representa uma venda presencial lançada manualmente com erro operacional, caindo de volta pro Balcão.
-        const temErrosPOS = pagamentosDet.some(p => !!p.tBand || !!p.cNPJCard || !!p.nAut);
-        
-        if (temErrosPOS) {
-          canalFinal = "LOJA_FISICA";
-          isRetiradaOnlineFinal = false;
-        } else {
-          canalFinal = "DELIVERY";
-          isRetiradaOnlineFinal = false;
-        }
+      } 
+      // Se não houve match de endereço, mas possui indícios técnicos de operação digital
+      else if (isPotencialDigital) {
+        canalFinal = "ENTREGA_DELIVERY";
       }
+    }
+
+    // --- SEGUNDA ANÁLISE: Lógica de Suspeição (Capturar a diferença residual) ---
+    // Se ainda está como Loja Física, mas tem cliente identificado com endereço e sem indícios de balcão (dinheiro/troco)
+    let isSuspeitoOnline = false;
+    if (canalFinal === "LOJA_FISICA" && !isTroca && isIdentificado && temEnderecoDestino && !temDinheiro && vTrocoPag === 0) {
+       isSuspeitoOnline = true;
     }
 
     const valorTotalProds = itemsList.reduce((acc, it) => acc + it.vProd, 0);
@@ -383,7 +385,9 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
       is_troca: isTroca, vTroca: vTrocaCredito.toFixed(2), dif_troca: dif_troca.toFixed(2),
       is_devolucao: tpNF === 0 && (finNFe === 4 || natOp.toLowerCase().includes("devolucao")),
       refNFe: refNFes, refNFe_normalizadas: refNFes.map(r => r.replace(/\D/g, "")),
-      is_retirada_online: isRetiradaOnlineFinal, vTroco: vTrocoPag.toFixed(2), is_presencial_por_troco: canalFinal === "LOJA_FISICA", tpIntegra: tpIntegraValue,
+      is_retirada_online: isRetiradaOnlineFinal, vTroco: vTrocoPag.toFixed(2), is_presencial_por_troco: vTrocoPag > 0,
+      is_suspeito_online: isSuspeitoOnline,
+      tpIntegra: tpIntegraValue,
       tem_desconto: descontoTotal > 0, tipo_desconto: tipoDescontoFinal,
       status_auditoria: statusAuditoriaFinal,
       cep_dest, cep_loja, is_cep_diferente_da_loja: !!cep_dest && cep_dest !== cep_loja,

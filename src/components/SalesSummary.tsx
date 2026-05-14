@@ -123,6 +123,7 @@ import { ProductivityDiagnostic } from "./ProductivityDiagnostic";
 import { CashReconciliation } from "./CashReconciliation";
 import { Calculator, Map, Heart, Brain, HelpCircle } from "lucide-react";
 import { AnalysisHelp } from "./AnalysisHelp";
+import { CopaAnalysis } from "./CopaAnalysis";
 
 interface SalesSummaryProps {
   data: DetailedSaleRow[];
@@ -372,6 +373,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
     { id: "acao_social", label: "Ação Social (Baralhos)", icon: Heart, category: "Produtos", color: "text-rose-500 font-black" },
     { id: "price_profile", label: "Perfil de Preço", icon: DollarSign, category: "Produtos", color: "text-rose-600 font-black" },
     { id: "elasticidade", label: "Elasticidade Desconto", icon: LineChart, category: "Produtos", color: "text-amber-600" },
+    { id: "copa", label: "Análise Copa (Figurinhas)", icon: Trophy, category: "Produtos", color: "text-amber-500 font-black" },
 
     { id: "customer_loyalty", label: "Fidelidade & Recorrência", icon: Users2, category: "Clientes", color: "text-emerald-600 font-black" },
     { id: "ritmo_operacional", label: "Ritmo de Atendimento", icon: Timer, category: "Operacional" },
@@ -589,6 +591,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
       case "colab_ranking_prod": return <CollaboratorProductRanking data={filteredData} />;
       case "sunday_analise": return <SundayAnalysis data={filteredData} />;
       case "consecutive_cupons": return <ConsecutiveCouponAnalysis data={filteredData} />;
+      case "copa": return <CopaAnalysis data={filteredData} />;
       case "gamification": return null;
       case "feedback": return null;
       default: return null;

@@ -91,6 +91,11 @@ const SACOLA_CODES = ['5133676', '5113644'];
 export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) {
   const [includePickups, setIncludePickups] = useState(false);
   const [includeExchanges, setIncludeExchanges] = useState(false);
+  const [includeFigurinhas, setIncludeFigurinhas] = useState(true);
+  const [includeAlbuns, setIncludeAlbuns] = useState(true);
+  const [includeBaralhos, setIncludeBaralhos] = useState(true);
+  const [includeSLP, setIncludeSLP] = useState(true);
+  const [includeSacolas, setIncludeSacolas] = useState(true);
   const [selectedGroup, setSelectedGroup] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedColab, setSelectedColab] = useState<any>(null);
@@ -117,9 +122,8 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
       vendors[name] = {
         name,
         group: "",
-        base: { venda: 0, cupons: 0, itens: 0, ident: 0 },
-        extra: { venda: 0, cupons: 0, itens: 0, ident: 0 },
-        troca: { venda: 0, itens: 0, ident: 0 },
+        real: { venda: 0, cupons: 0, itens: 0, ident: 0 },
+        filtered: { venda: 0, cupons: 0, itens: 0, ident: 0 },
         pickupsAtendidas: 0,
         adicionaisFeitos: 0,
         slpQty: 0,
@@ -144,8 +148,15 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
       const v = s.vendedor || "OUTROS";
       if (!vendors[v]) return;
 
-      const val = parseFloat(s.vNF);
-      const qItens = parseFloat(s.itens_qtd);
+      const isFisica = s.canal === "LOJA_FISICA" || s.canal === "RETIRADA_ADICIONAL" || s.is_adicional || s.is_adicional_suspeito;
+      const isOnline = s.canal === "RETIRADA_ONLINE";
+
+      if (isOnline) {
+        vendors[v].pickupsAtendidas += 1;
+      }
+      if (s.is_adicional || s.is_adicional_suspeito || s.canal === "RETIRADA_ADICIONAL") {
+        vendors[v].adicionaisFeitos += 1;
+      }
 
       s.itens.forEach(it => {
         if (SLP_CODES.includes(it.cProd)) vendors[v].slpQty += it.qCom;
@@ -156,71 +167,116 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
         }
       });
 
-      const isIdentified = s.cpf_cnpj_dest && s.cpf_cnpj_dest.trim() !== "";
+      const shouldProcess = isFisica || (isOnline && includePickups);
+      
+      if (shouldProcess) {
+        let saleRealVenda = parseFloat(s.vNF);
+        let saleRealItens = parseFloat(s.itens_qtd);
+        let isIdentified = s.cpf_cnpj_dest && s.cpf_cnpj_dest.trim() !== "" ? 1 : 0;
+        
+        let saleFilteredVenda = 0;
+        let saleFilteredItens = 0;
+        let validItemsCount = 0;
 
-      // Venda Física/Adicional (Base)
-      if (s.canal === "LOJA_FISICA" || s.canal === "RETIRADA_ADICIONAL" || s.is_adicional || s.is_adicional_suspeito) {
-        vendors[v].base.venda += val;
-        vendors[v].base.cupons += 1;
-        vendors[v].base.itens += qItens;
-        if (isIdentified) vendors[v].base.ident += 1;
-      }
+        s.itens.forEach(it => {
+          const isFig = it.cProd === "5147790";
+          const isAlb = it.cProd === "5147812";
+          const isBar = isBaralho(it);
+          const isSac = isSacola(it);
+          const isSlpItem = SLP_CODES.includes(it.cProd);
 
-      // Retirada Online (Extra)
-      if (s.canal === "RETIRADA_ONLINE") {
-        vendors[v].extra.venda += val;
-        vendors[v].extra.cupons += 1;
-        vendors[v].extra.itens += qItens;
-        vendors[v].pickupsAtendidas += 1;
-        if (isIdentified) vendors[v].extra.ident += 1;
-      }
+          let includeItem = true;
+          if (isFig && !includeFigurinhas) includeItem = false;
+          if (isAlb && !includeAlbuns) includeItem = false;
+          if (isBar && !includeBaralhos) includeItem = false;
+          if (isSac && !includeSacolas) includeItem = false;
+          if (isSlpItem && !includeSLP) includeItem = false;
 
-      if (s.is_adicional || s.is_adicional_suspeito || s.canal === "RETIRADA_ADICIONAL") {
-        vendors[v].adicionaisFeitos += 1;
+          if (includeItem) {
+              saleFilteredVenda += it.vProd;
+              saleFilteredItens += it.qCom;
+              validItemsCount++;
+          }
+        });
+        
+        if (validItemsCount === 0) {
+          saleFilteredVenda = 0;
+          saleFilteredItens = 0;
+        } else if (validItemsCount === s.itens.length) {
+          saleFilteredVenda = saleRealVenda;
+          saleFilteredItens = saleRealItens;
+        } else {
+          const totalVProd = s.itens.reduce((acc, it) => acc + it.vProd, 0);
+          const ratio = totalVProd > 0 ? saleRealVenda / totalVProd : 1;
+          saleFilteredVenda = saleFilteredVenda * ratio;
+        }
+
+        let saleFilteredCupons = validItemsCount > 0 ? 1 : 0;
+        let saleFilteredIdent = validItemsCount > 0 ? isIdentified : 0;
+
+        vendors[v].real.venda += saleRealVenda;
+        vendors[v].real.cupons += 1;
+        vendors[v].real.itens += saleRealItens;
+        vendors[v].real.ident += isIdentified;
+
+        vendors[v].filtered.venda += saleFilteredVenda;
+        vendors[v].filtered.cupons += saleFilteredCupons;
+        vendors[v].filtered.itens += saleFilteredItens;
+        vendors[v].filtered.ident += saleFilteredIdent;
       }
     });
 
-    vinculos.forEach(vinc => {
-      const v = vinc.vendedor || "OUTROS";
-      if (vendors[v]) {
-        vendors[v].troca.venda += vinc.valor_diferenca;
-        vendors[v].troca.itens += vinc.diferenca_itens;
-        if (vinc.cpf_cliente) vendors[v].troca.ident += 1;
-      }
-    });
+    if (includeExchanges) {
+      vinculos.forEach(vinc => {
+        const v = vinc.vendedor || "OUTROS";
+        if (vendors[v]) {
+          vendors[v].real.venda += vinc.valor_diferenca;
+          vendors[v].real.itens += vinc.diferenca_itens;
+          vendors[v].filtered.venda += vinc.valor_diferenca;
+          vendors[v].filtered.itens += vinc.diferenca_itens;
+          if (vinc.cpf_cliente) {
+            vendors[v].real.ident += 1;
+            vendors[v].filtered.ident += 1;
+          }
+        }
+      });
+    }
 
     const results = Object.values(vendors).map((v: any) => {
-      // Cálculo Dinâmico baseado nos Toggles
-      const totalVenda = v.base.venda + (includePickups ? v.extra.venda : 0) + (includeExchanges ? v.troca.venda : 0);
-      const totalItens = v.base.itens + (includePickups ? v.extra.itens : 0) + (includeExchanges ? v.troca.itens : 0);
-      const totalCupons = v.base.cupons + (includePickups ? v.extra.cupons : 0); 
-      const totalIdent = v.base.ident + (includePickups ? v.extra.ident : 0) + (includeExchanges ? v.troca.ident : 0);
+      const realPA = v.real.cupons > 0 ? v.real.itens / v.real.cupons : 0;
+      const realTKM = v.real.cupons > 0 ? v.real.venda / v.real.cupons : 0;
+      const realIdent = v.real.cupons > 0 ? (v.real.ident / v.real.cupons) * 100 : 0;
 
-      const basePA = v.base.cupons > 0 ? v.base.itens / v.base.cupons : 0;
-      const baseTKM = v.base.cupons > 0 ? v.base.venda / v.base.cupons : 0;
-      const baseIdent = v.base.cupons > 0 ? (v.base.ident / v.base.cupons) * 100 : 0;
+      const filteredPA = v.filtered.cupons > 0 ? v.filtered.itens / v.filtered.cupons : 0;
+      const filteredTKM = v.filtered.cupons > 0 ? v.filtered.venda / v.filtered.cupons : 0;
+      const filteredPM = v.filtered.itens > 0 ? v.filtered.venda / v.filtered.itens : 0;
+      const filteredIdent = v.filtered.cupons > 0 ? Math.min((v.filtered.ident / v.filtered.cupons) * 100, 100) : 0;
+      const conv = v.pickupsAtendidas > 0 ? (v.adicionaisFeitos / v.pickupsAtendidas) * 100 : 0;
 
-      const metrics = {
-        pa: totalCupons > 0 ? totalItens / totalCupons : 0,
-        tkm: totalCupons > 0 ? totalVenda / totalCupons : 0,
-        pm: totalItens > 0 ? totalVenda / totalItens : 0,
-        ident: totalCupons > 0 ? Math.min((totalIdent / totalCupons) * 100, 100) : 0,
-        conv: v.pickupsAtendidas > 0 ? (v.adicionaisFeitos / v.pickupsAtendidas) * 100 : 0
-      };
-
-      const { label: groupLabel, color: groupColor } = getDynamicGroupInfo(totalCupons, rangeStep);
+      const { label: groupLabel, color: groupColor } = getDynamicGroupInfo(v.filtered.cupons, rangeStep);
 
       return {
         ...v,
         group: groupLabel,
         groupColor: groupColor,
-        current: { venda: totalVenda, cupons: totalCupons, itens: totalItens },
-        metrics,
+        current: { venda: v.filtered.venda, cupons: v.filtered.cupons, itens: v.filtered.itens },
+        realMetrics: {
+          pa: realPA,
+          tkm: realTKM,
+          ident: realIdent
+        },
+        metrics: {
+          pa: filteredPA,
+          tkm: filteredTKM,
+          pm: filteredPM,
+          ident: filteredIdent,
+          conv: conv
+        },
         deltas: {
-          venda: totalVenda - v.base.venda,
-          pa: metrics.pa - basePA,
-          tkm: metrics.tkm - baseTKM,
-          ident: metrics.ident - baseIdent
+          venda: v.filtered.venda - v.real.venda,
+          pa: filteredPA - realPA,
+          tkm: filteredTKM - realTKM,
+          ident: filteredIdent - realIdent
         }
       };
     });
@@ -267,7 +323,7 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
         if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
         return 0;
       });
-  }, [data, vinculos, includePickups, includeExchanges, selectedGroup, searchTerm, sortConfig]);
+  }, [data, vinculos, includePickups, includeExchanges, includeFigurinhas, includeAlbuns, includeBaralhos, includeSLP, includeSacolas, selectedGroup, searchTerm, sortConfig]);
 
   const totals = useMemo(() => {
     const sum = reportData.reduce((acc, v) => ({
@@ -329,24 +385,34 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <Switch id="inc-pickups" checked={includePickups} onCheckedChange={setIncludePickups} />
-            <Label htmlFor="inc-pickups" className="text-[10px] font-black uppercase cursor-pointer flex items-center gap-1.5">
-              <Smartphone className="w-3 h-3 text-sky-500" /> Incluir Retiradas
-            </Label>
+          <div className="flex flex-col gap-2 border-r border-slate-200 pr-4 mr-2">
+            <div className="flex items-center gap-3">
+              <Switch id="inc-pickups" checked={includePickups} onCheckedChange={setIncludePickups} />
+              <Label htmlFor="inc-pickups" className="text-[10px] font-black uppercase cursor-pointer flex items-center gap-1.5 min-w-[120px]">
+                <Smartphone className="w-3 h-3 text-sky-500" /> Incluir Retiradas
+              </Label>
+            </div>
+            <div className="flex items-center gap-3">
+              <Switch id="inc-trocas" checked={includeExchanges} onCheckedChange={setIncludeExchanges} />
+              <Label htmlFor="inc-trocas" className="text-[10px] font-black uppercase cursor-pointer flex items-center gap-1.5 min-w-[120px]">
+                <ArrowRightLeft className="w-3 h-3 text-purple-500" /> Incluir Trocas
+              </Label>
+            </div>
           </div>
-          <div className="w-px h-6 bg-slate-200 hidden sm:block" />
-          <div className="flex items-center gap-3">
-            <Switch id="inc-trocas" checked={includeExchanges} onCheckedChange={setIncludeExchanges} />
-            <Label htmlFor="inc-trocas" className="text-[10px] font-black uppercase cursor-pointer flex items-center gap-1.5">
-              <ArrowRightLeft className="w-3 h-3 text-purple-500" /> Incluir Trocas
-            </Label>
+          <div className="flex flex-col gap-1.5 border-r border-slate-200 pr-4 mr-2 hidden lg:flex">
+            <span className="text-[8px] font-black uppercase text-slate-400">Considerar Itens</span>
+            <div className="flex items-center gap-1.5 flex-wrap w-56">
+              <Badge onClick={() => setIncludeFigurinhas(!includeFigurinhas)} className={cn("cursor-pointer font-black text-[9px] uppercase hover:bg-amber-200 transition-colors", includeFigurinhas ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-400 border-dashed border-slate-300 border")}>Figurinhas</Badge>
+              <Badge onClick={() => setIncludeAlbuns(!includeAlbuns)} className={cn("cursor-pointer font-black text-[9px] uppercase hover:bg-sky-200 transition-colors", includeAlbuns ? "bg-sky-100 text-sky-700" : "bg-slate-100 text-slate-400 border-dashed border-slate-300 border")}>Álbuns</Badge>
+              <Badge onClick={() => setIncludeBaralhos(!includeBaralhos)} className={cn("cursor-pointer font-black text-[9px] uppercase hover:bg-rose-200 transition-colors", includeBaralhos ? "bg-rose-100 text-rose-700" : "bg-slate-100 text-slate-400 border-dashed border-slate-300 border")}>Baralhos</Badge>
+              <Badge onClick={() => setIncludeSLP(!includeSLP)} className={cn("cursor-pointer font-black text-[9px] uppercase hover:bg-orange-200 transition-colors", includeSLP ? "bg-orange-100 text-orange-700" : "bg-slate-100 text-slate-400 border-dashed border-slate-300 border")}>SLP</Badge>
+              <Badge onClick={() => setIncludeSacolas(!includeSacolas)} className={cn("cursor-pointer font-black text-[9px] uppercase hover:bg-emerald-200 transition-colors", includeSacolas ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-400 border-dashed border-slate-300 border")}>Sacolas</Badge>
+            </div>
           </div>
-          <div className="flex items-center gap-2 ml-4">
+          <div className="flex items-center gap-2">
             <Button onClick={handlePrint} variant="outline" className="rounded-xl font-black text-[10px] gap-2 border-slate-200 hover:bg-white hover:text-orange-500 shadow-sm">
               <Printer className="w-4 h-4" /> IMPRIMIR
             </Button>
-
           </div>
         </div>
       </div>
@@ -402,9 +468,9 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
           </TableHeader>
           <TableBody>
             {reportData.map((v, i) => {
-              const isAbovePA = v.metrics.pa >= v.groupAverages.pa;
-              const isAboveTKM = v.metrics.tkm >= v.groupAverages.tkm;
-              const isAboveIdent = v.metrics.ident >= v.groupAverages.ident;
+              const deltaPA = v.deltas.pa;
+              const deltaTKM = v.deltas.tkm;
+              const deltaIdent = v.deltas.ident;
               const rowColor = v.groupColor || "bg-white";
 
               return (
@@ -430,15 +496,15 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
 
                   <TableCell className="text-center">
                     <div className="flex items-center justify-center gap-0.5">
-                      <span className={cn("font-black text-xs md:text-sm print:text-[8px]", isAbovePA ? "text-emerald-700" : "text-rose-600")}>{formatNum(v.metrics.pa)}</span>
-                      {isAbovePA ? <ArrowUpRight className="w-3 h-3 text-emerald-500 print:hidden" /> : <ArrowDownRight className="w-3 h-3 text-rose-500 print:hidden" />}
+                      <span className={cn("font-black text-xs md:text-sm print:text-[8px]", deltaPA > 0 ? "text-emerald-700" : deltaPA < 0 ? "text-rose-600" : "text-slate-700")}>{formatNum(v.metrics.pa)}</span>
+                      {deltaPA !== 0 && (deltaPA > 0 ? <ArrowUpRight className="w-3 h-3 text-emerald-500 print:hidden" /> : <ArrowDownRight className="w-3 h-3 text-rose-500 print:hidden" />)}
                     </div>
                   </TableCell>
 
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-0.5">
-                      <span className={cn("font-black text-xs md:text-sm print:text-[8px]", isAboveTKM ? "text-emerald-700" : "text-rose-600")}>{formatBRL(v.metrics.tkm)}</span>
-                      {isAboveTKM ? <ArrowUpRight className="w-3 h-3 text-emerald-500 print:hidden" /> : <ArrowDownRight className="w-3 h-3 text-rose-500 print:hidden" />}
+                      <span className={cn("font-black text-xs md:text-sm print:text-[8px]", deltaTKM > 0 ? "text-emerald-700" : deltaTKM < 0 ? "text-rose-600" : "text-slate-700")}>{formatBRL(v.metrics.tkm)}</span>
+                      {deltaTKM !== 0 && (deltaTKM > 0 ? <ArrowUpRight className="w-3 h-3 text-emerald-500 print:hidden" /> : <ArrowDownRight className="w-3 h-3 text-rose-500 print:hidden" />)}
                     </div>
                   </TableCell>
 
@@ -447,7 +513,10 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
                   </TableCell>
 
                   <TableCell className="text-center">
-                    <span className={cn("font-black text-xs md:text-sm print:text-[8px]", isAboveIdent ? "text-emerald-700" : "text-rose-600")}>{v.metrics.ident.toFixed(0)}%</span>
+                    <div className="flex items-center justify-center gap-0.5">
+                      <span className={cn("font-black text-xs md:text-sm print:text-[8px]", deltaIdent > 0 ? "text-emerald-700" : deltaIdent < 0 ? "text-rose-600" : "text-slate-700")}>{v.metrics.ident.toFixed(0)}%</span>
+                      {deltaIdent !== 0 && (deltaIdent > 0 ? <ArrowUpRight className="w-3 h-3 text-emerald-500 print:hidden" /> : <ArrowDownRight className="w-3 h-3 text-rose-500 print:hidden" />)}
+                    </div>
                   </TableCell>
 
                   <TableCell className="text-center">
@@ -552,11 +621,11 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
                 </div>
 
                 <div className="space-y-4 pt-6 border-t border-slate-100">
-                  <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">Performance vs Média Grupo</h4>
+                  <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">Impacto vs Base Geral (Tudo Incluído)</h4>
                   <div className="space-y-3">
-                    <PerformanceMetric label="P.A. MÉDIO" value={formatNum(selectedColab.metrics.pa)} average={formatNum(selectedColab.groupAverages.pa)} delta={selectedColab.deltas.pa} />
-                    <PerformanceMetric label="TICKET MÉDIO" value={formatBRL(selectedColab.metrics.tkm)} average={formatBRL(selectedColab.groupAverages.tkm)} delta={selectedColab.deltas.tkm} isCurrency />
-                    <PerformanceMetric label="IDENTIFICAÇÃO" value={`${selectedColab.metrics.ident.toFixed(0)}%`} average={`${selectedColab.groupAverages.ident.toFixed(0)}%`} delta={selectedColab.deltas.ident} isPercent />
+                    <PerformanceMetric label="P.A. MÉDIO (FILTRADO)" value={formatNum(selectedColab.metrics.pa)} average={formatNum(selectedColab.realMetrics.pa)} delta={selectedColab.deltas.pa} />
+                    <PerformanceMetric label="TICKET MÉDIO (FILTRADO)" value={formatBRL(selectedColab.metrics.tkm)} average={formatBRL(selectedColab.realMetrics.tkm)} delta={selectedColab.deltas.tkm} isCurrency />
+                    <PerformanceMetric label="IDENTIFICAÇÃO (FILTRADO)" value={`${selectedColab.metrics.ident.toFixed(0)}%`} average={`${selectedColab.realMetrics.ident.toFixed(0)}%`} delta={selectedColab.deltas.ident} isPercent />
                   </div>
                 </div>
               </div>

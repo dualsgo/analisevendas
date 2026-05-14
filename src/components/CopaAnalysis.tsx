@@ -10,7 +10,8 @@ import {
   AlertTriangle,
   Info,
   Calendar,
-  Filter
+  Filter,
+  Share2
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -23,8 +24,8 @@ interface CopaAnalysisProps {
   data: DetailedSaleRow[];
 }
 
-const COPA_ALBUM = "5147790";
-const COPA_STICKERS = "5147812";
+const COPA_ALBUM = "5147812";
+const COPA_STICKERS = "5147790";
 
 export const CopaAnalysis: React.FC<CopaAnalysisProps> = ({ data }) => {
   const stats = useMemo(() => {
@@ -141,6 +142,31 @@ export const CopaAnalysis: React.FC<CopaAnalysisProps> = ({ data }) => {
   const formatBRL = (v: number) => 
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
+  const handleShareWhatsApp = () => {
+    const tkmReal = stats.totalVenda / stats.totalCupons;
+    const tkmSemCopa = stats.vendaSemCopa / stats.cuponsSemCopa;
+    const paReal = stats.totalItens / stats.totalCupons;
+    const paSemCopa = stats.itensSemCopa / stats.cuponsSemCopa;
+    
+    const text = `🏆 *ANÁLISE DE IMPACTO COPA* 🏆
+
+💰 *VENDA COPA:* ${formatBRL(stats.totalCopaValue)}
+📦 *ÁLBUNS:* ${stats.albumQty} | *FIGURINHAS:* ${stats.stickerQty}
+
+📊 *O IMPACTO NOS NÚMEROS:*
+• *Venda Média (TKM):* Cai de *${formatBRL(tkmReal)}* para *${formatBRL(tkmSemCopa)}* sem os itens da copa.
+• *Itens por Venda (PA):* Cai de *${paReal.toFixed(2)}* para *${paSemCopa.toFixed(2)}*.
+
+⚠️ *RESUMO:*
+*${stats.percOnlyCopa.toFixed(1)}%* dos nossos cupons são apenas de figurinhas/álbum. 
+Isso significa que esses atendimentos *não agregam outros produtos*, baixando nossa produtividade real.
+
+*Análise gerada pelo Sistema de Vendas.*`;
+
+    const encodedText = encodeURIComponent(text);
+    window.open(`https://api.whatsapp.com/send?text=${encodedText}`, '_blank');
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -154,10 +180,17 @@ export const CopaAnalysis: React.FC<CopaAnalysisProps> = ({ data }) => {
             <div className="bg-amber-500 p-2 rounded-xl">
               <Trophy className="w-6 h-6 text-slate-900" />
             </div>
-            <div>
+            <div className="flex-1">
               <h2 className="text-2xl font-black text-white tracking-tight uppercase">Análise de Itens Sazonais (Copa)</h2>
               <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">Monitoramento de Impacto nos Indicadores</p>
             </div>
+            <button 
+              onClick={handleShareWhatsApp}
+              className="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-xl flex items-center gap-2 font-black text-[10px] uppercase transition-all shadow-lg shadow-emerald-500/20 active:scale-95"
+            >
+              <Share2 className="w-4 h-4" />
+              Enviar p/ WhatsApp
+            </button>
           </div>
           
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">
@@ -186,11 +219,11 @@ export const CopaAnalysis: React.FC<CopaAnalysisProps> = ({ data }) => {
         <Card className="ri-card border-slate-200 overflow-hidden bg-white shadow-sm">
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
-              <Badge variant="outline" className="bg-indigo-50 text-indigo-600 border-indigo-100 font-black text-[10px] uppercase">Mix de Venda</Badge>
+              <Badge variant="outline" className="bg-indigo-50 text-indigo-600 border-indigo-100 font-black text-[10px] uppercase">Vendas "Só Copa"</Badge>
               <Layers className="w-4 h-4 text-slate-300" />
             </div>
             <CardTitle className="text-2xl font-black text-slate-800">{stats.percOnlyCopa.toFixed(1)}%</CardTitle>
-            <CardDescription className="text-[10px] font-bold uppercase tracking-tight">Cupons SOMENTE com itens da copa</CardDescription>
+            <CardDescription className="text-[10px] font-bold uppercase tracking-tight">Proporção de cupons sem outros produtos</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="mt-2 space-y-2">
@@ -214,13 +247,13 @@ export const CopaAnalysis: React.FC<CopaAnalysisProps> = ({ data }) => {
         <Card className="ri-card border-slate-200 overflow-hidden bg-white shadow-sm">
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
-              <Badge variant="outline" className="bg-emerald-50 text-emerald-600 border-emerald-100 font-black text-[10px] uppercase">Impacto no TKM</Badge>
+              <Badge variant="outline" className="bg-emerald-50 text-emerald-600 border-emerald-100 font-black text-[10px] uppercase">Venda Média (TKM)</Badge>
               <TrendingDown className="w-4 h-4 text-rose-400" />
             </div>
             <CardTitle className="text-2xl font-black text-slate-800">
               {formatBRL((stats.totalVenda / stats.totalCupons) - (stats.vendaSemCopa / stats.cuponsSemCopa))}
             </CardTitle>
-            <CardDescription className="text-[10px] font-bold uppercase tracking-tight">Variação no Ticket Médio Geral</CardDescription>
+            <CardDescription className="text-[10px] font-bold uppercase tracking-tight">Redução no valor médio por venda</CardDescription>
           </CardHeader>
           <CardContent>
              <div className="flex items-center gap-4 mt-2">
@@ -240,13 +273,13 @@ export const CopaAnalysis: React.FC<CopaAnalysisProps> = ({ data }) => {
         <Card className="ri-card border-slate-200 overflow-hidden bg-white shadow-sm">
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
-              <Badge variant="outline" className="bg-sky-50 text-sky-600 border-sky-100 font-black text-[10px] uppercase">Impacto no P.A.</Badge>
+              <Badge variant="outline" className="bg-sky-50 text-sky-600 border-sky-100 font-black text-[10px] uppercase">Itens por Venda (P.A.)</Badge>
               <TrendingUp className="w-4 h-4 text-emerald-400" />
             </div>
             <CardTitle className="text-2xl font-black text-slate-800">
               +{( (stats.totalItens / stats.totalCupons) - (stats.itensSemCopa / stats.cuponsSemCopa) ).toFixed(2)}
             </CardTitle>
-            <CardDescription className="text-[10px] font-bold uppercase tracking-tight">Inflação no P.A. (Itens/Atend)</CardDescription>
+            <CardDescription className="text-[10px] font-bold uppercase tracking-tight">Aumento artificial de itens por cupom</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-4 mt-2">
@@ -332,9 +365,9 @@ export const CopaAnalysis: React.FC<CopaAnalysisProps> = ({ data }) => {
             <thead>
               <tr className="bg-slate-50/50">
                 <th className="p-4 text-[10px] font-black text-slate-400 uppercase border-b">Colaborador</th>
-                <th className="p-4 text-[10px] font-black text-slate-400 uppercase border-b text-center">Cupons (Expurgados)</th>
-                <th className="p-4 text-[10px] font-black text-slate-400 uppercase border-b text-center">TKM Real vs S/ Copa</th>
-                <th className="p-4 text-[10px] font-black text-slate-400 uppercase border-b text-center">P.A. Real vs S/ Copa</th>
+                <th className="p-4 text-[10px] font-black text-slate-400 uppercase border-b text-center">Vendas (Expurgadas)</th>
+                <th className="p-4 text-[10px] font-black text-slate-400 uppercase border-b text-center">Venda Média vs S/ Copa</th>
+                <th className="p-4 text-[10px] font-black text-slate-400 uppercase border-b text-center">Itens/Cupom vs S/ Copa</th>
                 <th className="p-4 text-[10px] font-black text-slate-400 uppercase border-b text-right">Inflação Rec.</th>
               </tr>
             </thead>
@@ -412,10 +445,10 @@ export const CopaAnalysis: React.FC<CopaAnalysisProps> = ({ data }) => {
         <div>
           <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight mb-2">Diagnóstico de Qualidade Operacional</h4>
           <p className="text-xs text-slate-600 font-medium leading-relaxed">
-            A venda de figurinhas é um gerador de fluxo, mas distorce severamente os indicadores de <span className="text-indigo-600 font-bold">Ticket Médio</span> e <span className="text-sky-600 font-bold">P.A.</span>. 
-            Colaboradores com alta concentração de vendas "Only Copa" podem estar maquiando uma baixa performance de venda consultiva.
+            A venda de figurinhas atrai clientes para a loja, mas diminui o <span className="text-indigo-600 font-bold">Valor Médio das Vendas</span> e o <span className="text-sky-600 font-bold">Número de Itens por Atendimento</span>. 
+            Isso acontece porque muitos clientes compram apenas as figurinhas.
             <br/><br/>
-            <strong className="text-slate-800 underline">Ação Recomendada:</strong> Avalie a performance individual utilizando os indicadores "Sem Copa" para uma visão justa da produtividade real da equipe.
+            <strong className="text-slate-800 underline">Dica para Gestão:</strong> Para saber quem realmente está vendendo bem os produtos da loja, olhe para os números "Sem Copa". Eles mostram a produtividade real sem a distorção das figurinhas.
           </p>
         </div>
       </div>

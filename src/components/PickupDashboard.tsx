@@ -47,6 +47,10 @@ export function PickupDashboard({ data }: PickupDashboardProps) {
     const online = saidas.filter(r => r.canal === "RETIRADA_ONLINE");
     const adicionais = saidas.filter(r => r.is_adicional);
 
+    if (online.length === 0) {
+      return null;
+    }
+
     // Grouping by customer (CPF) and Day to find conversion
     const groups: Record<string, { online: DetailedSaleRow[], adicional: DetailedSaleRow[] }> = {};
 
@@ -111,14 +115,21 @@ export function PickupDashboard({ data }: PickupDashboardProps) {
     for (let i = 8; i <= 22; i++) hourly[i] = { hour: i, total: 0, converted: 0 };
 
     online.forEach(r => {
-      const hour = new Date(r.dhEmi).getHours();
-      if (hourly[hour]) hourly[hour].total++;
+      if (!r.dhEmi) return;
+      const date = new Date(r.dhEmi);
+      const hour = date.getHours();
+      if (!isNaN(hour) && hourly[hour]) {
+        hourly[hour].total++;
+      }
     });
 
     Object.values(groups).forEach(g => {
-      if (g.adicional.length > 0) {
-        const hour = new Date(g.online[0].dhEmi).getHours();
-        if (hourly[hour]) hourly[hour].converted++;
+      if (g.adicional.length > 0 && g.online[0]?.dhEmi) {
+        const date = new Date(g.online[0].dhEmi);
+        const hour = date.getHours();
+        if (!isNaN(hour) && hourly[hour]) {
+          hourly[hour].converted++;
+        }
       }
     });
 
@@ -135,14 +146,21 @@ export function PickupDashboard({ data }: PickupDashboardProps) {
     });
 
     online.forEach(r => {
-      const day = new Date(r.dhEmi).getDay();
-      if (weekdays[day]) weekdays[day].total++;
+      if (!r.dhEmi) return;
+      const date = new Date(r.dhEmi);
+      const day = date.getDay();
+      if (!isNaN(day) && weekdays[day]) {
+        weekdays[day].total++;
+      }
     });
 
     Object.values(groups).forEach(g => {
-      if (g.adicional.length > 0) {
-        const day = new Date(g.online[0].dhEmi).getDay();
-        if (weekdays[day]) weekdays[day].converted++;
+      if (g.adicional.length > 0 && g.online[0]?.dhEmi) {
+        const date = new Date(g.online[0].dhEmi);
+        const day = date.getDay();
+        if (!isNaN(day) && weekdays[day]) {
+          weekdays[day].converted++;
+        }
       }
     });
 
@@ -166,6 +184,15 @@ export function PickupDashboard({ data }: PickupDashboardProps) {
       totalAdicionais: adicionais.length
     };
   }, [data]);
+
+  if (!analytics) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-slate-400 gap-3">
+        <Smartphone className="w-12 h-12 opacity-30" />
+        <p className="font-bold text-sm uppercase">Nenhuma retirada online encontrada para análise</p>
+      </div>
+    );
+  }
 
   const getStatus = (rate: number) => {
     if (rate >= 25) return { label: "EXCELENTE", color: "text-emerald-500", bg: "bg-emerald-50", icon: CheckCircle2, desc: "A equipe está convertendo muito bem o fluxo online." };

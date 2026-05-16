@@ -197,14 +197,16 @@ export function ExecutiveSummary({ data, vinculos, onSwitchTab }: ExecutiveSumma
           color="text-rose-600" 
           tooltip="Percentual de cupons que possuem pelo menos um item da Ação Social (Baralhos)."
         />
-        <MetricCard 
-          label="Conversão Pickup" 
-          value={`${stats.pickupConv.toFixed(1)}%`} 
-          desc="Fórmula: Adicionais / Pickups" 
-          icon={Smartphone} 
-          color="text-sky-600" 
-          tooltip="Percentual de clientes que vieram retirar um pedido online e acabaram comprando algo a mais na loja."
-        />
+        <div onClick={() => onSwitchTab?.("pickup_dashboard")} className="cursor-pointer">
+          <MetricCard 
+            label="Conversão Pickup" 
+            value={`${stats.pickupConv.toFixed(1)}%`} 
+            desc="Fórmula: Adicionais / Pickups" 
+            icon={Smartphone} 
+            color="text-sky-600" 
+            tooltip="Percentual de clientes que vieram retirar um pedido online e acabaram comprando algo a mais na loja."
+          />
+        </div>
       </div>
 
       {/* Main Insights Content */}

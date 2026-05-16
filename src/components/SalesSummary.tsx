@@ -112,6 +112,7 @@ import { RiscoTrocas } from "./RiscoTrocas";
 import { GeographicAnalysis } from "./GeographicAnalysis";
 import { ExecutiveSummary } from "./ExecutiveSummary";
 import { PickupPanel } from "./PickupPanel";
+import { PickupDashboard } from "./PickupDashboard";
 import { DeliveryPanel } from "./DeliveryPanel";
 import { GapAnalysis } from "./GapAnalysis";
 import { CouponAnalysis } from "./CouponAnalysis";
@@ -378,6 +379,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
     { id: "customer_loyalty", label: "Fidelidade & Recorrência", icon: Users2, category: "Clientes", color: "text-emerald-600 font-black" },
     { id: "ritmo_operacional", label: "Ritmo de Atendimento", icon: Timer, category: "Operacional" },
     { id: "produtividade_diag", label: "Diagnóstico de Produtividade", icon: Brain, category: "Operacional", color: "text-indigo-600 font-black" },
+    { id: "pickup_dashboard", label: "Dashboard Pickup", icon: Zap, category: "Operacional", color: "text-emerald-600 font-black" },
     { id: "pickup_track", label: "Monitor Pickup", icon: Smartphone, category: "Operacional", color: "text-sky-600 font-black" },
     { id: "delivery_track", label: "Monitor Delivery", icon: Truck, category: "Operacional", color: "text-rose-600 font-black" },
     { id: "transacoes", label: "Transações", icon: ListFilter, category: "Operacional" },
@@ -565,6 +567,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
       case "auditoria": return <DiscountAudit data={filteredData} />;
       case "trocas": return <ExchangeManagement data={filteredData} vinculos={filteredVinculos} />;
       case "transacoes": return <TransactionList data={filteredData} />;
+      case "pickup_dashboard": return <PickupDashboard data={filteredData} />;
       case "pickup_track": return <PickupPanel data={filteredData} />;
       case "delivery_track": return <DeliveryPanel data={filteredData} />;
       case "whatsapp": return <WhatsappReports data={filteredData} vinculos={filteredVinculos} />;

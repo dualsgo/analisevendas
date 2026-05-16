@@ -56,6 +56,7 @@ export function PickupDashboard({ data }: PickupDashboardProps) {
     const groups: Record<string, { online: DetailedSaleRow[], adicional: DetailedSaleRow[] }> = {};
 
     online.forEach(r => {
+      if (!r.dhEmi) return;
       const day = r.dhEmi.split("T")[0];
       const cpf = r.cpf_cnpj_dest || "SEM_CPF_" + r.nf;
       const key = `${cpf}_${day}`;
@@ -64,7 +65,9 @@ export function PickupDashboard({ data }: PickupDashboardProps) {
     });
 
     adicionais.forEach(a => {
-      const day = a.data_retirada_associada ? a.data_retirada_associada.split("T")[0] : a.dhEmi.split("T")[0];
+      const dateRef = a.data_retirada_associada || a.dhEmi;
+      if (!dateRef) return;
+      const day = dateRef.split("T")[0];
       const cpf = a.cpf_cnpj_dest || "SEM_CPF_" + a.nf;
       const key = `${cpf}_${day}`;
       

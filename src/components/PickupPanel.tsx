@@ -71,6 +71,7 @@ export function PickupPanel({ data }: PickupPanelProps) {
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
   const [selectedTx, setSelectedTx] = useState<DetailedSaleRow | null>(null);
   const [filterMode, setFilterMode] = useState<"all" | "com_adicional" | "sem_adicional">("all");
+  const [viewMode, setViewMode] = useState<"grouped" | "individual">("grouped");
 
   // Build groups: one group per (CPF, date)
   const groups = useMemo(() => {
@@ -281,6 +282,31 @@ export function PickupPanel({ data }: PickupPanelProps) {
             />
           </div>
           <div className="flex gap-2 flex-wrap">
+            <Button
+              size="sm"
+              variant={viewMode === "grouped" ? "default" : "outline"}
+              onClick={() => setViewMode("grouped")}
+              className={cn(
+                "rounded-xl font-bold text-[10px] h-11 px-4 uppercase tracking-tight",
+                viewMode === "grouped" ? "bg-slate-800 text-white" : "text-slate-500"
+              )}
+            >
+              <Users className="w-3.5 h-3.5 mr-2" /> Agrupado (Cliente)
+            </Button>
+            <Button
+              size="sm"
+              variant={viewMode === "individual" ? "default" : "outline"}
+              onClick={() => setViewMode("individual")}
+              className={cn(
+                "rounded-xl font-bold text-[10px] h-11 px-4 uppercase tracking-tight",
+                viewMode === "individual" ? "bg-slate-800 text-white" : "text-slate-500"
+              )}
+            >
+              <FileText className="w-3.5 h-3.5 mr-2" /> Individual (Pedido)
+            </Button>
+          </div>
+
+          <div className="flex gap-2 flex-wrap border-l pl-4 border-slate-100">
             {(
               [
                 { value: "all", label: "Todos" },
@@ -304,12 +330,12 @@ export function PickupPanel({ data }: PickupPanelProps) {
               </Button>
             ))}
           </div>
-          <div className="flex items-center justify-end">
+          <div className="flex items-center justify-end flex-1">
             <Badge
               variant="outline"
               className="h-11 px-4 bg-slate-50 border-slate-100 text-slate-500 font-bold text-xs"
             >
-              {filtered.length} grupos
+              {viewMode === "grouped" ? `${filtered.length} grupos` : `${filtered.reduce((acc, g) => acc + g.retiradas.length, 0)} pedidos`}
             </Badge>
           </div>
         </div>
@@ -328,153 +354,89 @@ export function PickupPanel({ data }: PickupPanelProps) {
             <p className="font-bold text-sm uppercase">Nenhuma retirada online encontrada</p>
           </div>
         )}
-        {filtered.map(group => {
-          const key = `${group.cpf}__${group.date}`;
-          const isExpanded = expandedGroup === key;
-          const hasAdicional = group.adicionais.length > 0;
-          const totalRetirada = group.retiradas.reduce((s, r) => s + parseFloat(r.vNF), 0);
-          const totalAdicional = group.adicionais.reduce((s, a) => s + parseFloat(a.vNF), 0);
 
-          return (
-            <motion.div
-              variants={itemAnim}
-              key={key}
-              className={cn(
-                "rounded-2xl border-2 overflow-hidden transition-all duration-200 shadow-sm",
-                hasAdicional
-                  ? "border-emerald-100 bg-white"
-                  : "border-slate-100 bg-white"
-              )}
-            >
-              {/* Group Header */}
-              <div
-                className={cn(
-                  "p-4 flex flex-col sm:flex-row sm:items-center gap-3 cursor-pointer hover:bg-slate-50 transition-colors",
-                )}
-                onClick={() => toggleGroup(key)}
-              >
-                <div className="flex items-center gap-3 flex-1 min-w-0">
-                  <div
-                    className={cn(
-                      "w-10 h-10 rounded-2xl flex items-center justify-center shrink-0",
-                      hasAdicional ? "bg-emerald-100" : "bg-slate-100"
-                    )}
-                  >
-                    <User className={cn("w-5 h-5", hasAdicional ? "text-emerald-600" : "text-slate-400")} />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-black text-slate-800 uppercase truncate">
-                      {group.nome}
-                    </p>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                      CPF: {group.cpf !== `__sem_cpf__${group.retiradas[0]?.chave}` ? `***${group.cpf.slice(-4)}` : "Não Identificado"} •{" "}
-                      {group.date ? format(new Date(group.date + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR }) : ""}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                  {/* Pickup badge */}
-                  <div className="flex items-center gap-1.5 bg-sky-50 border border-sky-100 px-3 py-1.5 rounded-xl">
-                    <Smartphone className="w-3.5 h-3.5 text-sky-500" />
-                    <span className="text-xs font-bold text-sky-700">
-                      {group.retiradas.length}x Pickup
-                    </span>
-                    <span className="text-xs font-black text-sky-800">{formatBRL(totalRetirada)}</span>
-                  </div>
-
-                  {/* Adicional badge */}
-                  {hasAdicional ? (
-                    <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-100 px-3 py-1.5 rounded-xl">
-                      <Zap className="w-3.5 h-3.5 text-emerald-500" />
-                      <span className="text-xs font-bold text-emerald-700">
-                        {group.adicionais.length}x Adicional
-                      </span>
-                      <span className="text-xs font-black text-emerald-800">{formatBRL(totalAdicional)}</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-1.5 bg-amber-50 border border-amber-100 px-3 py-1.5 rounded-xl">
-                      <AlertCircle className="w-3.5 h-3.5 text-amber-500" />
-                      <span className="text-xs font-bold text-amber-700">Sem Adicional</span>
-                    </div>
-                  )}
-
-                  {isExpanded ? (
-                    <ChevronUp className="w-4 h-4 text-slate-400 shrink-0" />
-                  ) : (
-                    <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
-                  )}
-                </div>
-              </div>
-
-              {/* Expanded Detail */}
-              <AnimatePresence>
-                {isExpanded && (
-                  <motion.div 
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: "auto", opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    className="overflow-hidden"
-                  >
-                    <div className="border-t border-slate-100 p-4 space-y-4 bg-slate-50/50">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {/* Retiradas */}
-                        <div className="space-y-2">
-                          <h5 className="text-[10px] font-black uppercase text-sky-600 tracking-widest flex items-center gap-1.5">
-                            <Smartphone className="w-3 h-3" /> Nota(s) de Retirada Online
-                          </h5>
-                          {group.retiradas.length === 0 && (
-                            <p className="text-xs text-slate-400 italic">Nenhuma retirada direta encontrada</p>
-                          )}
-                          {group.retiradas.map(r => (
-                            <TxCard
-                              key={r.chave}
-                              tx={r}
-                              color="sky"
-                              onClick={() => setSelectedTx(r)}
-                            />
-                          ))}
+        {viewMode === "grouped" ? (
+          filtered.map(group => (
+            <GroupedPickupCard 
+              key={`${group.cpf}__${group.date}`} 
+              group={group} 
+              isExpanded={expandedGroup === `${group.cpf}__${group.date}`}
+              onToggle={() => toggleGroup(`${group.cpf}__${group.date}`)}
+              onSelectTx={setSelectedTx}
+            />
+          ))
+        ) : (
+          <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-sm">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-100">
+                  <th className="p-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">Pedido</th>
+                  <th className="p-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">Data/Hora</th>
+                  <th className="p-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">Cliente</th>
+                  <th className="p-4 text-[10px] font-black uppercase text-slate-400 tracking-widest text-right">Valor</th>
+                  <th className="p-4 text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">Status</th>
+                  <th className="p-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">Vendedor</th>
+                  <th className="p-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">Adicional Vinculado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.flatMap(group => 
+                  group.retiradas.map((r, idx) => (
+                    <tr key={r.chave} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors cursor-pointer group" onClick={() => setSelectedTx(r)}>
+                      <td className="p-4">
+                        <div className="flex items-center gap-2">
+                          <div className="p-1.5 rounded-lg bg-sky-50 text-sky-600">
+                            <Smartphone className="w-3.5 h-3.5" />
+                          </div>
+                          <span className="text-xs font-black text-slate-700">NF #{r.nf}</span>
                         </div>
-
-                        {/* Adicionais */}
-                        <div className="space-y-2">
-                          <h5 className="text-[10px] font-black uppercase text-emerald-600 tracking-widest flex items-center gap-1.5">
-                            <Zap className="w-3 h-3" /> Nota(s) Adicional Vinculada
-                          </h5>
-                          {group.adicionais.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center py-8 rounded-xl border-2 border-dashed border-amber-200 bg-amber-50/50 gap-2">
-                              <AlertCircle className="w-6 h-6 text-amber-400" />
-                              <p className="text-xs font-bold text-amber-600 uppercase">
-                                Oportunidade não convertida
-                              </p>
-                              <p className="text-[10px] text-amber-500 text-center max-w-[200px]">
-                                Este cliente retirou mas não comprou um adicional no mesmo dia.
-                              </p>
+                      </td>
+                      <td className="p-4 text-[11px] font-bold text-slate-500">
+                        {r.dhEmi ? format(parseISO(r.dhEmi), "dd/MM/yy HH:mm") : "—"}
+                      </td>
+                      <td className="p-4">
+                        <p className="text-xs font-black text-slate-700 uppercase truncate max-w-[150px]">{group.nome}</p>
+                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">CPF: ***{group.cpf.slice(-4)}</p>
+                      </td>
+                      <td className="p-4 text-right">
+                        <p className="text-xs font-black text-slate-800">{formatBRL(parseFloat(r.vNF))}</p>
+                      </td>
+                      <td className="p-4 text-center">
+                        {group.adicionais.length > 0 ? (
+                          <Badge className="bg-emerald-50 text-emerald-600 border-emerald-100 text-[8px] font-black">CONVERTIDO</Badge>
+                        ) : (
+                          <Badge className="bg-slate-50 text-slate-400 border-slate-100 text-[8px] font-black">PENDENTE</Badge>
+                        )}
+                      </td>
+                      <td className="p-4 text-xs font-bold text-slate-600 uppercase">
+                        {r.vendedor}
+                      </td>
+                      <td className="p-4">
+                        <div className="flex flex-col gap-1">
+                          {group.adicionais.map((a, i) => (
+                            <div 
+                              key={a.chave} 
+                              className="flex items-center justify-between gap-2 bg-emerald-50/50 border border-emerald-100/50 p-1 rounded-md"
+                              onClick={(e) => { e.stopPropagation(); setSelectedTx(a); }}
+                            >
+                              <div className="flex items-center gap-1 overflow-hidden">
+                                <Zap className="w-2.5 h-2.5 text-emerald-500 shrink-0" />
+                                <span className="text-[9px] font-black text-emerald-700 truncate">NF {a.nf}</span>
+                              </div>
+                              <span className="text-[9px] font-black text-emerald-800 shrink-0">{formatBRL(parseFloat(a.vNF))}</span>
                             </div>
-                          ) : (
-                            group.adicionais.map(a => (
-                              <TxCard
-                                key={a.chave}
-                                tx={a}
-                                color="emerald"
-                                onClick={() => setSelectedTx(a)}
-                              />
-                            ))
-                          )}
+                          ))}
+                          {group.adicionais.length === 0 && <span className="text-[10px] text-slate-300 italic font-medium">Sem adicional</span>}
                         </div>
-                      </div>
-
-                      {/* Item divergence summary — only when both sides exist */}
-                      {group.retiradas.length > 0 && group.adicionais.length > 0 && (
-                        <ItemDivergence retiradas={group.retiradas} adicionais={group.adicionais} />
-                      )}
-                    </div>
-                  </motion.div>
+                      </td>
+                    </tr>
+                  ))
                 )}
-              </AnimatePresence>
-            </motion.div>
-          );
-        })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </motion.div>
       </motion.div>
 
       {/* Side panel detail */}
@@ -591,6 +553,92 @@ function TxCard({ tx, color, onClick }: { tx: DetailedSaleRow; color: "sky" | "e
         )}
       </div>
     </button>
+  );
+}
+
+function GroupedPickupCard({ group, isExpanded, onToggle, onSelectTx }: { group: PickupGroup; isExpanded: boolean; onToggle: () => void; onSelectTx: (tx: DetailedSaleRow) => void }) {
+  const hasAdicional = group.adicionais.length > 0;
+  const totalRetirada = group.retiradas.reduce((s, r) => s + parseFloat(r.vNF), 0);
+  const totalAdicional = group.adicionais.reduce((s, a) => s + parseFloat(a.vNF), 0);
+
+  return (
+    <motion.div
+      variants={itemAnim}
+      className={cn(
+        "rounded-2xl border-2 overflow-hidden transition-all duration-200 shadow-sm mb-4",
+        hasAdicional ? "border-emerald-100 bg-white" : "border-slate-100 bg-white"
+      )}
+    >
+      <div
+        className="p-4 flex flex-col sm:flex-row sm:items-center gap-3 cursor-pointer hover:bg-slate-50 transition-colors"
+        onClick={onToggle}
+      >
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <div className={cn("w-10 h-10 rounded-2xl flex items-center justify-center shrink-0", hasAdicional ? "bg-emerald-100" : "bg-slate-100")}>
+            <User className={cn("w-5 h-5", hasAdicional ? "text-emerald-600" : "text-slate-400")} />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-black text-slate-800 uppercase truncate">{group.nome}</p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+              CPF: {group.cpf.startsWith("__sem_cpf__") ? "Não Identificado" : `***${group.cpf.slice(-4)}`} • {group.date}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-1.5 bg-sky-50 border border-sky-100 px-3 py-1.5 rounded-xl">
+            <Smartphone className="w-3.5 h-3.5 text-sky-500" />
+            <span className="text-xs font-bold text-sky-700">{group.retiradas.length}x Pickup</span>
+            <span className="text-xs font-black text-sky-800">{formatBRL(totalRetirada)}</span>
+          </div>
+
+          {hasAdicional ? (
+            <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-100 px-3 py-1.5 rounded-xl">
+              <Zap className="w-3.5 h-3.5 text-emerald-500" />
+              <span className="text-xs font-bold text-emerald-700">{group.adicionais.length}x Adicional</span>
+              <span className="text-xs font-black text-emerald-800">{formatBRL(totalAdicional)}</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 bg-amber-50 border border-amber-100 px-3 py-1.5 rounded-xl">
+              <AlertCircle className="w-3.5 h-3.5 text-amber-500" />
+              <span className="text-xs font-bold text-amber-700">Sem Adicional</span>
+            </div>
+          )}
+
+          {isExpanded ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+        </div>
+      </div>
+
+      <AnimatePresence>
+        {isExpanded && (
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}>
+            <div className="border-t border-slate-100 p-4 space-y-4 bg-slate-50/50">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <h5 className="text-[10px] font-black uppercase text-sky-600 tracking-widest flex items-center gap-1.5">
+                    <Smartphone className="w-3 h-3" /> Notas de Retirada
+                  </h5>
+                  {group.retiradas.map(r => (
+                    <TxCard key={r.chave} tx={r} color="sky" onClick={() => onSelectTx(r)} />
+                  ))}
+                </div>
+                <div className="space-y-2">
+                  <h5 className="text-[10px] font-black uppercase text-emerald-600 tracking-widest flex items-center gap-1.5">
+                    <Zap className="w-3 h-3" /> Notas Adicionais
+                  </h5>
+                  {group.adicionais.map(a => (
+                    <TxCard key={a.chave} tx={a} color="emerald" onClick={() => onSelectTx(a)} />
+                  ))}
+                </div>
+              </div>
+              {group.retiradas.length > 0 && group.adicionais.length > 0 && (
+                <ItemDivergence retiradas={group.retiradas} adicionais={group.adicionais} />
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
   );
 }
 

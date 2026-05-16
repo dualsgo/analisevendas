@@ -437,7 +437,6 @@ export function PickupPanel({ data }: PickupPanelProps) {
           </div>
         )}
       </motion.div>
-      </motion.div>
 
       {/* Side panel detail */}
       <Sheet open={!!selectedTx} onOpenChange={open => !open && setSelectedTx(null)}>

@@ -276,8 +276,13 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
       /VICENTE\s+DE\s+CARVALHO/i.test(xLgr_dest);
 
     // Identificação de pagamento digital pelo site pela tag (Sem varredura textural)
-    // tpIntegra = 2 (Não Integrado com TEF físico da loja), tPag = 99 (Outros), 90 (Sem pagamento)
-    const temPagamentoSite = pagamentosDet.some(p => p.tpIntegra === "2" || p.tPag === "99" || p.tPag === "90");
+    // tpIntegra = 2 (Não Integrado com TEF físico da loja) só indica site se a operação for não-presencial (indPres != 1).
+    // Para operações presenciais (indPres == 1), tpIntegra = 2 representa apenas o uso de POS manual da loja física.
+    const temPagamentoSite = pagamentosDet.some(p => 
+      (p.tpIntegra === "2" && indPres !== 1) || 
+      p.tPag === "99" || 
+      p.tPag === "90"
+    );
     const temDinheiro = pagamentosDet.some(p => p.tPag === "01");
 
     // BLOQUEIOS DE BALCÃO

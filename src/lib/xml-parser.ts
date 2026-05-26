@@ -276,13 +276,8 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
       /VICENTE\s+DE\s+CARVALHO/i.test(xLgr_dest);
 
     // Identificação de pagamento digital pelo site pela tag (Sem varredura textural)
-    // tpIntegra = 2 (Não Integrado com TEF físico da loja) só indica site se a operação for não-presencial (indPres != 1).
-    // Para operações presenciais (indPres == 1), tpIntegra = 2 representa apenas o uso de POS manual da loja física.
-    const temPagamentoSite = pagamentosDet.some(p => 
-      (p.tpIntegra === "2" && indPres !== 1) || 
-      p.tPag === "99" || 
-      p.tPag === "90"
-    );
+    // tpIntegra = 2 (Não Integrado com TEF físico da loja), tPag = 99 (Outros), 90 (Sem pagamento)
+    const temPagamentoSite = pagamentosDet.some(p => p.tpIntegra === "2" || p.tPag === "99" || p.tPag === "90");
     const temDinheiro = pagamentosDet.some(p => p.tPag === "01");
 
     // BLOQUEIOS DE BALCÃO
@@ -295,7 +290,7 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     const isTroca = vTrocaCredito > 0;
     const dif_troca = vNFValue - vTrocaCredito;
 
-    // DEFINIÇÃO DE CEPs (Carioca Shopping)
+    // DEFINIÇÃO DE CEPs (Carioca Shopping - Fallback)
     const SITE_STORE_CEP = "21211007"; // CEP cadastrado no site (Oficial de Pickup)
     const PHYSICAL_STORE_CEP = "21210623"; // CEP físico da loja (Digitado manualmente no iFood)
 
@@ -315,7 +310,7 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     if (!isTroca && isPotencialDigital) {
       // Se é digital, verificamos se é Retirada (Pickup) ou Entrega (Delivery/iFood)
       // Critério de Pickup: Endereço da loja + CEP oficial do site (ou CEP físico da loja em vendas digitais)
-      if (isEnderecoLoja && (cep_dest === SITE_STORE_CEP || cep_dest === PHYSICAL_STORE_CEP)) {
+      if (isEnderecoLoja) {
         canalFinal = "RETIRADA_ONLINE";
         isRetiradaOnlineFinal = true;
       } else {

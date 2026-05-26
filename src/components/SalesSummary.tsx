@@ -125,6 +125,7 @@ import { CashReconciliation } from "./CashReconciliation";
 import { Calculator, Map, Heart, Brain, HelpCircle } from "lucide-react";
 import { AnalysisHelp } from "./AnalysisHelp";
 import { CopaAnalysis } from "./CopaAnalysis";
+import { OfertasImperdiveis } from "./OfertasImperdiveis";
 
 interface SalesSummaryProps {
   data: DetailedSaleRow[];
@@ -371,6 +372,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
     { id: "item_ranking", label: "Ranking de Itens", icon: ShoppingCart, category: "Produtos", color: "text-orange-600 font-black" },
     { id: "market_basket", label: "Matriz de Afinidade", icon: Boxes, category: "Produtos", color: "text-indigo-600 font-black" },
     { id: "venda_sugestiva", label: "SLP & Social", icon: ShoppingBag, category: "Produtos", color: "text-orange-600 font-black" },
+    { id: "ofertas_imperdiveis", label: "Ofertas Imperdíveis", icon: Flame, category: "Produtos", color: "text-rose-600 font-black" },
     { id: "acao_social", label: "Ação Social (Baralhos)", icon: Heart, category: "Produtos", color: "text-rose-500 font-black" },
     { id: "price_profile", label: "Perfil de Preço", icon: DollarSign, category: "Produtos", color: "text-rose-600 font-black" },
     { id: "elasticidade", label: "Elasticidade Desconto", icon: LineChart, category: "Produtos", color: "text-amber-600" },
@@ -595,6 +597,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
       case "sunday_analise": return <SundayAnalysis data={filteredData} />;
       case "consecutive_cupons": return <ConsecutiveCouponAnalysis data={filteredData} />;
       case "copa": return <CopaAnalysis data={filteredData} />;
+      case "ofertas_imperdiveis": return <OfertasImperdiveis data={filteredData} />;
       case "gamification": return null;
       case "feedback": return null;
       default: return null;

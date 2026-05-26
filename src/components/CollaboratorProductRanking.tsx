@@ -53,9 +53,20 @@ export function CollaboratorProductRanking({ data }: CollaboratorProductRankingP
     ).slice(0, 10);
   }, [allUniqueItems, searchTerm]);
 
+  const addTerms = (text: string) => {
+    if (!text.trim()) return;
+    const terms = text.split(/[\n,;]+/).map(t => t.trim().toUpperCase()).filter(t => t.length > 0);
+    setSelectedProductCodes(prev => {
+      const newSet = new Set(prev);
+      terms.forEach(t => newSet.add(t));
+      return Array.from(newSet);
+    });
+    setSearchTerm("");
+  };
+
   const toggleProduct = (code: string) => {
     setSelectedProductCodes(prev => 
-      prev.includes(code) ? prev.filter(c => c !== code) : [...prev, code]
+      prev.includes(code.toUpperCase()) ? prev.filter(c => c !== code.toUpperCase()) : [...prev, code.toUpperCase()]
     );
   };
 
@@ -92,7 +103,11 @@ export function CollaboratorProductRanking({ data }: CollaboratorProductRankingP
 
       let hasMatchedItem = false;
       sale.itens?.forEach(item => {
-        if (selectedProductCodes.includes(item.cProd)) {
+        const itemCode = item.cProd?.toUpperCase() || "";
+        const itemName = item.xProd?.toUpperCase() || "";
+        
+        const matched = selectedProductCodes.some(c => itemCode.includes(c) || itemName.includes(c));
+        if (matched) {
           vendors[v].matchedQuantity += item.qCom || 0;
           vendors[v].matchedValue += item.vProd || 0;
           hasMatchedItem = true;
@@ -135,18 +150,33 @@ export function CollaboratorProductRanking({ data }: CollaboratorProductRankingP
 
           <div className="max-w-2xl mx-auto md:mx-0">
             <div className="relative group">
-              <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
-                <Search className="h-5 w-5 text-indigo-300 group-focus-within:text-white transition-colors" />
+              <div className="relative">
+                <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+                  <Search className="h-5 w-5 text-indigo-300 group-focus-within:text-white transition-colors" />
+                </div>
+                <Input
+                  type="text"
+                  placeholder="Pesquise ou cole itens separados por vírgula e aperte Enter..."
+                  className="pl-12 pr-24 h-14 bg-white/10 border-white/20 text-white placeholder:text-indigo-200 rounded-2xl focus:bg-white/20 focus:border-white/40 transition-all text-sm md:text-lg"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      addTerms(searchTerm);
+                    }
+                  }}
+                />
+                <div className="absolute inset-y-0 right-2 flex items-center">
+                  <button 
+                    onClick={() => addTerms(searchTerm)}
+                    className="bg-indigo-500 hover:bg-indigo-400 text-white text-xs font-bold uppercase px-3 py-1.5 rounded-xl transition-colors"
+                  >
+                    Adicionar
+                  </button>
+                </div>
               </div>
-              <Input
-                type="text"
-                placeholder="Pesquise por Código ou Nome do Produto..."
-                className="pl-12 h-14 bg-white/10 border-white/20 text-white placeholder:text-indigo-200 rounded-2xl focus:bg-white/20 focus:border-white/40 transition-all text-lg"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
               
-              {suggestions.length > 0 && (
+              {suggestions.length > 0 && searchTerm && (
                 <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden z-50 animate-in slide-in-from-top-2">
                   {suggestions.map((item) => (
                     <button
@@ -178,14 +208,14 @@ export function CollaboratorProductRanking({ data }: CollaboratorProductRankingP
                   <X className="w-3 h-3" /> Limpar Seleção
                 </Badge>
                 {selectedProductCodes.map(code => {
-                  const item = allUniqueItems.find(i => i.cProd === code);
+                  const item = allUniqueItems.find(i => i.cProd.toUpperCase().includes(code) || i.xProd.toUpperCase().includes(code));
                   return (
                     <Badge 
                       key={code} 
                       className="bg-indigo-500 text-white px-3 py-1.5 rounded-xl gap-2 shadow-lg shadow-indigo-900/20"
                     >
                       <span className="font-black text-[10px]">{code}</span>
-                      <span className="font-medium text-xs opacity-90">{item?.xProd}</span>
+                      {item && <span className="font-medium text-xs opacity-90">{item.xProd}</span>}
                       <X 
                         className="w-3 h-3 cursor-pointer hover:text-red-200 transition-colors" 
                         onClick={() => toggleProduct(code)}

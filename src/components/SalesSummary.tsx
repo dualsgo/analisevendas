@@ -126,6 +126,7 @@ import { CashReconciliation } from "./CashReconciliation";
 import { Calculator, Map, Heart, Brain, HelpCircle } from "lucide-react";
 import { AnalysisHelp } from "./AnalysisHelp";
 import { CopaAnalysis } from "./CopaAnalysis";
+import { WeeklyAnalysis } from "./WeeklyAnalysis";
 
 interface SalesSummaryProps {
   data: DetailedSaleRow[];
@@ -360,6 +361,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
 
   const navItems = [
     { id: "executivo", label: "Resumo Executivo", icon: Sparkles, category: "Resultados", color: "text-orange-500 font-black" },
+    { id: "semanal", label: "Análise Semanal (Expurgo)", icon: CalendarIcon, category: "Resultados", color: "text-blue-500 font-black" },
     { id: "gap_analise", label: "GAP de Produtividade", icon: Activity, category: "Resultados", color: "text-rose-500 font-black" },
     { id: "geral", label: "Visão Geral", icon: LayoutDashboard, category: "Resultados" },
     { id: "impacto", label: "Projeção de Impacto", icon: Target, category: "Resultados", color: "text-purple-500 font-bold" },
@@ -600,6 +602,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
       case "copa": return <CopaAnalysis data={filteredData} />;
       case "gamification": return null;
       case "feedback": return null;
+      case "semanal": return <WeeklyAnalysis data={filteredData} />;
       default: return null;
     }
   };

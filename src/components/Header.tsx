@@ -50,6 +50,16 @@ export function Header({ status, fileStats, onReset }: HeaderProps) {
         )}
         
         <div className="flex items-center gap-3">
+          <Button 
+            variant="default" 
+            size="sm" 
+            asChild
+            className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 font-medium rounded-full shadow-sm text-xs h-9 px-4 hidden sm:flex"
+          >
+            <a href="/looker">
+              Painel Looker
+            </a>
+          </Button>
           {(status === "success" || status === "analyzed") && (
             <Button 
               variant="outline" 

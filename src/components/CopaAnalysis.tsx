@@ -25,7 +25,8 @@ interface CopaAnalysisProps {
 }
 
 const COPA_ALBUM = "5147812";
-const COPA_STICKERS = "5147790";
+const COPA_STICKERS = ["5147790", "5147791", "5149187"];
+const isCopaItem = (cProd: string) => cProd === COPA_ALBUM || COPA_STICKERS.includes(cProd);
 
 export const CopaAnalysis: React.FC<CopaAnalysisProps> = ({ data }) => {
   const stats = useMemo(() => {
@@ -44,7 +45,7 @@ export const CopaAnalysis: React.FC<CopaAnalysisProps> = ({ data }) => {
     const collaboratorImpact: Record<string, any> = {};
 
     activeSales.forEach(sale => {
-      const copaItems = sale.itens.filter(item => item.cProd === COPA_ALBUM || item.cProd === COPA_STICKERS);
+      const copaItems = sale.itens.filter(item => isCopaItem(item.cProd));
       const hasCopa = copaItems.length > 0;
       const isOnlyCopa = hasCopa && copaItems.length === sale.itens.length;
 
@@ -59,7 +60,7 @@ export const CopaAnalysis: React.FC<CopaAnalysisProps> = ({ data }) => {
         totalCopaQty += saleCopaQty;
         
         albumQty += copaItems.filter(i => i.cProd === COPA_ALBUM).reduce((acc, i) => acc + i.qCom, 0);
-        stickerQty += copaItems.filter(i => i.cProd === COPA_STICKERS).reduce((acc, i) => acc + i.qCom, 0);
+        stickerQty += copaItems.filter(i => COPA_STICKERS.includes(i.cProd)).reduce((acc, i) => acc + i.qCom, 0);
       }
 
       // Individual impact
@@ -107,10 +108,10 @@ export const CopaAnalysis: React.FC<CopaAnalysisProps> = ({ data }) => {
       
       const val = parseFloat(s.vNF);
       const copaVal = s.itens
-        .filter(item => item.cProd === COPA_ALBUM || item.cProd === COPA_STICKERS)
+        .filter(item => isCopaItem(item.cProd))
         .reduce((acc, i) => acc + i.vProd, 0);
       
-      const isOnlyCopa = s.itens.every(item => item.cProd === COPA_ALBUM || item.cProd === COPA_STICKERS);
+      const isOnlyCopa = s.itens.every(item => isCopaItem(item.cProd));
 
       dailyData[date].withCopa += val;
       if (!isOnlyCopa) {
@@ -477,7 +478,7 @@ Isso significa que esses atendimentos *não agregam outros produtos*, baixando n
               {stats.salesWithCopa
                 .sort((a, b) => b.dhEmi.localeCompare(a.dhEmi))
                 .map((sale) => {
-                  const copaItems = sale.itens.filter(i => i.cProd === COPA_ALBUM || i.cProd === COPA_STICKERS);
+                  const copaItems = sale.itens.filter(i => isCopaItem(i.cProd));
                   const isOnlyCopa = copaItems.length === sale.itens.length;
                   return (
                     <tr key={sale.chave} className="hover:bg-slate-50 transition-colors">

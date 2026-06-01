@@ -179,7 +179,7 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
         let validItemsCount = 0;
 
         s.itens.forEach(it => {
-          const isFig = it.cProd === "5147790";
+          const isFig = ["5147790", "5147791", "5149187"].includes(it.cProd);
           const isAlb = it.cProd === "5147812";
           const isBar = isBaralho(it);
           const isSac = isSacola(it);

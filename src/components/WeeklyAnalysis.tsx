@@ -489,12 +489,20 @@ function WeekTable({ week, hasExclusions }: { week: any, hasExclusions: boolean 
                     </td>
                     <td className="p-2.5 border-r text-center">
                        {diff !== 0 ? (
-                         <Badge variant="outline" className={cn(
-                           "text-[9px] px-1.5 py-0.5 border shadow-sm", 
-                           diff > 0 ? "text-emerald-700 bg-emerald-50 border-emerald-200" : "text-rose-700 bg-rose-50 border-rose-200"
-                         )}>
-                           {diff > 0 ? '+' : ''}{perc.toFixed(1)}%
-                         </Badge>
+                         <div className="flex flex-col items-center gap-0.5">
+                           <span className={cn(
+                             "text-[9px] font-black tracking-tight",
+                             diff > 0 ? "text-emerald-600" : "text-rose-600"
+                           )}>
+                             {diff > 0 ? '+' : ''}{formatVal(diff, m.type)}
+                           </span>
+                           <Badge variant="outline" className={cn(
+                             "text-[8px] px-1 py-0 border shadow-sm", 
+                             diff > 0 ? "text-emerald-700 bg-emerald-50 border-emerald-200" : "text-rose-700 bg-rose-50 border-rose-200"
+                           )}>
+                             {diff > 0 ? '+' : ''}{perc.toFixed(1)}%
+                           </Badge>
+                         </div>
                        ) : (
                          <span className="text-[10px] text-slate-300 font-medium">-</span>
                        )}

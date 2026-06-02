@@ -9,7 +9,7 @@ import { fadeIn } from "@/lib/animations";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Search, CalendarDays, FilterX, TrendingUp, ChevronDown, ChevronUp, ArrowDownRight, ArrowUpRight, ArrowRight } from "lucide-react";
+import { Search, CalendarDays, FilterX, TrendingUp, ChevronDown, ChevronUp, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -75,8 +75,10 @@ export function WeeklyAnalysis({ data }: WeeklyAnalysisProps) {
   const formatNum = (val: number) => val.toLocaleString('pt-BR', { maximumFractionDigits: 1 });
 
   // Process data per week with exclusions applied
-  const weeklyData = useMemo(() => {
+  const { weeklyData, consolidatedGeneral } = useMemo(() => {
     const weeksMap = new Map<string, any>();
+    const allBaseRows: any[] = [];
+    const allExpRows: any[] = [];
 
     const validRows = data.filter(r => r.tpNF === 1 && !r.is_cancelada);
 
@@ -124,10 +126,14 @@ export function WeeklyAnalysis({ data }: WeeklyAnalysisProps) {
       });
 
       if (hasBaseItems && baseVenda > 0) {
-        weekObj.baseRows.push({ ...row, _vNF: baseVenda, _itens: baseItens });
+        const r = { ...row, _vNF: baseVenda, _itens: baseItens };
+        weekObj.baseRows.push(r);
+        allBaseRows.push(r);
       }
       if (hasExpItems && expVenda > 0) {
-        weekObj.expRows.push({ ...row, _vNF: expVenda, _itens: expItens });
+        const r = { ...row, _vNF: expVenda, _itens: expItens };
+        weekObj.expRows.push(r);
+        allExpRows.push(r);
       }
     });
 
@@ -145,15 +151,43 @@ export function WeeklyAnalysis({ data }: WeeklyAnalysisProps) {
       };
     };
 
-    return weeksArray.map(week => {
-      const getChannelRows = (rows: any[], channelFilter: (r: any) => boolean) => rows.filter(channelFilter);
-      
-      const filterTotal = (r: any) => true;
-      const filterFisica = (r: any) => r.canal === "LOJA_FISICA" && !r.is_troca;
-      const filterOnline = (r: any) => r.canal === "RETIRADA_ONLINE";
-      const filterAdic = (r: any) => r.canal === "RETIRADA_ADICIONAL";
+    const filterTotal = (r: any) => true;
+    const filterFisica = (r: any) => r.canal === "LOJA_FISICA" && !r.is_troca;
+    const filterOnline = (r: any) => r.canal === "RETIRADA_ONLINE";
+    const filterAdic = (r: any) => r.canal === "RETIRADA_ADICIONAL";
+    
+    const buildChannels = (bRows: any[], eRows: any[]) => [
+      {
+        id: 'total',
+        title: "Total Consolidado",
+        bgHeader: "bg-indigo-50 text-indigo-800 border-indigo-100",
+        base: calcMetrics(bRows.filter(filterTotal)),
+        exp: calcMetrics(eRows.filter(filterTotal))
+      },
+      {
+        id: 'fisica',
+        title: "Loja Física",
+        bgHeader: "bg-sky-50 text-sky-800 border-sky-100",
+        base: calcMetrics(bRows.filter(filterFisica)),
+        exp: calcMetrics(eRows.filter(filterFisica))
+      },
+      {
+        id: 'online',
+        title: "Online (Pickup/Delivery)",
+        bgHeader: "bg-emerald-50 text-emerald-800 border-emerald-100",
+        base: calcMetrics(bRows.filter(filterOnline)),
+        exp: calcMetrics(eRows.filter(filterOnline))
+      },
+      {
+        id: 'adic',
+        title: "Adicionais de Balcão",
+        bgHeader: "bg-rose-50 text-rose-800 border-rose-100",
+        base: calcMetrics(bRows.filter(filterAdic)),
+        exp: calcMetrics(eRows.filter(filterAdic))
+      }
+    ];
 
-      // Vendedores (using expRows)
+    const weeklyDataFormatted = weeksArray.map(week => {
       const vendsMap = new Map<string, any>();
       week.expRows.forEach((r: any) => {
         const v = r.vendedor || "NÃO IDENTIFICADO";
@@ -172,41 +206,20 @@ export function WeeklyAnalysis({ data }: WeeklyAnalysisProps) {
       return {
         weekLabel: week.weekLabel,
         weekKey: week.weekKey,
-        channels: [
-          {
-            id: 'total',
-            title: "Total Consolidado",
-            colorTheme: "indigo",
-            base: calcMetrics(getChannelRows(week.baseRows, filterTotal)),
-            exp: calcMetrics(getChannelRows(week.expRows, filterTotal))
-          },
-          {
-            id: 'fisica',
-            title: "Loja Física",
-            colorTheme: "sky",
-            base: calcMetrics(getChannelRows(week.baseRows, filterFisica)),
-            exp: calcMetrics(getChannelRows(week.expRows, filterFisica))
-          },
-          {
-            id: 'online',
-            title: "Online (Pickup/Delivery)",
-            colorTheme: "emerald",
-            base: calcMetrics(getChannelRows(week.baseRows, filterOnline)),
-            exp: calcMetrics(getChannelRows(week.expRows, filterOnline))
-          },
-          {
-            id: 'adic',
-            title: "Adicionais de Balcão",
-            colorTheme: "rose",
-            base: calcMetrics(getChannelRows(week.baseRows, filterAdic)),
-            exp: calcMetrics(getChannelRows(week.expRows, filterAdic))
-          }
-        ],
-        onlineExp: calcMetrics(getChannelRows(week.expRows, filterOnline)),
-        adicExp: calcMetrics(getChannelRows(week.expRows, filterAdic)),
+        channels: buildChannels(week.baseRows, week.expRows),
+        onlineExp: calcMetrics(week.expRows.filter(filterOnline)),
+        adicExp: calcMetrics(week.expRows.filter(filterAdic)),
         vendedores
       };
     });
+
+    const consolidatedGeneral = {
+      weekLabel: "CONSOLIDADO GERAL",
+      weekKey: "consolidated_general",
+      channels: buildChannels(allBaseRows, allExpRows)
+    };
+
+    return { weeklyData: weeklyDataFormatted, consolidatedGeneral };
   }, [data, excludedCProds]);
 
   const hasExclusions = excludedCProds.size > 0;
@@ -288,27 +301,32 @@ export function WeeklyAnalysis({ data }: WeeklyAnalysisProps) {
       <div className="space-y-6">
         <div className="flex items-center gap-2 px-1">
           <CalendarDays className="w-6 h-6 text-emerald-600" />
-          <h2 className="text-xl font-black text-slate-800 uppercase tracking-tight">Análise Semanal Consolidada</h2>
+          <h2 className="text-xl font-black text-slate-800 uppercase tracking-tight">Análise Expurgada Consolidada</h2>
         </div>
 
+        {/* Consolidado Geral */}
+        <Card className="shadow-lg border-indigo-200 overflow-hidden ring-1 ring-indigo-50">
+          <CardHeader className="bg-indigo-600 text-white py-3 px-4">
+            <CardTitle className="text-base font-black uppercase tracking-widest text-white flex items-center gap-2">
+              <Layers className="w-5 h-5 text-indigo-200" />
+              {consolidatedGeneral.weekLabel}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0 bg-white overflow-hidden">
+            <WeekTable week={consolidatedGeneral} hasExclusions={hasExclusions} />
+          </CardContent>
+        </Card>
+
+        {/* Semanas Individuais */}
         {weeklyData.map(week => (
           <Card key={week.weekKey} className="shadow-sm border-slate-200 overflow-hidden">
             <CardHeader className="bg-slate-800 text-white py-3 px-4">
-              <CardTitle className="text-base font-black uppercase tracking-widest text-slate-100 flex justify-between items-center">
-                <span>{week.weekLabel}</span>
+              <CardTitle className="text-sm font-black uppercase tracking-widest text-slate-100">
+                {week.weekLabel}
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 bg-slate-50">
-              {week.channels.map(channel => (
-                <ChannelCard 
-                  key={channel.id}
-                  title={channel.title}
-                  colorTheme={channel.colorTheme}
-                  base={channel.base}
-                  exp={channel.exp}
-                  hasExclusions={hasExclusions}
-                />
-              ))}
+            <CardContent className="p-0 bg-white overflow-hidden">
+               <WeekTable week={week} hasExclusions={hasExclusions} />
             </CardContent>
           </Card>
         ))}
@@ -371,7 +389,7 @@ export function WeeklyAnalysis({ data }: WeeklyAnalysisProps) {
               <thead className="bg-slate-100 text-slate-600 text-[10px] uppercase font-black tracking-wider sticky top-0 shadow-sm">
                 <tr>
                   <th className="p-3 border-b border-slate-200">Semana / Vendedor</th>
-                  <th className="p-3 border-b border-slate-200 text-right">Venda Total</th>
+                  <th className="p-3 border-b border-slate-200 text-right">Venda (Projetado)</th>
                   <th className="p-3 border-b border-slate-200 text-right">P.A.</th>
                   <th className="p-3 border-b border-slate-200 text-right">TKM</th>
                 </tr>
@@ -401,74 +419,93 @@ export function WeeklyAnalysis({ data }: WeeklyAnalysisProps) {
   );
 }
 
-// Sub-component for rendering vertical channel cards inside the week
-function ChannelCard({ title, colorTheme, base, exp, hasExclusions }: any) {
-  const colors: Record<string, string> = {
-    indigo: "border-indigo-200 bg-indigo-50 text-indigo-800 shadow-indigo-100",
-    sky: "border-sky-200 bg-sky-50 text-sky-800 shadow-sky-100",
-    emerald: "border-emerald-200 bg-emerald-50 text-emerald-800 shadow-emerald-100",
-    rose: "border-rose-200 bg-rose-50 text-rose-800 shadow-rose-100",
-  };
+// Sub-component for rendering the horizontal table per week
+function WeekTable({ week, hasExclusions }: { week: any, hasExclusions: boolean }) {
+  const metrics = [
+    { id: 'vendas', label: 'Venda', type: 'currency' },
+    { id: 'cupons', label: 'Cupons', type: 'number' },
+    { id: 'itens', label: 'Peças', type: 'number' },
+    { id: 'pa', label: 'P.A.', type: 'decimal' },
+    { id: 'tkm', label: 'TKM', type: 'currency' },
+    { id: 'pm', label: 'P.M.', type: 'currency' },
+  ];
 
-  const headerColors: Record<string, string> = {
-    indigo: "bg-indigo-100 text-indigo-800",
-    sky: "bg-sky-100 text-sky-800",
-    emerald: "bg-emerald-100 text-emerald-800",
-    rose: "bg-rose-100 text-rose-800",
-  };
-
-  return (
-    <div className={cn("border rounded-2xl flex flex-col overflow-hidden shadow-sm", colors[colorTheme])}>
-      <div className={cn("px-4 py-2 font-black uppercase text-xs tracking-wider border-b border-black/5", headerColors[colorTheme])}>
-        {title}
-      </div>
-      <div className="p-4 flex flex-col gap-3 flex-1">
-        <MetricRow label="Venda" type="currency" base={base.vendas} exp={exp.vendas} hasExclusions={hasExclusions} />
-        <MetricRow label="Cupons" type="number" base={base.cupons} exp={exp.cupons} hasExclusions={hasExclusions} />
-        <MetricRow label="Peças" type="number" base={base.itens} exp={exp.itens} hasExclusions={hasExclusions} />
-        <MetricRow label="P.A." type="decimal" base={base.pa} exp={exp.pa} hasExclusions={hasExclusions} />
-        <MetricRow label="TKM" type="currency" base={base.tkm} exp={exp.tkm} hasExclusions={hasExclusions} />
-        <MetricRow label="P.M." type="currency" base={base.pm} exp={exp.pm} hasExclusions={hasExclusions} />
-      </div>
-    </div>
-  );
-}
-
-function MetricRow({ label, type, base, exp, hasExclusions }: any) {
-  const formatVal = (val: number) => {
+  const formatVal = (val: number, type: string) => {
     if (type === 'currency') return val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
     if (type === 'decimal') return val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     return val.toLocaleString('pt-BR');
   };
 
-  const diff = exp - base;
-  const perc = base > 0 ? (diff / base) * 100 : 0;
-  
-  const isNegative = diff < 0;
-  const isPositive = diff > 0;
-
   return (
-    <div className="flex flex-col border-b border-black/5 pb-2 last:border-0 last:pb-0">
-      <div className="flex justify-between items-center mb-1">
-        <span className="text-[10px] font-bold uppercase text-slate-500 tracking-wider">{label}</span>
-        <span className="text-sm font-black">{formatVal(exp)}</span>
-      </div>
-      
-      {hasExclusions && (
-        <div className="flex justify-between items-center">
-          <span className="text-[9px] text-slate-400 line-through font-medium">{formatVal(base)}</span>
-          {(isNegative || isPositive) && (
-            <div className={cn(
-              "flex items-center gap-1 text-[10px] font-black px-1.5 py-0.5 rounded",
-              isNegative ? "bg-rose-100/80 text-rose-700" : "bg-emerald-100/80 text-emerald-700"
-            )}>
-              {isNegative ? <ArrowDownRight className="w-3 h-3" /> : <ArrowUpRight className="w-3 h-3" />}
-              <span>{formatVal(Math.abs(diff))}</span>
-              <span>({Math.abs(perc).toFixed(1)}%)</span>
-            </div>
+    <div className="overflow-x-auto">
+      <table className="w-full text-left border-collapse text-sm min-w-[700px] md:min-w-full">
+        <thead>
+          <tr>
+            <th className="p-2 border-b border-r bg-slate-50 uppercase text-[10px] font-black text-slate-500 w-28 align-middle">Indicador</th>
+            {week.channels.map((ch: any) => (
+               <th key={ch.id} colSpan={hasExclusions ? 3 : 1} className={cn("p-2 border-b border-r text-center uppercase text-[10px] font-black tracking-wider", ch.bgHeader)}>
+                 {ch.title}
+               </th>
+            ))}
+          </tr>
+          {hasExclusions && (
+            <tr>
+              <th className="p-2 border-b border-r bg-slate-50"></th>
+              {week.channels.map((ch: any) => (
+                <React.Fragment key={`${ch.id}-sub`}>
+                  <th className="p-2 border-b border-r bg-slate-50 text-[9px] uppercase text-center font-bold text-slate-500 w-24">Real.</th>
+                  <th className="p-2 border-b border-r bg-indigo-50/50 text-[9px] uppercase text-center font-black text-indigo-700 w-24">Proj.</th>
+                  <th className="p-2 border-b border-r bg-slate-50 text-[9px] uppercase text-center font-bold text-slate-400 w-20">Var.</th>
+                </React.Fragment>
+              ))}
+            </tr>
           )}
-        </div>
-      )}
+        </thead>
+        <tbody className="bg-white">
+          {metrics.map(m => (
+            <tr key={m.id} className="hover:bg-slate-50/50 border-b last:border-0 group">
+              <td className="p-2.5 border-r font-black text-xs text-slate-700 bg-slate-50/30 uppercase tracking-tight">{m.label}</td>
+              {week.channels.map((ch: any) => {
+                const baseVal = ch.base[m.id as keyof typeof ch.base];
+                const expVal = ch.exp[m.id as keyof typeof ch.exp];
+                const diff = expVal - baseVal;
+                const perc = baseVal > 0 ? (diff / baseVal) * 100 : 0;
+                
+                if (!hasExclusions) {
+                  return (
+                    <td key={ch.id} className="p-2.5 border-r text-center font-black text-slate-800">
+                      {formatVal(baseVal, m.type)}
+                    </td>
+                  );
+                }
+
+                return (
+                  <React.Fragment key={ch.id}>
+                    <td className="p-2.5 border-r text-center text-xs font-medium text-slate-400 line-through decoration-slate-300">
+                      {formatVal(baseVal, m.type)}
+                    </td>
+                    <td className="p-2.5 border-r text-center text-xs font-black text-slate-800 bg-indigo-50/30 group-hover:bg-indigo-50/50 transition-colors">
+                      {formatVal(expVal, m.type)}
+                    </td>
+                    <td className="p-2.5 border-r text-center">
+                       {diff !== 0 ? (
+                         <Badge variant="outline" className={cn(
+                           "text-[9px] px-1.5 py-0.5 border shadow-sm", 
+                           diff > 0 ? "text-emerald-700 bg-emerald-50 border-emerald-200" : "text-rose-700 bg-rose-50 border-rose-200"
+                         )}>
+                           {diff > 0 ? '+' : ''}{perc.toFixed(1)}%
+                         </Badge>
+                       ) : (
+                         <span className="text-[10px] text-slate-300 font-medium">-</span>
+                       )}
+                    </td>
+                  </React.Fragment>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

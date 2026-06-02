@@ -184,6 +184,14 @@ Isso significa que esses atendimentos *não agregam outros produtos*, baixando n
             <div className="flex-1">
               <h2 className="text-2xl font-black text-white tracking-tight uppercase">Análise de Itens Sazonais (Copa)</h2>
               <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">Monitoramento de Impacto nos Indicadores</p>
+              <div className="mt-2 flex items-center gap-2 flex-wrap">
+                <Badge variant="outline" className="bg-slate-800/50 text-slate-300 border-slate-700 font-bold text-[9px] uppercase tracking-wider">
+                  Cód. Álbum: {COPA_ALBUM}
+                </Badge>
+                <Badge variant="outline" className="bg-slate-800/50 text-slate-300 border-slate-700 font-bold text-[9px] uppercase tracking-wider">
+                  Cód. Figurinhas: {COPA_STICKERS.join(', ')}
+                </Badge>
+              </div>
             </div>
             <button 
               onClick={handleShareWhatsApp}

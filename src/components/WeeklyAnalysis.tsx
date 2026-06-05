@@ -151,10 +151,9 @@ export function WeeklyAnalysis({ data }: WeeklyAnalysisProps) {
       };
     };
 
-    const filterTotal = (r: any) => true;
+    const filterTotal = (r: any) => r.canal !== "DELIVERY";
     const filterFisica = (r: any) => r.canal === "LOJA_FISICA" && !r.is_troca;
     const filterOnline = (r: any) => r.canal === "RETIRADA_ONLINE";
-    const filterDelivery = (r: any) => r.canal === "DELIVERY";
     const filterAdic = (r: any) => r.canal === "RETIRADA_ADICIONAL";
     
     const buildChannels = (bRows: any[], eRows: any[]) => [
@@ -178,13 +177,6 @@ export function WeeklyAnalysis({ data }: WeeklyAnalysisProps) {
         bgHeader: "bg-emerald-50 text-emerald-800 border-emerald-100",
         base: calcMetrics(bRows.filter(filterOnline)),
         exp: calcMetrics(eRows.filter(filterOnline))
-      },
-      {
-        id: 'delivery',
-        title: "iFood / Rappi",
-        bgHeader: "bg-orange-50 text-orange-800 border-orange-100",
-        base: calcMetrics(bRows.filter(filterDelivery)),
-        exp: calcMetrics(eRows.filter(filterDelivery))
       },
       {
         id: 'adic',

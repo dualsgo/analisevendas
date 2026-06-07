@@ -126,29 +126,36 @@ export function vincularTrocas(rows: DetailedSaleRow[]): VinculoTroca[] {
     if (entradasVinculadas.has(entrada.chave)) return;
     const valorEntrada = parseFloat(entrada.vNF).toFixed(2);
     const cpfEntrada = entrada.cpf_cnpj_dest;
+    const tEntrada = new Date(entrada.dhEmi).getTime();
+    
+    let match: DetailedSaleRow | undefined = undefined;
+    let metodo = "";
+
+    // Método 2A: CPF + Valor de Crédito
     if (cpfEntrada) {
-      const match = saidasDeTroca.find(s => !saidasVinculadas.has(s.chave) && s.cpf_cnpj_dest === cpfEntrada && parseFloat(s.vTroca).toFixed(2) === valorEntrada);
-      if (match) {
-        vinculos.push(criarVinculo(entrada, match, "CPF + Valor de Crédito"));
-        saidasVinculadas.add(match.chave);
-        entradasVinculadas.add(entrada.chave);
-      }
-    } else {
-      // Método 2B: Se não tem CPF na entrada, vincula se o valor de devolução for exatamente o valor do crédito usado,
-      // e ocorrer no mesmo dia (intervalo de 2h)
-      const tEntrada = new Date(entrada.dhEmi).getTime();
+      match = saidasDeTroca.find(s => !saidasVinculadas.has(s.chave) && s.cpf_cnpj_dest === cpfEntrada && parseFloat(s.vTroca).toFixed(2) === valorEntrada);
+      if (match) metodo = "CPF + Valor de Crédito";
+    }
+
+    // Método 2B: Se não achou pelo CPF (ou se não tem CPF), procura apenas pelo Valor Exato + Proximidade (até 12h)
+    // Isso resolve casos onde o cliente não informou CPF na devolução, ou informou o CPF do marido na devolução e da esposa na compra
+    if (!match) {
       const candidatasVal = saidasDeTroca.filter(s => 
         !saidasVinculadas.has(s.chave) && 
         parseFloat(s.vTroca).toFixed(2) === valorEntrada &&
-        Math.abs(new Date(s.dhEmi).getTime() - tEntrada) <= 2 * 60 * 60 * 1000
+        Math.abs(new Date(s.dhEmi).getTime() - tEntrada) <= 12 * 60 * 60 * 1000
       ).sort((a, b) => Math.abs(new Date(a.dhEmi).getTime() - tEntrada) - Math.abs(new Date(b.dhEmi).getTime() - tEntrada));
       
       if (candidatasVal.length > 0) {
-        const match = candidatasVal[0];
-        vinculos.push(criarVinculo(entrada, match, "Valor Exato + Proximidade (Sem CPF)"));
-        saidasVinculadas.add(match.chave);
-        entradasVinculadas.add(entrada.chave);
+        match = candidatasVal[0];
+        metodo = "Valor Exato + Proximidade (Indep. de CPF)";
       }
+    }
+
+    if (match) {
+      vinculos.push(criarVinculo(entrada, match, metodo));
+      saidasVinculadas.add(match.chave);
+      entradasVinculadas.add(entrada.chave);
     }
   });
 

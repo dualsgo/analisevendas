@@ -50,7 +50,8 @@ import {
   Info,
   Filter,
   Search,
-  ChevronRight
+  ChevronRight,
+  Bike
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -91,6 +92,7 @@ const SACOLA_CODES = ['5133676', '5113644'];
 export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) {
   const [includePickups, setIncludePickups] = useState(false);
   const [includeExchanges, setIncludeExchanges] = useState(false);
+  const [includeDelivery, setIncludeDelivery] = useState(false);
   const [includeFigurinhas, setIncludeFigurinhas] = useState(true);
   const [includeAlbuns, setIncludeAlbuns] = useState(true);
   const [includeBaralhos, setIncludeBaralhos] = useState(true);
@@ -150,6 +152,7 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
 
       const isFisica = s.canal === "LOJA_FISICA" || s.canal === "RETIRADA_ADICIONAL" || s.is_adicional || s.is_adicional_suspeito;
       const isOnline = s.canal === "RETIRADA_ONLINE";
+      const isDelivery = s.canal === "DELIVERY";
 
       if (isOnline) {
         vendors[v].pickupsAtendidas += 1;
@@ -167,7 +170,7 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
         }
       });
 
-      const shouldProcess = isFisica || (isOnline && includePickups);
+      const shouldProcess = isFisica || (isOnline && includePickups) || (isDelivery && includeDelivery);
       
       if (shouldProcess) {
         let saleRealVenda = parseFloat(s.vNF);
@@ -234,6 +237,8 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
           vendors[v].real.itens += vinc.diferenca_itens;
           vendors[v].filtered.venda += vinc.valor_diferenca;
           vendors[v].filtered.itens += vinc.diferenca_itens;
+          vendors[v].real.cupons += 1;
+          vendors[v].filtered.cupons += 1;
           if (vinc.cpf_cliente) {
             vendors[v].real.ident += 1;
             vendors[v].filtered.ident += 1;
@@ -323,7 +328,7 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
         if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
         return 0;
       });
-  }, [data, vinculos, includePickups, includeExchanges, includeFigurinhas, includeAlbuns, includeBaralhos, includeSLP, includeSacolas, selectedGroup, searchTerm, sortConfig]);
+  }, [data, vinculos, includePickups, includeExchanges, includeDelivery, includeFigurinhas, includeAlbuns, includeBaralhos, includeSLP, includeSacolas, selectedGroup, searchTerm, sortConfig]);
 
   const totals = useMemo(() => {
     const sum = reportData.reduce((acc, v) => ({
@@ -398,6 +403,12 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
                 <ArrowRightLeft className="w-3 h-3 text-purple-500" /> Incluir Trocas
               </Label>
             </div>
+            <div className="flex items-center gap-3">
+              <Switch id="inc-delivery" checked={includeDelivery} onCheckedChange={setIncludeDelivery} />
+              <Label htmlFor="inc-delivery" className="text-[10px] font-black uppercase cursor-pointer flex items-center gap-1.5 min-w-[120px]">
+                <Bike className="w-3 h-3 text-rose-500" /> Incluir Delivery
+              </Label>
+            </div>
           </div>
           <div className="flex flex-col gap-1.5 border-r border-slate-200 pr-4 mr-2 hidden lg:flex">
             <span className="text-[8px] font-black uppercase text-slate-400">Considerar Itens</span>
@@ -422,7 +433,7 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
         <div className="space-y-0.5">
           <h1 className="text-sm font-black uppercase leading-none">Ri Happy | Performance Consolidada</h1>
           <p className="text-[8px] font-bold text-slate-600 uppercase tracking-widest">
-            Visão: {selectedGroup === "all" ? "UNIDADE COMPLETA" : selectedGroup.toUpperCase()} • Físico {includePickups && "+ Retiradas"} {includeExchanges && "+ Trocas"}
+            Visão: {selectedGroup === "all" ? "UNIDADE COMPLETA" : selectedGroup.toUpperCase()} • Físico {includePickups && "+ Retiradas"} {includeExchanges && "+ Trocas"} {includeDelivery && "+ Delivery"}
           </p>
         </div>
         <div className="text-right">

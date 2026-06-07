@@ -39,6 +39,9 @@ export const CopaAnalysis: React.FC<CopaAnalysisProps> = ({ data }) => {
     let albumQty = 0;
     let stickerQty = 0;
     
+    let totalItensProjCopa12 = 0;
+    let salesOnlyCopaOneItem = 0;
+    
     const salesWithCopa: DetailedSaleRow[] = [];
     const salesOnlyCopa: DetailedSaleRow[] = [];
     
@@ -61,6 +64,23 @@ export const CopaAnalysis: React.FC<CopaAnalysisProps> = ({ data }) => {
         
         albumQty += copaItems.filter(i => i.cProd === COPA_ALBUM).reduce((acc, i) => acc + i.qCom, 0);
         stickerQty += copaItems.filter(i => COPA_STICKERS.includes(i.cProd)).reduce((acc, i) => acc + i.qCom, 0);
+      }
+
+      let saleTotalQty = 0;
+      let saleTotalProjQty = 0;
+      
+      sale.itens.forEach(item => {
+        saleTotalQty += item.qCom;
+        if (item.cProd === "5147791") {
+           saleTotalProjQty += item.qCom * 12;
+        } else {
+           saleTotalProjQty += item.qCom;
+        }
+      });
+      totalItensProjCopa12 += saleTotalProjQty;
+
+      if (isOnlyCopa && saleTotalQty === 1) {
+        salesOnlyCopaOneItem++;
       }
 
       // Individual impact
@@ -126,13 +146,16 @@ export const CopaAnalysis: React.FC<CopaAnalysisProps> = ({ data }) => {
       stickerQty,
       salesWithCopa,
       salesOnlyCopa,
+      salesOnlyCopaOneItem,
       totalVenda,
       totalCupons,
       totalItens,
+      totalItensProjCopa12,
       vendaSemCopa,
       cuponsSemCopa,
       itensSemCopa,
       percOnlyCopa: totalCupons > 0 ? (salesOnlyCopa.length / totalCupons) * 100 : 0,
+      percOnlyCopaOneItem: totalCupons > 0 ? (salesOnlyCopaOneItem / totalCupons) * 100 : 0,
       collaboratorImpact: Object.values(collaboratorImpact),
       dailyData: Object.entries(dailyData).sort((a, b) => a[0].localeCompare(b[0]))
     };
@@ -246,7 +269,11 @@ Isso significa que esses atendimentos *não agregam outros produtos*, baixando n
                   style={{ width: `${stats.percOnlyCopa}%` }}
                 />
               </div>
-              <p className="text-[10px] text-slate-500 italic leading-tight">
+              <div className="flex justify-between text-[10px] font-bold uppercase mt-2">
+                <span className="text-slate-400">Com Apenas 1 Item (Copa)</span>
+                <span className="text-slate-800">{stats.salesOnlyCopaOneItem} ({stats.percOnlyCopaOneItem.toFixed(1)}%)</span>
+              </div>
+              <p className="text-[10px] text-slate-500 italic leading-tight mt-1">
                 Estes cupons são puramente transacionais e não representam venda consultiva.
               </p>
             </div>
@@ -300,6 +327,11 @@ Isso significa que esses atendimentos *não agregam outros produtos*, baixando n
                 <div className="text-center flex-1">
                   <p className="text-[9px] font-bold text-slate-400 uppercase">Sem Copa</p>
                   <p className="text-sm font-black text-sky-600">{(stats.itensSemCopa / stats.cuponsSemCopa).toFixed(2)}</p>
+                </div>
+                <div className="w-px h-8 bg-slate-100" />
+                <div className="text-center flex-1">
+                  <p className="text-[9px] font-bold text-slate-400 uppercase" title="Considerando Blister (5147791) como 12 itens">Proj. Blister (x12)</p>
+                  <p className="text-sm font-black text-emerald-600">{(stats.totalItensProjCopa12 / stats.totalCupons).toFixed(2)}</p>
                 </div>
              </div>
           </CardContent>

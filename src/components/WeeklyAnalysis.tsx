@@ -169,7 +169,7 @@ export function WeeklyAnalysis({ data }: WeeklyAnalysisProps) {
         id: 'fisica',
         title: "Loja Física",
         bgHeader: "bg-sky-50 text-sky-800 border-sky-100",
-        base: calcMetrics(bRows.filter(filterFisica)),
+        base: calcMetrics(bRows.filter(filterFisica)), 
         exp: calcMetrics(eRows.filter(filterFisica))
       },
       {

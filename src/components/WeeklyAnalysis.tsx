@@ -152,7 +152,7 @@ export function WeeklyAnalysis({ data }: WeeklyAnalysisProps) {
       };
     };
 
-    const filterTotal = (r: any) => includeOmniInTotal ? (r.canal !== "DELIVERY") : (r.canal === "LOJA_FISICA" && !r.is_troca);
+    const filterTotal = (r: any) => includeOmniInTotal ? true : (r.canal !== "RETIRADA_ONLINE" && r.canal !== "RETIRADA_ADICIONAL");
     const filterFisica = (r: any) => r.canal === "LOJA_FISICA" && !r.is_troca;
     const filterOnline = (r: any) => r.canal === "RETIRADA_ONLINE";
     const filterAdic = (r: any) => r.canal === "RETIRADA_ADICIONAL";

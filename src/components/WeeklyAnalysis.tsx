@@ -157,36 +157,62 @@ export function WeeklyAnalysis({ data }: WeeklyAnalysisProps) {
     const filterOnline = (r: any) => r.canal === "RETIRADA_ONLINE";
     const filterAdic = (r: any) => r.canal === "RETIRADA_ADICIONAL";
     
-    const buildChannels = (bRows: any[], eRows: any[]) => [
-      {
-        id: 'total',
-        title: includeOmniInTotal ? "Total Consolidado" : "Total (Sem Omni)",
-        bgHeader: "bg-indigo-50 text-indigo-800 border-indigo-100",
-        base: calcMetrics(bRows.filter(filterTotal)),
-        exp: calcMetrics(eRows.filter(filterTotal))
-      },
-      {
-        id: 'fisica',
-        title: "Loja Física",
-        bgHeader: "bg-sky-50 text-sky-800 border-sky-100",
-        base: calcMetrics(bRows.filter(filterFisica)),
-        exp: calcMetrics(eRows.filter(filterFisica))
-      },
-      {
-        id: 'online',
-        title: "Retirada (Pickup)",
-        bgHeader: "bg-emerald-50 text-emerald-800 border-emerald-100",
-        base: calcMetrics(bRows.filter(filterOnline)),
-        exp: calcMetrics(eRows.filter(filterOnline))
-      },
-      {
-        id: 'adic',
-        title: "Adicionais de Balcão",
-        bgHeader: "bg-rose-50 text-rose-800 border-rose-100",
-        base: calcMetrics(bRows.filter(filterAdic)),
-        exp: calcMetrics(eRows.filter(filterAdic))
+    const buildChannels = (bRows: any[], eRows: any[]) => {
+      const baseList = [
+        {
+          id: 'total',
+          title: includeOmniInTotal ? "Total Consolidado" : "Total (Sem Omni)",
+          bgHeader: "bg-indigo-50 text-indigo-800 border-indigo-100",
+          base: calcMetrics(bRows.filter(filterTotal)),
+          exp: calcMetrics(eRows.filter(filterTotal))
+        },
+        {
+          id: 'fisica',
+          title: "Loja Física",
+          bgHeader: "bg-sky-50 text-sky-800 border-sky-100",
+          base: calcMetrics(bRows.filter(filterFisica)),
+          exp: calcMetrics(eRows.filter(filterFisica))
+        }
+      ];
+
+      if (includeOmniInTotal) {
+        return [
+          ...baseList,
+          {
+            id: 'online',
+            title: "Retirada (Pickup)",
+            bgHeader: "bg-emerald-50 text-emerald-800 border-emerald-100",
+            base: calcMetrics(bRows.filter(filterOnline)),
+            exp: calcMetrics(eRows.filter(filterOnline))
+          },
+          {
+            id: 'adic',
+            title: "Adicionais de Balcão",
+            bgHeader: "bg-rose-50 text-rose-800 border-rose-100",
+            base: calcMetrics(bRows.filter(filterAdic)),
+            exp: calcMetrics(eRows.filter(filterAdic))
+          }
+        ];
+      } else {
+        return [
+          ...baseList,
+          {
+            id: 'troca',
+            title: "Diferença de Troca",
+            bgHeader: "bg-orange-50 text-orange-800 border-orange-100",
+            base: calcMetrics(bRows.filter(r => r.is_troca)),
+            exp: calcMetrics(eRows.filter(r => r.is_troca))
+          },
+          {
+            id: 'delivery',
+            title: "Delivery (Ifood/Rappi)",
+            bgHeader: "bg-purple-50 text-purple-800 border-purple-100",
+            base: calcMetrics(bRows.filter(r => r.canal === "DELIVERY")),
+            exp: calcMetrics(eRows.filter(r => r.canal === "DELIVERY"))
+          }
+        ];
       }
-    ];
+    };
 
     const weeklyDataFormatted = weeksArray.map(week => {
       const vendsMap = new Map<string, any>();

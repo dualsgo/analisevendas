@@ -229,7 +229,7 @@ export function SocialActionPanel({ data }: SocialActionPanelProps) {
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                     <XAxis dataKey="label" axisLine={false} tick={{fontSize: 9, fontWeight: 700, fill: '#94a3b8'}} />
                     <YAxis axisLine={false} tick={{fontSize: 9, fontWeight: 700, fill: '#94a3b8'}} />
-                    <Tooltip contentStyle={{ borderRadius: '1rem', border: 'none', shadow: 'none', fontSize: '10px' }} />
+                    <Tooltip contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: 'none', fontSize: '10px' }} />
                     <Area type="monotone" dataKey="baralhos" stroke="#e11d48" strokeWidth={3} fill="url(#colorBaralhos)" name="Baralhos 🃏" />
                     <Area type="monotone" dataKey="sacolas" stroke="#10b981" strokeWidth={2} fill="transparent" name="Sacolas 🛍️" />
                   </AreaChart>

@@ -13,7 +13,6 @@ import {
   Layers, 
   ArrowRight,
   Target,
-  Dizzy,
   Sparkles,
   Info,
   AlertTriangle,
@@ -32,7 +31,7 @@ export function BasketBehavior({ data }: BasketBehaviorProps) {
     const activeSales = data.filter(s => !s.is_cancelada && s.tpNF === 1);
     const totalCount = activeSales.length;
 
-    const skuMap: Record<string, { name: string, alone: number, withOthers: number }> = {};
+    const skuMap: Record<string, { cProd: string, name: string, alone: number, withOthers: number }> = {};
     const vendorsMap: Record<string, any> = {};
     
     activeSales.forEach(sale => {
@@ -44,7 +43,7 @@ export function BasketBehavior({ data }: BasketBehaviorProps) {
 
       // SKU Analysis
       items.forEach(it => {
-        if (!skuMap[it.cProd]) skuMap[it.cProd] = { name: it.xProd, alone: 0, withOthers: 0 };
+        if (!skuMap[it.cProd]) skuMap[it.cProd] = { cProd: it.cProd, name: it.xProd, alone: 0, withOthers: 0 };
         if (isMulti) skuMap[it.cProd].withOthers++;
         else skuMap[it.cProd].alone++;
       });
@@ -65,11 +64,14 @@ export function BasketBehavior({ data }: BasketBehaviorProps) {
     });
 
     const accelerators = Object.values(skuMap)
-      .map(s => ({
-        ...s,
-        total: s.alone + s.withOthers,
-        rate: s.total > 0 ? (s.withOthers / s.total) * 100 : 0
-      }))
+      .map(s => {
+        const total = s.alone + s.withOthers;
+        return {
+          ...s,
+          total,
+          rate: total > 0 ? (s.withOthers / total) * 100 : 0
+        };
+      })
       .filter(s => s.total >= 3)
       .sort((a, b) => b.rate - a.rate);
 

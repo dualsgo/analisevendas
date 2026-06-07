@@ -343,7 +343,7 @@ export function PickupDashboard({ data }: PickupDashboardProps) {
                   <YAxis axisLine={false} tick={{fontSize: 10, fontWeight: 700, fill: '#94a3b8'}} />
                   <Tooltip 
                     cursor={{fill: '#f8fafc'}}
-                    contentStyle={{ borderRadius: '1rem', border: 'none', shadow: 'none', padding: '12px' }}
+                    contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: 'none', padding: '12px' }}
                   />
                   <Bar dataKey="rate" name="Conversão %" radius={[4, 4, 0, 0]}>
                     {analytics.hourlyData.map((entry, index) => (
@@ -379,7 +379,7 @@ export function PickupDashboard({ data }: PickupDashboardProps) {
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                   <XAxis dataKey="day" axisLine={false} tick={{fontSize: 10, fontWeight: 700, fill: '#94a3b8'}} />
                   <YAxis axisLine={false} tick={{fontSize: 10, fontWeight: 700, fill: '#94a3b8'}} />
-                  <Tooltip contentStyle={{ borderRadius: '1rem', border: 'none', shadow: 'none' }} />
+                  <Tooltip contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: 'none' }} />
                   <Area type="monotone" dataKey="rate" stroke="#10b981" strokeWidth={3} fill="url(#colorRate)" name="Conversão %" />
                 </AreaChart>
               </ResponsiveContainer>

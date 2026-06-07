@@ -179,7 +179,7 @@ export function SalesEnergy({ data }: SalesEnergyProps) {
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                   <XAxis dataKey="hour" axisLine={false} tick={{fontSize: 10, fontWeight: 700, fill: '#94a3b8'}} />
                   <YAxis axisLine={false} tick={{fontSize: 10, fontWeight: 700, fill: '#94a3b8'}} />
-                  <Tooltip contentStyle={{ borderRadius: '1rem', border: 'none', shadow: 'none', fontSize: '10px', fontWeight: 'bold' }} />
+                  <Tooltip contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: 'none', fontSize: '10px', fontWeight: 'bold' }} />
                   <Area type="monotone" dataKey="count" stroke="#36B7E1" strokeWidth={4} fill="url(#colorEnergy)" name="Vendas" />
                   <Area type="monotone" dataKey="items" stroke="#F37021" strokeWidth={2} fill="transparent" name="Peças" strokeDasharray="5 5" />
                 </AreaChart>

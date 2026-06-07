@@ -269,7 +269,7 @@ export function AdditionalItemsAnalysis({ data }: AdditionalItemsAnalysisProps) 
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                       <XAxis dataKey="label" axisLine={false} tick={{fontSize: 10, fontWeight: 700, fill: '#94a3b8'}} />
                       <YAxis axisLine={false} tick={{fontSize: 10, fontWeight: 700, fill: '#94a3b8'}} />
-                      <Tooltip contentStyle={{ borderRadius: '1rem', border: 'none', shadow: 'none' }} />
+                      <Tooltip contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: 'none' }} />
                       <Area type="monotone" dataKey="qty" stroke={activeCategory === 'slp' ? "#F37021" : "#E4007C"} strokeWidth={3} fill="url(#colorValue)" name="Itens" />
                     </AreaChart>
                   </ResponsiveContainer>

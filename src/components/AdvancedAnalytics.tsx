@@ -142,7 +142,7 @@ export function AdvancedAnalytics({ data }: AdvancedAnalyticsProps) {
                   <XAxis dataKey="name" axisLine={false} tick={{fontSize: 9, fontWeight: 700}} />
                   <YAxis axisLine={false} tick={{fontSize: 9, fontWeight: 700}} />
                   <Tooltip 
-                    contentStyle={{ borderRadius: '1rem', border: 'none', shadow: 'none', fontWeight: 'bold' }}
+                    contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: 'none', fontWeight: 'bold' }}
                     cursor={{ fill: '#f8fafc' }}
                   />
                   <Bar dataKey="weight" name="Peso no Faturamento (%)" radius={[4, 4, 0, 0]}>

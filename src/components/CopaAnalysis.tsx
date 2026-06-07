@@ -120,6 +120,11 @@ export const CopaAnalysis: React.FC<CopaAnalysisProps> = ({ data }) => {
     const cuponsSemCopa = totalCupons - salesOnlyCopa.length;
     const itensSemCopa = totalItens - totalCopaQty;
 
+    // What if we remove the entire receipt of ANY transaction that has copa?
+    const vendaSemNenhumCupomCopa = totalVenda - salesWithCopa.reduce((acc, s) => acc + parseFloat(s.vNF), 0);
+    const cuponsSemNenhumCupomCopa = totalCupons - salesWithCopa.length;
+    const itensSemNenhumCupomCopa = totalItens - salesWithCopa.reduce((acc, s) => acc + parseFloat(s.itens_qtd), 0);
+
     // Daily Projections
     const dailyData: Record<string, any> = {};
     activeSales.forEach(s => {
@@ -154,6 +159,9 @@ export const CopaAnalysis: React.FC<CopaAnalysisProps> = ({ data }) => {
       vendaSemCopa,
       cuponsSemCopa,
       itensSemCopa,
+      vendaSemNenhumCupomCopa,
+      cuponsSemNenhumCupomCopa,
+      itensSemNenhumCupomCopa,
       percOnlyCopa: totalCupons > 0 ? (salesOnlyCopa.length / totalCupons) * 100 : 0,
       percOnlyCopaOneItem: totalCupons > 0 ? (salesOnlyCopaOneItem / totalCupons) * 100 : 0,
       collaboratorImpact: Object.values(collaboratorImpact),
@@ -289,18 +297,23 @@ Isso significa que esses atendimentos *não agregam outros produtos*, baixando n
             <CardTitle className="text-2xl font-black text-slate-800">
               {formatBRL((stats.totalVenda / stats.totalCupons) - (stats.vendaSemCopa / stats.cuponsSemCopa))}
             </CardTitle>
-            <CardDescription className="text-[10px] font-bold uppercase tracking-tight">Redução no valor médio por venda</CardDescription>
+            <CardDescription className="text-[10px] font-bold uppercase tracking-tight">Redução gerada pela Copa</CardDescription>
           </CardHeader>
           <CardContent>
-             <div className="flex items-center gap-4 mt-2">
+             <div className="flex items-center gap-2 mt-2">
                 <div className="text-center flex-1">
-                  <p className="text-[9px] font-bold text-slate-400 uppercase">Com Copa</p>
+                  <p className="text-[9px] font-bold text-slate-400 uppercase leading-tight h-6">Com<br/>Copa</p>
                   <p className="text-sm font-black text-slate-700">{formatBRL(stats.totalVenda / stats.totalCupons)}</p>
                 </div>
                 <div className="w-px h-8 bg-slate-100" />
                 <div className="text-center flex-1">
-                  <p className="text-[9px] font-bold text-slate-400 uppercase">Sem Copa</p>
+                  <p className="text-[9px] font-bold text-slate-400 uppercase leading-tight h-6" title="Descontando os itens da copa, mas mantendo a venda dos outros itens daquele cupom">Sem<br/>Itens</p>
                   <p className="text-sm font-black text-indigo-600">{formatBRL(stats.vendaSemCopa / stats.cuponsSemCopa)}</p>
+                </div>
+                <div className="w-px h-8 bg-slate-100" />
+                <div className="text-center flex-1">
+                  <p className="text-[9px] font-bold text-rose-400 uppercase leading-tight h-6" title="Excluindo COMPLETAMENTE os cupons que tiveram copa">S/ Tudo<br/>Copa</p>
+                  <p className="text-sm font-black text-rose-600">{formatBRL(stats.cuponsSemNenhumCupomCopa > 0 ? stats.vendaSemNenhumCupomCopa / stats.cuponsSemNenhumCupomCopa : 0)}</p>
                 </div>
              </div>
           </CardContent>
@@ -315,22 +328,27 @@ Isso significa que esses atendimentos *não agregam outros produtos*, baixando n
             <CardTitle className="text-2xl font-black text-slate-800">
               +{( (stats.totalItens / stats.totalCupons) - (stats.itensSemCopa / stats.cuponsSemCopa) ).toFixed(2)}
             </CardTitle>
-            <CardDescription className="text-[10px] font-bold uppercase tracking-tight">Aumento artificial de itens por cupom</CardDescription>
+            <CardDescription className="text-[10px] font-bold uppercase tracking-tight">Aumento artificial de itens gerado</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center gap-4 mt-2">
+            <div className="flex items-center gap-2 mt-2">
                 <div className="text-center flex-1">
-                  <p className="text-[9px] font-bold text-slate-400 uppercase">Com Copa</p>
+                  <p className="text-[9px] font-bold text-slate-400 uppercase leading-tight h-6">Com<br/>Copa</p>
                   <p className="text-sm font-black text-slate-700">{(stats.totalItens / stats.totalCupons).toFixed(2)}</p>
                 </div>
                 <div className="w-px h-8 bg-slate-100" />
                 <div className="text-center flex-1">
-                  <p className="text-[9px] font-bold text-slate-400 uppercase">Sem Copa</p>
+                  <p className="text-[9px] font-bold text-slate-400 uppercase leading-tight h-6" title="Descontando as figurinhas">Sem<br/>Itens</p>
                   <p className="text-sm font-black text-sky-600">{(stats.itensSemCopa / stats.cuponsSemCopa).toFixed(2)}</p>
                 </div>
                 <div className="w-px h-8 bg-slate-100" />
                 <div className="text-center flex-1">
-                  <p className="text-[9px] font-bold text-slate-400 uppercase" title="Considerando Blister (5147791) como 12 itens">Proj. Blister (x12)</p>
+                  <p className="text-[9px] font-bold text-rose-400 uppercase leading-tight h-6" title="Excluindo COMPLETAMENTE os cupons que tiveram copa">S/ Tudo<br/>Copa</p>
+                  <p className="text-sm font-black text-rose-600">{(stats.cuponsSemNenhumCupomCopa > 0 ? stats.itensSemNenhumCupomCopa / stats.cuponsSemNenhumCupomCopa : 0).toFixed(2)}</p>
+                </div>
+                <div className="w-px h-8 bg-slate-100" />
+                <div className="text-center flex-1">
+                  <p className="text-[9px] font-bold text-slate-400 uppercase leading-tight h-6" title="Considerando Blister (5147791) como 12 itens">Blister<br/>x12</p>
                   <p className="text-sm font-black text-emerald-600">{(stats.totalItensProjCopa12 / stats.totalCupons).toFixed(2)}</p>
                 </div>
              </div>

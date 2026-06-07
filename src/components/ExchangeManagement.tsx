@@ -179,25 +179,47 @@ export function ExchangeManagement({ data, vinculos }: ExchangeManagementProps) 
             return (
               <AccordionItem key={idx} value={`troca-${idx}`} className="ri-card overflow-hidden shadow-sm">
                 <AccordionTrigger className="hover:no-underline px-4 md:px-6 py-4">
-                  <div className="flex-1 grid grid-cols-2 md:grid-cols-5 gap-4 items-center text-left">
-                    <div className="col-span-2 md:col-span-1">
+                  <div className="flex-1 grid grid-cols-2 lg:grid-cols-6 gap-4 items-center text-left">
+                    <div className="col-span-2 lg:col-span-1">
                       <p className="text-xs font-black text-slate-800 uppercase truncate">{getClienteLabel(vinc)}</p>
                       <p className="text-[9px] text-slate-400 font-bold uppercase">{vinc.vendedor}</p>
                     </div>
-                    
-                    <div className="hidden md:block">
-                      <p className="text-[9px] text-slate-400 font-black uppercase mb-0.5">Diferença PA</p>
+
+                    <div className="hidden lg:block">
+                      <p className="text-[9px] text-slate-400 font-black uppercase mb-0.5">Entrada (Devolução)</p>
                       <div className="flex items-center gap-1.5">
-                        <Package className={cn("w-3 h-3", vinc.diferenca_itens > 0 ? "text-emerald-500" : (vinc.diferenca_itens < 0 ? "text-rose-500" : "text-slate-400"))} />
-                        <span className="text-xs font-black text-slate-600">{vinc.diferenca_itens > 0 ? `+${vinc.diferenca_itens}` : vinc.diferenca_itens} itens</span>
+                        <ArrowDownCircle className="w-3 h-3 text-rose-500 shrink-0" />
+                        <span className="text-xs font-black text-slate-600 truncate">
+                           {entryNote ? `NF ${entryNote.nf}` : "S/ NF"} • {formatBRL(vinc.valor_devolvido)}
+                        </span>
                       </div>
+                      <p className="text-[9px] text-slate-400 font-bold uppercase mt-0.5">
+                        {vinc.itens_devolvidos} ite{vinc.itens_devolvidos !== 1 ? "ns" : "m"} devolvido{vinc.itens_devolvidos !== 1 ? "s" : ""}
+                      </p>
+                    </div>
+                    
+                    <div className="hidden lg:block">
+                      <p className="text-[9px] text-slate-400 font-black uppercase mb-0.5">Saída (Nova Venda)</p>
+                      <div className="flex items-center gap-1.5">
+                        <ArrowUpCircle className="w-3 h-3 text-emerald-500 shrink-0" />
+                        <span className="text-xs font-black text-slate-600 truncate">
+                           {exitNote ? `NF ${exitNote.nf}` : "S/ NF"} • {formatBRL(vinc.valor_trocado)}
+                        </span>
+                      </div>
+                      <p className="text-[9px] text-slate-400 font-bold uppercase mt-0.5">
+                        {vinc.itens_trocados} ite{vinc.itens_trocados !== 1 ? "ns" : "m"} levado{vinc.itens_trocados !== 1 ? "s" : ""}
+                      </p>
                     </div>
 
-                    <div className="hidden md:block">
+                    <div className="hidden lg:block">
                       <p className="text-[9px] text-slate-400 font-black uppercase mb-0.5">Venda Adicional</p>
                       <p className={cn("text-xs font-black", vinc.valor_diferenca > 0 ? "text-emerald-600" : (vinc.valor_diferenca < 0 ? "text-rose-600" : "text-orange-600"))}>
                         {vinc.valor_diferenca > 0 ? "+" : ""}{formatBRL(vinc.valor_diferenca)}
                       </p>
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <Package className={cn("w-2.5 h-2.5", vinc.diferenca_itens > 0 ? "text-emerald-500" : (vinc.diferenca_itens < 0 ? "text-rose-500" : "text-slate-400"))} />
+                        <span className="text-[9px] font-black text-slate-500">{vinc.diferenca_itens > 0 ? `+${vinc.diferenca_itens}` : vinc.diferenca_itens} itens</span>
+                      </div>
                     </div>
 
                     <div className="text-right md:text-left">

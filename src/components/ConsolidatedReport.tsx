@@ -10,6 +10,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  TableFooter,
 } from "@/components/ui/table";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -336,13 +337,19 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
       cupons: acc.cupons + v.current.cupons,
       itens: acc.itens + v.current.itens,
       pickups: acc.pickups + v.pickupsAtendidas,
-      adicionais: acc.adicionais + v.adicionaisFeitos
-    }), { venda: 0, cupons: 0, itens: 0, pickups: 0, adicionais: 0 });
+      adicionais: acc.adicionais + v.adicionaisFeitos,
+      ident: acc.ident + v.filtered.ident,
+      slp: acc.slp + v.slpQty,
+      baralhos: acc.baralhos + v.baralhoQty,
+      sacolas: acc.sacolas + v.sacolaQty
+    }), { venda: 0, cupons: 0, itens: 0, pickups: 0, adicionais: 0, ident: 0, slp: 0, baralhos: 0, sacolas: 0 });
 
     return {
       ...sum,
       pa: sum.cupons > 0 ? sum.itens / sum.cupons : 0,
       tkm: sum.cupons > 0 ? sum.venda / sum.cupons : 0,
+      pm: sum.itens > 0 ? sum.venda / sum.itens : 0,
+      ident_perc: sum.cupons > 0 ? (Math.min(sum.ident / sum.cupons, 1)) * 100 : 0,
       conv: sum.pickups > 0 ? (sum.adicionais / sum.pickups) * 100 : 0
     };
   }, [reportData]);
@@ -445,16 +452,6 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
       <div 
         className="space-y-8 rounded-[2rem] bg-slate-50 p-8 border border-slate-100"
       >
-
-      {/* KPI TOTALIZADORES */}
-      <div className="grid grid-cols-3 lg:grid-cols-6 gap-3 print:flex print:items-center print:justify-between print:gap-4 print:p-2 print:bg-slate-50 print:mb-4 print:border-none">
-        <ReportKPI label="Venda Grupo" value={formatBRL(totals.venda)} icon={TrendingUp} color="text-emerald-600" large={isCollapsed} />
-        <ReportKPI label="Atendimentos" value={totals.cupons} icon={Users} color="text-sky-600" large={isCollapsed} />
-        <ReportKPI label="P.A. Médio" value={formatNum(totals.pa)} icon={Target} color="text-orange-600" large={isCollapsed} />
-        <ReportKPI label="Ticket Médio" value={formatBRL(totals.tkm)} icon={ShoppingBag} color="text-purple-600" large={isCollapsed} />
-        <ReportKPI label="Baralhos" value={`🃏 ${reportData.reduce((acc, r) => acc + r.baralhoQty, 0)}`} icon={Heart} color="text-rose-600" large={isCollapsed} />
-        <ReportKPI label="Conv. Real" value={`${formatNum(totals.conv, 1)}%`} icon={Zap} color="text-amber-500" large={isCollapsed} />
-      </div>
 
       {/* TABELA CONSOLIDADA */}
       <Card className="ri-card overflow-hidden print:shadow-none print:border print:border-black print:w-full print:rounded-none">
@@ -579,6 +576,24 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
               );
             })}
           </TableBody>
+          <TableFooter className="bg-slate-900 print:bg-slate-200">
+            <TableRow className="hover:bg-slate-900 border-none h-12 print:h-7 print:border-t print:border-black font-black">
+              <TableCell className="text-white print:text-black uppercase text-[11px] md:text-xs print:text-[8px] pl-3 md:pl-5 print:pl-1">Consolidado</TableCell>
+              <TableCell className="text-right text-emerald-400 print:text-black text-xs md:text-sm print:text-[8px]">{formatBRL(totals.venda)}</TableCell>
+              <TableCell className="text-center text-sky-400 print:text-black text-xs md:text-sm print:text-[8px]">{totals.cupons}</TableCell>
+              <TableCell className="text-center text-white print:text-black text-xs md:text-sm print:text-[8px]">{totals.itens.toFixed(0)}</TableCell>
+              <TableCell className="text-center text-orange-400 print:text-black text-xs md:text-sm print:text-[8px]">{formatNum(totals.pa)}</TableCell>
+              <TableCell className="text-right text-purple-400 print:text-black text-xs md:text-sm print:text-[8px]">{formatBRL(totals.tkm)}</TableCell>
+              <TableCell className="text-right text-white print:text-black text-xs md:text-sm print:text-[8px]">{formatBRL(totals.pm)}</TableCell>
+              <TableCell className="text-center text-white print:text-black text-xs md:text-sm print:text-[8px]">{totals.ident_perc.toFixed(0)}%</TableCell>
+              <TableCell className="text-center text-orange-400 print:text-black text-[10px] md:text-xs print:text-[8px]">{totals.slp}</TableCell>
+              <TableCell className="text-center text-rose-400 print:text-black text-[10px] md:text-xs print:text-[8px]">🃏 {totals.baralhos}</TableCell>
+              <TableCell className="text-center text-emerald-400 print:text-black text-[10px] md:text-xs print:text-[8px]">🛍️ {totals.sacolas}</TableCell>
+              <TableCell className="text-center text-sky-400 print:text-black text-[10px] md:text-xs print:text-[8px]">{totals.pickups}</TableCell>
+              <TableCell className="text-center text-emerald-400 print:text-black text-[10px] md:text-xs print:text-[8px]">{totals.adicionais}</TableCell>
+              <TableCell className="text-right text-amber-400 print:text-black text-[10px] md:text-xs print:text-[8px] pr-3 md:pr-5 print:pr-1">{formatNum(totals.conv, 1)}%</TableCell>
+            </TableRow>
+          </TableFooter>
         </Table>
       </Card>
 

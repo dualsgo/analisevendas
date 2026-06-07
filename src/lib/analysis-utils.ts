@@ -91,11 +91,29 @@ export function vincularTrocas(rows: DetailedSaleRow[]): VinculoTroca[] {
 
   const saidasPorChaveNorm = new Map(saidasDeTroca.map(s => [s.chave.replace(/\D/g, ""), s]));
 
+  const entradasPorChaveNorm = new Map(entradas.map(e => [e.chave.replace(/\D/g, ""), e]));
+
+  // Método 1A: Entrada (Devolução) referencia a Saída (Nova Venda) - Incomum
   entradas.forEach(entrada => {
     const refs = (entrada.refNFe_normalizadas || []);
     for (const ref of refs) {
       const saida = saidasPorChaveNorm.get(ref);
-      if (saida && !saidasVinculadas.has(saida.chave)) {
+      if (saida && !saidasVinculadas.has(saida.chave) && !entradasVinculadas.has(entrada.chave)) {
+        vinculos.push(criarVinculo(entrada, saida, "Referência Fiscal (NFref)"));
+        saidasVinculadas.add(saida.chave);
+        entradasVinculadas.add(entrada.chave);
+        break;
+      }
+    }
+  });
+
+  // Método 1B: Saída (Nova Venda) referencia a Entrada (Devolução) - Muito comum
+  saidasDeTroca.forEach(saida => {
+    if (saidasVinculadas.has(saida.chave)) return;
+    const refs = (saida.refNFe_normalizadas || []);
+    for (const ref of refs) {
+      const entrada = entradasPorChaveNorm.get(ref);
+      if (entrada && !entradasVinculadas.has(entrada.chave)) {
         vinculos.push(criarVinculo(entrada, saida, "Referência Fiscal (NFref)"));
         saidasVinculadas.add(saida.chave);
         entradasVinculadas.add(entrada.chave);
@@ -112,6 +130,22 @@ export function vincularTrocas(rows: DetailedSaleRow[]): VinculoTroca[] {
       const match = saidasDeTroca.find(s => !saidasVinculadas.has(s.chave) && s.cpf_cnpj_dest === cpfEntrada && parseFloat(s.vTroca).toFixed(2) === valorEntrada);
       if (match) {
         vinculos.push(criarVinculo(entrada, match, "CPF + Valor de Crédito"));
+        saidasVinculadas.add(match.chave);
+        entradasVinculadas.add(entrada.chave);
+      }
+    } else {
+      // Método 2B: Se não tem CPF na entrada, vincula se o valor de devolução for exatamente o valor do crédito usado,
+      // e ocorrer no mesmo dia (intervalo de 2h)
+      const tEntrada = new Date(entrada.dhEmi).getTime();
+      const candidatasVal = saidasDeTroca.filter(s => 
+        !saidasVinculadas.has(s.chave) && 
+        parseFloat(s.vTroca).toFixed(2) === valorEntrada &&
+        Math.abs(new Date(s.dhEmi).getTime() - tEntrada) <= 2 * 60 * 60 * 1000
+      ).sort((a, b) => Math.abs(new Date(a.dhEmi).getTime() - tEntrada) - Math.abs(new Date(b.dhEmi).getTime() - tEntrada));
+      
+      if (candidatasVal.length > 0) {
+        const match = candidatasVal[0];
+        vinculos.push(criarVinculo(entrada, match, "Valor Exato + Proximidade (Sem CPF)"));
         saidasVinculadas.add(match.chave);
         entradasVinculadas.add(entrada.chave);
       }

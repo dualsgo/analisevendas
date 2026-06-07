@@ -54,6 +54,7 @@ export function WeeklyAnalysis({ data }: WeeklyAnalysisProps) {
   const [excludedCProds, setExcludedCProds] = useState<Set<string>>(new Set());
   const [searchTerm, setSearchTerm] = useState("");
   const [isExpurgoOpen, setIsExpurgoOpen] = useState(false);
+  const [includeOmniInTotal, setIncludeOmniInTotal] = useState(true);
 
   const toggleItem = (cProd: string) => {
     setExcludedCProds(prev => {
@@ -151,7 +152,7 @@ export function WeeklyAnalysis({ data }: WeeklyAnalysisProps) {
       };
     };
 
-    const filterTotal = (r: any) => r.canal !== "DELIVERY";
+    const filterTotal = (r: any) => includeOmniInTotal ? (r.canal !== "DELIVERY") : (r.canal === "LOJA_FISICA" && !r.is_troca);
     const filterFisica = (r: any) => r.canal === "LOJA_FISICA" && !r.is_troca;
     const filterOnline = (r: any) => r.canal === "RETIRADA_ONLINE";
     const filterAdic = (r: any) => r.canal === "RETIRADA_ADICIONAL";
@@ -159,7 +160,7 @@ export function WeeklyAnalysis({ data }: WeeklyAnalysisProps) {
     const buildChannels = (bRows: any[], eRows: any[]) => [
       {
         id: 'total',
-        title: "Total Consolidado",
+        title: includeOmniInTotal ? "Total Consolidado" : "Total (Sem Omni)",
         bgHeader: "bg-indigo-50 text-indigo-800 border-indigo-100",
         base: calcMetrics(bRows.filter(filterTotal)),
         exp: calcMetrics(eRows.filter(filterTotal))
@@ -220,7 +221,7 @@ export function WeeklyAnalysis({ data }: WeeklyAnalysisProps) {
     };
 
     return { weeklyData: weeklyDataFormatted, consolidatedGeneral };
-  }, [data, excludedCProds]);
+  }, [data, excludedCProds, includeOmniInTotal]);
 
   const hasExclusions = excludedCProds.size > 0;
 
@@ -299,9 +300,30 @@ export function WeeklyAnalysis({ data }: WeeklyAnalysisProps) {
       </Card>
 
       <div className="space-y-6">
-        <div className="flex items-center gap-2 px-1">
-          <CalendarDays className="w-6 h-6 text-emerald-600" />
-          <h2 className="text-xl font-black text-slate-800 uppercase tracking-tight">Análise Expurgada Consolidada</h2>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 px-1">
+          <div className="flex items-center gap-2">
+            <CalendarDays className="w-6 h-6 text-emerald-600" />
+            <h2 className="text-xl font-black text-slate-800 uppercase tracking-tight">Análise Expurgada Consolidada</h2>
+          </div>
+          
+          <div className="flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200 shadow-inner">
+            <Button 
+              variant={includeOmniInTotal ? "default" : "ghost"} 
+              size="sm" 
+              className={cn("text-[10px] font-black uppercase tracking-wider px-4", includeOmniInTotal && "bg-indigo-600 shadow-sm")}
+              onClick={() => setIncludeOmniInTotal(true)}
+            >
+              Com Omni
+            </Button>
+            <Button 
+              variant={!includeOmniInTotal ? "default" : "ghost"} 
+              size="sm" 
+              className={cn("text-[10px] font-black uppercase tracking-wider px-4", !includeOmniInTotal && "bg-rose-600 text-white shadow-sm hover:bg-rose-700 hover:text-white")}
+              onClick={() => setIncludeOmniInTotal(false)}
+            >
+              Sem Omni
+            </Button>
+          </div>
         </div>
 
         {/* Consolidado Geral */}

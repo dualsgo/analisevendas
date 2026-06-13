@@ -1,59 +1,80 @@
-# Ri Happy | Analisador de Performance Estratégica
+# Analisador de Performance Estratégica | Varejo Inteligente
 
-Este é um ecossistema avançado de análise de dados fiscais (XML/NFC-e) focado na operação de varejo. O sistema utiliza algoritmos estruturais e diagnósticos cruzados para transformar notas fiscais brutas em decisões estratégicas, fugindo de painéis descritivos e focando diretamente na causa-raiz do resultado com alta tecnologia front-end.
+Este é um ecossistema avançado de análise de dados fiscais (XML/NFC-e e SAT) focado inteiramente na operação de varejo. Diferente de sistemas de BI tradicionais que apenas exibem gráficos descritivos (o *que* aconteceu), esta plataforma utiliza algoritmos estruturais e diagnósticos cruzados para apontar a causa-raiz (o *porquê* aconteceu e *onde* está a oportunidade de ganho).
 
-## 🚀 Painéis de Análise e Funcionalidades Rápidas
+## 🎯 A Proposta
 
-Abaixo estão detalhados os principais painéis estratégicos agrupados por categoria, que compõem este ecossistema de análise de dados hoje (Atualizado):
+O **Analisador de Performance Estratégica** foi concebido sob três pilares principais:
+
+1. **Privacidade por Design (Zero-Cloud)**: A inovação central da aplicação é a leitura e processamento massivo de arquivos fiscais XML localmente no navegador do usuário. **Nenhum dado é enviado para nuvem ou servidores externos**, garantindo absoluto sigilo comercial e compliance com a LGPD. Todo o cálculo estatístico acontece na memória da máquina local (In-Browser Processing).
+2. **Diagnóstico Ativo**: Ao invés de apenas mostrar "O Faturamento caiu 10%", o sistema decompõe essa queda nas três alavancas do varejo: Fluxo (Atendimentos), Profundidade (Peças por Atendimento) e Valor (Ticket Médio), sugerindo planos de ação.
+3. **Visão Omnicanal e Operacional**: Integra análises de canais físicos e digitais (Pickup, Delivery, Prateleira Infinita), monitorando o impacto do e-commerce no piso de loja.
+
+---
+
+## 💻 Arquitetura e Stack Tecnológica
+
+O sistema emprega uma arquitetura robusta de frontend desenvolvida para lidar com parsing complexo e alta performance:
+
+- **Framework Core**: React 19 com Next.js 15 (App Router).
+- **Tipagem Estrita**: TypeScript.
+- **Processamento de Dados**: `DOMParser` nativo, em conjunto com algoritmos de agrupamento em memória para lidar com centenas de arquivos XML simultaneamente, extraindo nós do padrão NFe/NFCe.
+- **Estilização e UI**: Tailwind CSS integrado à biblioteca `shadcn/ui` para componentes acessíveis e modulares.
+- **Visualização de Dados**: `Recharts` para plotagem gráfica de alto desempenho.
+- **Animações Cinéticas**: `Framer Motion` para transições de painéis, micro-interações dinâmicas e layouts fluidos, entregando experiência Premium.
+- **Tratamento Temporal**: `date-fns` para cronologia diagnóstica avançada (fusos horários e mapeamento de jornadas).
+
+---
+
+## 🧩 Os Painéis e Análises Propostas
+
+A plataforma é dividida em módulos analíticos extremamente especializados. Abaixo estão detalhados os principais painéis que compõem o ecossistema:
 
 ### 🧠 Diagnóstico & Produtividade
-- **GAP de Produtividade (Novo)**: Menu especializado em entender a razão do resultado apontando o GAP de Faturamento (R$) decomposto nas 3 verticais puras de operação: Volume (Fluxo), Profundidade (PA) e Valor (Ticket). Conta com simulador de cenários, removedor de distorção de canais digitais e diagnóstico textual automatizado da causa-raiz contendo plano de ação.
-- **Projeção de Impacto**: Avalia tendências e prevê impactos baseados na performance técnica das sessões ativas.
+- **GAP de Produtividade**: Identifica a causa-raiz da perda de faturamento (R$), decompondo a diferença nas três verticais puras: Volume, Profundidade (PA) e Valor (Ticket). Possui um simulador de cenários.
+- **Arena de Talentos**: Avaliação profunda do desempenho individual dos vendedores, classificando-os de acordo com TM, PA, conversão e peso no faturamento da loja.
+- **Projeção de Impacto**: Analisa as tendências diárias e projeta o fechamento com base na performance atual da equipe.
 
-### 📊 Visão Geral & Consolidada
-- **Visão Geral**: Dashboard principal interativo com filtros independentes de comportamento para lojas físicas, pickup, vendas adicionais, delivery e painel de trocas com TKM e P.A customizados.
-- **Resumo Executivo**: Consolidado paramétrico focado nos indicadores chave (Big Numbers) consolidados da unidade.
-- **Performance Geral**: Visão macro consolidada de toda a operação divididos no formato de relatórios transacionais.
-- **Performance Diária**: Visão da linha do tempo de faturamento e cupons, exibindo métricas diárias essenciais.
+### 📊 Visões Consolidadas & Tempo
+- **Resumo Executivo & Visão Geral**: Dashboard consolidado focado em métricas-chave (Big Numbers), oferecendo relatórios transacionais rápidos.
+- **Performance Semanal e Diária**: Análise detalhada da variação de faturamento ao longo da semana, avaliando picos de tráfego e dias de vale.
+- **Análise de Domingos e Feriados**: Avaliação focada em dias estratégicos de alto custo operacional, justificando o funcionamento da loja perante sua capacidade de atração e retorno sobre investimento de pessoal.
 
-### 🏃 Dinâmica & Comportamento de Vendas
-- **Ritmo Operacional**: Análise do fluxo estrito de vendas, mapeando janelas de oportunidade em relógio e detectando gargalos.
-- **Mapa de Calor**: Visão gráfica matricial de faixas de horário com maior concentração volumétrica de faturamento.
-- **Formas de Pagamento**: Diagnóstico de participação de dinheiro, cartões físicos e meios não-físicos na apuração total.
-- **Perfil de Preço**: Gráficos estatísticos mostrando a distribuição dos preços isolados do mix praticado no pacote de notas selecionado.
+### 🏃 Dinâmica Operacional & Comportamento
+- **Ritmo Operacional & Mapa de Calor**: Mapeia o fluxo de vendas no relógio (janelas de horário). Identifica gargalos no balcão e picos de demanda.
+- **Conciliação de Caixa (Fechamento)**: Automação para fechamento de caixa cego, confrontando formas de pagamento lançadas versus registradas.
+- **Comportamento de Cesta & Composição**: Analisa o mix financeiro, revelando se a loja depende de poucos tickets altos ou muitos tickets baixos.
 
-### 🏆 Produtos & Ticket
-- **Matriz de Afinidade**: Ferramenta de Cross-Selling natural. Observa correlações de compra que dizem quais produtos frequentemente saem unidos em um mesmo cupom.
-- **Ranking de Itens**: Listagem de tração dos SKUs mais fortes por canal dentro da amostragem em avaliação.
-- **SLP & Social (Venda Sugestiva)**: Validador de performance focada em conversão rápida, destacando o giro de itens complementares e miudezas anexadas às notas no momento do fechamento da compra.
-- **Elasticidade Desconto**: Relata se as concessões de preços efetuadas provocaram esticões nos volumes de aquisição orgânica.
+### 🏆 Produtos, Ticket & Campanhas
+- **Matriz de Afinidade (Cross-Sell)**: Algoritmo de recomendação natural que mapeia "produtos que saem juntos" no mesmo cupom, potencializando vendas adicionais.
+- **Ofertas Imperdíveis & Ação Social**: Monitora o impacto das campanhas e itens promocionais anexados no checkout de forma rápida (venda sugestiva e SLP).
+- **Elasticidade de Desconto**: Mensura se o sacrifício de margem (descontos aplicados) gerou real incremento volumétrico.
+- **Ranking de Produtos por Vendedor**: Expõe quais vendedores têm mais tração na venda de itens curva A, cruzando eficiência do portfólio.
 
 ### 🛡️ Auditoria, Risco & Compliance
-- **Radar de Alertas**: Sinalizações quantitativas automáticas para comportamentos estranhos em transações ou anomalias.
-- **Análise de Cupons**: Inspeção vertical para detectar cupons com traços de vulnerabilidade, quebra de procedimentos e manipulação de pontuação de CPF.
-- **Auditoria PA**: Identificador lógico que mapeia transações que sofrem adição artificial de itens para manipular a métrica de desempenho de balcão (Peças por Atendimento).
-- **Audit. Conversão**: Rastreabilidade do volume omnichannel (como ordens de pick-up digital) que obteve êxito para conversão com compras incrementais registradas em PDV.
-- **Audit. Descontos**: Auditoria do peso financeiro dos descontos (promocionais e sistêmicos) e como estes afetam o desempenho marginal.
-- **Trocas & Risco de Trocas**: Trata estritamente a reversão de sangria no fluxo de devolução e sinaliza os riscos diretos inerentes à essas reentradas em sistema.
-- **Qualidade de Venda**: Cruzamento avançado focado na fidelização vs TKM do caixa atendido.
+- **Radar de Alertas**: Sinalizações automáticas (score de risco) para transações atípicas e desvios de processo.
+- **Análise de Cupons Consecutivos**: Identifica possíveis quebras e fragmentações de venda pelo caixa para burlar métricas de atendimento.
+- **Auditoria de PA (Peças por Atendimento)**: Localiza vendas artificialmente infladas para proteger a autenticidade do indicador de produtividade.
+- **Risco de Trocas & Devoluções**: Avaliação do fluxo de reentradas, protegendo a sangria do caixa e evitando fraudes de estorno.
 
-### 📍 Clientes & Canais
-- **Monitor Pickup**: Segmentação avançada e métricas nativas gerenciais exclusivas para as vendas do projeto Retire na Loja / Click & Collect.
-- **Monitor Delivery**: Acompanhamento exclusivo das notas vinculadas ao transporte de delivery.
-- **Fidelidade & Recorrência**: Varredura baseada na identificação fiscal que avalia a concentração de CPFs retornando no banco de dados.
-- **Análise Geográfica**: Mapeamento espacial baseado nos códigos postais e distâncias identificadas na extração dos dados destas guias e notas NFC-e.
+### 📍 Omnicanalidade, Clientes & Canais
+- **Monitor Pickup & Delivery**: Painéis voltados a mensurar a força das vendas originadas no site e faturadas na loja (Clique e Retire).
+- **Fidelidade & Recorrência**: Análise baseada em identificação de clientes recorrentes, mensurando o Lifetime Value dentro do mês.
+- **Oportunidades Perdidas**: Detecta tickets isolados que escaparam do caixa com um único item, apontando falhas diretas de abordagem e oferta de complementos.
+- **Relatórios via WhatsApp**: Exportação formatada para disparo direto das metas e GAPs diários via mobile.
 
-### 🛠️ Ferramentas Operacionais de PDV
-- **Oportunidades Perdidas**: Identificação sistemática dos tickets isolados de médio/alto valor que escorreram com um único item, detectando dinheiro na mesa pela falta de abordagem em caixa.
-- **Transações & 2ª Via**: Consulta limpa, unificada e altamente filtrável para inspecionar linha a linha ou recuperar tickets originais de notas analisadas.
-- **WhatsApp**: Ferramenta prática projetada para produzir resultados resumidos da seção em formato de clipboard amigável para celulares, visando report ágil.
+---
 
-## 🛠️ Stack Tecnológica
+## 🚀 Como Iniciar
 
-O sistema emprega arquitetura estrita de frontend visando máxima segurança e sigilo de dados (data processing occurs in-browser):
-- NextJS 14 (App Router)
-- React 18 & TypeScript Nativo
-- Tailwind CSS & ui/Shadcn & Framer Motion (Transições e animações cinemáticas avançadas fluidas)
-- Lucide React (Ícones Vetoriais)
-- DOMParser Nativo (Análise computacional e serialização de arquivos legados de XML/NFe sem envio a nuvem)
-- Date-Fns (Tratamento cronológico agnóstico)
+1. Clone o repositório ou navegue até o diretório do projeto.
+2. Instale as dependências:
+   ```bash
+   npm install
+   ```
+3. Inicie o servidor de desenvolvimento:
+   ```bash
+   npm run dev
+   ```
+4. Acesse `http://localhost:9002` no navegador.
+5. Na plataforma, arraste seus arquivos XML/NFC-e na *Upload Zone* para processamento imediato (offline mode supported).

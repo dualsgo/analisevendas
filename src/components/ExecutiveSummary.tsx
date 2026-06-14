@@ -97,6 +97,21 @@ export function ExecutiveSummary({ data, vinculos, onSwitchTab }: ExecutiveSumma
     const topMonth = Object.entries(monthSales).sort((a, b) => b[1] - a[1])[0] || ["-", 0];
     const hasMultipleMonths = Object.keys(monthSales).length > 1;
 
+    const calcStats = (sales: DetailedSaleRow[]) => {
+      const v = sales.reduce((acc, s) => acc + parseFloat(s.vNF), 0);
+      const c = sales.length;
+      const i = sales.reduce((acc, s) => acc + parseFloat(s.itens_qtd), 0);
+      return { 
+        venda: v, 
+        cupons: c, 
+        itens: i, 
+        tkm: c > 0 ? v / c : 0, 
+        pa: c > 0 ? i / c : 0,
+        pm: i > 0 ? v / i : 0
+      };
+    };
+
+
     return {
       venda: totalVenda,
       cupons: totalCupons,
@@ -109,6 +124,11 @@ export function ExecutiveSummary({ data, vinculos, onSwitchTab }: ExecutiveSumma
         pickup: pickup.reduce((acc, s) => acc + parseFloat(s.vNF), 0),
         adicional: adicional.reduce((acc, s) => acc + parseFloat(s.vNF), 0),
         troca: trocaVal
+      },
+      channelsDetail: {
+        fisica: calcStats(fisica),
+        pickup: calcStats(pickup),
+        adicional: calcStats(adicional)
       },
       topVendor: { name: topVendor[0], value: topVendor[1] },
       topDay: { date: topDay[0], value: topDay[1] },
@@ -289,6 +309,13 @@ export function ExecutiveSummary({ data, vinculos, onSwitchTab }: ExecutiveSumma
           )}
         </div>
       </div>
+
+      {/* Channel Performance Detailed */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <ChannelStatsCard title="Loja Física" stats={stats.channelsDetail.fisica} icon={Calendar} theme="bg-slate-800 text-white" accent="text-slate-400" border="border-slate-700" />
+        <ChannelStatsCard title="Pickup Online" stats={stats.channelsDetail.pickup} icon={Smartphone} theme="bg-sky-50 text-sky-900" accent="text-sky-600" border="border-sky-100" />
+        <ChannelStatsCard title="Venda Adicional" stats={stats.channelsDetail.adicional} icon={Zap} theme="bg-emerald-50 text-emerald-900" accent="text-emerald-600" border="border-emerald-100" />
+      </div>
     </div>
   );
 }
@@ -389,6 +416,10 @@ function ChannelStatsCard({ title, stats, icon: Icon, theme, accent, border }: a
         <div>
           <p className={cn("text-[9px] font-black uppercase tracking-widest", accent)}>P.A.</p>
           <p className="text-lg font-black">{stats.pa.toFixed(2)}</p>
+        </div>
+        <div className="col-span-2 md:col-span-1">
+          <p className={cn("text-[9px] font-black uppercase tracking-widest", accent)}>P.M. (Preço Médio)</p>
+          <p className="text-lg font-black">{formatBRL(stats.pm)}</p>
         </div>
       </div>
     </Card>

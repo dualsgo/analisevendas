@@ -363,7 +363,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
     { id: "executivo", label: "Resumo Executivo", icon: Sparkles, category: "Resultados", color: "text-orange-500 font-black" },
     { id: "semanal", label: "Análise Semanal (Expurgo)", icon: CalendarIcon, category: "Resultados", color: "text-blue-500 font-black" },
     { id: "gap_analise", label: "GAP de Produtividade", icon: Activity, category: "Resultados", color: "text-rose-500 font-black" },
-    { id: "geral", label: "Visão Geral", icon: LayoutDashboard, category: "Resultados" },
+
     { id: "impacto", label: "Projeção de Impacto", icon: Target, category: "Resultados", color: "text-purple-500 font-bold" },
     { id: "performance", label: "Performance", icon: ClipboardList, category: "Resultados", color: "text-emerald-600 font-black" },
     { id: "diario", label: "Performance Diária", icon: CalendarIcon, category: "Resultados" },
@@ -377,29 +377,29 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
     { id: "venda_sugestiva", label: "SLP & Social", icon: ShoppingBag, category: "Produtos", color: "text-orange-600 font-black" },
     { id: "acao_social", label: "Ação Social (Baralhos)", icon: Heart, category: "Produtos", color: "text-rose-500 font-black" },
     { id: "price_profile", label: "Perfil de Preço", icon: DollarSign, category: "Produtos", color: "text-rose-600 font-black" },
-    { id: "elasticidade", label: "Elasticidade Desconto", icon: LineChart, category: "Produtos", color: "text-amber-600" },
+
     { id: "copa", label: "Análise Copa (Figurinhas)", icon: Trophy, category: "Produtos", color: "text-amber-500 font-black" },
 
     { id: "customer_loyalty", label: "Fidelidade & Recorrência", icon: Users2, category: "Clientes", color: "text-emerald-600 font-black" },
     { id: "ritmo_operacional", label: "Ritmo de Atendimento", icon: Timer, category: "Operacional" },
-    { id: "produtividade_diag", label: "Diagnóstico de Produtividade", icon: Brain, category: "Operacional", color: "text-indigo-600 font-black" },
+
     { id: "pickup_dashboard", label: "Dashboard Pickup", icon: Zap, category: "Operacional", color: "text-emerald-600 font-black" },
     { id: "pickup_track", label: "Monitor Pickup", icon: Smartphone, category: "Operacional", color: "text-sky-600 font-black" },
     { id: "delivery_track", label: "Monitor Delivery", icon: Truck, category: "Operacional", color: "text-rose-600 font-black" },
     { id: "transacoes", label: "Transações", icon: ListFilter, category: "Operacional" },
     { id: "payment_map", label: "Mapa de Pagamentos", icon: CreditCard, category: "Operacional" },
     { id: "cash_reconcile", label: "Conciliação de Dinheiro", icon: Calculator, category: "Operacional", color: "text-emerald-600 font-black" },
-    { id: "qualidade_avancada", label: "Qualidade da Venda", icon: Target, category: "Operacional" },
+
     { id: "radar", label: "Radar de Alertas", icon: ShieldAlert, category: "Auditoria" },
     { id: "auditoria", label: "Auditoria de Descontos", icon: Percent, category: "Auditoria" },
     { id: "trocas", label: "Trocas", icon: ArrowRightLeft, category: "Auditoria" },
     { id: "pa", label: "Análise de PA", icon: Hash, category: "Auditoria" },
     { id: "coupon_analysis", label: "Análise de Cupons", icon: Layers, category: "Auditoria", color: "text-rose-500 font-black" },
-    { id: "conversao", label: "Auditoria de Conversão", icon: Scale, category: "Auditoria" },
-    { id: "oportunidades", label: "Oportunidades", icon: Lightbulb, category: "Auditoria" },
-    { id: "sangria", label: "Risco de Trocas", icon: AlertTriangle, category: "Auditoria" },
-    { id: "geodesic", label: "Análise Geográfica", icon: Map, category: "Clientes" },
-    { id: "sunday_analise", label: "Análise de Domingos", icon: CalendarIcon, category: "Operacional", color: "text-indigo-600 font-black" },
+
+
+
+
+
     { id: "consecutive_cupons", label: "Vendas Divididas (Fragmentadas)", icon: Layers, category: "Auditoria", color: "text-rose-600 font-black" },
   ];
 
@@ -407,157 +407,6 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
     switch(activeTab) {
       case "executivo": return <ExecutiveSummary data={filteredData} vinculos={filteredVinculos} onSwitchTab={handleTabChange} />;
       case "gap_analise": return <GapAnalysis data={filteredData} />;
-      case "geral":
-        return (
-          <motion.div 
-            variants={staggerContainer}
-            initial="hidden"
-            animate="visible"
-            className="space-y-6 md:space-y-8"
-          >
-            <motion.div variants={childItem} className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 bg-white p-3 md:p-4 rounded-2xl border border-slate-200 shadow-sm">
-              <ChannelSelector label="Loja Física" icon={Store} active={selectedChannels.fisica} color="text-slate-600" onToggle={() => toggleChannel('fisica')} />
-              <ChannelSelector label="Pickup" icon={Smartphone} active={selectedChannels.online} color="text-sky-500" onToggle={() => toggleChannel('online')} />
-              <ChannelSelector label="Adicional" icon={Zap} active={selectedChannels.adicional} color="text-emerald-500" onToggle={() => toggleChannel('adicional')} />
-              <ChannelSelector label="Delivery" icon={Truck} active={selectedChannels.delivery} color="text-rose-500" onToggle={() => toggleChannel('delivery')} />
-              <ChannelSelector label="Trocas" icon={ArrowRightLeft} active={selectedChannels.troca} color="text-purple-500" onToggle={() => toggleChannel('troca')} />
-            </motion.div>
-
-            <motion.div variants={childItem} className="flex items-center gap-2 bg-white p-2 rounded-2xl border border-slate-200 shadow-sm w-fit">
-              <Button 
-                variant={periodView === 'consolidated' ? 'default' : 'ghost'} 
-                size="sm" 
-                onClick={() => setPeriodView('consolidated')}
-                className="rounded-xl text-[10px] font-black uppercase h-8"
-              >
-                Consolidado
-              </Button>
-              <Button 
-                variant={periodView === 'monthly' ? 'default' : 'ghost'} 
-                size="sm" 
-                onClick={() => setPeriodView('monthly')}
-                className="rounded-xl text-[10px] font-black uppercase h-8"
-              >
-                Por Mês
-              </Button>
-              <Button 
-                variant={periodView === 'daily' ? 'default' : 'ghost'} 
-                size="sm" 
-                onClick={() => setPeriodView('daily')}
-                className="rounded-xl text-[10px] font-black uppercase h-8"
-              >
-                Por Dia
-              </Button>
-            </motion.div>
-
-            {periodView === 'consolidated' ? (
-              <motion.div variants={childItem}>
-                <Card className="ri-card border-slate-200 border overflow-hidden shadow-sm">
-                  <div className="p-3 md:p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Target className="w-4 h-4 text-indigo-600" />
-                      <h3 className="text-xs font-bold text-slate-800 uppercase tracking-tight">Consolidado do Período</h3>
-                    </div>
-                    <div className="flex items-center gap-2 bg-white px-3 py-1 rounded-full border border-slate-200 shadow-sm">
-                      <UserCheck className="w-3.5 h-3.5 text-emerald-500" />
-                      <span className="text-[10px] font-bold text-slate-600">{consolidado.cadastros.toFixed(1)}% IDENT.</span>
-                    </div>
-                  </div>
-                  <CardContent className="p-4 md:p-5 space-y-6 flex flex-col items-center justify-center text-center">
-                    <div className="space-y-1">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-2">Faturamento Total</p>
-                      <p className={cn(
-                        "font-black text-slate-800 tracking-tighter leading-none transition-all duration-300",
-                        isCollapsed ? "text-5xl sm:text-7xl" : "text-4xl sm:text-5xl"
-                      )}>
-                        {formatCurrency(consolidado.venda)}
-                      </p>
-                    </div>
-
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 w-full px-4 md:px-10">
-                      <QuickMetric 
-                        label="Cupons" 
-                        value={consolidado.cupons} 
-                        large={isCollapsed} 
-                        description="Quantidade total de vendas realizadas no período."
-                      />
-                      <QuickMetric 
-                        label="Peças" 
-                        value={consolidado.itens} 
-                        large={isCollapsed} 
-                        description="Total de produtos vendidos em todos os cupons."
-                      />
-                      <QuickMetric 
-                        label="Ticket Médio" 
-                        value={formatCurrency(consolidado.tkm, true)} 
-                        color="text-indigo-600" 
-                        large={isCollapsed} 
-                        description="Valor médio vendido em cada cupom (Faturamento / Cupons)."
-                      />
-                      <QuickMetric 
-                        label="P.A. Geral" 
-                        value={consolidado.pa.toFixed(2)} 
-                        color="text-sky-600" 
-                        large={isCollapsed} 
-                        description="Peças por Atendimento: Volume médio de itens por venda."
-                      />
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ) : (
-              <motion.div variants={childItem} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {periodBreakdown?.map((p) => (
-                  <Card key={p.key} className="ri-card border-slate-200 border overflow-hidden shadow-sm bg-white">
-                    <div className="p-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-                      <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-tight">{p.label}</h3>
-                      <div className="flex items-center gap-2">
-                        {p.trend !== 0 && (
-                          <div className={cn(
-                            "flex items-center gap-0.5 text-[9px] font-black px-1.5 py-0.5 rounded-full",
-                            p.trend > 0 ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"
-                          )}>
-                            {p.trend > 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingUp className="w-3 h-3 rotate-180" />}
-                            {Math.abs(p.trend).toFixed(1)}%
-                          </div>
-                        )}
-                        <Badge className="bg-white border-slate-200 text-slate-600 border text-[8px]">{p.ident.toFixed(0)}% CPF</Badge>
-                      </div>
-                    </div>
-                    <CardContent className="p-4 space-y-4">
-                      <div className="text-center">
-                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Faturamento</p>
-                        <p className="text-xl font-black text-slate-800">{formatCurrency(p.venda)}</p>
-                      </div>
-                      <div className="grid grid-cols-3 gap-2 border-t pt-3">
-                        <div className="text-center">
-                          <p className="text-[8px] font-bold text-slate-400 uppercase">Tickets</p>
-                          <p className="text-xs font-black text-slate-700">{p.cupons}</p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-[8px] font-bold text-slate-400 uppercase">P.A.</p>
-                          <p className="text-xs font-black text-sky-600">{p.pa.toFixed(2)}</p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-[8px] font-bold text-slate-400 uppercase">TKM</p>
-                          <p className="text-xs font-black text-indigo-600">{formatCurrency(p.tkm, true)}</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </motion.div>
-            )}
-
-            <motion.div variants={childItem} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <FixedChannelCard title="Físico" icon={Store} metrics={metricsByChannel.fisica} color="border-slate-200" large={isCollapsed} />
-              <FixedChannelCard title="Pickup" icon={Smartphone} metrics={metricsByChannel.online} color="border-sky-200" large={isCollapsed} />
-              <FixedChannelCard title="Adicional" icon={Zap} metrics={metricsByChannel.adicional} color="border-emerald-200" large={isCollapsed} />
-              <FixedChannelCard title="Delivery" icon={Truck} metrics={metricsByChannel.delivery} color="border-rose-200" large={isCollapsed} />
-              <FixedChannelCard title="Trocas" icon={ArrowRightLeft} metrics={metricsByChannel.troca} color="border-purple-200" large={isCollapsed} />
-            </motion.div>
-          </motion.div>
-        );
       case "impacto": return <ImpactProjection data={filteredData} />;
       case "heatmap": return <HeatmapAnalysis data={filteredData} vinculos={filteredVinculos} />;
       case "energy": return <SalesEnergy data={filteredData} />;

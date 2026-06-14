@@ -358,3 +358,39 @@ function ChannelProgress({ label, value, total, color, icon: Icon }: any) {
     </div>
   );
 }
+
+function ChannelStatsCard({ title, stats, icon: Icon, theme, accent, border }: any) {
+  const formatBRL = (val: number) => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  return (
+    <Card className={cn("p-6 ri-card flex flex-col gap-5", theme, border)}>
+      <div className="flex items-center justify-between pb-4 border-b border-black/5">
+        <div className="flex items-center gap-3">
+          <div className={cn("p-2 rounded-xl bg-white/20 shadow-sm")}>
+            <Icon className="w-5 h-5" />
+          </div>
+          <h3 className="font-black uppercase tracking-tight text-sm">{title}</h3>
+        </div>
+        <p className="text-xl font-black">{formatBRL(stats.venda)}</p>
+      </div>
+      
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <p className={cn("text-[9px] font-black uppercase tracking-widest", accent)}>Tickets</p>
+          <p className="text-lg font-black">{stats.cupons}</p>
+        </div>
+        <div>
+          <p className={cn("text-[9px] font-black uppercase tracking-widest", accent)}>Itens</p>
+          <p className="text-lg font-black">{stats.itens}</p>
+        </div>
+        <div>
+          <p className={cn("text-[9px] font-black uppercase tracking-widest", accent)}>Ticket Médio</p>
+          <p className="text-lg font-black">{formatBRL(stats.tkm)}</p>
+        </div>
+        <div>
+          <p className={cn("text-[9px] font-black uppercase tracking-widest", accent)}>P.A.</p>
+          <p className="text-lg font-black">{stats.pa.toFixed(2)}</p>
+        </div>
+      </div>
+    </Card>
+  );
+}

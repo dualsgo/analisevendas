@@ -491,7 +491,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
                               : "hover:bg-white/80 text-slate-600 font-medium border border-transparent"
                           )}
                         >
-                          <item.icon className={cn("w-3.5 h-3.5 mr-2 shrink-0", activeTab !== item.id && (item.color || "text-slate-400"))} />
+                          <item.icon className={cn("w-4 h-4 shrink-0 group-data-[collapsible=icon]:mr-0 mr-2", activeTab !== item.id && (item.color || "text-slate-400"))} />
                           <span className="text-[12px] tracking-tight group-data-[collapsible=icon]:hidden truncate">{item.label}</span>
                         </SidebarMenuButton>
                       </SidebarMenuItem>
@@ -513,25 +513,10 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
         "flex-1 overflow-y-auto bg-slate-50 p-3 md:p-5 flex flex-col gap-4 scrollbar-hide print:p-0 print:bg-white transition-all duration-300",
         isCollapsed ? "text-mode-large" : ""
       )}>
-        {/* Dashboard Header with Period Info */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-3 shrink-0">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <Badge variant="outline" className="bg-indigo-50/50 text-indigo-600 border-indigo-100 font-bold text-[10px] uppercase tracking-widest px-2 py-0">
-                {analysisPeriod}
-              </Badge>
-              <div className="w-1 h-1 bg-slate-300 rounded-full" />
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                {filteredData.length} Transações Detectadas
-              </span>
-            </div>
-            <h1 className="text-xl md:text-3xl font-black text-slate-800 tracking-tight flex items-center gap-3 truncate">
-              Análise Estratégica
-            </h1>
-          </div>
-          
-          <div className="flex items-center gap-2 print:hidden">
-             <Sheet>
+        
+        {/* Simplified Header */}
+        <div className="flex items-center justify-end gap-2 shrink-0 print:hidden z-10 absolute top-4 right-6 md:top-6 md:right-8">
+           <Sheet>
                <SheetTrigger asChild>
                  <Button variant="outline" size="sm" className="rounded-xl border-slate-200 text-slate-500 font-bold text-[10px] uppercase gap-2">
                     <Users2 className="w-3.5 h-3.5 text-indigo-500" />
@@ -580,13 +565,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
                  </div>
                </SheetContent>
              </Sheet>
-
-             <SidebarTrigger className="md:hidden" />
-             <Button variant="outline" size="sm" onClick={() => window.print()} className="rounded-xl border-slate-200 text-slate-500 font-bold text-[10px] uppercase gap-2">
-                <FileText className="w-3.5 h-3.5" />
-                Exportar PDF
-             </Button>
-          </div>
+           <SidebarTrigger className="md:hidden" />
         </div>
 
         <div className="flex-1 min-h-0 relative">

@@ -36,9 +36,6 @@ export function Header({ status, fileStats, onReset }: HeaderProps) {
             <h1 className="text-lg md:text-xl font-bold tracking-tight text-slate-800">
               Ri Happy
             </h1>
-            <span className="hidden md:inline-block text-sm font-medium text-slate-500 border-l border-slate-200 pl-2">
-              Strategic Performance Analyzer
-            </span>
           </div>
         </div>
 

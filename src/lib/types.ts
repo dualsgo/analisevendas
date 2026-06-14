@@ -8,6 +8,7 @@ export interface Item {
   is_campanha?: boolean;
   is_preco_errado?: boolean;
   evidencia_preco_errado?: string;
+  xPed?: string;
 }
 
 export interface DetailedSaleRow {
@@ -62,6 +63,8 @@ export interface DetailedSaleRow {
   pickup_match_fields: number;
   is_nome_minusculo?: boolean;
   has_symbolic_item?: boolean;
+  is_venda_manual?: boolean;
+  pedido_online?: string;
   
   // Auditoria
   tem_desconto: boolean;

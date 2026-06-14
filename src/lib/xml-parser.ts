@@ -174,6 +174,7 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
         itemsList.push({
           cProd,
           xProd: getElement(prod, "xProd")?.textContent || "",
+          xPed: getElement(prod, "xPed")?.textContent || "",
           qCom,
           vProd,
           vDesc,

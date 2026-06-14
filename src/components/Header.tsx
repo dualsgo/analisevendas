@@ -47,6 +47,7 @@ export function Header({ status, fileStats, onReset }: HeaderProps) {
         )}
         
         <div className="flex items-center gap-3">
+          <div id="header-actions" className="flex items-center gap-2"></div>
           <Button 
             variant="default" 
             size="sm" 

@@ -1,7 +1,8 @@
 
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { fadeIn, staggerContainer, childItem, slideUp } from "@/lib/animations";
 import { 
@@ -135,6 +136,8 @@ interface SalesSummaryProps {
 }
 
 export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   const [activeTab, setActiveTab] = useState("executivo");
   const { setOpenMobile, state } = useSidebar();
   const isCollapsed = state === "collapsed";
@@ -466,7 +469,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
 
   return (
     <div className="flex-1 flex flex-col md:flex-row h-full overflow-hidden">
-      <Sidebar className="border-r border-slate-200 bg-slate-50 print:hidden" collapsible="icon">
+      <Sidebar className="border-r border-slate-200 bg-slate-50 print:hidden" collapsible="none">
         <SidebarContent className="p-2 md:p-3">
           {["Resultados", "Pessoas", "Produtos", "Clientes", "Auditoria", "Operacional"].map((cat) => (
             <SidebarGroup key={cat} className="mb-1">
@@ -514,9 +517,10 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
         isCollapsed ? "text-mode-large" : ""
       )}>
         
-        {/* Simplified Header */}
-        <div className="flex items-center justify-end gap-2 shrink-0 print:hidden z-10 absolute top-4 right-6 md:top-6 md:right-8">
-           <Sheet>
+        
+        {/* Equipe Portal to Header */}
+        {mounted && document.getElementById("header-actions") ? createPortal(
+          <Sheet>
                <SheetTrigger asChild>
                  <Button variant="outline" size="sm" className="rounded-xl border-slate-200 text-slate-500 font-bold text-[10px] uppercase gap-2">
                     <Users2 className="w-3.5 h-3.5 text-indigo-500" />
@@ -564,9 +568,10 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
                     </div>
                  </div>
                </SheetContent>
-             </Sheet>
-           <SidebarTrigger className="md:hidden" />
-        </div>
+             </Sheet>,
+          document.getElementById("header-actions")!
+        ) : null}
+  
 
         <div className="flex-1 min-h-0 relative">
           <AnimatePresence mode="popLayout">

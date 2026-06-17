@@ -49,9 +49,25 @@ export const AgingCampaignAnalysis: React.FC<AgingCampaignAnalysisProps> = ({ da
       const agingItemsInSale = sale.itens.filter(item => isAgingItem(item.cProd));
       const hasAging = agingItemsInSale.length > 0;
 
-      const saleAgingValue = agingItemsInSale.reduce((acc, item) => acc + item.vProd, 0);
-      const saleAgingQty = agingItemsInSale.reduce((acc, item) => acc + item.qCom, 0);
-      
+      let saleAgingValue = 0;
+      let saleAgingQty = 0;
+      let promoQty = 0;
+      let fullQty = 0;
+
+      agingItemsInSale.forEach(item => {
+        const itemNetValue = item.vProd - (item.vDesc || 0);
+        saleAgingValue += itemNetValue;
+        saleAgingQty += item.qCom;
+        
+        // Verifica se teve 50% de desconto (usando 40% de margem p/ arredondamento ou pequenos ajustes)
+        const discountPerc = item.vProd > 0 ? (item.vDesc || 0) / item.vProd : 0;
+        if (discountPerc >= 0.40) {
+          promoQty += item.qCom;
+        } else {
+          fullQty += item.qCom;
+        }
+      });
+
       const val = parseFloat(sale.vNF);
       const qItens = parseFloat(sale.itens_qtd);
       
@@ -60,8 +76,10 @@ export const AgingCampaignAnalysis: React.FC<AgingCampaignAnalysisProps> = ({ da
       
       // Calculate Opportunities based on normal products spent
       const opps = Math.floor(normalValue / TICKET_THRESHOLD);
-      const converted = Math.min(opps, saleAgingQty);
-      const extra = Math.max(0, saleAgingQty - opps);
+      
+      // A conversão real é exatamente a quantidade de itens que receberam o desconto da campanha
+      const converted = promoQty;
+      const extra = fullQty;
       
       totalOpportunities += opps;
       totalConverted += converted;

@@ -553,12 +553,14 @@ export const AgingCampaignAnalysis: React.FC<AgingCampaignAnalysisProps> = ({ da
                   <th className="p-4 text-[10px] font-black text-slate-400 uppercase border-b text-right">Venda Produtos Regulares</th>
                   <th className="p-4 text-[10px] font-black text-slate-400 uppercase border-b text-center">Oportunidades (Qtd)</th>
                   <th className="p-4 text-[10px] font-black text-slate-400 uppercase border-b text-center">Convertidas</th>
-                  <th className="p-4 text-[10px] font-black text-slate-400 uppercase border-b text-right">Status</th>
+                  <th className="p-4 text-[10px] font-black text-slate-400 uppercase border-b text-right">% Conversão no Cupom</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {stats.opportunitySales.map((sale, idx) => {
-                  const lost = sale.opps - sale.converted;
+                  const conversion = sale.opps > 0 ? (sale.converted / sale.opps) * 100 : 0;
+                  const isHealthy = conversion >= 50;
+                  
                   return (
                     <tr key={idx} className="hover:bg-slate-50 transition-colors">
                       <td className="p-4">
@@ -583,12 +585,14 @@ export const AgingCampaignAnalysis: React.FC<AgingCampaignAnalysisProps> = ({ da
                       </td>
                       <td className="p-4 text-right">
                         <Badge className={cn(
-                          "font-black text-[9px] uppercase",
-                          lost === 0 ? "bg-emerald-500 hover:bg-emerald-600" :
-                          sale.converted > 0 ? "bg-amber-500 hover:bg-amber-600" : "bg-rose-500 hover:bg-rose-600"
+                          "font-black text-[10px] uppercase gap-1",
+                          conversion === 100 ? "bg-emerald-500 hover:bg-emerald-600" :
+                          conversion >= 50 ? "bg-emerald-400 hover:bg-emerald-500" :
+                          conversion > 0 ? "bg-amber-500 hover:bg-amber-600" : "bg-rose-500 hover:bg-rose-600"
                         )}>
-                          {lost === 0 ? "100% Aproveitado" :
-                           sale.converted > 0 ? `Perdeu ${lost}` : `Deixou de aproveitar ${lost}`}
+                          {conversion === 100 ? "🟢 100%" :
+                           conversion >= 50 ? "🟢 " + conversion.toFixed(0) + "%" :
+                           conversion > 0 ? "🟡 " + conversion.toFixed(0) + "%" : "🔴 0%"}
                         </Badge>
                       </td>
                     </tr>

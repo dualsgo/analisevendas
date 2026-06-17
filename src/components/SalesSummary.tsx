@@ -128,6 +128,7 @@ import { Calculator, Map, Heart, Brain, HelpCircle } from "lucide-react";
 import { AnalysisHelp } from "./AnalysisHelp";
 import { CopaAnalysis } from "./CopaAnalysis";
 import { WeeklyAnalysis } from "./WeeklyAnalysis";
+import { AgingCampaignAnalysis } from "./AgingCampaignAnalysis";
 
 interface SalesSummaryProps {
   data: DetailedSaleRow[];
@@ -382,6 +383,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
     { id: "price_profile", label: "Perfil de Preço", icon: DollarSign, category: "Produtos", color: "text-rose-600 font-black" },
 
     { id: "copa", label: "Análise Copa (Figurinhas)", icon: Trophy, category: "Produtos", color: "text-amber-500 font-black" },
+    { id: "aging_campaign", label: "Campanha Aging", icon: Timer, category: "Produtos", color: "text-rose-600 font-black" },
 
     { id: "customer_loyalty", label: "Fidelidade & Recorrência", icon: Users2, category: "Clientes", color: "text-emerald-600 font-black" },
     { id: "ritmo_operacional", label: "Ritmo de Atendimento", icon: Timer, category: "Operacional" },
@@ -452,6 +454,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
       case "sunday_analise": return <SundayAnalysis data={filteredData} />;
       case "consecutive_cupons": return <ConsecutiveCouponAnalysis data={filteredData} />;
       case "copa": return <CopaAnalysis data={filteredData} />;
+      case "aging_campaign": return <AgingCampaignAnalysis data={filteredData} />;
       case "gamification": return null;
       case "feedback": return null;
       case "semanal": return <WeeklyAnalysis data={filteredData} />;

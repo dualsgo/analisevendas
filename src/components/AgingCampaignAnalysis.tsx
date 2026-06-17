@@ -42,6 +42,9 @@ export const AgingCampaignAnalysis: React.FC<AgingCampaignAnalysisProps> = ({ da
     let totalConverted = 0;
     let totalExtraAging = 0;
     
+    const extraAgingSales: Array<{ nf: string, dhEmi: string, vendedor: string, itemDesc: string, qCom: number, vProd: number, vDesc: number, discountPerc: number }> = [];
+    const opportunitySales: Array<{ nf: string, dhEmi: string, vendedor: string, normalValue: number, opps: number, converted: number }> = [];
+    
     const collaboratorImpact: Record<string, any> = {};
     const productStats: Record<string, { codigo: string, descricao: string, categoria: string, fornecedor: string, qty: number, promoQty: number, extraQty: number, value: number }> = {};
 
@@ -65,6 +68,16 @@ export const AgingCampaignAnalysis: React.FC<AgingCampaignAnalysisProps> = ({ da
           promoQty += item.qCom;
         } else {
           fullQty += item.qCom;
+          extraAgingSales.push({
+            nf: sale.nf,
+            dhEmi: sale.dhEmi,
+            vendedor: sale.vendedor || "OUTROS",
+            itemDesc: item.xProd,
+            qCom: item.qCom,
+            vProd: item.vProd,
+            vDesc: item.vDesc || 0,
+            discountPerc
+          });
         }
       });
 
@@ -84,6 +97,17 @@ export const AgingCampaignAnalysis: React.FC<AgingCampaignAnalysisProps> = ({ da
       totalOpportunities += opps;
       totalConverted += converted;
       totalExtraAging += extra;
+      
+      if (opps > 0) {
+        opportunitySales.push({
+          nf: sale.nf,
+          dhEmi: sale.dhEmi,
+          vendedor: sale.vendedor || "OUTROS",
+          normalValue,
+          opps,
+          converted
+        });
+      }
       
       totalAgingValue += saleAgingValue;
       totalAgingQty += saleAgingQty;
@@ -154,6 +178,8 @@ export const AgingCampaignAnalysis: React.FC<AgingCampaignAnalysisProps> = ({ da
       totalOpportunities,
       totalConverted,
       totalExtraAging,
+      extraAgingSales: extraAgingSales.sort((a, b) => new Date(b.dhEmi).getTime() - new Date(a.dhEmi).getTime()),
+      opportunitySales: opportunitySales.sort((a, b) => (b.opps - b.converted) - (a.opps - a.converted)),
       conversionRate: totalOpportunities > 0 ? (totalConverted / totalOpportunities) * 100 : 0,
       collaboratorImpact: Object.values(collaboratorImpact),
       topProducts: Object.values(productStats).sort((a, b) => b.qty - a.qty).slice(0, 50)
@@ -431,6 +457,133 @@ export const AgingCampaignAnalysis: React.FC<AgingCampaignAnalysisProps> = ({ da
         </CardContent>
       </Card>
 
+      {/* Tabela de Vendas Avulsas (Auditoria) */}
+      {stats.extraAgingSales.length > 0 && (
+        <Card className="border-slate-200 bg-white shadow-sm overflow-hidden flex flex-col">
+          <CardHeader className="bg-rose-50 border-b border-rose-100 shrink-0">
+            <CardTitle className="text-sm font-black text-rose-800 uppercase flex items-center gap-2">
+              <Target className="w-4 h-4 text-rose-600" />
+              Auditoria de Venda Avulsa (Preço Cheio)
+            </CardTitle>
+            <CardDescription className="text-[10px] font-bold uppercase text-rose-600/70">
+              Itens da campanha vendidos sem o desconto de 50%. Possível esquecimento da aplicação da promoção ou venda direta.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="p-0 overflow-x-auto max-h-[400px] overflow-y-auto">
+            <table className="w-full text-left border-collapse min-w-[800px]">
+              <thead className="sticky top-0 bg-white shadow-sm z-10">
+                <tr>
+                  <th className="p-4 text-[10px] font-black text-slate-400 uppercase border-b">Data / Cupom</th>
+                  <th className="p-4 text-[10px] font-black text-slate-400 uppercase border-b">Colaborador</th>
+                  <th className="p-4 text-[10px] font-black text-slate-400 uppercase border-b">Produto</th>
+                  <th className="p-4 text-[10px] font-black text-slate-400 uppercase border-b text-center">Desconto Aplicado</th>
+                  <th className="p-4 text-[10px] font-black text-slate-400 uppercase border-b text-right">Valor Final Pago</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {stats.extraAgingSales.map((sale, idx) => (
+                  <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                    <td className="p-4">
+                      <div className="text-[10px] font-black text-slate-700 uppercase">
+                        {format(parseISO(sale.dhEmi), "dd/MM/yyyy HH:mm")}
+                      </div>
+                      <div className="text-[8px] text-slate-400 font-bold uppercase">NF: {sale.nf}</div>
+                    </td>
+                    <td className="p-4">
+                      <span className="text-xs font-black text-slate-600 uppercase">{sale.vendedor}</span>
+                    </td>
+                    <td className="p-4">
+                      <div className="text-[10px] font-black text-slate-700 uppercase">{sale.itemDesc}</div>
+                      <div className="text-[8px] text-slate-400 font-bold uppercase">Qtd: {sale.qCom} unid.</div>
+                    </td>
+                    <td className="p-4 text-center">
+                      <Badge variant="outline" className="bg-rose-50 text-rose-600 border-rose-200 font-black text-[9px]">
+                        {(sale.discountPerc * 100).toFixed(1)}%
+                      </Badge>
+                    </td>
+                    <td className="p-4 text-right">
+                      <div className="text-[10px] font-black text-slate-800">
+                        {formatBRL(sale.vProd - sale.vDesc)}
+                      </div>
+                      <div className="text-[8px] text-slate-400 font-bold uppercase line-through">
+                        Cheio: {formatBRL(sale.vProd)}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Auditoria de Oportunidades por Cupom */}
+      {stats.opportunitySales.length > 0 && (
+        <Card className="border-slate-200 bg-white shadow-sm overflow-hidden flex flex-col">
+          <CardHeader className="bg-sky-50 border-b border-sky-100 shrink-0">
+            <CardTitle className="text-sm font-black text-sky-800 uppercase flex items-center gap-2">
+              <Target className="w-4 h-4 text-sky-600" />
+              Auditoria de Oportunidades (Por Cupom)
+            </CardTitle>
+            <CardDescription className="text-[10px] font-bold uppercase text-sky-600/70">
+              Detalhamento de conversão cupom a cupom (Ordenado pelos maiores desperdícios)
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="p-0 overflow-x-auto max-h-[500px] overflow-y-auto">
+            <table className="w-full text-left border-collapse min-w-[800px]">
+              <thead className="sticky top-0 bg-white shadow-sm z-10">
+                <tr>
+                  <th className="p-4 text-[10px] font-black text-slate-400 uppercase border-b">Data / Cupom</th>
+                  <th className="p-4 text-[10px] font-black text-slate-400 uppercase border-b">Colaborador</th>
+                  <th className="p-4 text-[10px] font-black text-slate-400 uppercase border-b text-right">Venda Produtos Regulares</th>
+                  <th className="p-4 text-[10px] font-black text-slate-400 uppercase border-b text-center">Oportunidades (Qtd)</th>
+                  <th className="p-4 text-[10px] font-black text-slate-400 uppercase border-b text-center">Convertidas</th>
+                  <th className="p-4 text-[10px] font-black text-slate-400 uppercase border-b text-right">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {stats.opportunitySales.map((sale, idx) => {
+                  const lost = sale.opps - sale.converted;
+                  return (
+                    <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                      <td className="p-4">
+                        <div className="text-[10px] font-black text-slate-700 uppercase">
+                          {format(parseISO(sale.dhEmi), "dd/MM/yyyy HH:mm")}
+                        </div>
+                        <div className="text-[8px] text-slate-400 font-bold uppercase">NF: {sale.nf}</div>
+                      </td>
+                      <td className="p-4">
+                        <span className="text-xs font-black text-slate-600 uppercase">{sale.vendedor}</span>
+                      </td>
+                      <td className="p-4 text-right">
+                        <div className="text-[10px] font-black text-slate-800">
+                          {formatBRL(sale.normalValue)}
+                        </div>
+                      </td>
+                      <td className="p-4 text-center">
+                        <span className="text-xs font-black text-sky-600">{sale.opps}</span>
+                      </td>
+                      <td className="p-4 text-center">
+                        <span className="text-xs font-black text-emerald-600">{sale.converted}</span>
+                      </td>
+                      <td className="p-4 text-right">
+                        <Badge className={cn(
+                          "font-black text-[9px] uppercase",
+                          lost === 0 ? "bg-emerald-500 hover:bg-emerald-600" :
+                          sale.converted > 0 ? "bg-amber-500 hover:bg-amber-600" : "bg-rose-500 hover:bg-rose-600"
+                        )}>
+                          {lost === 0 ? "100% Aproveitado" :
+                           sale.converted > 0 ? `Perdeu ${lost}` : `Desperdiçou ${lost}`}
+                        </Badge>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };

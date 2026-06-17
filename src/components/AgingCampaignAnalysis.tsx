@@ -259,7 +259,7 @@ export const AgingCampaignAnalysis: React.FC<AgingCampaignAnalysisProps> = ({ da
               <Target className="w-4 h-4 text-slate-300" />
             </div>
             <CardTitle className="text-2xl font-black text-slate-800">{stats.totalOpportunities - stats.totalConverted}</CardTitle>
-            <CardDescription className="text-[10px] font-bold uppercase tracking-tight">Oportunidades desperdiçadas</CardDescription>
+            <CardDescription className="text-[10px] font-bold uppercase tracking-tight">Oportunidades não aproveitadas</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="mt-2 space-y-2">
@@ -279,7 +279,7 @@ export const AgingCampaignAnalysis: React.FC<AgingCampaignAnalysisProps> = ({ da
               </div>
               <div className="flex justify-between text-[10px] font-bold uppercase mt-1">
                 <span className="text-emerald-600">Convertido: {stats.totalConverted}</span>
-                <span className="text-rose-600">Perdido: {stats.totalOpportunities - stats.totalConverted}</span>
+                <span className="text-rose-600">Não aproveitou: {stats.totalOpportunities - stats.totalConverted}</span>
               </div>
             </div>
           </CardContent>
@@ -353,6 +353,7 @@ export const AgingCampaignAnalysis: React.FC<AgingCampaignAnalysisProps> = ({ da
               <tr className="bg-slate-50/50">
                 <th className="p-4 text-[10px] font-black text-slate-400 uppercase border-b">Colaborador</th>
                 <th className="p-4 text-[10px] font-black text-slate-400 uppercase border-b text-center">TKM Real vs S/ Aging</th>
+                <th className="p-4 text-[10px] font-black text-slate-400 uppercase border-b text-center">P.A. Real vs S/ Aging</th>
                 <th className="p-4 text-[10px] font-black text-slate-400 uppercase border-b text-center">Oportunidades<br/>(A cada R$50)</th>
                 <th className="p-4 text-[10px] font-black text-slate-400 uppercase border-b text-center">Convertidos<br/>(Na Promoção)</th>
                 <th className="p-4 text-[10px] font-black text-slate-400 uppercase border-b text-center">Venda Avulsa<br/>(Preço Cheio)</th>
@@ -370,6 +371,9 @@ export const AgingCampaignAnalysis: React.FC<AgingCampaignAnalysisProps> = ({ da
                   const tkmReal = col.withAging.cupons > 0 ? col.withAging.venda / col.withAging.cupons : 0;
                   const tkmSem = col.withoutAging.cupons > 0 ? col.withoutAging.venda / col.withoutAging.cupons : 0;
                   
+                  const paReal = col.withAging.cupons > 0 ? col.withAging.itens / col.withAging.cupons : 0;
+                  const paSem = col.withoutAging.cupons > 0 ? col.withoutAging.itens / col.withoutAging.cupons : 0;
+                  
                   const conversion = col.opportunities > 0 ? (col.converted / col.opportunities) * 100 : 0;
 
                   return (
@@ -386,6 +390,17 @@ export const AgingCampaignAnalysis: React.FC<AgingCampaignAnalysisProps> = ({ da
                           </div>
                           <div className="text-[8px] font-black uppercase px-1 rounded-sm mt-0.5 text-emerald-500">
                             +{formatBRL(tkmReal - tkmSem)}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="p-4 text-center">
+                        <div className="flex flex-col items-center">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] font-bold text-slate-400 line-through">{paSem.toFixed(2)}</span>
+                            <span className="text-xs font-black text-sky-600">{paReal.toFixed(2)}</span>
+                          </div>
+                          <div className="text-[8px] font-black uppercase px-1 rounded-sm mt-0.5 text-sky-500">
+                            +{(paReal - paSem).toFixed(2)}
                           </div>
                         </div>
                       </td>
@@ -526,7 +541,7 @@ export const AgingCampaignAnalysis: React.FC<AgingCampaignAnalysisProps> = ({ da
               Auditoria de Oportunidades (Por Cupom)
             </CardTitle>
             <CardDescription className="text-[10px] font-bold uppercase text-sky-600/70">
-              Detalhamento de conversão cupom a cupom (Ordenado pelos maiores desperdícios)
+              Detalhamento de conversão cupom a cupom
             </CardDescription>
           </CardHeader>
           <CardContent className="p-0 overflow-x-auto max-h-[500px] overflow-y-auto">
@@ -573,7 +588,7 @@ export const AgingCampaignAnalysis: React.FC<AgingCampaignAnalysisProps> = ({ da
                           sale.converted > 0 ? "bg-amber-500 hover:bg-amber-600" : "bg-rose-500 hover:bg-rose-600"
                         )}>
                           {lost === 0 ? "100% Aproveitado" :
-                           sale.converted > 0 ? `Perdeu ${lost}` : `Desperdiçou ${lost}`}
+                           sale.converted > 0 ? `Perdeu ${lost}` : `Deixou de aproveitar ${lost}`}
                         </Badge>
                       </td>
                     </tr>

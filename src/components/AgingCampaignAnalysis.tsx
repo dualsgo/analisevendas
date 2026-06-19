@@ -57,6 +57,8 @@ export const AgingCampaignAnalysis: React.FC<AgingCampaignAnalysisProps> = ({ da
       let promoQty = 0;
       let fullQty = 0;
 
+      const saleExtraItems: any[] = [];
+
       agingItemsInSale.forEach(item => {
         const itemNetValue = item.vProd - (item.vDesc || 0);
         saleAgingValue += itemNetValue;
@@ -68,7 +70,7 @@ export const AgingCampaignAnalysis: React.FC<AgingCampaignAnalysisProps> = ({ da
           promoQty += item.qCom;
         } else {
           fullQty += item.qCom;
-          extraAgingSales.push({
+          saleExtraItems.push({
             nf: sale.nf,
             dhEmi: sale.dhEmi,
             vendedor: sale.vendedor || "OUTROS",
@@ -87,12 +89,21 @@ export const AgingCampaignAnalysis: React.FC<AgingCampaignAnalysisProps> = ({ da
       const normalValue = val - saleAgingValue;
       const normalQty = qItens - saleAgingQty;
       
+      // Regras para Auditoria de Venda Avulsa (Preço Cheio):
+      // - Não pode ter outro item da lista que recebeu desconto (promoQty === 0)
+      // - Os outros itens (normalValue) somados fazem menos de 50 reais
+      const isEligibleForExtraAging = promoQty === 0 && normalValue < TICKET_THRESHOLD;
+      
+      if (isEligibleForExtraAging) {
+        extraAgingSales.push(...saleExtraItems);
+      }
+
       // Calculate Opportunities based on normal products spent
       const opps = Math.floor(normalValue / TICKET_THRESHOLD);
       
       // A conversão real é exatamente a quantidade de itens que receberam o desconto da campanha
       const converted = promoQty;
-      const extra = fullQty;
+      const extra = isEligibleForExtraAging ? fullQty : 0;
       
       totalOpportunities += opps;
       totalConverted += converted;

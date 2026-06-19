@@ -42,7 +42,7 @@ export const AgingCampaignAnalysis: React.FC<AgingCampaignAnalysisProps> = ({ da
     let totalConverted = 0;
     let totalExtraAging = 0;
     
-    const extraAgingSales: Array<{ nf: string, dhEmi: string, vendedor: string, itemDesc: string, qCom: number, vProd: number, vDesc: number, discountPerc: number }> = [];
+    const extraAgingSales: Array<{ nf: string, dhEmi: string, vendedor: string, itemDesc: string, qCom: number, vProd: number, vDesc: number, discountPerc: number, motivo: string }> = [];
     const opportunitySales: Array<{ nf: string, dhEmi: string, vendedor: string, normalValue: number, opps: number, converted: number }> = [];
     
     const collaboratorImpact: Record<string, any> = {};
@@ -95,7 +95,8 @@ export const AgingCampaignAnalysis: React.FC<AgingCampaignAnalysisProps> = ({ da
       const isEligibleForExtraAging = promoQty === 0 && normalValue < TICKET_THRESHOLD;
       
       if (isEligibleForExtraAging) {
-        extraAgingSales.push(...saleExtraItems);
+        const motivo = normalValue < 0.01 ? "Vendido Sozinho" : "Gatilho < R$50";
+        extraAgingSales.push(...saleExtraItems.map(item => ({ ...item, motivo })));
       }
 
       // Calculate Opportunities based on normal products spent
@@ -502,6 +503,7 @@ export const AgingCampaignAnalysis: React.FC<AgingCampaignAnalysisProps> = ({ da
                   <th className="p-4 text-[10px] font-black text-slate-400 uppercase border-b">Data / Cupom</th>
                   <th className="p-4 text-[10px] font-black text-slate-400 uppercase border-b">Colaborador</th>
                   <th className="p-4 text-[10px] font-black text-slate-400 uppercase border-b">Produto</th>
+                  <th className="p-4 text-[10px] font-black text-slate-400 uppercase border-b text-center">Cenário</th>
                   <th className="p-4 text-[10px] font-black text-slate-400 uppercase border-b text-center">Desconto Aplicado</th>
                   <th className="p-4 text-[10px] font-black text-slate-400 uppercase border-b text-right">Valor Final Pago</th>
                 </tr>
@@ -521,6 +523,11 @@ export const AgingCampaignAnalysis: React.FC<AgingCampaignAnalysisProps> = ({ da
                     <td className="p-4">
                       <div className="text-[10px] font-black text-slate-700 uppercase">{sale.itemDesc}</div>
                       <div className="text-[8px] text-slate-400 font-bold uppercase">Qtd: {sale.qCom} unid.</div>
+                    </td>
+                    <td className="p-4 text-center">
+                      <Badge variant="outline" className={cn("font-black text-[9px] uppercase", sale.motivo === "Vendido Sozinho" ? "bg-amber-50 text-amber-600 border-amber-200" : "bg-orange-50 text-orange-600 border-orange-200")}>
+                        {sale.motivo}
+                      </Badge>
                     </td>
                     <td className="p-4 text-center">
                       <Badge variant="outline" className="bg-rose-50 text-rose-600 border-rose-200 font-black text-[9px]">

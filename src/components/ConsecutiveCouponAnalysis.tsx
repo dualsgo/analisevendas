@@ -69,8 +69,8 @@ export function ConsecutiveCouponAnalysis({ data }: ConsecutiveCouponAnalysisPro
           const s1 = sorted[i];
           const s2 = sorted[i+1];
           
-          const q1 = parseInt(s1.itens_qtd);
-          const q2 = parseInt(s2.itens_qtd);
+          const q1 = parseInt(s1.itens_qtd || "0");
+          const q2 = parseInt(s2.itens_qtd || "0");
           
           if (q1 === 1 && q2 === 1) {
             // Exige mesmo CPF (não vazio) para confirmar que é o mesmo cliente
@@ -114,12 +114,33 @@ export function ConsecutiveCouponAnalysis({ data }: ConsecutiveCouponAnalysisPro
 
     const dayChart = DAYS.map((label, i) => ({ label, count: dayStats[i] || 0 }));
 
+    // Impact Calculations
+    const totalItens = activeSales.reduce((acc, s) => acc + parseInt(s.itens_qtd || "0"), 0);
+    const totalValor = activeSales.reduce((acc, s) => acc + parseFloat(s.vNF || "0"), 0);
+    const totalAtendimentos = activeSales.length;
+
+    const currentPA = totalAtendimentos > 0 ? totalItens / totalAtendimentos : 0;
+    const currentTKM = totalAtendimentos > 0 ? totalValor / totalAtendimentos : 0;
+
+    const projectedAtendimentos = totalAtendimentos - occurrences.length;
+    const projectedPA = projectedAtendimentos > 0 ? totalItens / projectedAtendimentos : 0;
+    const projectedTKM = projectedAtendimentos > 0 ? totalValor / projectedAtendimentos : 0;
+
+    const impactPA = projectedPA - currentPA;
+    const impactTKM = projectedTKM - currentTKM;
+
     return {
       occurrences,
       topVendors,
       hourChart,
       dayChart,
-      total: occurrences.length
+      total: occurrences.length,
+      impactPA,
+      impactTKM,
+      projectedPA,
+      projectedTKM,
+      currentPA,
+      currentTKM
     };
   }, [data]);
 
@@ -261,33 +282,76 @@ export function ConsecutiveCouponAnalysis({ data }: ConsecutiveCouponAnalysisPro
           </CardContent>
         </Card>
 
-        {/* Lista de Exemplos Críticos */}
-        <Card className="ri-card border-none shadow-sm overflow-hidden text-black bg-white">
-          <CardHeader className="bg-slate-100 p-6 border-b">
-            <CardTitle className="text-xs font-black uppercase flex items-center gap-2 tracking-widest text-slate-600">
-              <Layers className="w-4 h-4 text-rose-500" /> Casos Recentes Detectados
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="max-h-[350px] overflow-y-auto">
-              {analytics.occurrences.reverse().slice(0, 20).map((occ, i) => (
-                <div key={i} className="p-4 border-b border-slate-50 last:border-none flex items-center justify-between hover:bg-slate-50 transition-colors">
+      {/* Lista de Exemplos Críticos */}
+      <Card className="ri-card border-none shadow-sm overflow-hidden text-black bg-white">
+        <CardHeader className="bg-slate-100 p-6 border-b">
+          <CardTitle className="text-xs font-black uppercase flex items-center gap-2 tracking-widest text-slate-600">
+            <Layers className="w-4 h-4 text-rose-500" /> Detalhamento de Ocorrências (Produtos e Valores)
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="max-h-[500px] overflow-y-auto">
+            {analytics.occurrences.reverse().map((occ, i) => (
+              <div key={i} className="p-6 border-b border-slate-100 last:border-none hover:bg-slate-50 transition-colors">
+                <div className="flex flex-col md:flex-row justify-between gap-4 mb-4">
                   <div className="space-y-1">
-                    <p className="text-xs font-black text-slate-800 uppercase leading-none">{occ.vendor}</p>
-                    <p className="text-[10px] text-slate-400 font-bold uppercase">{format(parseISO(occ.s1.dhEmi), "dd/MM 'às' HH:mm")} • Intervalo: {occ.diff} min</p>
+                    <p className="text-sm font-black text-slate-800 uppercase leading-none">{occ.vendor}</p>
+                    <div className="flex gap-2 items-center text-xs text-slate-500 font-bold uppercase">
+                      <span>Data: {format(parseISO(occ.s1.dhEmi), "dd/MM/yyyy")}</span>
+                      <span>•</span>
+                      <span>Intervalo: {occ.diff} min</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[9px] font-bold text-slate-400">{occ.cpf ? `CPF: ${occ.cpf.slice(0,3)}·····${occ.cpf.slice(-2)}` : ''}</span>
-                    <Badge variant="outline" className="text-[9px] font-black border-rose-100 text-rose-600 uppercase">FRAGMENTADO</Badge>
+                  <div className="flex flex-col items-end gap-1">
+                    <span className="text-[10px] font-bold text-slate-400">{occ.cpf ? `CPF: ${occ.cpf.slice(0,3)}·····${occ.cpf.slice(-2)}` : 'Sem CPF'}</span>
+                    <Badge variant="outline" className="text-[10px] font-black border-rose-100 text-rose-600 uppercase bg-rose-50">
+                      VENDA DIVIDIDA
+                    </Badge>
                   </div>
                 </div>
-              ))}
-              {analytics.occurrences.length === 0 && (
-                <div className="p-10 text-center text-slate-300 font-bold uppercase text-xs">Aguardando dados...</div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+                
+                {/* Detalhe dos Cupons */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Cupom 1 */}
+                  <div className="bg-white border border-slate-200 rounded-xl p-4">
+                    <div className="flex justify-between items-center mb-3">
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Cupom 1 ({format(parseISO(occ.s1.dhEmi), "HH:mm:ss")})</span>
+                      <span className="text-xs font-bold text-slate-700">R$ {parseFloat(occ.s1.vNF || "0").toFixed(2).replace('.', ',')}</span>
+                    </div>
+                    <div className="space-y-2">
+                      {occ.s1.itens?.map((item: any, idx: number) => (
+                        <div key={idx} className="flex justify-between items-start text-xs">
+                          <span className="text-slate-600 font-medium line-clamp-2 pr-2">{item.xProd}</span>
+                          <span className="font-bold text-slate-800 whitespace-nowrap">R$ {parseFloat(item.vProd || "0").toFixed(2).replace('.', ',')}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  {/* Cupom 2 */}
+                  <div className="bg-white border border-slate-200 rounded-xl p-4">
+                    <div className="flex justify-between items-center mb-3">
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Cupom 2 ({format(parseISO(occ.s2.dhEmi), "HH:mm:ss")})</span>
+                      <span className="text-xs font-bold text-slate-700">R$ {parseFloat(occ.s2.vNF || "0").toFixed(2).replace('.', ',')}</span>
+                    </div>
+                    <div className="space-y-2">
+                      {occ.s2.itens?.map((item: any, idx: number) => (
+                        <div key={idx} className="flex justify-between items-start text-xs">
+                          <span className="text-slate-600 font-medium line-clamp-2 pr-2">{item.xProd}</span>
+                          <span className="font-bold text-slate-800 whitespace-nowrap">R$ {parseFloat(item.vProd || "0").toFixed(2).replace('.', ',')}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {analytics.occurrences.length === 0 && (
+              <div className="p-10 text-center text-slate-300 font-bold uppercase text-xs">Aguardando dados...</div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
       </div>
 
       <div className="bg-slate-900 rounded-[2rem] p-8 text-white">
@@ -296,28 +360,28 @@ export function ConsecutiveCouponAnalysis({ data }: ConsecutiveCouponAnalysisPro
             <TrendingDown className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h3 className="text-lg font-black uppercase tracking-tight">Impacto na Operação</h3>
-            <p className="text-slate-400 text-xs font-medium">Como as vendas fragmentadas alteram seus resultados reais.</p>
+            <h3 className="text-lg font-black uppercase tracking-tight">Projeção Consolidada</h3>
+            <p className="text-slate-400 text-xs font-medium">Como seus indicadores seriam sem a interferência das vendas fragmentadas (juntando os cupons).</p>
           </div>
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <ImpactMetric 
             label="Inchaço de Cupons" 
-            value={`+${analytics.total}`} 
-            desc="Atendimentos 'fantasmas' criados na base." 
+            value={`-${analytics.total}`} 
+            desc="Atendimentos excedentes a serem removidos." 
           />
           <ImpactMetric 
-            label="Redução de PA" 
-            value="-0.12" 
-            desc="Média estimada de queda no indicador Peças/Atend." 
-            isNegative 
+            label="Projeção de PA" 
+            value={`+${analytics.impactPA.toFixed(2)}`} 
+            desc={`O PA passaria de ${analytics.currentPA.toFixed(2)} para ${analytics.projectedPA.toFixed(2)}.`} 
+            isNegative={false} 
           />
           <ImpactMetric 
-            label="Distorção de TKM" 
-            value="R$ -15,40" 
-            desc="Queda artificial no valor médio do ticket." 
-            isNegative 
+            label="Projeção de TKM" 
+            value={`+R$ ${analytics.impactTKM.toFixed(2).replace('.', ',')}`} 
+            desc={`O TKM passaria de R$ ${analytics.currentTKM.toFixed(2).replace('.', ',')} para R$ ${analytics.projectedTKM.toFixed(2).replace('.', ',')}.`} 
+            isNegative={false} 
           />
         </div>
       </div>

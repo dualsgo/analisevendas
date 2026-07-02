@@ -33,7 +33,12 @@ export const AgingCampaignAnalysis: React.FC<AgingCampaignAnalysisProps> = ({ da
   const stats = useMemo(() => {
     if (!data.length) return null;
 
-    const activeSales = data.filter(s => !s.is_cancelada && s.tpNF === 1);
+    const CAMPAIGN_START = new Date('2024-06-15T00:00:00-03:00');
+    const activeSales = data.filter(s => {
+      if (s.is_cancelada || s.tpNF !== 1) return false;
+      const saleDate = parseISO(s.dhEmi);
+      return saleDate >= CAMPAIGN_START;
+    });
     
     let totalAgingValue = 0;
     let totalAgingQty = 0;

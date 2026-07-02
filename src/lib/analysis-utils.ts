@@ -229,7 +229,7 @@ export function vincularTrocas(rows: DetailedSaleRow[]): VinculoTroca[] {
 }
 
 function criarVinculo(entrada: DetailedSaleRow, saida: DetailedSaleRow, metodo: string): VinculoTroca {
-  const vDiferenca = parseFloat(saida.dif_troca);
+  const vDiferenca = parseFloat(saida.vNF) - parseFloat(entrada.vNF);
   const diffItens = parseInt(saida.itens_qtd) - parseInt(entrada.itens_qtd);
 
   let score = 50;

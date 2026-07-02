@@ -61,26 +61,30 @@ interface ConsolidatedReportProps {
   vinculos: VinculoTroca[];
 }
 
-// Helper para cores dinâmicas
-const BUCKET_COLORS = [
-  "bg-slate-100 text-slate-600",
-  "bg-sky-100 text-sky-700",
-  "bg-indigo-100 text-indigo-700",
-  "bg-rose-100 text-rose-700",
-  "bg-amber-100 text-amber-700",
-  "bg-emerald-100 text-emerald-700",
-  "bg-purple-100 text-purple-700"
-];
+const POSITIONS = {
+  "P1": { label: "🟥 P1 Caixa", color: "bg-rose-100 text-rose-800", rowColor: "bg-rose-50/50 hover:bg-rose-100/50" },
+  "P2": { label: "🟨 P2 Porta", color: "bg-amber-100 text-amber-800", rowColor: "bg-amber-50/50 hover:bg-amber-100/50" },
+  "P3": { label: "🟩 P3 Salão", color: "bg-emerald-100 text-emerald-800", rowColor: "bg-emerald-50/50 hover:bg-emerald-100/50" },
+  "DIG": { label: "🟦 Digital/Ret", color: "bg-sky-100 text-sky-800", rowColor: "bg-sky-50/50 hover:bg-sky-100/50" },
+  "NONE": { label: "Sem Vendas", color: "bg-slate-100 text-slate-500", rowColor: "bg-slate-50/50 hover:bg-slate-100/50" }
+};
 
-function getDynamicGroupInfo(count: number, step: number) {
-  if (count <= 0) return { label: "Nenhum", color: "bg-white" };
-  const bucketIdx = Math.floor((count - 1) / step);
-  const start = bucketIdx * step + 1;
-  const end = (bucketIdx + 1) * step;
-  return {
-    label: `Volume ${start}-${end}`,
-    color: BUCKET_COLORS[bucketIdx % BUCKET_COLORS.length]
-  };
+function getAutoPositionKey(v: any, avgCupons: number) {
+  if (v.filtered.cupons === 0) return "NONE";
+
+  const pa = v.filtered.itens / v.filtered.cupons;
+  const isDigital = v.pickupsAtendidas > 0 && (v.pickupsAtendidas / v.filtered.cupons) > 0.3;
+  
+  if (isDigital) return "DIG";
+
+  // Alto volume de cupons (acima de 120% da média) e PA baixo = Caixa
+  if (v.filtered.cupons > (avgCupons * 1.2) && pa < 1.8) return "P1";
+
+  // PA Alto = Consultivo
+  if (pa >= 2.5) return "P3";
+  
+  // PA Médio = Pista
+  return "P2";
 }
 
 
@@ -100,15 +104,14 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
   const [includeSLP, setIncludeSLP] = useState(true);
   const [includeSacolas, setIncludeSacolas] = useState(true);
   const [selectedGroup, setSelectedGroup] = useState<string>("all");
-  const [searchTerm, setSearchTerm] = useState("");
   const [selectedColab, setSelectedColab] = useState<any>(null);
+  const [manualPositions, setManualPositions] = useState<Record<string, string>>({});
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({
     key: 'venda',
     direction: 'desc'
   });
   const { state } = useSidebar();
   const isCollapsed = state === "collapsed";
-  const [rangeStep, setRangeStep] = useState(50);
 
 
 
@@ -248,6 +251,10 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
       });
     }
 
+    const totalCupons = Object.values(vendors).reduce((acc, v: any) => acc + v.filtered.cupons, 0);
+    const activeVendors = Object.values(vendors).filter((v: any) => v.filtered.cupons > 0).length;
+    const avgCupons = activeVendors > 0 ? totalCupons / activeVendors : 0;
+
     const results = Object.values(vendors).map((v: any) => {
       const realPA = v.real.cupons > 0 ? v.real.itens / v.real.cupons : 0;
       const realTKM = v.real.cupons > 0 ? v.real.venda / v.real.cupons : 0;
@@ -259,12 +266,16 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
       const filteredIdent = v.filtered.cupons > 0 ? Math.min((v.filtered.ident / v.filtered.cupons) * 100, 100) : 0;
       const conv = v.pickupsAtendidas > 0 ? (v.adicionaisFeitos / v.pickupsAtendidas) * 100 : 0;
 
-      const { label: groupLabel, color: groupColor } = getDynamicGroupInfo(v.filtered.cupons, rangeStep);
+      const autoPosKey = getAutoPositionKey(v, avgCupons);
+      const finalPosKey = manualPositions[v.name] || autoPosKey;
+      const posInfo = POSITIONS[finalPosKey as keyof typeof POSITIONS] || POSITIONS["NONE"];
 
       return {
         ...v,
-        group: groupLabel,
-        groupColor: groupColor,
+        autoPosKey,
+        finalPosKey,
+        group: posInfo.label,
+        groupColor: posInfo.rowColor,
         current: { venda: v.filtered.venda, cupons: v.filtered.cupons, itens: v.filtered.itens },
         realMetrics: {
           pa: realPA,
@@ -301,8 +312,7 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
 
     return results
       .filter(r => 
-        (selectedGroup === "all" || r.group === selectedGroup) &&
-        (searchTerm === "" || r.name.toLowerCase().includes(searchTerm.toLowerCase()))
+        (selectedGroup === "all" || r.group === selectedGroup)
       )
       .map(r => ({
         ...r,
@@ -329,7 +339,7 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
         if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
         return 0;
       });
-  }, [data, vinculos, includePickups, includeExchanges, includeDelivery, includeFigurinhas, includeAlbuns, includeBaralhos, includeSLP, includeSacolas, selectedGroup, searchTerm, sortConfig]);
+  }, [data, vinculos, includePickups, includeExchanges, includeDelivery, includeFigurinhas, includeAlbuns, includeBaralhos, includeSLP, includeSacolas, selectedGroup, sortConfig, manualPositions]);
 
   const totals = useMemo(() => {
     const sum = reportData.reduce((acc, v) => ({
@@ -354,84 +364,43 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
     };
   }, [reportData]);
 
-  const handlePrint = () => window.print();
-
-  const groupsAvailable = useMemo(() => {
-    const labels = new Set(reportData.map(r => r.group));
-    return Array.from(labels).sort((a, b) => {
-      if (a === "Nenhum") return 1;
-      if (b === "Nenhum") return -1;
-      const numA = parseInt(a.split(" ")[1]?.split("-")[0] || "0");
-      const numB = parseInt(b.split(" ")[1]?.split("-")[0] || "0");
-      return numA - numB;
-    });
-  }, [reportData]);
-
   return (
     <div className={cn(
       "space-y-6 animate-in fade-in duration-500 pb-20 print:p-0 print:pb-0 print:space-y-0",
       isCollapsed ? "text-mode-large" : ""
     )}>
       {/* HEADER EXECUTIVO */}
-      <div className="bg-white rounded-[2rem] p-6 border-2 border-slate-100 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6 print:hidden">
-        <div className="flex items-center gap-4">
-          <div className="bg-slate-900 p-3 rounded-2xl text-white shadow-lg"><FileText className="w-6 h-6" /></div>
-          <div className="hidden sm:block">
-            <h1 className={cn("font-black uppercase tracking-tight text-slate-800", isCollapsed ? "text-2xl" : "text-xl")}>Performance Unificada</h1>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Visão Geral e Individual do Time</p>
+      <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm flex flex-col xl:flex-row items-center justify-between gap-4 print:hidden">
+        <div className="flex items-center gap-3 w-full xl:w-auto">
+          <div className="bg-slate-900 p-2.5 rounded-xl text-white shadow-md"><FileText className="w-5 h-5" /></div>
+          <div>
+            <h1 className={cn("font-black uppercase tracking-tight text-slate-800", isCollapsed ? "text-xl" : "text-lg")}>Performance Unificada</h1>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mt-0.5">Visão Geral do Time</p>
           </div>
         </div>
         
-        <div className="flex flex-wrap items-center gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100 flex-1 justify-end">
-          <div className="flex flex-col gap-1.5 mr-auto">
-            <Label className="text-[9px] font-black uppercase text-slate-400 px-1">Buscar</Label>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
-              <input 
-                type="text"
-                placeholder="Nome..."
-                className="h-9 w-32 md:w-48 pl-9 rounded-xl border-slate-200 bg-white font-bold text-[10px] uppercase outline-none focus:ring-1 focus:ring-orange-500"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
+        <div className="flex flex-wrap items-center gap-4 bg-slate-50 p-2.5 rounded-xl border border-slate-100 flex-1 justify-end w-full xl:w-auto">
+          
+          <div className="flex flex-col gap-1 border-r border-slate-200 pr-4">
+            <span className="text-[8px] font-black uppercase text-slate-400">Canais Extras</span>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <Badge onClick={() => setIncludePickups(!includePickups)} className={cn("cursor-pointer font-black text-[9px] uppercase transition-colors shadow-none", includePickups ? "bg-sky-100 text-sky-700 hover:bg-sky-200" : "bg-white text-slate-400 border-dashed border hover:bg-slate-100")}><Smartphone className="w-3 h-3 mr-1"/> Retiradas</Badge>
+              <Badge onClick={() => setIncludeExchanges(!includeExchanges)} className={cn("cursor-pointer font-black text-[9px] uppercase transition-colors shadow-none", includeExchanges ? "bg-purple-100 text-purple-700 hover:bg-purple-200" : "bg-white text-slate-400 border-dashed border hover:bg-slate-100")}><ArrowRightLeft className="w-3 h-3 mr-1"/> Trocas</Badge>
+              <Badge onClick={() => setIncludeDelivery(!includeDelivery)} className={cn("cursor-pointer font-black text-[9px] uppercase transition-colors shadow-none", includeDelivery ? "bg-rose-100 text-rose-700 hover:bg-rose-200" : "bg-white text-slate-400 border-dashed border hover:bg-slate-100")}><Bike className="w-3 h-3 mr-1"/> Delivery</Badge>
             </div>
           </div>
 
-          <div className="flex flex-col gap-2 border-r border-slate-200 pr-4 mr-2">
-            <div className="flex items-center gap-3">
-              <Switch id="inc-pickups" checked={includePickups} onCheckedChange={setIncludePickups} />
-              <Label htmlFor="inc-pickups" className="text-[10px] font-black uppercase cursor-pointer flex items-center gap-1.5 min-w-[120px]">
-                <Smartphone className="w-3 h-3 text-sky-500" /> Incluir Retiradas
-              </Label>
-            </div>
-            <div className="flex items-center gap-3">
-              <Switch id="inc-trocas" checked={includeExchanges} onCheckedChange={setIncludeExchanges} />
-              <Label htmlFor="inc-trocas" className="text-[10px] font-black uppercase cursor-pointer flex items-center gap-1.5 min-w-[120px]">
-                <ArrowRightLeft className="w-3 h-3 text-purple-500" /> Incluir Trocas
-              </Label>
-            </div>
-            <div className="flex items-center gap-3">
-              <Switch id="inc-delivery" checked={includeDelivery} onCheckedChange={setIncludeDelivery} />
-              <Label htmlFor="inc-delivery" className="text-[10px] font-black uppercase cursor-pointer flex items-center gap-1.5 min-w-[120px]">
-                <Bike className="w-3 h-3 text-rose-500" /> Incluir Delivery
-              </Label>
-            </div>
-          </div>
-          <div className="flex flex-col gap-1.5 border-r border-slate-200 pr-4 mr-2 hidden lg:flex">
+          <div className="flex flex-col gap-1 hidden lg:flex">
             <span className="text-[8px] font-black uppercase text-slate-400">Considerar Itens</span>
-            <div className="flex items-center gap-1.5 flex-wrap w-56">
-              <Badge onClick={() => setIncludeFigurinhas(!includeFigurinhas)} className={cn("cursor-pointer font-black text-[9px] uppercase hover:bg-amber-200 transition-colors", includeFigurinhas ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-400 border-dashed border-slate-300 border")}>Figurinhas</Badge>
-              <Badge onClick={() => setIncludeAlbuns(!includeAlbuns)} className={cn("cursor-pointer font-black text-[9px] uppercase hover:bg-sky-200 transition-colors", includeAlbuns ? "bg-sky-100 text-sky-700" : "bg-slate-100 text-slate-400 border-dashed border-slate-300 border")}>Álbuns</Badge>
-              <Badge onClick={() => setIncludeBaralhos(!includeBaralhos)} className={cn("cursor-pointer font-black text-[9px] uppercase hover:bg-rose-200 transition-colors", includeBaralhos ? "bg-rose-100 text-rose-700" : "bg-slate-100 text-slate-400 border-dashed border-slate-300 border")}>Baralhos</Badge>
-              <Badge onClick={() => setIncludeSLP(!includeSLP)} className={cn("cursor-pointer font-black text-[9px] uppercase hover:bg-orange-200 transition-colors", includeSLP ? "bg-orange-100 text-orange-700" : "bg-slate-100 text-slate-400 border-dashed border-slate-300 border")}>SLP</Badge>
-              <Badge onClick={() => setIncludeSacolas(!includeSacolas)} className={cn("cursor-pointer font-black text-[9px] uppercase hover:bg-emerald-200 transition-colors", includeSacolas ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-400 border-dashed border-slate-300 border")}>Sacolas</Badge>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <Badge onClick={() => setIncludeFigurinhas(!includeFigurinhas)} className={cn("cursor-pointer font-black text-[9px] uppercase transition-colors shadow-none", includeFigurinhas ? "bg-amber-100 text-amber-700 hover:bg-amber-200" : "bg-white text-slate-400 border-dashed border hover:bg-slate-100")}>Figurinhas</Badge>
+              <Badge onClick={() => setIncludeAlbuns(!includeAlbuns)} className={cn("cursor-pointer font-black text-[9px] uppercase transition-colors shadow-none", includeAlbuns ? "bg-sky-100 text-sky-700 hover:bg-sky-200" : "bg-white text-slate-400 border-dashed border hover:bg-slate-100")}>Álbuns</Badge>
+              <Badge onClick={() => setIncludeBaralhos(!includeBaralhos)} className={cn("cursor-pointer font-black text-[9px] uppercase transition-colors shadow-none", includeBaralhos ? "bg-rose-100 text-rose-700 hover:bg-rose-200" : "bg-white text-slate-400 border-dashed border hover:bg-slate-100")}>Baralhos</Badge>
+              <Badge onClick={() => setIncludeSLP(!includeSLP)} className={cn("cursor-pointer font-black text-[9px] uppercase transition-colors shadow-none", includeSLP ? "bg-orange-100 text-orange-700 hover:bg-orange-200" : "bg-white text-slate-400 border-dashed border hover:bg-slate-100")}>SLP</Badge>
+              <Badge onClick={() => setIncludeSacolas(!includeSacolas)} className={cn("cursor-pointer font-black text-[9px] uppercase transition-colors shadow-none", includeSacolas ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200" : "bg-white text-slate-400 border-dashed border hover:bg-slate-100")}>Sacolas</Badge>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Button onClick={handlePrint} variant="outline" className="rounded-xl font-black text-[10px] gap-2 border-slate-200 hover:bg-white hover:text-orange-500 shadow-sm">
-              <Printer className="w-4 h-4" /> IMPRIMIR
-            </Button>
-          </div>
+          
         </div>
       </div>
 
@@ -475,105 +444,166 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
             </TableRow>
           </TableHeader>
           <TableBody>
-            {reportData.map((v, i) => {
-              const deltaPA = v.deltas.pa;
-              const deltaTKM = v.deltas.tkm;
-              const deltaIdent = v.deltas.ident;
-              const rowColor = v.groupColor || "bg-white";
+            {["P3", "P2", "P1", "DIG", "NONE"].map(posKey => {
+               const posInfo = POSITIONS[posKey as keyof typeof POSITIONS];
+               const members = reportData.filter(r => r.finalPosKey === posKey);
+               if (members.length === 0) return null;
 
-              return (
-                <TableRow 
-                  key={i} 
-                  onClick={() => setSelectedColab(v)}
-                  className={cn("border-slate-100 hover:bg-orange-50/60 group cursor-pointer print:bg-white print:border-b print:border-slate-300 print:h-8 h-10", rowColor)}>
-                  <TableCell className="pl-3 md:pl-5 print:pl-1">
-                    <p className={cn("font-black text-slate-800 uppercase leading-none text-[11px] md:text-xs print:text-[8px]")}>{v.name}</p>
-                  </TableCell>
-                  
-                  <TableCell className="text-right">
-                    <span className="font-black text-slate-800 text-xs md:text-sm print:text-[8px]">{formatBRL(v.current.venda)}</span>
-                  </TableCell>
-                  
-                  <TableCell className="text-center">
-                    <span className="font-black text-slate-700 text-xs md:text-sm print:text-[8px]">{v.current.cupons}</span>
-                  </TableCell>
+               // Calcs for Subtotal
+               const gCupons = members.reduce((acc, v) => acc + v.current.cupons, 0);
+               const gItens = members.reduce((acc, v) => acc + v.current.itens, 0);
+               const gVenda = members.reduce((acc, v) => acc + v.current.venda, 0);
+               const gIdent = members.reduce((acc, v) => acc + v.filtered.ident, 0);
+               const gSlp = members.reduce((acc, v) => acc + v.slpQty, 0);
+               const gBaralhos = members.reduce((acc, v) => acc + v.baralhoQty, 0);
+               const gSacolas = members.reduce((acc, v) => acc + v.sacolaQty, 0);
+               const gPickups = members.reduce((acc, v) => acc + v.pickupsAtendidas, 0);
+               const gAdic = members.reduce((acc, v) => acc + v.adicionaisFeitos, 0);
 
-                  <TableCell className="text-center">
-                    <span className="font-black text-slate-700 text-xs md:text-sm print:text-[8px]">{v.current.itens.toFixed(0)}</span>
-                  </TableCell>
+               const gPa = gCupons > 0 ? gItens / gCupons : 0;
+               const gTkm = gCupons > 0 ? gVenda / gCupons : 0;
+               const gPm = gItens > 0 ? gVenda / gItens : 0;
+               const gIdentPerc = gCupons > 0 ? Math.min(gIdent / gCupons, 1) * 100 : 0;
+               const gConv = gPickups > 0 ? (gAdic / gPickups) * 100 : 0;
 
-                  <TableCell className="text-center">
-                    <div className="flex items-center justify-center gap-0.5">
-                      <span className={cn("font-black text-xs md:text-sm print:text-[8px]", deltaPA > 0 ? "text-emerald-700" : deltaPA < 0 ? "text-rose-600" : "text-slate-700")}>{formatNum(v.metrics.pa)}</span>
-                      {deltaPA !== 0 && (deltaPA > 0 ? <ArrowUpRight className="w-3 h-3 text-emerald-500 print:hidden" /> : <ArrowDownRight className="w-3 h-3 text-rose-500 print:hidden" />)}
-                    </div>
-                  </TableCell>
+               return (
+                 <React.Fragment key={posKey}>
+                   {members.map((v, i) => {
+                     const deltaPA = v.deltas.pa;
+                     const deltaTKM = v.deltas.tkm;
+                     const deltaIdent = v.deltas.ident;
+                     const rowColor = v.groupColor || "bg-white";
 
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-0.5">
-                      <span className={cn("font-black text-xs md:text-sm print:text-[8px]", deltaTKM > 0 ? "text-emerald-700" : deltaTKM < 0 ? "text-rose-600" : "text-slate-700")}>{formatBRL(v.metrics.tkm)}</span>
-                      {deltaTKM !== 0 && (deltaTKM > 0 ? <ArrowUpRight className="w-3 h-3 text-emerald-500 print:hidden" /> : <ArrowDownRight className="w-3 h-3 text-rose-500 print:hidden" />)}
-                    </div>
-                  </TableCell>
+                     return (
+                       <TableRow 
+                         key={v.name + i} 
+                         onClick={() => setSelectedColab(v)}
+                         className={cn("border-slate-100 group cursor-pointer print:bg-white print:border-b print:border-slate-300 print:h-8 h-10", rowColor)}>
+                         <TableCell className="pl-3 md:pl-5 print:pl-1">
+                           <div className="flex flex-col gap-1 items-start">
+                             <p className={cn("font-black text-slate-800 uppercase leading-none text-[11px] md:text-xs print:text-[8px]")}>{v.name}</p>
+                             <Select value={v.finalPosKey} onValueChange={(val) => setManualPositions(prev => ({...prev, [v.name]: val}))}>
+                               <SelectTrigger className={cn("h-5 w-[100px] text-[9px] font-black uppercase px-1.5 py-0 border-none", posInfo.color)} onClick={(e) => e.stopPropagation()}>
+                                 <SelectValue />
+                               </SelectTrigger>
+                               <SelectContent>
+                                 <SelectItem value="P1" className="text-[10px] font-black uppercase text-rose-800">🟥 P1 CAIXA</SelectItem>
+                                 <SelectItem value="P2" className="text-[10px] font-black uppercase text-amber-800">🟨 P2 PORTA</SelectItem>
+                                 <SelectItem value="P3" className="text-[10px] font-black uppercase text-emerald-800">🟩 P3 SALÃO</SelectItem>
+                                 <SelectItem value="DIG" className="text-[10px] font-black uppercase text-sky-800">🟦 DIGITAL</SelectItem>
+                                 <SelectItem value="NONE" className="text-[10px] font-black uppercase text-slate-500">SEM VENDAS</SelectItem>
+                               </SelectContent>
+                             </Select>
+                           </div>
+                         </TableCell>
+                         
+                         <TableCell className="text-right">
+                           <span className="font-black text-slate-800 text-xs md:text-sm print:text-[8px]">{formatBRL(v.current.venda)}</span>
+                         </TableCell>
+                         
+                         <TableCell className="text-center">
+                           <span className="font-black text-slate-700 text-xs md:text-sm print:text-[8px]">{v.current.cupons}</span>
+                         </TableCell>
 
-                  <TableCell className="text-right">
-                    <span className="font-black text-slate-700 text-xs md:text-sm print:text-[8px]">{formatBRL(v.metrics.pm)}</span>
-                  </TableCell>
+                         <TableCell className="text-center">
+                           <span className="font-black text-slate-700 text-xs md:text-sm print:text-[8px]">{v.current.itens.toFixed(0)}</span>
+                         </TableCell>
 
-                  <TableCell className="text-center">
-                    <div className="flex items-center justify-center gap-0.5">
-                      <span className={cn("font-black text-xs md:text-sm print:text-[8px]", deltaIdent > 0 ? "text-emerald-700" : deltaIdent < 0 ? "text-rose-600" : "text-slate-700")}>{v.metrics.ident.toFixed(0)}%</span>
-                      {deltaIdent !== 0 && (deltaIdent > 0 ? <ArrowUpRight className="w-3 h-3 text-emerald-500 print:hidden" /> : <ArrowDownRight className="w-3 h-3 text-rose-500 print:hidden" />)}
-                    </div>
-                  </TableCell>
+                         <TableCell className="text-center">
+                           <div className="flex items-center justify-center gap-0.5">
+                             <span className={cn("font-black text-xs md:text-sm print:text-[8px]", deltaPA > 0 ? "text-emerald-700" : deltaPA < 0 ? "text-rose-600" : "text-slate-700")}>{formatNum(v.metrics.pa)}</span>
+                             {deltaPA !== 0 && (deltaPA > 0 ? <ArrowUpRight className="w-3 h-3 text-emerald-500 print:hidden" /> : <ArrowDownRight className="w-3 h-3 text-rose-500 print:hidden" />)}
+                           </div>
+                         </TableCell>
 
-                  <TableCell className="text-center">
-                    <span className="hidden print:inline text-[8px] font-black">{v.slpQty}</span>
-                    <Badge className={cn("print:hidden font-black border-none px-1.5 text-[10px] h-5", v.slpQty > 0 ? "bg-orange-100 text-orange-700" : "bg-slate-50 text-slate-300")}>
-                      <Star className="fill-current w-2.5 h-2.5 mr-1" /> {v.slpQty}
-                    </Badge>
-                  </TableCell>
+                         <TableCell className="text-right">
+                           <div className="flex items-center justify-end gap-0.5">
+                             <span className={cn("font-black text-xs md:text-sm print:text-[8px]", deltaTKM > 0 ? "text-emerald-700" : deltaTKM < 0 ? "text-rose-600" : "text-slate-700")}>{formatBRL(v.metrics.tkm)}</span>
+                             {deltaTKM !== 0 && (deltaTKM > 0 ? <ArrowUpRight className="w-3 h-3 text-emerald-500 print:hidden" /> : <ArrowDownRight className="w-3 h-3 text-rose-500 print:hidden" />)}
+                           </div>
+                         </TableCell>
 
-                  <TableCell className="text-center">
-                    <span className="hidden print:inline text-[8px] font-black">{v.baralhoQty}</span>
-                    <Badge className={cn("print:hidden font-black border-none px-1.5 text-[10px] h-5", v.baralhoQty > 0 ? "bg-rose-100 text-rose-700" : "bg-slate-50 text-slate-300")}>
-                       🃏 {v.baralhoQty}
-                    </Badge>
-                  </TableCell>
+                         <TableCell className="text-right">
+                           <span className="font-black text-slate-700 text-xs md:text-sm print:text-[8px]">{formatBRL(v.metrics.pm)}</span>
+                         </TableCell>
 
-                  <TableCell className="text-center">
-                    <span className="hidden print:inline text-[8px] font-black">{v.sacolaQty}</span>
-                    <Badge className={cn("print:hidden font-black border-none px-1.5 text-[10px] h-5", v.sacolaQty > 0 ? "bg-emerald-100 text-emerald-700" : "bg-slate-50 text-slate-300")}>
-                       🛍️ {v.sacolaQty}
-                    </Badge>
-                  </TableCell>
+                         <TableCell className="text-center">
+                           <div className="flex items-center justify-center gap-0.5">
+                             <span className={cn("font-black text-xs md:text-sm print:text-[8px]", deltaIdent > 0 ? "text-emerald-700" : deltaIdent < 0 ? "text-rose-600" : "text-slate-700")}>{v.metrics.ident.toFixed(0)}%</span>
+                             {deltaIdent !== 0 && (deltaIdent > 0 ? <ArrowUpRight className="w-3 h-3 text-emerald-500 print:hidden" /> : <ArrowDownRight className="w-3 h-3 text-rose-500 print:hidden" />)}
+                           </div>
+                         </TableCell>
 
-                  <TableCell className="text-center">
-                    <span className="hidden print:inline text-[8px] font-black">{v.pickupsAtendidas}</span>
-                    <Badge className={cn("print:hidden font-black border-none px-1.5 text-[10px] h-5", v.pickupsAtendidas > 0 ? "bg-sky-100 text-sky-700" : "bg-slate-50 text-slate-300")}>
-                      <Smartphone className="fill-current w-2.5 h-2.5 mr-1" /> {v.pickupsAtendidas}
-                    </Badge>
-                  </TableCell>
+                         <TableCell className="text-center">
+                           <span className="hidden print:inline text-[8px] font-black">{v.slpQty}</span>
+                           <Badge className={cn("print:hidden font-black border-none px-1.5 text-[10px] h-5", v.slpQty > 0 ? "bg-orange-100 text-orange-700" : "bg-slate-50 text-slate-300")}>
+                             <Star className="fill-current w-2.5 h-2.5 mr-1" /> {v.slpQty}
+                           </Badge>
+                         </TableCell>
 
-                  <TableCell className="text-center">
-                    <span className="hidden print:inline text-[8px] font-black">{v.adicionaisFeitos}</span>
-                    <Badge className={cn("print:hidden font-black border-none px-1.5 text-[10px] h-5", v.adicionaisFeitos > 0 ? "bg-emerald-100 text-emerald-700" : "bg-slate-50 text-slate-300")}>
-                      <Zap className="fill-current w-2.5 h-2.5 mr-1" /> {v.adicionaisFeitos}
-                    </Badge>
-                  </TableCell>
+                         <TableCell className="text-center">
+                           <span className="hidden print:inline text-[8px] font-black">{v.baralhoQty}</span>
+                           <Badge className={cn("print:hidden font-black border-none px-1.5 text-[10px] h-5", v.baralhoQty > 0 ? "bg-rose-100 text-rose-700" : "bg-slate-50 text-slate-300")}>
+                              🃏 {v.baralhoQty}
+                           </Badge>
+                         </TableCell>
 
-                  <TableCell className="text-right pr-3 md:pr-5 print:pr-1">
-                    <span className="hidden print:inline text-[8px] font-black">{formatNum(v.metrics.conv, 1)}%</span>
-                    <Badge className={cn(
-                      "print:hidden font-black border-none px-1.5 text-[10px] h-5",
-                      v.metrics.conv >= 20 ? "bg-emerald-100 text-emerald-700" : 
-                      v.metrics.conv >= 10 ? "bg-sky-100 text-sky-700" : "bg-slate-100 text-slate-400"
-                    )}>
-                      {formatNum(v.metrics.conv, 1)}%
-                    </Badge>
-                  </TableCell>
-                </TableRow>
-              );
+                         <TableCell className="text-center">
+                           <span className="hidden print:inline text-[8px] font-black">{v.sacolaQty}</span>
+                           <Badge className={cn("print:hidden font-black border-none px-1.5 text-[10px] h-5", v.sacolaQty > 0 ? "bg-emerald-100 text-emerald-700" : "bg-slate-50 text-slate-300")}>
+                              🛍️ {v.sacolaQty}
+                           </Badge>
+                         </TableCell>
+
+                         <TableCell className="text-center">
+                           <span className="hidden print:inline text-[8px] font-black">{v.pickupsAtendidas}</span>
+                           <Badge className={cn("print:hidden font-black border-none px-1.5 text-[10px] h-5", v.pickupsAtendidas > 0 ? "bg-sky-100 text-sky-700" : "bg-slate-50 text-slate-300")}>
+                             <Smartphone className="fill-current w-2.5 h-2.5 mr-1" /> {v.pickupsAtendidas}
+                           </Badge>
+                         </TableCell>
+
+                         <TableCell className="text-center">
+                           <span className="hidden print:inline text-[8px] font-black">{v.adicionaisFeitos}</span>
+                           <Badge className={cn("print:hidden font-black border-none px-1.5 text-[10px] h-5", v.adicionaisFeitos > 0 ? "bg-emerald-100 text-emerald-700" : "bg-slate-50 text-slate-300")}>
+                             <Zap className="fill-current w-2.5 h-2.5 mr-1" /> {v.adicionaisFeitos}
+                           </Badge>
+                         </TableCell>
+
+                         <TableCell className="text-right pr-3 md:pr-5 print:pr-1">
+                           <span className="hidden print:inline text-[8px] font-black">{formatNum(v.metrics.conv, 1)}%</span>
+                           <Badge className={cn(
+                             "print:hidden font-black border-none px-1.5 text-[10px] h-5",
+                             v.metrics.conv >= 20 ? "bg-emerald-100 text-emerald-700" : 
+                             v.metrics.conv >= 10 ? "bg-sky-100 text-sky-700" : "bg-slate-100 text-slate-400"
+                           )}>
+                             {formatNum(v.metrics.conv, 1)}%
+                           </Badge>
+                         </TableCell>
+                       </TableRow>
+                     );
+                   })}
+
+                   {/* SUBTOTAL ROW */}
+                   <TableRow className="border-t border-b-[6px] border-b-slate-100 print:border-b-2 print:border-black font-black bg-slate-900 text-white hover:bg-slate-800 transition-colors">
+                     <TableCell className="pl-3 md:pl-5 print:pl-1 text-[9px] uppercase tracking-wider text-slate-300">
+                       <span className="bg-white/10 px-2 py-1 rounded-md border border-white/10">Subtotal • {posInfo.label.split(' ')[0]} {posInfo.label.split(' ')[1]}</span>
+                     </TableCell>
+                     <TableCell className="text-right text-xs md:text-sm print:text-[8px] text-emerald-400">{formatBRL(gVenda)}</TableCell>
+                     <TableCell className="text-center text-xs md:text-sm print:text-[8px]">{gCupons}</TableCell>
+                     <TableCell className="text-center text-xs md:text-sm print:text-[8px]">{gItens.toFixed(0)}</TableCell>
+                     <TableCell className="text-center text-xs md:text-sm print:text-[8px] text-orange-400">{formatNum(gPa)}</TableCell>
+                     <TableCell className="text-right text-xs md:text-sm print:text-[8px] text-sky-400">{formatBRL(gTkm)}</TableCell>
+                     <TableCell className="text-right text-xs md:text-sm print:text-[8px]">{formatBRL(gPm)}</TableCell>
+                     <TableCell className="text-center text-xs md:text-sm print:text-[8px]">{gIdentPerc.toFixed(0)}%</TableCell>
+                     <TableCell className="text-center text-[10px] md:text-xs print:text-[8px] text-slate-300">{gSlp}</TableCell>
+                     <TableCell className="text-center text-[10px] md:text-xs print:text-[8px] text-slate-300">🃏 {gBaralhos}</TableCell>
+                     <TableCell className="text-center text-[10px] md:text-xs print:text-[8px] text-slate-300">🛍️ {gSacolas}</TableCell>
+                     <TableCell className="text-center text-[10px] md:text-xs print:text-[8px] text-slate-300">{gPickups}</TableCell>
+                     <TableCell className="text-center text-[10px] md:text-xs print:text-[8px] text-slate-300">{gAdic}</TableCell>
+                     <TableCell className="text-right pr-3 md:pr-5 print:pr-1 text-[10px] md:text-xs print:text-[8px] text-amber-400">{formatNum(gConv, 1)}%</TableCell>
+                   </TableRow>
+                 </React.Fragment>
+               );
             })}
           </TableBody>
           <TableFooter className="bg-slate-900 print:bg-slate-200">
@@ -667,10 +697,10 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
       <div className="flex justify-between items-center text-[8px] font-black text-slate-400 uppercase tracking-widest px-4 border-t pt-4 print:pt-1 print:border-none print:text-slate-600">
         <div className="flex items-center gap-2">
           <Info className="w-3 h-3 print:hidden" />
-          <p>Média Relativa por Grupo Ativada • Auditoria Interna Ri Happy</p>
+          <p>Comparativo Justo por Posicionamento Ativado • Auditoria Interna Ri Happy</p>
           <AnalysisHelp 
-            title="Média Relativa por Grupo" 
-            description="Os colaboradores são comparados apenas com outros que atendem volume similar. Isso garante uma comparação justa entre quem fica no balcão e quem fica no meio de loja." 
+            title="Posicionamento de Loja" 
+            description="Os colaboradores são divididos automaticamente baseados no seu comportamento (Ex: Alto Volume e Baixo PA = Caixa. PA Alto = Salão). Isso permite cobrar resultados justos de cada um de acordo com sua função real no dia a dia, não apenas do cargo." 
             className="text-slate-400 hover:text-slate-600"
             iconClassName="w-3 h-3"
           />

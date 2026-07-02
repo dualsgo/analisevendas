@@ -48,19 +48,22 @@ export default function Home() {
                 className="h-full flex flex-col items-center justify-center p-4 md:p-8 absolute inset-0 overflow-y-auto"
               >
                 <div className={cn(
-                  "w-full max-w-6xl flex flex-col gap-6",
-                  (history.length > 0 || parsedRows.length > 0) && "lg:grid lg:grid-cols-12 lg:gap-8 items-start"
+                  "w-full max-w-7xl mx-auto flex flex-col gap-8",
+                  (history.length > 0 || parsedRows.length > 0) ? "lg:grid lg:grid-cols-12 items-start" : "flex flex-col items-center justify-center"
                 )}>
                   <motion.section 
                     variants={zoomIn}
                     initial="hidden"
                     animate="visible"
                     className={cn(
-                      "bg-white rounded-[2rem] md:rounded-[3rem] shadow-sm border border-slate-200 p-6 md:p-10 text-center",
-                      (history.length > 0 || parsedRows.length > 0) ? "lg:col-span-12 max-w-4xl mx-auto" : "max-w-2xl mx-auto w-full"
+                      "bg-white/80 backdrop-blur-2xl rounded-[2.5rem] md:rounded-[3.5rem] shadow-2xl shadow-indigo-500/10 border border-white p-6 md:p-12 text-center relative overflow-hidden",
+                      (history.length > 0 || parsedRows.length > 0) ? "lg:col-span-7" : "max-w-3xl w-full mx-auto"
                     )}
                   >
-                    <div className="mb-6 md:mb-8">
+                    {/* Decorative background element */}
+                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-32 bg-indigo-500/10 blur-[100px] rounded-full pointer-events-none" />
+                    
+                    <div className="mb-6 md:mb-10 relative z-10">
                       <div className="inline-block bg-indigo-50 text-indigo-600 px-4 py-1.5 rounded-full text-[9px] md:text-[10px] font-bold uppercase mb-4 tracking-widest">Início da Jornada</div>
                       <h2 className="text-xl md:text-3xl font-bold text-slate-800 tracking-tight mb-2 leading-tight">Painel de Inteligência</h2>
                       <p className="text-slate-500 font-medium text-xs md:text-sm leading-relaxed max-w-md mx-auto mb-6">
@@ -116,7 +119,7 @@ export default function Home() {
                       variants={slideUp}
                       initial="hidden"
                       animate="visible"
-                      className="lg:col-span-12 flex flex-col gap-6 max-w-4xl mx-auto w-full"
+                      className="lg:col-span-5 w-full flex flex-col gap-6"
                     >
                       <UploadHistory 
                         history={history} 

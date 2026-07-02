@@ -414,22 +414,44 @@ export function GapAnalysis({ data }: ProductivityAnalysisProps) {
                     </p>
                  </div>
 
-                 <div className="mt-auto grid grid-cols-2 gap-4">
-                    <div className="p-5 rounded-2xl bg-white/5 border border-white/10">
-                       <p className="text-[10px] font-black uppercase tracking-widest text-indigo-300 mb-1">Seu PA Real de Loja</p>
-                       <div className="flex items-center gap-3">
-                         <p className="text-3xl font-black text-white">{simAnalysis.semDigital.pa.toFixed(2)}</p>
-                         <span className={cn(
-                           "text-[10px] font-black uppercase px-2 py-0.5 rounded-full",
-                           simAnalysis.semDigital.pa > metrics.pa ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/20" : "bg-white/10 text-slate-300"
-                         )}>
-                            (O Global é {metrics.pa.toFixed(2)})
-                         </span>
+                 <div className="mt-auto space-y-4">
+                    {/* Consolidado Geral */}
+                    <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
+                       <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3 border-b border-white/5 pb-2">1. Cenário Consolidado Geral (Com Omni)</p>
+                       <div className="grid grid-cols-3 gap-2">
+                         <div>
+                           <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-0.5">Vendas Totais</p>
+                           <p className="text-sm font-black text-slate-300">{formatBRL(metrics.sales)}</p>
+                         </div>
+                         <div>
+                           <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-0.5">Total Cupons</p>
+                           <p className="text-sm font-black text-slate-300">{metrics.cupons}</p>
+                         </div>
+                         <div>
+                           <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-0.5">P.A. Global</p>
+                           <p className="text-sm font-black text-slate-300">{metrics.pa.toFixed(2)}</p>
+                         </div>
                        </div>
                     </div>
-                    <div className="p-5 rounded-2xl bg-white/5 border border-white/10 flex flex-col justify-center">
-                       <p className="text-[10px] font-black uppercase tracking-widest text-indigo-300 mb-1">Geração de Verba (Balcão)</p>
-                       <p className="text-xl font-black text-white">{formatBRL(simAnalysis.semDigital.sales)}</p>
+
+                    {/* Visão Balcão Raiz (Expurgado) */}
+                    <div className="p-4 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 relative overflow-hidden">
+                       <div className="absolute top-0 right-0 p-3"><Store className="w-12 h-12 text-indigo-500/10" /></div>
+                       <p className="text-[10px] font-black uppercase tracking-widest text-indigo-300 mb-3 border-b border-indigo-500/10 pb-2 relative z-10">2. Cenário Balcão Raiz (Expurgado / Só Loja Física)</p>
+                       <div className="grid grid-cols-3 gap-2 relative z-10">
+                         <div>
+                           <p className="text-[9px] font-black uppercase tracking-widest text-indigo-400 mb-0.5">Vendas (Balcão)</p>
+                           <p className="text-base font-black text-white">{formatBRL(simAnalysis.semDigital.sales)}</p>
+                         </div>
+                         <div>
+                           <p className="text-[9px] font-black uppercase tracking-widest text-indigo-400 mb-0.5">Cupons Físicos</p>
+                           <p className="text-base font-black text-white">{simAnalysis.semDigital.cupons}</p>
+                         </div>
+                         <div>
+                           <p className="text-[9px] font-black uppercase tracking-widest text-emerald-400 mb-0.5">P.A. Real da Loja</p>
+                           <p className="text-lg font-black text-emerald-400">{simAnalysis.semDigital.pa.toFixed(2)}</p>
+                         </div>
+                       </div>
                     </div>
                  </div>
               </div>

@@ -26,9 +26,6 @@ export function Header({ status, fileStats, onReset }: HeaderProps) {
     >
       <div className="container mx-auto px-4 flex items-center justify-between gap-4">
         <div className="flex items-center gap-2 md:gap-3 shrink-0">
-          {status === "success" && (
-            <SidebarTrigger className="hover:bg-slate-100 border-0 text-slate-500" title="Expandir/Recolher Menu" />
-          )}
           <div className="bg-indigo-600 p-1.5 rounded-lg shadow-sm flex items-center justify-center">
             <Sparkles className="w-5 h-5 text-white" />
           </div>

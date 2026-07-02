@@ -154,14 +154,18 @@ export function OperationalRhythm({ data }: OperationalRhythmProps) {
     return Object.entries(byVend).map(([nome, ts]) => {
       const sorted = ts.sort((a, b) => a - b);
       const deltas = sorted.slice(1).map((t, i) => (t - sorted[i]) / 60000); // em minutos
-      const posDeltas = deltas.filter(d => d >= 1 && d <= 120); // ignora sobreposições e outliers > 2h
+      const posDeltas = deltas.filter(d => d >= 0.5 && d <= 120); // ignora sobreposições perfeitas e outliers > 2h
       if (posDeltas.length < 2) return null;
       const median = posDeltas.slice().sort((a, b) => a - b)[Math.floor(posDeltas.length / 2)];
       const mean = posDeltas.reduce((a, b) => a + b, 0) / posDeltas.length;
       const stddev = Math.sqrt(posDeltas.map(d => (d - mean) ** 2).reduce((a, b) => a + b, 0) / posDeltas.length);
       const maxGap = Math.max(...posDeltas);
-      return { nome, mediana: +median.toFixed(0), desvio: +stddev.toFixed(0), maxGap: +maxGap.toFixed(0), nVendas: sorted.length };
-    }).filter(Boolean).sort((a, b) => a!.mediana - b!.mediana) as { nome: string; mediana: number; desvio: number; maxGap: number; nVendas: number }[];
+      
+      const rushCount = posDeltas.filter(d => d < 3).length;
+      const rushPercent = (rushCount / posDeltas.length) * 100;
+
+      return { nome, mediana: +median.toFixed(0), desvio: +stddev.toFixed(0), maxGap: +maxGap.toFixed(0), nVendas: sorted.length, rushPercent };
+    }).filter(Boolean).sort((a, b) => a!.mediana - b!.mediana) as { nome: string; mediana: number; desvio: number; maxGap: number; nVendas: number, rushPercent: number }[];
   }, [sales]);
 
   const medianaGeral = useMemo(() => {
@@ -1049,9 +1053,8 @@ export function OperationalRhythm({ data }: OperationalRhythmProps) {
                   <div className="p-3 bg-purple-50 border border-purple-100 rounded-xl flex items-start gap-2">
                     <Info className="w-4 h-4 text-purple-500 mt-0.5 shrink-0" />
                     <p className="text-xs text-purple-700 font-medium">
-                      <strong>Entenda o Ritmo:</strong> Mede o tempo de "fôlego" entre vendas. 
-                      Intervalos muito curtos (abaixo de 5 min) podem indicar cupons divididos. 
-                      Intervalos muito longos em horários de pico podem indicar dificuldade na abordagem ou ociosidade.
+                      <strong>Entenda o Ritmo:</strong> Mede o tempo de "fôlego" entre vendas. Um ciclo de registro + recebimento normal leva de 3 a 5 minutos. 
+                      Alto volume de atendimentos seguidos em menos de 3 minutos sinaliza atropelo (correria), reduzindo as chances de ofertar adicionais e campanhas.
                     </p>
                     <div className="mt-2 pt-2 border-t border-purple-100 text-[10px] text-purple-600 font-bold uppercase flex gap-4">
                        <span>Média Equipe: {medianaGeral} min</span>
@@ -1068,16 +1071,18 @@ export function OperationalRhythm({ data }: OperationalRhythmProps) {
                             <div className="flex gap-2 mt-1">
                               {isLento && <Badge className="bg-rose-100 text-rose-700 border-none text-[10px] font-black">RITMO BAIXO</Badge>}
                               {isIrregular && <Badge className="bg-amber-100 text-amber-700 border-none text-[10px] font-black">IRREGULAR</Badge>}
+                              {r.rushPercent >= 25 && <Badge className="bg-orange-100 text-orange-700 border-none text-[10px] font-black">ACELERADO</Badge>}
                             </div>
                           </div>
                           <span className="text-xs text-slate-400 font-bold">{r.nVendas} vendas</span>
                         </div>
-                        <div className="grid grid-cols-3 gap-3 text-center">
+                        <div className="grid grid-cols-4 gap-3 text-center">
                           <RitmoStat label="Mediana" value={`${r.mediana} min`} color={isLento ? "text-rose-600" : "text-purple-600"} />
                           <RitmoStat label="Desvio" value={`±${r.desvio} min`} color={isIrregular ? "text-amber-600" : "text-slate-500"} />
                           <RitmoStat label="Maior Gap" value={`${r.maxGap} min`} color={r.maxGap > 45 ? "text-rose-500" : "text-slate-500"} />
+                          <RitmoStat label="Rápido (<3m)" value={`${r.rushPercent.toFixed(0)}%`} color={r.rushPercent > 20 ? "text-orange-600" : "text-emerald-500"} />
                         </div>
-                        <div className="mt-2">
+                        <div className="mt-3">
                           <Progress value={Math.min((r.mediana / (medianaGeral * 2.5)) * 100, 100)} className="h-1.5 bg-slate-200" />
                         </div>
                       </div>

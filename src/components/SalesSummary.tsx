@@ -366,7 +366,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
   const navItems = [
     { id: "executivo", label: "Resumo Executivo", icon: Sparkles, category: "Resultados", color: "text-orange-500 font-black" },
     { id: "semanal", label: "Análise Semanal (Expurgo)", icon: CalendarIcon, category: "Resultados", color: "text-blue-500 font-black" },
-    { id: "gap_analise", label: "GAP de Produtividade", icon: Activity, category: "Resultados", color: "text-rose-500 font-black" },
+    { id: "gap_analise", label: "Laboratório de Produtividade", icon: Activity, category: "Resultados", color: "text-rose-500 font-black" },
 
     { id: "impacto", label: "Projeção de Impacto", icon: Target, category: "Resultados", color: "text-purple-500 font-bold" },
     { id: "performance", label: "Performance", icon: ClipboardList, category: "Resultados", color: "text-emerald-600 font-black" },
@@ -395,7 +395,6 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
     { id: "payment_map", label: "Mapa de Pagamentos", icon: CreditCard, category: "Operacional" },
     { id: "cash_reconcile", label: "Conciliação de Dinheiro", icon: Calculator, category: "Operacional", color: "text-emerald-600 font-black" },
 
-    { id: "radar", label: "Radar de Alertas", icon: ShieldAlert, category: "Auditoria" },
     { id: "auditoria", label: "Auditoria de Descontos", icon: Percent, category: "Auditoria" },
     { id: "trocas", label: "Trocas", icon: ArrowRightLeft, category: "Auditoria" },
     { id: "pa", label: "Análise de PA", icon: Hash, category: "Auditoria" },
@@ -420,7 +419,6 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
       case "performance": return <ConsolidatedReport data={filteredData} vinculos={filteredVinculos} />;
       case "diario": return <DailyPerformance data={filteredData} />;
       case "composicao": return null;
-      case "radar": return <RiskRadar data={filteredData} />;
       case "conversao": return <ConversionAudit data={filteredData} />;
       case "auditoria": return <DiscountAudit data={filteredData} />;
       case "trocas": return <ExchangeManagement data={filteredData} vinculos={filteredVinculos} />;

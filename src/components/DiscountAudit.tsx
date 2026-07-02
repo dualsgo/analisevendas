@@ -86,19 +86,8 @@ export function DiscountAudit({ data }: DiscountAuditProps) {
     return Array.from(list).sort();
   }, [discountSales]);
 
-  // REGRA DE SEGURANÇA ATUALIZADA: 
-  // - Seguros: Campanhas Limpas e Adicionais Confirmados.
-  // - Risco: CAMPANHA + ALERTA, Ajuste de Preço, Avulsos.
-  const { auditData, registryData } = useMemo(() => {
-    const registry = discountSales.filter(r => r.tipo_desconto === "ADICIONAL" || r.tipo_desconto === "CAMPANHA");
-    const audit = discountSales.filter(r => r.tipo_desconto !== "ADICIONAL" && r.tipo_desconto !== "CAMPANHA");
-    return { auditData: audit, registryData: registry };
-  }, [discountSales]);
-
-  const currentDataset = activeView === "audit" ? auditData : registryData;
-
   const filteredData = useMemo(() => {
-    return currentDataset.filter(sale => {
+    return discountSales.filter(sale => {
       const matchesSearch = 
         sale.nf.includes(searchTerm) || 
         (sale.cpf_cnpj_dest || "").includes(searchTerm) || 
@@ -109,7 +98,7 @@ export function DiscountAudit({ data }: DiscountAuditProps) {
 
       return matchesSearch && matchesVendor && matchesPercent;
     });
-  }, [currentDataset, searchTerm, selectedVendor, minDiscountPercent]);
+  }, [discountSales, searchTerm, selectedVendor, minDiscountPercent]);
 
   const stats = useMemo(() => {
     const totalVenda = filteredData.reduce((acc, r) => acc + parseFloat(r.vNF), 0);
@@ -143,60 +132,39 @@ export function DiscountAudit({ data }: DiscountAuditProps) {
         "Valor Original": (vFinal + vDesc).toFixed(2),
         "Desconto R$": vDesc.toFixed(2),
         "% Desconto": (parseFloat(sale.percentual_desconto) * 100).toFixed(2),
-        "Valor Final": vFinal.toFixed(2),
-        "Suspeita Ajuste": (sale.tem_suspeita_preco_errado || sale.tipo_desconto === 'CAMPANHA + ALERTA') ? "SIM" : "NÃO"
+        "Valor Final": vFinal.toFixed(2)
       };
     });
-    exportToCsv(`Auditoria_Descontos_${activeView}.csv`, rows, headers);
+    exportToCsv(`Registro_Descontos.csv`, rows, headers);
   };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20">
       {/* Guia Didático de Segurança */}
-      <div className={cn(
-        "p-6 rounded-[2rem] border-2 flex flex-col md:flex-row items-center gap-6 shadow-sm",
-        activeView === 'audit' ? "bg-rose-50 border-rose-100" : "bg-sky-50 border-sky-100"
-      )}>
-        <div className={cn(
-          "p-4 rounded-3xl shrink-0",
-          activeView === 'audit' ? "bg-white text-rose-500 shadow-rose-100" : "bg-white text-sky-500 shadow-sky-100"
-        )}>
-          {activeView === 'audit' ? <ShieldAlert className="w-8 h-8" /> : <ShieldCheck className="w-8 h-8" />}
+      <div className="p-6 rounded-[2rem] border-2 flex flex-col md:flex-row items-center gap-6 shadow-sm bg-indigo-50 border-indigo-100">
+        <div className="p-4 rounded-3xl shrink-0 bg-white text-indigo-500 shadow-indigo-100">
+          <Percent className="w-8 h-8" />
         </div>
         <div className="flex-1 space-y-1 text-center md:text-left">
-          <h2 className={cn("text-xl font-black uppercase tracking-tight", activeView === 'audit' ? "text-rose-800" : "text-sky-800")}>
-            {activeView === 'audit' ? "Auditoria de Descontos Críticos" : "Filtro de Descontos Seguros"}
+          <h2 className="text-xl font-black uppercase tracking-tight text-indigo-800">
+            Registro de Descontos
           </h2>
           <p className="text-sm font-medium text-slate-500 leading-relaxed">
-            {activeView === 'audit' 
-              ? "Identificando descontos manuais, campanhas com descontos extras (ALERTA) ou suspeitos de correção de preço errado." 
-              : "Exibindo Campanhas oficiais limpas e Vendas Adicionais confirmadas pelo sistema."}
+            Acompanhe todas as vendas que apresentaram algum tipo de redução de preço, independentemente da origem (campanha, combos, ou manuais).
           </p>
         </div>
         <div className="hidden lg:block w-px h-12 bg-slate-200" />
-        <div className="grid grid-cols-2 gap-8 text-center md:text-left">
+        <div className="flex items-center gap-8 text-center md:text-left">
            <div>
-             <p className="text-[9px] font-black text-slate-400 uppercase">Alertas Ativos</p>
+             <p className="text-[9px] font-black text-slate-400 uppercase">Volume c/ Desconto</p>
              <p className="text-xl font-black text-slate-700">{stats.count} Notas</p>
            </div>
-           {activeView === 'audit' && (
-             <div>
-               <p className="text-[9px] font-black text-slate-400 uppercase">Riscos/Alertas</p>
-               <p className="text-xl font-black text-orange-600">{stats.precoErradoCount}</p>
-             </div>
-           )}
+           <div>
+             <p className="text-[9px] font-black text-slate-400 uppercase">Desconto Total Oferecido</p>
+             <p className="text-xl font-black text-rose-600">{formatBRL(stats.totalDesconto)}</p>
+           </div>
         </div>
       </div>
-
-      <Tabs defaultValue="audit" onValueChange={(v) => setActiveView(v as any)} className="w-full">
-        <TabsList className="grid w-full grid-cols-2 bg-white border-2 border-slate-100 rounded-2xl h-14 p-1 shadow-sm">
-          <TabsTrigger value="audit" className="rounded-xl font-black text-xs uppercase data-[state=active]:bg-rose-500 data-[state=active]:text-white">
-            <AlertTriangle className="w-3.5 h-3.5 mr-2" /> Risco Operacional
-          </TabsTrigger>
-          <TabsTrigger value="registry" className="rounded-xl font-black text-xs uppercase data-[state=active]:bg-sky-600 data-[state=active]:text-white">
-            <ShieldCheck className="w-3.5 h-3.5 mr-2" /> Estratégicos (Seguros)
-          </TabsTrigger>
-        </TabsList>
 
         <div className="mt-6 space-y-6">
           <Card className="ri-card shadow-sm overflow-hidden">
@@ -276,7 +244,7 @@ export function DiscountAudit({ data }: DiscountAuditProps) {
                     const vFinal = parseFloat(sale.vNF);
                     const vDesc = parseFloat(sale.desconto_total);
                     const perc = parseFloat(sale.percentual_desconto) * 100;
-                    const isHigh = (perc >= HI_DISCOUNT_THRESHOLD || sale.tipo_desconto === 'CAMPANHA + ALERTA') && activeView === 'audit';
+                    const isHigh = perc >= HI_DISCOUNT_THRESHOLD;
 
                     return (
                       <TableRow key={sale.chave} className="hover:bg-slate-50 border-slate-50 cursor-pointer group transition-colors h-16" onClick={() => setSelectedSale(sale)}>
@@ -305,15 +273,14 @@ export function DiscountAudit({ data }: DiscountAuditProps) {
                           <p className="text-xs font-black text-slate-700 leading-none">{formatBRL(vFinal)}</p>
                         </TableCell>
                         <TableCell className="text-right">
-                          <p className={cn("text-xs font-black", activeView === 'audit' ? "text-rose-600" : "text-emerald-600")}>
+                          <p className="text-xs font-black text-indigo-600">
                             -{formatBRL(vDesc)}
                           </p>
                         </TableCell>
                         <TableCell className="text-center">
                           <Badge className={cn(
                             "text-[10px] font-black border-none px-3 h-6",
-                            isHigh ? "bg-rose-600 text-white" : 
-                            activeView === 'audit' ? "bg-orange-100 text-orange-700" : "bg-sky-100 text-sky-700"
+                            isHigh ? "bg-rose-100 text-rose-700" : "bg-sky-100 text-sky-700"
                           )}>
                             {perc.toFixed(1)}%
                           </Badge>
@@ -348,7 +315,7 @@ export function DiscountAudit({ data }: DiscountAuditProps) {
                       </div>
                       <Badge className={cn(
                         "text-[10px] font-black border-none h-6",
-                        activeView === 'audit' ? "bg-orange-100 text-orange-700" : "bg-sky-100 text-sky-700"
+                        perc >= HI_DISCOUNT_THRESHOLD ? "bg-rose-100 text-rose-700" : "bg-sky-100 text-sky-700"
                       )}>
                         {perc.toFixed(1)}%
                       </Badge>
@@ -361,7 +328,7 @@ export function DiscountAudit({ data }: DiscountAuditProps) {
                       </div>
                       <div className="text-right">
                         <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Desconto</p>
-                        <p className={cn("text-[10px] font-black", activeView === 'audit' ? "text-rose-600" : "text-sky-600")}>-{formatBRL(vDesc)}</p>
+                        <p className="text-[10px] font-black text-indigo-600">-{formatBRL(vDesc)}</p>
                       </div>
                     </div>
 
@@ -375,8 +342,6 @@ export function DiscountAudit({ data }: DiscountAuditProps) {
             </div>
           </div>
         </div>
-      </Tabs>
-
       <Sheet open={!!selectedSale} onOpenChange={(open) => !open && setSelectedSale(null)}>
         <SheetContent className="w-full sm:max-w-xl bg-white border-l-4 border-orange-500 p-0 overflow-y-auto">
           {selectedSale && (
@@ -412,21 +377,6 @@ export function DiscountAudit({ data }: DiscountAuditProps) {
               </div>
 
               <div className="p-8 md:p-10 space-y-10 flex-1">
-                {/* Alerta de Ajuste Manual ou Campanha + Outros */}
-                {(selectedSale.tem_suspeita_preco_errado || selectedSale.tipo_desconto === 'CAMPANHA + ALERTA') && (
-                  <section className="bg-orange-50 border-2 border-orange-100 p-6 rounded-[2rem] space-y-3">
-                    <div className="flex items-center gap-2 text-orange-700">
-                      <AlertTriangle className="w-5 h-5" />
-                      <h4 className="text-xs font-black uppercase tracking-widest">Alerta de Integridade</h4>
-                    </div>
-                    <p className="text-sm font-medium text-orange-800 leading-relaxed italic">
-                      {selectedSale.tipo_desconto === 'CAMPANHA + ALERTA' 
-                        ? "Identificamos que este cupom possui um item de campanha (SLP) em conjunto com descontos manuais em outros produtos. Isso fere a política de margem da unidade."
-                        : "Identificamos que um ou mais itens deste cupom foram ajustados para terminar em final psicológico (1, 5 ou 9). Isso geralmente indica correção de prateleira via PDV."}
-                    </p>
-                  </section>
-                )}
-
                 <div className="grid grid-cols-3 gap-4">
                   <ValueDetail label="Valor Bruto" value={formatBRL(parseFloat(selectedSale.vNF) + parseFloat(selectedSale.desconto_total))} color="text-slate-400" strike />
                   <ValueDetail label="Desconto" value={formatBRL(parseFloat(selectedSale.desconto_total))} color="text-rose-500" />

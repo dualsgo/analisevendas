@@ -14,6 +14,8 @@ const SOCIAL_CODES = [
 ];
 
 const BARALHO_CODES = ['5147797', '5147796'];
+const LANCHINHO_CODES = ['5132632', '5135912', '5132608', '5135830', '5135839'];
+
 import { 
   TrendingUp, 
   Users, 
@@ -29,7 +31,8 @@ import {
   ChevronRight,
   PieChart,
   BarChart3,
-  Heart
+  Heart,
+  Coffee
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, parseISO } from "date-fns";
@@ -72,20 +75,51 @@ export function ExecutiveSummary({ data, vinculos, onSwitchTab }: ExecutiveSumma
     });
     const topDay = Object.entries(daySales).sort((a, b) => b[1] - a[1])[0] || ["-", 0];
 
-    // Ação Social (Baralhos)
-    let totalBaralhos = 0;
-    const isBaralho = (it: any) => {
-      if (BARALHO_CODES.includes(it.cProd)) return true;
+    // Ação Social & Lanchinhos & Sazonal
+    let totalSocial = 0;
+    let cuponsSociais = 0;
+    let totalLanchinhos = 0;
+    let cuponsLanchinhos = 0;
+    let totalSazonal = 0;
+    let cuponsSazonal = 0;
+
+    const SLP_CODES = ['5135238', '5135269', '5135270', '5135273', '5146458', '5146469', '5146470', '5146471', '5146472', '5146473', '5146474', '5146475', '5146476', '5146501', '5146504', '5146505', '5141894', '5141895', '5141896', '5141897', '5141898', '5141899', '5141900', '5141902', '5141903', '5141904', '5141905', '5141907', '5141909', '5141910', '5141911', '5141912', '5141913', '5141914', '5141915', '5141916', '5141917', '5141920', '5141949', '5141978', '5140469', '5140475', '5140476', '5140477', '5140478', '5140479', '5146477', '5146478', '5146502', '5146503'];
+
+    const isSazonal = (it: any) => {
+      if (SLP_CODES.includes(it.cProd)) return true;
+      return it.xProd.toUpperCase().includes("SLP");
+    };
+
+    const isSocial = (it: any) => {
+      if (SOCIAL_CODES.includes(it.cProd) || BARALHO_CODES.includes(it.cProd) || LANCHINHO_CODES.includes(it.cProd)) return true;
       const p = it.xProd.toUpperCase();
-      return p.includes("BARALHO") || p.includes("ACAO SOCIAL") || p.includes("DOACAO") || p.includes("ALMANAQUE");
+      return p.includes("BARALHO") || p.includes("ACAO SOCIAL") || p.includes("DOACAO") || p.includes("ALMANAQUE") || p.includes("SACOLA");
     };
 
     activeSales.forEach(sale => {
+      let hasSocialInCupom = false;
+      let hasLanchinhoInCupom = false;
+      let hasSazonalInCupom = false;
+      
       sale.itens.forEach(it => {
-        if (SOCIAL_CODES.includes(it.cProd) || isBaralho(it)) {
-          if (isBaralho(it)) totalBaralhos += it.qCom;
+        if (LANCHINHO_CODES.includes(it.cProd)) {
+          totalLanchinhos += it.qCom;
+          hasLanchinhoInCupom = true;
+        }
+        
+        if (isSocial(it)) {
+          totalSocial += it.qCom;
+          hasSocialInCupom = true;
+        }
+
+        if (isSazonal(it)) {
+          totalSazonal += it.qCom;
+          hasSazonalInCupom = true;
         }
       });
+      if (hasSocialInCupom) cuponsSociais++;
+      if (hasLanchinhoInCupom) cuponsLanchinhos++;
+      if (hasSazonalInCupom) cuponsSazonal++;
     });
 
     // Melhor Mês
@@ -111,7 +145,6 @@ export function ExecutiveSummary({ data, vinculos, onSwitchTab }: ExecutiveSumma
       };
     };
 
-
     return {
       venda: totalVenda,
       cupons: totalCupons,
@@ -134,7 +167,9 @@ export function ExecutiveSummary({ data, vinculos, onSwitchTab }: ExecutiveSumma
       topDay: { date: topDay[0], value: topDay[1] },
       topMonth: { date: topMonth[0], value: topMonth[1] },
       hasMultipleMonths,
-      social: { baralhos: totalBaralhos, participation: totalCupons > 0 ? (totalBaralhos / totalCupons) * 100 : 0 },
+      social: { items: totalSocial, participation: totalCupons > 0 ? (cuponsSociais / totalCupons) * 100 : 0 },
+      lanchinhos: { items: totalLanchinhos, participation: totalCupons > 0 ? (cuponsLanchinhos / totalCupons) * 100 : 0 },
+      sazonal: { items: totalSazonal, participation: totalCupons > 0 ? (cuponsSazonal / totalCupons) * 100 : 0 },
       monthList: Object.entries(monthSales).map(([month, venda]) => {
         const monthRows = activeSales.filter(s => s.dhEmi.substring(0, 7) === month);
         const cupons = monthRows.length;
@@ -152,42 +187,33 @@ export function ExecutiveSummary({ data, vinculos, onSwitchTab }: ExecutiveSumma
   const formatBRL = (val: number) => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
   return (
-    <div className="space-y-6 pb-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      {/* Hero Section */}
-      <section className="bg-white rounded-[2.5rem] p-8 border-2 border-indigo-50 shadow-sm relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 blur-[100px] -mr-32 -mt-32" />
-        
-        <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8">
-          <div className="space-y-4 text-center md:text-left">
-            <div className="inline-flex items-center gap-2 bg-indigo-50 text-indigo-600 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest">
-              <Sparkles className="w-3.5 h-3.5" />
-              Resumo Estratégico do Período
-            </div>
-            <h1 className="text-4xl md:text-6xl font-black text-slate-800 tracking-tighter leading-none">
-              {formatBRL(stats.venda)}
-            </h1>
-            <p className="text-slate-400 font-bold uppercase text-xs tracking-[0.2em]">Faturamento Total Consolidado</p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4 w-full md:w-auto">
-             <HighlightCard 
-                label="Tickets" 
-                value={stats.cupons} 
-                icon={ShoppingBag} 
-                color="bg-emerald-50 text-emerald-600" 
-             />
-             <HighlightCard 
-                label="Peças" 
-                value={stats.itens} 
-                icon={Zap} 
-                color="bg-amber-50 text-amber-600" 
-             />
-          </div>
+    <div className="space-y-4 pb-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      
+      {/* Compact Hero Section */}
+      <div className="flex flex-col lg:flex-row items-center justify-between gap-6 bg-white p-4 md:px-6 rounded-3xl border border-slate-100 shadow-sm">
+        <div className="flex flex-col md:flex-row items-center gap-4 text-center md:text-left">
+           <div className="bg-indigo-50 text-indigo-600 p-3 rounded-2xl">
+             <Sparkles className="w-5 h-5" />
+           </div>
+           <div>
+             <h1 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tighter leading-none">{formatBRL(stats.venda)}</h1>
+             <p className="text-slate-400 font-bold uppercase text-[9px] md:text-[10px] tracking-widest mt-1">Faturamento Total Consolidado</p>
+           </div>
         </div>
-      </section>
+        <div className="flex items-center justify-center gap-6 md:gap-8 w-full lg:w-auto border-t lg:border-t-0 pt-4 lg:pt-0 border-slate-100">
+           <div className="text-center lg:text-right">
+             <p className="text-lg md:text-xl font-black text-slate-800 leading-none">{stats.cupons}</p>
+             <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Tickets</p>
+           </div>
+           <div className="text-center lg:text-right">
+             <p className="text-lg md:text-xl font-black text-slate-800 leading-none">{stats.itens}</p>
+             <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Peças</p>
+           </div>
+        </div>
+      </div>
 
       {/* Primary Metrics Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <MetricCard 
           label="Ticket Médio" 
           value={formatBRL(stats.tkm)} 
@@ -210,38 +236,45 @@ export function ExecutiveSummary({ data, vinculos, onSwitchTab }: ExecutiveSumma
           color="text-emerald-600" 
         />
         <MetricCard 
-          label="Part. Baralho" 
+          label="Ação Social" 
           value={`${stats.social.participation.toFixed(1)}%`} 
-          desc={`${stats.social.baralhos} Itens Sociais`} 
+          desc={`${stats.social.items} Itens (Baralhos/Sacolas/Lanchinhos)`} 
           icon={Heart} 
           color="text-rose-600" 
-          tooltip="Percentual de cupons que possuem pelo menos um item da Ação Social (Baralhos)."
+          tooltip="Percentual de cupons que possuem itens de Ação Social."
         />
+        <MetricCard 
+          label="Sazonal (SLP)" 
+          value={`${stats.sazonal.participation.toFixed(1)}%`} 
+          desc={`${stats.sazonal.items} Itens (SLP)`} 
+          icon={ShoppingBag} 
+          color="text-fuchsia-600" 
+          tooltip="Percentual de cupons que possuem itens Sazonais (SLP)."
+        />
+
         <div onClick={() => onSwitchTab?.("pickup_dashboard")} className="cursor-pointer">
           <MetricCard 
             label="Conversão Pickup" 
             value={`${stats.pickupConv.toFixed(1)}%`} 
             desc="Fórmula: Adicionais / Pickups" 
             icon={Smartphone} 
-            color="text-sky-600" 
+            color="text-indigo-600" 
             tooltip="Percentual de clientes que vieram retirar um pedido online e acabaram comprando algo a mais na loja."
           />
         </div>
       </div>
 
-      {/* Main Insights Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Channel Mix Table */}
-        <Card className="ri-card lg:col-span-2 border-slate-100 overflow-hidden">
-          <div className="p-6 border-b border-slate-50 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <PieChart className="w-5 h-5 text-indigo-500" />
-              <h3 className="text-sm font-black uppercase text-slate-800 tracking-tight">Composição por Canal</h3>
-            </div>
-
+      {/* Main Insights Content (Redistributed) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+        
+        {/* Composição por Canal (Compact) */}
+        <Card className="ri-card border-slate-100 overflow-hidden flex flex-col">
+          <div className="p-4 border-b border-slate-50 flex items-center gap-3">
+            <PieChart className="w-4 h-4 text-indigo-500" />
+            <h3 className="text-xs font-black uppercase text-slate-800 tracking-tight">Composição por Canal</h3>
           </div>
-          <CardContent className="p-6">
-            <div className="space-y-5">
+          <CardContent className="p-4 flex-1 flex flex-col justify-center">
+            <div className="space-y-4">
               <ChannelProgress label="Loja Física" value={stats.channels.fisica} total={stats.venda} color="bg-slate-800" icon={Calendar} />
               <ChannelProgress label="Pickup Online" value={stats.channels.pickup} total={stats.venda} color="bg-sky-500" icon={Smartphone} />
               <ChannelProgress label="Venda Adicional" value={stats.channels.adicional} total={stats.venda} color="bg-emerald-500" icon={Zap} />
@@ -250,68 +283,62 @@ export function ExecutiveSummary({ data, vinculos, onSwitchTab }: ExecutiveSumma
           </CardContent>
         </Card>
 
-        {/* Highlights Sidebar */}
-        <div className="space-y-6">
-          <Card className="ri-card bg-slate-900 text-white border-none p-6 shadow-xl">
-            <div className="flex items-center gap-3 mb-6">
-              <BarChart3 className="w-5 h-5 text-orange-400" />
-              <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Destaques do Período</h3>
+        {/* Destaques do Período */}
+        <Card className="ri-card bg-slate-900 text-white border-none p-4 shadow-xl flex flex-col">
+          <div className="flex items-center gap-3 mb-4">
+            <BarChart3 className="w-4 h-4 text-orange-400" />
+            <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Destaques</h3>
+          </div>
+          <div className="flex-1 flex flex-col justify-center space-y-4">
+            <div>
+              <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Melhor Vendedor</p>
+              <p className="text-lg md:text-xl font-black text-white uppercase tracking-tight">{stats.topVendor.name}</p>
+              <p className="text-[10px] font-bold text-orange-400">{formatBRL(stats.topVendor.value)}</p>
             </div>
-            
-            <div className="space-y-6">
-              <div className="space-y-1">
-                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Melhor Vendedor</p>
-                <p className="text-xl font-black text-white uppercase tracking-tight">{stats.topVendor.name}</p>
-                <p className="text-xs font-bold text-orange-400">{formatBRL(stats.topVendor.value)}</p>
-              </div>
+            <div className="border-t border-slate-800 pt-3">
+              <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Melhor Dia (Faturamento)</p>
+              <p className="text-lg md:text-xl font-black text-white uppercase tracking-tight">
+                {stats.topDay.date !== "-" ? format(parseISO(stats.topDay.date), "dd 'de' MMMM", { locale: ptBR }) : "-"}
+              </p>
+              <p className="text-[10px] font-bold text-emerald-400">{formatBRL(stats.topDay.value)}</p>
+            </div>
+          </div>
+        </Card>
 
-              <div className="space-y-1 border-t border-slate-800 pt-4">
-                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Melhor Dia (Faturamento)</p>
-                <p className="text-xl font-black text-white uppercase tracking-tight">
-                  {stats.topDay.date !== "-" ? format(parseISO(stats.topDay.date), "dd 'de' MMMM", { locale: ptBR }) : "-"}
-                </p>
-                <p className="text-xs font-bold text-emerald-400">{formatBRL(stats.topDay.value)}</p>
-              </div>
-
-              {stats.hasMultipleMonths && (
-                <div className="space-y-1 border-t border-slate-800 pt-4">
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Melhor Mês</p>
-                  <p className="text-xl font-black text-white uppercase tracking-tight">
-                    {stats.topMonth.date !== "-" ? format(parseISO(stats.topMonth.date + "-01"), "MMMM yyyy", { locale: ptBR }) : "-"}
-                  </p>
-                  <p className="text-xs font-bold text-sky-400">{formatBRL(stats.topMonth.value)}</p>
+        {/* Evolução Mensal ou Card de Preenchimento */}
+        {stats.hasMultipleMonths ? (
+          <Card className="ri-card border-slate-100 p-4 overflow-hidden flex flex-col lg:col-span-2 xl:col-span-1">
+             <div className="flex items-center gap-3 mb-4">
+              <TrendingUp className="w-4 h-4 text-indigo-500" />
+              <h3 className="text-[10px] font-black uppercase text-slate-800 tracking-tight">Evolução Mensal</h3>
+            </div>
+            <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+              {stats.monthList.map((m: any, i: number) => (
+                <div key={m.month} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-none">
+                  <div>
+                    <p className="text-[10px] font-black text-slate-700 uppercase">{format(parseISO(m.month + "-01"), "MMM yy", { locale: ptBR })}</p>
+                    <p className="text-[8px] font-bold text-slate-400 uppercase">{m.cupons} Tickets</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[11px] font-black text-slate-900">{formatBRL(m.venda)}</p>
+                    <p className="text-[9px] font-bold text-indigo-600">{formatBRL(m.tkm)} TKM</p>
+                  </div>
                 </div>
-              )}
+              ))}
             </div>
           </Card>
-
-          {stats.hasMultipleMonths && (
-            <Card className="ri-card border-slate-100 p-6 overflow-hidden">
-               <div className="flex items-center gap-3 mb-4">
-                <TrendingUp className="w-5 h-5 text-indigo-500" />
-                <h3 className="text-[10px] font-black uppercase text-slate-800 tracking-tight">Evolução Mensal</h3>
-              </div>
-              <div className="space-y-3">
-                {stats.monthList.map((m: any, i: number) => (
-                  <div key={m.month} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-none">
-                    <div>
-                      <p className="text-[10px] font-black text-slate-700 uppercase">{format(parseISO(m.month + "-01"), "MMM yy", { locale: ptBR })}</p>
-                      <p className="text-[8px] font-bold text-slate-400 uppercase">{m.cupons} Tickets</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-[11px] font-black text-slate-900">{formatBRL(m.venda)}</p>
-                      <p className="text-[9px] font-bold text-indigo-600">{formatBRL(m.tkm)} TKM</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          )}
-        </div>
+        ) : (
+           <Card className="ri-card bg-indigo-600 text-white border-none p-4 shadow-xl flex flex-col justify-center items-center text-center lg:col-span-2 xl:col-span-1 opacity-90 relative overflow-hidden">
+             <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 blur-[40px] rounded-full pointer-events-none" />
+             <Sparkles className="w-8 h-8 mb-3 text-indigo-300" />
+             <h3 className="text-lg font-black uppercase tracking-widest text-white mb-1">Análise Concluída</h3>
+             <p className="text-[10px] font-medium text-indigo-200">As métricas do período selecionado foram calculadas com sucesso.</p>
+           </Card>
+        )}
       </div>
 
       {/* Channel Performance Detailed */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <ChannelStatsCard title="Loja Física" stats={stats.channelsDetail.fisica} icon={Calendar} theme="bg-slate-800 text-white" accent="text-slate-400" border="border-slate-700" />
         <ChannelStatsCard title="Pickup Online" stats={stats.channelsDetail.pickup} icon={Smartphone} theme="bg-sky-50 text-sky-900" accent="text-sky-600" border="border-sky-100" />
         <ChannelStatsCard title="Venda Adicional" stats={stats.channelsDetail.adicional} icon={Zap} theme="bg-emerald-50 text-emerald-900" accent="text-emerald-600" border="border-emerald-100" />

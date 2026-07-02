@@ -45,6 +45,7 @@ const SOCIAL_CODES = [
 
 const BARALHO_CODES = ['5147797', '5147796'];
 const SACOLA_CODES = ['5133676', '5113644'];
+const LANCHINHO_CODES = ['5132632', '5135912', '5132608', '5135830', '5135839'];
 
 export function SocialActionPanel({ data }: SocialActionPanelProps) {
   const stats = useMemo(() => {
@@ -62,27 +63,33 @@ export function SocialActionPanel({ data }: SocialActionPanelProps) {
       return p.includes("SACOLA");
     };
 
-    const vendorStats: Record<string, { name: string, baralhos: number, sacolas: number, total: number }> = {};
-    const dailyStats: Record<string, { day: string, baralhos: number, sacolas: number }> = {};
-    const monthlyStats: Record<string, { month: string, baralhos: number, sacolas: number }> = {};
+    const isLanchinho = (it: any) => LANCHINHO_CODES.includes(it.cProd);
+
+    const vendorStats: Record<string, { name: string, baralhos: number, sacolas: number, lanchinhos: number, total: number }> = {};
+    const dailyStats: Record<string, { day: string, baralhos: number, sacolas: number, lanchinhos: number }> = {};
+    const monthlyStats: Record<string, { month: string, baralhos: number, sacolas: number, lanchinhos: number }> = {};
 
     let totalBaralhos = 0;
     let totalSacolas = 0;
+    let totalLanchinhos = 0;
+    let totalSocialPieces = 0;
 
     activeSales.forEach(sale => {
       const v = sale.vendedor || "OUTROS";
-      if (!vendorStats[v]) vendorStats[v] = { name: v, baralhos: 0, sacolas: 0, total: 0 };
+      if (!vendorStats[v]) vendorStats[v] = { name: v, baralhos: 0, sacolas: 0, lanchinhos: 0, total: 0 };
 
       const day = sale.dhEmi.substring(0, 10);
       const month = sale.dhEmi.substring(0, 7);
 
-      if (!dailyStats[day]) dailyStats[day] = { day, baralhos: 0, sacolas: 0 };
-      if (!monthlyStats[month]) monthlyStats[month] = { month, baralhos: 0, sacolas: 0 };
+      if (!dailyStats[day]) dailyStats[day] = { day, baralhos: 0, sacolas: 0, lanchinhos: 0 };
+      if (!monthlyStats[month]) monthlyStats[month] = { month, baralhos: 0, sacolas: 0, lanchinhos: 0 };
 
       sale.itens.forEach(it => {
-        const isSocial = SOCIAL_CODES.includes(it.cProd) || isBaralho(it) || isSacola(it);
+        const isSocial = SOCIAL_CODES.includes(it.cProd) || isBaralho(it) || isSacola(it) || isLanchinho(it);
         
         if (isSocial) {
+          totalSocialPieces += it.qCom;
+          
           if (isBaralho(it)) {
             vendorStats[v].baralhos += it.qCom;
             dailyStats[day].baralhos += it.qCom;
@@ -93,6 +100,11 @@ export function SocialActionPanel({ data }: SocialActionPanelProps) {
             dailyStats[day].sacolas += it.qCom;
             monthlyStats[month].sacolas += it.qCom;
             totalSacolas += it.qCom;
+          } else if (isLanchinho(it)) {
+            vendorStats[v].lanchinhos += it.qCom;
+            dailyStats[day].lanchinhos += it.qCom;
+            monthlyStats[month].lanchinhos += it.qCom;
+            totalLanchinhos += it.qCom;
           }
           vendorStats[v].total += it.qCom;
         }
@@ -104,18 +116,22 @@ export function SocialActionPanel({ data }: SocialActionPanelProps) {
     const chartDataDaily = Object.values(dailyStats).sort((a, b) => a.day.localeCompare(b.day)).map(d => ({
       label: format(parseISO(d.day), "dd/MM"),
       baralhos: d.baralhos,
-      sacolas: d.sacolas
+      sacolas: d.sacolas,
+      lanchinhos: d.lanchinhos
     }));
 
     const chartDataMonthly = Object.values(monthlyStats).sort((a, b) => a.month.localeCompare(b.month)).map(m => ({
       label: format(parseISO(m.month + "-01"), "MMM/yy", { locale: ptBR }).toUpperCase(),
       baralhos: m.baralhos,
-      sacolas: m.sacolas
+      sacolas: m.sacolas,
+      lanchinhos: m.lanchinhos
     }));
 
     return {
       totalBaralhos,
       totalSacolas,
+      totalLanchinhos,
+      totalSocialPieces,
       topVendors,
       chartDataDaily,
       chartDataMonthly,
@@ -123,7 +139,8 @@ export function SocialActionPanel({ data }: SocialActionPanelProps) {
     };
   }, [data]);
 
-  const baralhoParticipation = stats.totalCoupons > 0 ? (stats.totalBaralhos / stats.totalCoupons) * 100 : 0;
+  const socialParticipation = stats.totalCoupons > 0 ? (stats.totalSocialPieces / stats.totalCoupons) * 100 : 0;
+  const lanchinhoParticipation = stats.totalCoupons > 0 ? (stats.totalLanchinhos / stats.totalCoupons) * 100 : 0;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20">
@@ -135,19 +152,24 @@ export function SocialActionPanel({ data }: SocialActionPanelProps) {
           </div>
           <div>
             <h1 className="text-xl font-black uppercase tracking-tight text-slate-800">Vendas Ação Social</h1>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Monitor de Baralhos e Sacolas</p>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Monitor de Baralhos, Sacolas e Lanchinhos</p>
           </div>
         </div>
         
-        <div className="flex items-center gap-6">
+        <div className="flex flex-wrap justify-center items-center gap-4 md:gap-6">
           <div className="text-center">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Total Baralhos</p>
             <p className="text-2xl font-black text-rose-600 leading-none">🃏 {stats.totalBaralhos}</p>
           </div>
-          <div className="w-px h-10 bg-slate-100" />
+          <div className="w-px h-10 bg-slate-100 hidden md:block" />
           <div className="text-center">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Total Sacolas</p>
             <p className="text-2xl font-black text-emerald-600 leading-none">🛍️ {stats.totalSacolas}</p>
+          </div>
+          <div className="w-px h-10 bg-slate-100 hidden md:block" />
+          <div className="text-center">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Total Lanchinhos</p>
+            <p className="text-2xl font-black text-amber-500 leading-none">☕ {stats.totalLanchinhos}</p>
           </div>
         </div>
       </div>
@@ -160,19 +182,20 @@ export function SocialActionPanel({ data }: SocialActionPanelProps) {
             <div className="space-y-6">
               <div className="flex justify-between items-end">
                 <div className="space-y-1">
-                  <p className="text-[10px] font-bold uppercase opacity-60">Participação Baralhos</p>
-                  <p className="text-3xl font-black tracking-tighter">{baralhoParticipation.toFixed(1)}%</p>
+                  <p className="text-[10px] font-bold uppercase opacity-60">Participação Ação Social</p>
+                  <p className="text-3xl font-black tracking-tighter">{socialParticipation.toFixed(1)}%</p>
                 </div>
                 <TrendingUp className="w-10 h-10 opacity-20" />
               </div>
               <div className="pt-4 border-t border-white/10">
-                <p className="text-[10px] font-black uppercase tracking-widest mb-2 opacity-60">Meta Sugerida: 15%</p>
-                <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                <p className="text-[10px] font-black uppercase tracking-widest mb-2 opacity-60">Meta Ação Social: 15%</p>
+                <div className="h-2 bg-white/10 rounded-full overflow-hidden mb-4">
                   <div 
                     className="h-full bg-white rounded-full" 
-                    style={{ width: `${Math.min(baralhoParticipation * (100/15), 100)}%` }}
+                    style={{ width: `${Math.min(socialParticipation * (100/15), 100)}%` }}
                   />
                 </div>
+                <p className="text-[10px] font-black uppercase tracking-widest mb-2 opacity-60">Part. Lanchinhos (Sem meta): {lanchinhoParticipation.toFixed(1)}%</p>
               </div>
             </div>
           </Card>
@@ -186,18 +209,21 @@ export function SocialActionPanel({ data }: SocialActionPanelProps) {
               <div className="divide-y divide-slate-50">
                 {stats.topVendors.slice(0, 10).map((v, i) => (
                   <div key={v.name} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
-                    <div className="flex items-center gap-3">
-                      <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-black text-slate-500 border border-slate-200">
+                    <div className="flex items-center gap-2">
+                      <div className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-[9px] font-black text-slate-500 border border-slate-200 shrink-0">
                         {i + 1}
                       </div>
-                      <span className="text-[11px] font-black text-slate-700 uppercase">{v.name}</span>
+                      <span className="text-[10px] font-black text-slate-700 uppercase line-clamp-1">{v.name}</span>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <div className="text-center">
-                         <span className="text-[10px] font-black text-rose-600">🃏{v.baralhos}</span>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <div className="text-center w-8">
+                         <span className="text-[9px] font-black text-rose-600">🃏{v.baralhos}</span>
                       </div>
-                      <div className="text-center">
-                         <span className="text-[10px] font-black text-emerald-600">🛍️{v.sacolas}</span>
+                      <div className="text-center w-8">
+                         <span className="text-[9px] font-black text-emerald-600">🛍️{v.sacolas}</span>
+                      </div>
+                      <div className="text-center w-8">
+                         <span className="text-[9px] font-black text-amber-500">☕{v.lanchinhos}</span>
                       </div>
                     </div>
                   </div>
@@ -232,6 +258,7 @@ export function SocialActionPanel({ data }: SocialActionPanelProps) {
                     <Tooltip contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: 'none', fontSize: '10px' }} />
                     <Area type="monotone" dataKey="baralhos" stroke="#e11d48" strokeWidth={3} fill="url(#colorBaralhos)" name="Baralhos 🃏" />
                     <Area type="monotone" dataKey="sacolas" stroke="#10b981" strokeWidth={2} fill="transparent" name="Sacolas 🛍️" />
+                    <Area type="monotone" dataKey="lanchinhos" stroke="#f59e0b" strokeWidth={2} fill="transparent" name="Lanchinhos ☕" />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
@@ -256,6 +283,7 @@ export function SocialActionPanel({ data }: SocialActionPanelProps) {
                     <Legend iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', paddingTop: '10px' }} />
                     <Bar dataKey="baralhos" fill="#e11d48" radius={[4, 4, 0, 0]} name="Baralhos 🃏" />
                     <Bar dataKey="sacolas" fill="#10b981" radius={[4, 4, 0, 0]} name="Sacolas 🛍️" />
+                    <Bar dataKey="lanchinhos" fill="#f59e0b" radius={[4, 4, 0, 0]} name="Lanchinhos ☕" />
                   </BarChart>
                 </ResponsiveContainer>
               </div>

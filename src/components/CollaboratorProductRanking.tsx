@@ -132,100 +132,104 @@ export function CollaboratorProductRanking({ data }: CollaboratorProductRankingP
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20">
       {/* Header */}
-      <div className="bg-gradient-to-br from-indigo-700 to-violet-800 rounded-[2.5rem] p-8 text-white relative overflow-hidden shadow-2xl">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 blur-[120px] -mr-32 -mt-32" />
+      <div className="bg-gradient-to-br from-indigo-700 to-violet-800 rounded-[2.5rem] p-8 text-white relative shadow-2xl">
+        <div className="absolute inset-0 overflow-hidden rounded-[2.5rem] pointer-events-none">
+          <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 blur-[120px] -mr-32 -mt-32" />
+        </div>
         
         <div className="relative z-10">
-          <div className="flex flex-col md:flex-row items-center gap-6 mb-8">
-            <div className="bg-white/20 p-4 rounded-3xl backdrop-blur-md">
-              <Trophy className="w-10 h-10 text-white" />
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="flex items-center gap-6">
+              <div className="bg-white/20 p-4 rounded-3xl backdrop-blur-md">
+                <Trophy className="w-10 h-10 text-white" />
+              </div>
+              <div className="text-center md:text-left">
+                <h2 className="text-3xl font-black tracking-tighter uppercase italic">Ranking por Produto</h2>
+                <p className="text-indigo-100 font-medium text-sm mt-1">
+                  Acompanhe o desempenho sazonal por código ou grupos de itens.
+                </p>
+              </div>
             </div>
-            <div className="flex-1 text-center md:text-left">
-              <h2 className="text-3xl font-black tracking-tighter uppercase italic">Ranking por Produto</h2>
-              <p className="text-indigo-100 font-medium text-sm mt-1">
-                Acompanhe o desempenho sazonal por código ou grupos de itens.
-              </p>
-            </div>
-          </div>
 
-          <div className="max-w-2xl mx-auto md:mx-0">
-            <div className="relative group">
-              <div className="relative">
-                <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
-                  <Search className="h-5 w-5 text-indigo-300 group-focus-within:text-white transition-colors" />
-                </div>
-                <Input
-                  type="text"
-                  placeholder="Pesquise ou cole itens separados por vírgula e aperte Enter..."
-                  className="pl-12 pr-24 h-14 bg-white/10 border-white/20 text-white placeholder:text-indigo-200 rounded-2xl focus:bg-white/20 focus:border-white/40 transition-all text-sm md:text-lg"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      addTerms(searchTerm);
-                    }
-                  }}
-                />
-                <div className="absolute inset-y-0 right-2 flex items-center">
-                  <button 
-                    onClick={() => addTerms(searchTerm)}
-                    className="bg-indigo-500 hover:bg-indigo-400 text-white text-xs font-bold uppercase px-3 py-1.5 rounded-xl transition-colors"
-                  >
-                    Adicionar
-                  </button>
-                </div>
-              </div>
-              
-              {suggestions.length > 0 && searchTerm && (
-                <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden z-50 animate-in slide-in-from-top-2">
-                  {suggestions.map((item) => (
-                    <button
-                      key={item.cProd}
-                      onClick={() => {
-                        toggleProduct(item.cProd);
-                        setSearchTerm("");
-                      }}
-                      className="w-full px-5 py-4 text-left hover:bg-slate-50 flex items-center justify-between group border-b border-slate-50 last:border-0"
+            <div className="w-full md:w-[450px]">
+              <div className="relative group">
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+                    <Search className="h-5 w-5 text-indigo-300 group-focus-within:text-white transition-colors" />
+                  </div>
+                  <Input
+                    type="text"
+                    placeholder="Pesquise ou cole itens separados por vírgula..."
+                    className="pl-12 pr-24 h-14 bg-white/10 border-white/20 text-white placeholder:text-indigo-200 rounded-2xl focus:bg-white/20 focus:border-white/40 transition-all text-sm"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        addTerms(searchTerm);
+                      }
+                    }}
+                  />
+                  <div className="absolute inset-y-0 right-2 flex items-center">
+                    <button 
+                      onClick={() => addTerms(searchTerm)}
+                      className="bg-indigo-500 hover:bg-indigo-400 text-white text-xs font-bold uppercase px-3 py-1.5 rounded-xl transition-colors"
                     >
-                      <div>
-                        <p className="text-xs font-black text-indigo-600 uppercase tracking-widest">{item.cProd}</p>
-                        <p className="text-sm font-bold text-slate-700">{item.xProd}</p>
-                      </div>
-                      <Plus className="w-4 h-4 text-slate-300 group-hover:text-indigo-500 transition-colors" />
+                      Adicionar
                     </button>
-                  ))}
+                  </div>
                 </div>
-              )}
-            </div>
-            
-            {selectedProductCodes.length > 0 && (
-              <div className="mt-6 flex flex-wrap gap-2">
-                <Badge 
-                  variant="outline" 
-                  className="bg-white/10 hover:bg-white/20 text-white border-white/20 cursor-pointer px-3 py-1.5 rounded-xl gap-2 transition-colors"
-                  onClick={clearSelection}
-                >
-                  <X className="w-3 h-3" /> Limpar Seleção
-                </Badge>
-                {selectedProductCodes.map(code => {
-                  const item = allUniqueItems.find(i => i.cProd.toUpperCase().includes(code) || i.xProd.toUpperCase().includes(code));
-                  return (
-                    <Badge 
-                      key={code} 
-                      className="bg-indigo-500 text-white px-3 py-1.5 rounded-xl gap-2 shadow-lg shadow-indigo-900/20"
-                    >
-                      <span className="font-black text-[10px]">{code}</span>
-                      {item && <span className="font-medium text-xs opacity-90">{item.xProd}</span>}
-                      <X 
-                        className="w-3 h-3 cursor-pointer hover:text-red-200 transition-colors" 
-                        onClick={() => toggleProduct(code)}
-                      />
-                    </Badge>
-                  );
-                })}
+                
+                {suggestions.length > 0 && searchTerm && (
+                  <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden z-50 animate-in slide-in-from-top-2">
+                    {suggestions.map((item) => (
+                      <button
+                        key={item.cProd}
+                        onClick={() => {
+                          toggleProduct(item.cProd);
+                          setSearchTerm("");
+                        }}
+                        className="w-full px-5 py-4 text-left hover:bg-slate-50 flex items-center justify-between group border-b border-slate-50 last:border-0"
+                      >
+                        <div>
+                          <p className="text-xs font-black text-indigo-600 uppercase tracking-widest">{item.cProd}</p>
+                          <p className="text-sm font-bold text-slate-700">{item.xProd}</p>
+                        </div>
+                        <Plus className="w-4 h-4 text-slate-300 group-hover:text-indigo-500 transition-colors" />
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </div>
+          
+          {selectedProductCodes.length > 0 && (
+            <div className="mt-8 flex flex-wrap gap-2">
+              <Badge 
+                variant="outline" 
+                className="bg-white/10 hover:bg-white/20 text-white border-white/20 cursor-pointer px-3 py-1.5 rounded-xl gap-2 transition-colors"
+                onClick={clearSelection}
+              >
+                <X className="w-3 h-3" /> Limpar Seleção
+              </Badge>
+              {selectedProductCodes.map(code => {
+                const item = allUniqueItems.find(i => i.cProd.toUpperCase().includes(code) || i.xProd.toUpperCase().includes(code));
+                return (
+                  <Badge 
+                    key={code} 
+                    className="bg-indigo-500 text-white px-3 py-1.5 rounded-xl gap-2 shadow-lg shadow-indigo-900/20"
+                  >
+                    <span className="font-black text-[10px]">{code}</span>
+                    {item && <span className="font-medium text-xs opacity-90">{item.xProd}</span>}
+                    <X 
+                      className="w-3 h-3 cursor-pointer hover:text-red-200 transition-colors" 
+                      onClick={() => toggleProduct(code)}
+                    />
+                  </Badge>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 

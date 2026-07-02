@@ -28,6 +28,9 @@ export function UnmissableOffersAnalysis({ data }: UnmissableOffersAnalysisProps
   const [expandedColab, setExpandedColab] = useState<string | null>(null);
   const [expandedColabDay, setExpandedColabDay] = useState<string | null>(null);
   
+  // 0 = Dom, 1 = Seg, ... 6 = Sáb. Default: Quinta(4) a Domingo(0)
+  const [selectedDays, setSelectedDays] = useState<number[]>([4, 5, 6, 0]);
+  
   // Load from localStorage on mount
   useEffect(() => {
     const saved = localStorage.getItem("unmissableOffersCodes");
@@ -59,9 +62,14 @@ export function UnmissableOffersAnalysis({ data }: UnmissableOffersAnalysisProps
     localStorage.removeItem("unmissableOffersCodes");
   };
 
-  const sales = useMemo(() =>
-    data.filter(r => !r.is_cancelada && r.tpNF === 1 && !r.is_devolucao && r.itens?.length > 0),
-  [data]);
+  const sales = useMemo(() => {
+    return data.filter(r => {
+      if (r.is_cancelada || r.tpNF !== 1 || r.is_devolucao || !r.itens || r.itens.length === 0) return false;
+      const d = parseISO(r.dhEmi);
+      if (isNaN(d.getTime())) return true; // keep if invalid date just in case
+      return selectedDays.includes(d.getDay());
+    });
+  }, [data, selectedDays]);
 
   const analysisPeriod = useMemo(() => {
     if (sales.length === 0) return "Período Indefinido";
@@ -80,6 +88,8 @@ export function UnmissableOffersAnalysis({ data }: UnmissableOffersAnalysisProps
     let totalPecasGeral = 0;
     let totalCuponsGeral = sales.length;
 
+    let totalFaturamentoOfertas = 0;
+    let totalPecasOfertas = 0;
     let totalFaturamentoSemOfertas = 0;
     let totalPecasSemOfertas = 0;
     
@@ -184,6 +194,9 @@ export function UnmissableOffersAnalysis({ data }: UnmissableOffersAnalysisProps
         dMap.ofertasVendidas += pecasOfertasNaNota;
         dMap.fatOfertas += fatOfertasNaNota;
         
+        totalFaturamentoOfertas += fatOfertasNaNota;
+        totalPecasOfertas += pecasOfertasNaNota;
+        
         matchedCodes.forEach(c => itemsStats[c].numVendas++);
       }
 
@@ -210,6 +223,8 @@ export function UnmissableOffersAnalysis({ data }: UnmissableOffersAnalysisProps
         totalFaturamentoGeral,
         totalPecasGeral,
         totalCuponsGeral,
+        totalFaturamentoOfertas,
+        totalPecasOfertas,
         totalFaturamentoSemOfertas,
         totalPecasSemOfertas
       }
@@ -256,7 +271,7 @@ export function UnmissableOffersAnalysis({ data }: UnmissableOffersAnalysisProps
   if (activeCodes.length === 0 || !analysisData) {
     return (
       <div className="space-y-4 animate-in fade-in duration-500 pb-20">
-        <Header activeCodes={activeCodes} inputCodes={inputCodes} setInputCodes={setInputCodes} handleApply={handleApply} clearCodes={clearCodes} />
+        <Header activeCodes={activeCodes} inputCodes={inputCodes} setInputCodes={setInputCodes} handleApply={handleApply} clearCodes={clearCodes} selectedDays={selectedDays} setSelectedDays={setSelectedDays} />
         <div className="flex flex-col items-center justify-center py-20 gap-4 text-slate-400 bg-white rounded-[2rem] border border-slate-100 shadow-sm">
           <Zap className="w-16 h-16 opacity-30 text-rose-500" />
           <p className="text-sm font-bold uppercase tracking-widest text-center px-4">
@@ -268,20 +283,24 @@ export function UnmissableOffersAnalysis({ data }: UnmissableOffersAnalysisProps
   }
 
   const g = analysisData.global;
-  const fatOfertas = g.totalFaturamentoGeral - g.totalFaturamentoSemOfertas;
-  const pecasOfertas = g.totalPecasGeral - g.totalPecasSemOfertas;
+  const fatOfertas = g.totalFaturamentoOfertas;
+  const pecasOfertas = g.totalPecasOfertas;
   const cuponsOfertas = analysisData.salesWithOffer.length;
   const participacao = g.totalFaturamentoGeral > 0 ? (fatOfertas / g.totalFaturamentoGeral) * 100 : 0;
 
   const tkmGeral = g.totalCuponsGeral > 0 ? g.totalFaturamentoGeral / g.totalCuponsGeral : 0;
   const paGeral = g.totalCuponsGeral > 0 ? g.totalPecasGeral / g.totalCuponsGeral : 0;
   
-  const tkmSemOfertas = g.totalCuponsGeral > 0 ? g.totalFaturamentoSemOfertas / g.totalCuponsGeral : 0;
-  const paSemOfertas = g.totalCuponsGeral > 0 ? g.totalPecasSemOfertas / g.totalCuponsGeral : 0;
+  // Recalculate 'Sem Ofertas' properly by subtracting the actual offer value from the invoice net total
+  const fatRealSemOfertas = Math.max(0, g.totalFaturamentoGeral - fatOfertas);
+  const pecasRealSemOfertas = Math.max(0, g.totalPecasGeral - pecasOfertas);
+
+  const tkmSemOfertas = g.totalCuponsGeral > 0 ? fatRealSemOfertas / g.totalCuponsGeral : 0;
+  const paSemOfertas = g.totalCuponsGeral > 0 ? pecasRealSemOfertas / g.totalCuponsGeral : 0;
 
   return (
     <div className="space-y-4 animate-in fade-in duration-500 pb-20">
-      <Header activeCodes={activeCodes} inputCodes={inputCodes} setInputCodes={setInputCodes} handleApply={handleApply} clearCodes={clearCodes} />
+      <Header activeCodes={activeCodes} inputCodes={inputCodes} setInputCodes={setInputCodes} handleApply={handleApply} clearCodes={clearCodes} selectedDays={selectedDays} setSelectedDays={setSelectedDays} />
       
       {/* Botão WhatsApp Export */}
       <div className="flex justify-end">
@@ -296,53 +315,59 @@ export function UnmissableOffersAnalysis({ data }: UnmissableOffersAnalysisProps
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Card Geral */}
-        <div className="bg-white rounded-[1.5rem] p-5 shadow-sm border border-slate-100">
-          <div className="flex items-center gap-2 mb-4 pb-4 border-b border-slate-100">
-            <Store className="w-5 h-5 text-indigo-500" />
-            <h3 className="font-black text-sm uppercase text-slate-700">Resultado Consolidado</h3>
+        <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-rose-100 rounded-xl">
+                <Store className="w-5 h-5 text-rose-600" />
+              </div>
+              <h3 className="font-black text-sm uppercase text-slate-700 tracking-wider">Resultado Consolidado</h3>
+            </div>
+            <Badge variant="outline" className="text-rose-500 border-rose-200 bg-rose-50 font-black uppercase">
+              {participacao.toFixed(1)}% Partic.
+            </Badge>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Ofertas Vendidas</span>
-              <p className="text-3xl font-black text-rose-600">{pecasOfertas} <span className="text-sm font-medium text-slate-400">pçs</span></p>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="space-y-1 bg-slate-50 p-4 rounded-2xl flex flex-col justify-center border border-slate-100/50">
+              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block">Ofertas</span>
+              <p className="text-2xl font-black text-rose-600">{pecasOfertas} <span className="text-xs text-slate-400 font-bold">pç</span></p>
             </div>
-            <div className="space-y-1">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Fat. Ofertas</span>
-              <p className="text-2xl font-black text-emerald-600">{fmtBRL(fatOfertas)}</p>
+            <div className="space-y-1 bg-slate-50 p-4 rounded-2xl flex flex-col justify-center border border-slate-100/50">
+              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block">Faturamento</span>
+              <p className="text-xl font-black text-emerald-600">{fmtBRL(fatOfertas)}</p>
             </div>
-            <div className="space-y-1">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Cupons c/ Oferta</span>
+            <div className="space-y-1 bg-slate-50 p-4 rounded-2xl flex flex-col justify-center border border-slate-100/50">
+              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block">Cupons</span>
               <p className="text-xl font-black text-slate-800">{cuponsOfertas}</p>
-            </div>
-            <div className="space-y-1">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Participação</span>
-              <p className="text-xl font-black text-indigo-600">{participacao.toFixed(1)}%</p>
             </div>
           </div>
         </div>
 
         {/* Card Impacto Comparativo */}
-        <div className="bg-slate-800 rounded-[1.5rem] p-5 shadow-sm border border-slate-700 text-white">
-          <div className="flex items-center gap-2 mb-4 pb-4 border-b border-slate-700">
-            <TrendingUp className="w-5 h-5 text-sky-400" />
-            <h3 className="font-black text-sm uppercase text-slate-100">Impacto das Ofertas</h3>
+        <div className="bg-slate-900 rounded-[2rem] p-6 shadow-xl border border-slate-800 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-sky-500/10 blur-[50px] -mr-10 -mt-10" />
+          <div className="relative z-10 flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-sky-500/20 rounded-xl">
+                <TrendingUp className="w-5 h-5 text-sky-400" />
+              </div>
+              <h3 className="font-black text-sm uppercase text-white tracking-wider">Impacto das Ofertas</h3>
+            </div>
           </div>
-          <div className="grid grid-cols-2 gap-y-4 gap-x-6">
-            <div>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">TKM Geral (Com Ofertas)</span>
-              <p className="text-xl font-black text-white">{fmtBRL(tkmGeral)}</p>
+          <div className="grid grid-cols-2 gap-y-4 gap-x-4 relative z-10">
+            <div className="bg-white/5 p-4 rounded-2xl border border-white/5 flex flex-col justify-center">
+              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">TKM (C/ Ofertas)</span>
+              <p className="text-xl font-black text-emerald-400">{fmtBRL(tkmGeral)}</p>
+              <div className="mt-3 pt-3 border-t border-white/5">
+                <span className="text-[9px] font-bold text-slate-500 uppercase">Sem ofertas: <span className="text-rose-400">{fmtBRL(tkmSemOfertas)}</span></span>
+              </div>
             </div>
-            <div>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">P.A. Geral (Com Ofertas)</span>
-              <p className="text-xl font-black text-white">{paGeral.toFixed(2)} pç</p>
-            </div>
-            <div className="border-t border-slate-700 pt-3">
-              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Se remover ofertas</span>
-              <p className="text-lg font-bold text-rose-400">{fmtBRL(tkmSemOfertas)}</p>
-            </div>
-            <div className="border-t border-slate-700 pt-3">
-              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Se remover ofertas</span>
-              <p className="text-lg font-bold text-rose-400">{paSemOfertas.toFixed(2)} pç</p>
+            <div className="bg-white/5 p-4 rounded-2xl border border-white/5 flex flex-col justify-center">
+              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-1">P.A. (C/ Ofertas)</span>
+              <p className="text-xl font-black text-emerald-400">{paGeral.toFixed(2)} <span className="text-xs text-emerald-400/50">pç</span></p>
+              <div className="mt-3 pt-3 border-t border-white/5">
+                <span className="text-[9px] font-bold text-slate-500 uppercase">Sem ofertas: <span className="text-rose-400">{paSemOfertas.toFixed(2)}</span></span>
+              </div>
             </div>
           </div>
         </div>
@@ -523,48 +548,88 @@ export function UnmissableOffersAnalysis({ data }: UnmissableOffersAnalysisProps
   );
 }
 
-function Header({ activeCodes, inputCodes, setInputCodes, handleApply, clearCodes }: any) {
+function Header({ activeCodes, inputCodes, setInputCodes, handleApply, clearCodes, selectedDays, setSelectedDays }: any) {
+  const dayNames = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
   return (
-    <div className="bg-gradient-to-br from-rose-600 to-pink-500 rounded-[2rem] p-6 md:p-8 text-white relative overflow-hidden shadow-2xl">
-      <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 blur-[80px] -mr-20 -mt-20" />
-      <div className="relative z-10 flex flex-col md:flex-row md:items-start gap-6">
-        <div className="bg-white/10 p-4 rounded-3xl shrink-0">
-          <Flame className="w-10 h-10 text-rose-200" />
+    <div className="bg-gradient-to-br from-rose-600 via-rose-500 to-orange-500 rounded-[2.5rem] p-8 text-white relative shadow-2xl">
+      <div className="absolute inset-0 overflow-hidden rounded-[2.5rem] pointer-events-none">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-white/20 blur-[120px] -mr-20 -mt-20" />
+      </div>
+      
+      <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="flex items-center gap-6">
+          <div className="bg-white/20 p-4 rounded-3xl backdrop-blur-md">
+            <Flame className="w-10 h-10 text-white" />
+          </div>
+          <div className="text-center md:text-left">
+            <h2 className="text-3xl font-black tracking-tighter uppercase italic">Ofertas Imperdíveis</h2>
+            <p className="text-rose-100 font-medium text-sm mt-1 max-w-md mb-4">
+              Monitore a conversão de produtos estratégicos de alto impacto por colaborador.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {[0, 1, 2, 3, 4, 5, 6].map(day => {
+                const isSelected = selectedDays.includes(day);
+                return (
+                  <button
+                    key={day}
+                    onClick={() => {
+                      if (isSelected) {
+                        setSelectedDays((prev: number[]) => prev.filter(d => d !== day));
+                      } else {
+                        setSelectedDays((prev: number[]) => [...prev, day].sort());
+                      }
+                    }}
+                    className={cn(
+                      "px-3 py-1.5 rounded-xl text-[10px] font-black uppercase transition-all border",
+                      isSelected ? "bg-white text-rose-600 border-white shadow-sm shadow-rose-900/20" : "bg-white/10 text-white/50 border-white/20 hover:bg-white/20 hover:text-white"
+                    )}
+                  >
+                    {dayNames[day]}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
-        <div className="flex-1 w-full">
-          <h2 className="text-2xl md:text-4xl font-black tracking-tighter uppercase mb-2">Ofertas Imperdíveis</h2>
-          <p className="text-rose-100 text-sm font-medium mb-6 max-w-xl">
-            Monitore produtos de alto impacto. Insira os códigos (separados por vírgula ou linha) e analise a performance com foco cirúrgico na conversão de cada colaborador.
-          </p>
-          
-          <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/20 w-full max-w-2xl flex gap-3 items-stretch">
+
+        <div className="w-full md:w-[450px]">
+          <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3 border border-white/20 w-full flex gap-3 items-stretch shadow-inner">
             <textarea
               value={inputCodes}
               onChange={e => setInputCodes(e.target.value)}
-              placeholder="Ex: 12345, 67890, 11223..."
-              className="w-full bg-white/90 text-slate-800 rounded-xl p-3 text-sm font-bold placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-400 resize-none"
-              rows={3}
+              placeholder="Ex: 12345, 67890..."
+              className="w-full bg-transparent text-white placeholder:text-rose-200 p-2 text-sm font-bold focus:outline-none resize-none custom-scrollbar"
+              rows={2}
             />
-            <div className="flex flex-col gap-2 shrink-0">
+            <div className="flex flex-col gap-2 shrink-0 justify-center">
               <button
                 onClick={handleApply}
-                className="bg-white text-rose-600 hover:bg-rose-50 font-black uppercase text-xs px-4 py-3 rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 h-full"
+                className="bg-white hover:bg-rose-50 text-rose-600 font-black uppercase text-xs px-4 py-2 rounded-xl transition-colors shadow-sm flex items-center justify-center gap-2 h-full"
               >
                 <Search className="w-4 h-4" />
                 Analisar
               </button>
-              {activeCodes.length > 0 && (
-                <button
-                  onClick={clearCodes}
-                  className="bg-rose-700/50 hover:bg-rose-700 text-white font-bold uppercase text-[10px] px-3 py-2 rounded-xl transition-all flex items-center justify-center gap-1"
-                >
-                  <X className="w-3 h-3" /> Limpar
-                </button>
-              )}
             </div>
           </div>
         </div>
       </div>
+      
+      {activeCodes.length > 0 && (
+        <div className="mt-8 flex flex-wrap gap-2 relative z-10">
+          <Badge 
+            variant="outline" 
+            className="bg-white/10 hover:bg-white/20 text-white border-white/20 cursor-pointer px-3 py-1.5 rounded-xl gap-2 transition-colors"
+            onClick={clearCodes}
+          >
+            <X className="w-3 h-3" /> Limpar Análise
+          </Badge>
+          {activeCodes.map((code: string) => (
+            <Badge key={code} className="bg-orange-500/80 backdrop-blur-md text-white px-3 py-1.5 rounded-xl border border-orange-400/30">
+              <span className="font-black text-[10px]">{code}</span>
+            </Badge>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

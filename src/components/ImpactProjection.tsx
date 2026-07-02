@@ -22,8 +22,6 @@ interface ImpactProjectionProps {
 }
 
 export const ImpactProjection: React.FC<ImpactProjectionProps> = ({ data }) => {
-  const [benchmarkType, setBenchmarkType] = useState<'average' | 'top' | 'meta'>('meta');
-
   const stats = useMemo(() => {
     if (!data.length) return null;
 
@@ -79,16 +77,11 @@ export const ImpactProjection: React.FC<ImpactProjectionProps> = ({ data }) => {
     const avgPA = totals.cupons > 0 ? totals.itens / totals.cupons : 0;
     const avgTKM = totals.cupons > 0 ? totals.venda / totals.cupons : 0;
     const avgConv = totals.pickups > 0 ? (totals.adicionais / totals.pickups) * 100 : 0;
-
-    // Benchmarks
-    const topPA = Math.max(...groupedData.map(v => v.current.cupons > 0 ? v.current.itens / v.current.cupons : 0));
-    const topTKM = Math.max(...groupedData.map(v => v.current.cupons > 0 ? v.current.venda / v.current.cupons : 0));
-    const topConv = Math.max(...groupedData.map(v => v.pickupsAtendidas > 0 ? (v.adicionaisFeitos / v.pickupsAtendidas) * 100 : 0));
-
-    // Target Selection
-    const targetPA = benchmarkType === 'average' ? avgPA : benchmarkType === 'top' ? topPA : 2.5; // Meta 2.5 é sugerida para varejo, ou use algo fixo
-    const targetTKM = benchmarkType === 'average' ? avgTKM : benchmarkType === 'top' ? topTKM : (avgTKM * 1.1); // +10% como meta
-    const targetConv = benchmarkType === 'average' ? avgConv : benchmarkType === 'top' ? topConv : 22.0;
+    
+    // Target Selection (Média do Grupo Only)
+    const targetPA = avgPA;
+    const targetTKM = avgTKM;
+    const targetConv = avgConv;
 
     // Impact Calculation
     const potentialItensPA = groupedData.reduce((acc, v) => {
@@ -131,7 +124,7 @@ export const ImpactProjection: React.FC<ImpactProjectionProps> = ({ data }) => {
         total: potentialVendaTKM + potentialVendaAdic
       }
     };
-  }, [data, benchmarkType]);
+  }, [data]);
 
   if (!stats) return null;
 
@@ -144,42 +137,11 @@ export const ImpactProjection: React.FC<ImpactProjectionProps> = ({ data }) => {
         <div>
           <h2 className="text-2xl font-black text-white flex items-center gap-2">
             <Calculator className="w-6 h-6 text-emerald-400" />
-            PROJEÇÃO DE IMPACTO
+            PROJEÇÃO DE IMPACTO (MÉDIA DO GRUPO)
           </h2>
-          <p className="text-slate-400 text-sm font-medium italic">Simulador de Arrecadação Incremental</p>
-        </div>
-        
-        <div className="flex gap-2 bg-slate-800 p-1.5 rounded-xl border border-slate-700">
-          <button 
-            onClick={() => setBenchmarkType('meta')}
-            className={cn(
-              "px-4 py-2 rounded-lg text-[10px] font-black tracking-widest transition-all",
-              benchmarkType === 'meta' ? "bg-indigo-600 text-white shadow-lg" : "text-slate-400 hover:text-white"
-            )}
-          >
-            META COMPANHIA (22%)
-          </button>
-          <button 
-            onClick={() => setBenchmarkType('average')}
-            className={cn(
-              "px-4 py-2 rounded-lg text-[10px] font-black tracking-widest transition-all",
-              benchmarkType === 'average' ? "bg-emerald-600 text-white shadow-lg" : "text-slate-400 hover:text-white"
-            )}
-          >
-            MÉDIA DO GRUPO
-          </button>
-          <button 
-            onClick={() => setBenchmarkType('top')}
-            className={cn(
-              "px-4 py-2 rounded-lg text-[10px] font-black tracking-widest transition-all",
-              benchmarkType === 'top' ? "bg-amber-500 text-white shadow-lg" : "text-slate-400 hover:text-white"
-            )}
-          >
-            MELHOR PERFORMER
-          </button>
+          <p className="text-slate-400 text-sm font-medium italic">Arrecadação simulada caso todos atingissem a média do grupo em cada indicador</p>
         </div>
       </div>
-
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <ImpactCard 
           title="Potencial de TKM" 
@@ -246,28 +208,51 @@ export const ImpactProjection: React.FC<ImpactProjectionProps> = ({ data }) => {
               {stats.groupedData
                 .map(v => {
                   const currentTKM = v.current.cupons > 0 ? v.current.venda / v.current.cupons : 0;
-                  const gap = Math.max(0, stats.targets.tkm - currentTKM);
-                  const impact = gap * v.current.cupons;
-                  return { ...v, impact };
+                  const currentPA = v.current.cupons > 0 ? v.current.itens / v.current.cupons : 0;
+                  const currentPM = v.current.itens > 0 ? v.current.venda / v.current.itens : (stats.totals.venda / stats.totals.itens || 0);
+                  const currentConv = v.pickupsAtendidas > 0 ? (v.adicionaisFeitos / v.pickupsAtendidas) * 100 : 0;
+                  const avgAdicValue = v.adicionaisFeitos > 0 ? v.extra.venda / v.adicionaisFeitos : (stats.totals.vendaAdicional / stats.totals.adicionais || (stats.totals.venda / stats.totals.cupons));
+                  
+                  const impactTKM = Math.max(0, stats.targets.tkm - currentTKM) * v.current.cupons;
+                  const impactPA = Math.max(0, stats.targets.pa - currentPA) * v.current.cupons * currentPM;
+                  const impactConv = (Math.max(0, stats.targets.conv - currentConv) / 100) * v.pickupsAtendidas * avgAdicValue;
+                  const totalImpact = impactTKM + impactPA + impactConv;
+
+                  return { ...v, impactTKM, impactPA, impactConv, totalImpact };
                 })
-                .sort((a, b) => b.impact - a.impact)
-                .map((v, i) => (
-                  <div key={v.name} className="flex items-center justify-between p-3 rounded-xl bg-slate-800/50 border border-slate-700/50 group hover:border-emerald-500/30 transition-all">
-                    <div className="flex items-center gap-3">
-                      <div className="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-[10px] font-black text-white group-hover:bg-emerald-500 transition-colors">
-                        {i + 1}
-                      </div>
-                      <div>
+                .sort((a, b) => b.totalImpact - a.totalImpact)
+                .map((v, i) => {
+                  if (v.totalImpact <= 0) return null;
+                  return (
+                  <div key={v.name} className="p-4 rounded-xl bg-slate-800/50 border border-slate-700/50 group hover:border-emerald-500/30 transition-all">
+                    <div className="flex items-center justify-between mb-3 border-b border-slate-700/50 pb-2">
+                      <div className="flex items-center gap-3">
+                        <div className="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-[10px] font-black text-white group-hover:bg-emerald-500 transition-colors">
+                          {i + 1}
+                        </div>
                         <div className="text-sm font-black text-white uppercase">{v.name}</div>
-                        <div className="text-[10px] text-slate-400 font-bold uppercase">Impacto TKM</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-xs text-slate-400 font-bold uppercase mb-0.5">Impacto Total</div>
+                        <div className="text-base font-black text-emerald-400">{formatBRL(v.totalImpact)}</div>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className="text-sm font-black text-emerald-400">{formatBRL(v.impact)}</div>
-                      <div className="text-[10px] text-slate-500 font-bold italic">Gap: {formatBRL(Math.max(0, stats.targets.tkm - (v.current.cupons > 0 ? v.current.venda / v.current.cupons : 0)))}</div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="bg-slate-900/50 p-2 rounded-lg">
+                        <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mb-0.5">TKM</p>
+                        <p className="text-xs font-black text-emerald-400">+{formatBRL(v.impactTKM)}</p>
+                      </div>
+                      <div className="bg-slate-900/50 p-2 rounded-lg">
+                        <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mb-0.5">P.A.</p>
+                        <p className="text-xs font-black text-blue-400">+{formatBRL(v.impactPA)}</p>
+                      </div>
+                      <div className="bg-slate-900/50 p-2 rounded-lg">
+                        <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mb-0.5">Conv.</p>
+                        <p className="text-xs font-black text-purple-400">+{formatBRL(v.impactConv)}</p>
+                      </div>
                     </div>
                   </div>
-                ))}
+                )})}
             </div>
           </CardContent>
         </Card>

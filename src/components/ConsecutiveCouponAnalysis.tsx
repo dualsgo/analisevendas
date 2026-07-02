@@ -39,8 +39,8 @@ const DAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
 export function ConsecutiveCouponAnalysis({ data }: ConsecutiveCouponAnalysisProps) {
   const analytics = useMemo(() => {
-    const activeSales = data.filter(s => !s.is_cancelada && s.tpNF === 1 && s.vendedor);
-    
+    // Exclude pickup and pickup-additional sales from fragmentation logic
+    const activeSales = data.filter(s => !s.is_cancelada && s.tpNF === 1 && s.vendedor && s.canal !== "RETIRADA_ONLINE" && !s.is_adicional);
     // Agrupar por vendedor e dia
     const byVendorDay: Record<string, Record<string, DetailedSaleRow[]>> = {};
     

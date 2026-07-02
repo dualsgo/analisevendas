@@ -99,18 +99,28 @@ export function UploadZone({ onDataParsed, isProcessing }: UploadZoneProps) {
   };
 
   return (
-    <div className="w-full space-y-4">
+    <div className="w-full space-y-6">
       <div 
         onDragEnter={handleDrag}
         onDragLeave={handleDrag}
         onDragOver={handleDrag}
         onDrop={handleDrop}
         className={cn(
-          "relative border-2 border-dashed rounded-[2rem] p-8 md:p-12 transition-all flex flex-col items-center justify-center gap-4 group min-h-[240px]",
-          dragActive ? "border-indigo-500 bg-indigo-50/50 scale-[1.01]" : "border-slate-200 bg-slate-50 hover:border-indigo-300",
-          selectedCount > 0 && !isProcessing && "border-emerald-200 bg-emerald-50/20"
+          "relative rounded-[2.5rem] p-10 md:p-16 transition-all duration-500 flex flex-col items-center justify-center gap-6 group min-h-[320px] overflow-hidden",
+          dragActive 
+            ? "border-2 border-indigo-500 bg-indigo-50/80 scale-[1.02] shadow-2xl shadow-indigo-500/20" 
+            : "border-2 border-dashed border-slate-300 bg-slate-50/50 hover:bg-slate-50 hover:border-indigo-400 hover:shadow-2xl hover:shadow-indigo-500/10",
+          selectedCount > 0 && !isProcessing && "border-solid border-emerald-500 bg-emerald-50/80 shadow-emerald-500/20"
         )}
       >
+        {/* Animated background rings for idle state */}
+        {!dragActive && selectedCount === 0 && !isProcessing && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20">
+             <div className="w-64 h-64 border-2 border-indigo-200 rounded-full animate-ping [animation-duration:3s]" />
+             <div className="w-48 h-48 border border-indigo-300 rounded-full animate-ping [animation-duration:2s] absolute" />
+          </div>
+        )}
+
         <input
           type="file"
           multiple
@@ -121,52 +131,50 @@ export function UploadZone({ onDataParsed, isProcessing }: UploadZoneProps) {
         />
         
         <div className={cn(
-          "p-5 rounded-2xl bg-white shadow-sm transition-transform duration-500 group-hover:scale-110 border border-slate-100",
-          selectedCount > 0 ? "text-emerald-500" : "text-indigo-600"
+          "relative z-10 p-6 rounded-3xl bg-white transition-transform duration-500 group-hover:scale-110 group-hover:-translate-y-2 border shadow-xl shadow-slate-200/50",
+          selectedCount > 0 ? "border-emerald-100 text-emerald-500" : dragActive ? "border-indigo-300 text-indigo-600" : "border-slate-100 text-indigo-500"
         )}>
           {isProcessing ? (
-            <Loader2 className="w-8 h-8 animate-spin" />
+            <Loader2 className="w-10 h-10 animate-spin" />
           ) : selectedCount > 0 ? (
-            <FileCheck className="w-8 h-8" />
+            <FileCheck className="w-10 h-10" />
           ) : (
-            <Upload className="w-8 h-8" />
+            <Upload className="w-10 h-10" />
           )}
         </div>
 
-        <div className="text-center space-y-1">
-          <p className="text-lg font-bold text-slate-800 uppercase tracking-tight">
+        <div className="text-center space-y-2 relative z-10">
+          <p className="text-xl md:text-2xl font-black text-slate-800 uppercase tracking-tight">
             {isProcessing ? "Analisando Inteligência..." : 
              selectedCount > 0 ? `${selectedCount} arquivos carregados` : 
              "Importar Dados Fiscais"}
           </p>
-          <p className="text-xs text-slate-500 font-medium uppercase tracking-widest">
+          <p className="text-xs md:text-sm text-slate-500 font-bold uppercase tracking-widest max-w-xs mx-auto leading-relaxed">
             {selectedCount > 0 ? "Extraindo indicadores de performance" : "Solte seus pacotes ZIP ou XMLs da SEFAZ"}
           </p>
         </div>
 
         {errorCount > 0 && (
-          <div className="flex items-center gap-2 bg-rose-50 text-rose-600 px-4 py-2 rounded-full border border-rose-100">
-            <FileX className="w-3.5 h-3.5" />
-            <span className="text-[10px] font-bold uppercase">{errorCount} arquivos inválidos</span>
+          <div className="flex items-center gap-2 bg-rose-50 text-rose-600 px-5 py-2.5 rounded-full border border-rose-100 shadow-sm relative z-10">
+            <FileX className="w-4 h-4" />
+            <span className="text-xs font-black uppercase tracking-wider">{errorCount} arquivos inválidos</span>
           </div>
         )}
       </div>
 
       {!isProcessing && selectedCount === 0 && (
-        <div className="flex items-center justify-center gap-6 text-slate-400">
-          <div className="flex items-center gap-2">
-            <ShieldAlert className="w-3.5 h-3.5" />
-            <span className="text-[10px] font-bold uppercase tracking-tight">Privacidade Local</span>
+        <div className="flex flex-wrap items-center justify-center gap-4 text-slate-500 w-full">
+          <div className="flex items-center gap-2.5 bg-white px-4 py-2 rounded-2xl shadow-sm border border-slate-100 transition-colors hover:border-slate-200">
+            <ShieldAlert className="w-4 h-4 text-emerald-500" />
+            <span className="text-[10px] font-black uppercase tracking-widest">Privacidade Local</span>
           </div>
-          <div className="w-px h-4 bg-slate-200" />
-          <div className="flex items-center gap-2">
-            <LayoutDashboard className="w-3.5 h-3.5" />
-            <span className="text-[10px] font-bold uppercase tracking-tight">Análise em 3s</span>
+          <div className="flex items-center gap-2.5 bg-white px-4 py-2 rounded-2xl shadow-sm border border-slate-100 transition-colors hover:border-slate-200">
+            <LayoutDashboard className="w-4 h-4 text-indigo-500" />
+            <span className="text-[10px] font-black uppercase tracking-widest">Análise em 3s</span>
           </div>
-          <div className="w-px h-4 bg-slate-200" />
-          <div className="flex items-center gap-2">
-            <AlertCircle className="w-3.5 h-3.5" />
-            <span className="text-[10px] font-bold uppercase tracking-tight">Padrão SEFAZ</span>
+          <div className="flex items-center gap-2.5 bg-white px-4 py-2 rounded-2xl shadow-sm border border-slate-100 transition-colors hover:border-slate-200">
+            <AlertCircle className="w-4 h-4 text-orange-500" />
+            <span className="text-[10px] font-black uppercase tracking-widest">Padrão SEFAZ</span>
           </div>
         </div>
       )}

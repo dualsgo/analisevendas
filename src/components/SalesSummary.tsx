@@ -129,6 +129,7 @@ import { AnalysisHelp } from "./AnalysisHelp";
 import { CopaAnalysis } from "./CopaAnalysis";
 import { WeeklyAnalysis } from "./WeeklyAnalysis";
 import { AgingCampaignAnalysis } from "./AgingCampaignAnalysis";
+import { ShiftPerformance } from "./ShiftPerformance";
 
 interface SalesSummaryProps {
   data: DetailedSaleRow[];
@@ -387,6 +388,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
 
     { id: "customer_loyalty", label: "Fidelidade & Recorrência", icon: Users2, category: "Clientes", color: "text-emerald-600 font-black" },
     { id: "ritmo_operacional", label: "Ritmo de Atendimento", icon: Timer, category: "Operacional" },
+    { id: "desempenho_turno", label: "Desempenho por Turno", icon: Timer, category: "Operacional", color: "text-indigo-600 font-black" },
 
     { id: "pickup_dashboard", label: "Dashboard Pickup", icon: Zap, category: "Operacional", color: "text-emerald-600 font-black" },
     { id: "pickup_track", label: "Monitor Pickup", icon: Smartphone, category: "Operacional", color: "text-sky-600 font-black" },
@@ -431,6 +433,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
       case "deep_dive": return null;
       case "qualidade_avancada": return <QualityAnalysis data={filteredData} vinculos={filteredVinculos} />;
       case "ritmo_operacional": return <OperationalRhythm data={filteredData} />;
+      case "desempenho_turno": return <ShiftPerformance data={filteredData} />;
       case "produtividade_diag": return <ProductivityDiagnostic data={filteredData} />;
       case "payment_map": return <PaymentMap data={filteredData} />;
       case "cash_reconcile": return <CashReconciliation data={filteredData} />;

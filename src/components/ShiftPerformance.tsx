@@ -286,9 +286,9 @@ export function ShiftPerformance({ data }: ShiftPerformanceProps) {
                     if (!hasData) {
                       return (
                         <>
-                          <td className="p-3 text-center border-l text-slate-300">-</td>
-                          <td className="p-3 text-center text-slate-300">-</td>
-                          <td className="p-3 text-center border-r text-slate-300">-</td>
+                          <td className={cn("p-3 text-center border-l text-slate-300 align-middle", isTotal && "bg-slate-50/50")}>-</td>
+                          <td className={cn("p-3 text-center text-slate-300 align-middle", isTotal && "bg-slate-50/50")}>-</td>
+                          <td className={cn("p-3 text-center border-r text-slate-300 align-middle", isTotal && "bg-slate-50/50")}>-</td>
                         </>
                       );
                     }
@@ -298,21 +298,24 @@ export function ShiftPerformance({ data }: ShiftPerformanceProps) {
                     if (isTotal) {
                       return (
                         <>
-                          <td className="p-3 text-center border-l font-black text-slate-800 bg-slate-50/50">{fmtBRL(metrics.vNF)}</td>
-                          <td className="p-3 text-center font-bold text-slate-600 bg-slate-50/50">{fmtBRL(tkm)}</td>
-                          <td className="p-3 text-center font-bold text-slate-600 bg-slate-50/50">{pa.toFixed(2)}</td>
+                          <td className="p-3 text-center border-l bg-slate-50/50 align-middle">
+                            <span className="font-black text-slate-800">{fmtBRL(metrics.vNF)}</span>
+                            <span className="text-[9px] text-slate-500 font-bold block mt-0.5">{metrics.cupons} cp | {metrics.itens.toFixed(0)} it</span>
+                          </td>
+                          <td className="p-3 text-center font-bold text-slate-600 bg-slate-50/50 align-middle text-xs">{fmtBRL(tkm)}</td>
+                          <td className="p-3 text-center font-bold text-slate-600 bg-slate-50/50 align-middle text-xs">{pa.toFixed(2)}</td>
                         </>
                       );
                     }
 
                     return (
                       <>
-                        <td className="p-3 text-center border-l">
+                        <td className="p-3 text-center border-l align-middle">
                           <span className="font-bold text-slate-700">{fmtBRL(metrics.vNF)}</span>
-                          <span className="text-[9px] text-slate-400 block mt-0.5">{metrics.cupons} cp</span>
+                          <span className="text-[9px] text-slate-400 block mt-0.5">{metrics.cupons} cp | {metrics.itens.toFixed(0)} it</span>
                         </td>
-                        <td className="p-3 text-center text-xs font-bold text-slate-600">{fmtBRL(tkm)}</td>
-                        <td className="p-3 text-center text-xs font-bold text-slate-600 border-r">{pa.toFixed(2)}</td>
+                        <td className="p-3 text-center text-xs font-bold text-slate-600 align-middle">{fmtBRL(tkm)}</td>
+                        <td className="p-3 text-center text-xs font-bold text-slate-600 border-r align-middle">{pa.toFixed(2)}</td>
                       </>
                     );
                   };

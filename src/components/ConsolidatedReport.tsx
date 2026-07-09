@@ -424,10 +424,10 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
 
       {/* TABELA CONSOLIDADA */}
       <Card className="ri-card overflow-hidden print:shadow-none print:border print:border-black print:w-full print:rounded-none">
-        <Table className="print:table-fixed print:border-collapse">
+        <Table className="border border-slate-200 print:table-fixed print:border-collapse">
           <TableHeader className="bg-slate-900 print:bg-slate-200">
-            <TableRow className="hover:bg-slate-900 border-none h-9 print:h-7 print:border-b print:border-black">
-              <TableHead className="text-white print:text-black font-black uppercase text-[9px] pl-3 md:pl-5 print:pl-1 print:w-[15%] w-28">Colaborador</TableHead>
+            <TableRow className="hover:bg-slate-900 border-none h-9 print:h-7 print:border-b print:border-black divide-x divide-slate-700 print:divide-black">
+              <TableHead className="text-white print:text-black font-black uppercase text-[9px] pl-3 md:pl-5 print:pl-1 print:w-[15%] w-32 md:w-40 whitespace-nowrap">Colaborador</TableHead>
               <SortableHead label="Venda" sortKey="venda" currentSort={sortConfig} onSort={setSortConfig} className="text-right print:w-[10%]" description="Soma do faturamento do colaborador." />
               <SortableHead label="Cps" sortKey="cupons" currentSort={sortConfig} onSort={setSortConfig} className="text-center print:w-[5%]" description="Total de Cupons emitidos." />
               <SortableHead label="Its" sortKey="itens" currentSort={sortConfig} onSort={setSortConfig} className="text-center print:w-[5%]" description="Total de itens vendidos." />
@@ -478,8 +478,8 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
                        <TableRow 
                          key={v.name + i} 
                          onClick={() => setSelectedColab(v)}
-                         className={cn("border-slate-100 group cursor-pointer print:bg-white print:border-b print:border-slate-300 print:h-8 h-10", rowColor)}>
-                         <TableCell className="pl-3 md:pl-5 print:pl-1">
+                         className={cn("border-b border-slate-200 divide-x divide-slate-200 group cursor-pointer print:bg-white print:border-b print:border-slate-300 print:h-8 h-10 print:divide-slate-300", rowColor)}>
+                         <TableCell className="pl-3 md:pl-5 print:pl-1 whitespace-nowrap">
                            <div className="flex flex-col gap-1 items-start">
                              <p className={cn("font-black text-slate-800 uppercase leading-none text-[11px] md:text-xs print:text-[8px]")}>{v.name}</p>
                              <Select value={v.finalPosKey} onValueChange={(val) => setManualPositions(prev => ({...prev, [v.name]: val}))}>
@@ -584,9 +584,9 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
                    })}
 
                    {/* SUBTOTAL ROW */}
-                   <TableRow className="border-t border-b-[6px] border-b-slate-100 print:border-b-2 print:border-black font-black bg-slate-900 text-white hover:bg-slate-800 transition-colors">
-                     <TableCell className="pl-3 md:pl-5 print:pl-1 text-[9px] uppercase tracking-wider text-slate-300">
-                       <span className="bg-white/10 px-2 py-1 rounded-md border border-white/10">Subtotal • {posInfo.label.split(' ')[0]} {posInfo.label.split(' ')[1]}</span>
+                   <TableRow className="border-t border-b-[6px] border-b-slate-100 print:border-b-2 print:border-black font-black bg-slate-900 text-white hover:bg-slate-800 transition-colors divide-x divide-slate-700 print:divide-black">
+                     <TableCell className="pl-3 md:pl-5 print:pl-1 text-[9px] uppercase tracking-wider text-slate-300 whitespace-nowrap">
+                       <span className="bg-white/10 px-2 py-1 rounded-md border border-white/10 inline-block">Subtotal • {posInfo.label.split(' ')[0]} {posInfo.label.split(' ')[1]}</span>
                      </TableCell>
                      <TableCell className="text-right text-xs md:text-sm print:text-[8px] text-emerald-400">{formatBRL(gVenda)}</TableCell>
                      <TableCell className="text-center text-xs md:text-sm print:text-[8px]">{gCupons}</TableCell>
@@ -607,8 +607,8 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
             })}
           </TableBody>
           <TableFooter className="bg-slate-900 print:bg-slate-200">
-            <TableRow className="hover:bg-slate-900 border-none h-12 print:h-7 print:border-t print:border-black font-black">
-              <TableCell className="text-white print:text-black uppercase text-[11px] md:text-xs print:text-[8px] pl-3 md:pl-5 print:pl-1">Consolidado</TableCell>
+            <TableRow className="hover:bg-slate-900 border-none h-12 print:h-7 print:border-t print:border-black font-black divide-x divide-slate-700 print:divide-black">
+              <TableCell className="text-white print:text-black uppercase text-[11px] md:text-xs print:text-[8px] pl-3 md:pl-5 print:pl-1 whitespace-nowrap">Consolidado</TableCell>
               <TableCell className="text-right text-emerald-400 print:text-black text-xs md:text-sm print:text-[8px]">{formatBRL(totals.venda)}</TableCell>
               <TableCell className="text-center text-sky-400 print:text-black text-xs md:text-sm print:text-[8px]">{totals.cupons}</TableCell>
               <TableCell className="text-center text-white print:text-black text-xs md:text-sm print:text-[8px]">{totals.itens.toFixed(0)}</TableCell>

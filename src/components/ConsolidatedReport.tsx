@@ -66,7 +66,7 @@ const POSITIONS = {
   "P2": { label: "🟨 P2 Porta", color: "bg-amber-100 text-amber-800", rowColor: "bg-amber-50/50 hover:bg-amber-100/50" },
   "P3": { label: "🟩 P3 Salão", color: "bg-emerald-100 text-emerald-800", rowColor: "bg-emerald-50/50 hover:bg-emerald-100/50" },
   "DIG": { label: "🟦 Digital/Ret", color: "bg-sky-100 text-sky-800", rowColor: "bg-sky-50/50 hover:bg-sky-100/50" },
-  "NONE": { label: "Sem Vendas", color: "bg-slate-100 text-slate-500", rowColor: "bg-slate-50/50 hover:bg-slate-100/50" }
+  "NONE": { label: "➖ Sem Vendas", color: "bg-slate-100 text-slate-500", rowColor: "bg-slate-50/50 hover:bg-slate-100/50" }
 };
 
 function getAutoPositionKey(v: any, avgCupons: number) {
@@ -436,8 +436,8 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
               <SortableHead label="PM" sortKey="pm" currentSort={sortConfig} onSort={setSortConfig} className="text-right print:w-[8%]" description="Preço Médio por item." />
               <SortableHead label="CPF" sortKey="ident" currentSort={sortConfig} onSort={setSortConfig} className="text-center print:w-[6%]" description="% de vendas com CPF identificado." />
               <TableHead className="text-white print:text-black font-black uppercase text-[9px] text-center print:w-[6%]">SLP</TableHead>
-              <TableHead className="text-white print:text-black font-black uppercase text-[9px] text-center print:w-[6%]">🃏</TableHead>
-              <TableHead className="text-white print:text-black font-black uppercase text-[9px] text-center print:w-[6%]">🛍️</TableHead>
+              <TableHead className="text-white print:text-black font-black uppercase text-[9px] text-center print:w-[6%]">BAR</TableHead>
+              <TableHead className="text-white print:text-black font-black uppercase text-[9px] text-center print:w-[6%]">SAC</TableHead>
               <SortableHead label="Pick" sortKey="pickups" currentSort={sortConfig} onSort={setSortConfig} className="text-center print:w-[6%]" />
               <SortableHead label="Adic" sortKey="adicionais" currentSort={sortConfig} onSort={setSortConfig} className="text-center print:w-[6%]" />
               <SortableHead label="Conv" sortKey="conv" currentSort={sortConfig} onSort={setSortConfig} className="text-right pr-3 md:pr-5 print:pr-1 print:w-[8%]" />
@@ -480,20 +480,21 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
                          onClick={() => setSelectedColab(v)}
                          className={cn("border-b border-slate-200 divide-x divide-slate-200 group cursor-pointer print:bg-white print:border-b print:border-slate-300 print:h-8 h-10 print:divide-slate-300", rowColor)}>
                          <TableCell className="pl-3 md:pl-5 print:pl-1 whitespace-nowrap">
-                           <div className="flex flex-col gap-1 items-start">
-                             <p className={cn("font-black text-slate-800 uppercase leading-none text-[11px] md:text-xs print:text-[8px]")}>{v.name}</p>
+                           <div className="flex items-center gap-2">
                              <Select value={v.finalPosKey} onValueChange={(val) => setManualPositions(prev => ({...prev, [v.name]: val}))}>
-                               <SelectTrigger className={cn("h-5 w-[100px] text-[9px] font-black uppercase px-1.5 py-0 border-none", posInfo.color)} onClick={(e) => e.stopPropagation()}>
-                                 <SelectValue />
+                               <SelectTrigger className={cn("h-6 w-8 flex-shrink-0 text-[11px] px-0 py-0 border-none flex items-center justify-center rounded cursor-pointer transition-colors shadow-none print:hidden", posInfo.color, "[&>svg]:hidden")} onClick={(e) => e.stopPropagation()}>
+                                 <span>{posInfo.label.split(' ')[0]}</span>
                                </SelectTrigger>
                                <SelectContent>
                                  <SelectItem value="P1" className="text-[10px] font-black uppercase text-rose-800">🟥 P1 CAIXA</SelectItem>
                                  <SelectItem value="P2" className="text-[10px] font-black uppercase text-amber-800">🟨 P2 PORTA</SelectItem>
                                  <SelectItem value="P3" className="text-[10px] font-black uppercase text-emerald-800">🟩 P3 SALÃO</SelectItem>
                                  <SelectItem value="DIG" className="text-[10px] font-black uppercase text-sky-800">🟦 DIGITAL</SelectItem>
-                                 <SelectItem value="NONE" className="text-[10px] font-black uppercase text-slate-500">SEM VENDAS</SelectItem>
+                                 <SelectItem value="NONE" className="text-[10px] font-black uppercase text-slate-500">➖ SEM VENDAS</SelectItem>
                                </SelectContent>
                              </Select>
+                             <span className="hidden print:inline-block mr-1 text-[8px]">{posInfo.label.split(' ')[0]}</span>
+                             <p className={cn("font-black text-slate-800 uppercase leading-none text-[11px] md:text-xs print:text-[8px] truncate")}>{v.name}</p>
                            </div>
                          </TableCell>
                          
@@ -537,35 +538,35 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
                          <TableCell className="text-center">
                            <span className="hidden print:inline text-[8px] font-black">{v.slpQty}</span>
                            <Badge className={cn("print:hidden font-black border-none px-1.5 text-[10px] h-5", v.slpQty > 0 ? "bg-orange-100 text-orange-700" : "bg-slate-50 text-slate-300")}>
-                             <Star className="fill-current w-2.5 h-2.5 mr-1" /> {v.slpQty}
+                             {v.slpQty}
                            </Badge>
                          </TableCell>
 
                          <TableCell className="text-center">
                            <span className="hidden print:inline text-[8px] font-black">{v.baralhoQty}</span>
                            <Badge className={cn("print:hidden font-black border-none px-1.5 text-[10px] h-5", v.baralhoQty > 0 ? "bg-rose-100 text-rose-700" : "bg-slate-50 text-slate-300")}>
-                              🃏 {v.baralhoQty}
+                             {v.baralhoQty}
                            </Badge>
                          </TableCell>
 
                          <TableCell className="text-center">
                            <span className="hidden print:inline text-[8px] font-black">{v.sacolaQty}</span>
                            <Badge className={cn("print:hidden font-black border-none px-1.5 text-[10px] h-5", v.sacolaQty > 0 ? "bg-emerald-100 text-emerald-700" : "bg-slate-50 text-slate-300")}>
-                              🛍️ {v.sacolaQty}
+                             {v.sacolaQty}
                            </Badge>
                          </TableCell>
 
                          <TableCell className="text-center">
                            <span className="hidden print:inline text-[8px] font-black">{v.pickupsAtendidas}</span>
                            <Badge className={cn("print:hidden font-black border-none px-1.5 text-[10px] h-5", v.pickupsAtendidas > 0 ? "bg-sky-100 text-sky-700" : "bg-slate-50 text-slate-300")}>
-                             <Smartphone className="fill-current w-2.5 h-2.5 mr-1" /> {v.pickupsAtendidas}
+                             {v.pickupsAtendidas}
                            </Badge>
                          </TableCell>
 
                          <TableCell className="text-center">
                            <span className="hidden print:inline text-[8px] font-black">{v.adicionaisFeitos}</span>
                            <Badge className={cn("print:hidden font-black border-none px-1.5 text-[10px] h-5", v.adicionaisFeitos > 0 ? "bg-emerald-100 text-emerald-700" : "bg-slate-50 text-slate-300")}>
-                             <Zap className="fill-current w-2.5 h-2.5 mr-1" /> {v.adicionaisFeitos}
+                             {v.adicionaisFeitos}
                            </Badge>
                          </TableCell>
 
@@ -596,8 +597,8 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
                      <TableCell className="text-right text-xs md:text-sm print:text-[8px]">{formatBRL(gPm)}</TableCell>
                      <TableCell className="text-center text-xs md:text-sm print:text-[8px]">{gIdentPerc.toFixed(0)}%</TableCell>
                      <TableCell className="text-center text-[10px] md:text-xs print:text-[8px] text-slate-300">{gSlp}</TableCell>
-                     <TableCell className="text-center text-[10px] md:text-xs print:text-[8px] text-slate-300">🃏 {gBaralhos}</TableCell>
-                     <TableCell className="text-center text-[10px] md:text-xs print:text-[8px] text-slate-300">🛍️ {gSacolas}</TableCell>
+                     <TableCell className="text-center text-[10px] md:text-xs print:text-[8px] text-slate-300">{gBaralhos}</TableCell>
+                     <TableCell className="text-center text-[10px] md:text-xs print:text-[8px] text-slate-300">{gSacolas}</TableCell>
                      <TableCell className="text-center text-[10px] md:text-xs print:text-[8px] text-slate-300">{gPickups}</TableCell>
                      <TableCell className="text-center text-[10px] md:text-xs print:text-[8px] text-slate-300">{gAdic}</TableCell>
                      <TableCell className="text-right pr-3 md:pr-5 print:pr-1 text-[10px] md:text-xs print:text-[8px] text-amber-400">{formatNum(gConv, 1)}%</TableCell>
@@ -617,8 +618,8 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
               <TableCell className="text-right text-white print:text-black text-xs md:text-sm print:text-[8px]">{formatBRL(totals.pm)}</TableCell>
               <TableCell className="text-center text-white print:text-black text-xs md:text-sm print:text-[8px]">{totals.ident_perc.toFixed(0)}%</TableCell>
               <TableCell className="text-center text-orange-400 print:text-black text-[10px] md:text-xs print:text-[8px]">{totals.slp}</TableCell>
-              <TableCell className="text-center text-rose-400 print:text-black text-[10px] md:text-xs print:text-[8px]">🃏 {totals.baralhos}</TableCell>
-              <TableCell className="text-center text-emerald-400 print:text-black text-[10px] md:text-xs print:text-[8px]">🛍️ {totals.sacolas}</TableCell>
+              <TableCell className="text-center text-rose-400 print:text-black text-[10px] md:text-xs print:text-[8px]">{totals.baralhos}</TableCell>
+              <TableCell className="text-center text-emerald-400 print:text-black text-[10px] md:text-xs print:text-[8px]">{totals.sacolas}</TableCell>
               <TableCell className="text-center text-sky-400 print:text-black text-[10px] md:text-xs print:text-[8px]">{totals.pickups}</TableCell>
               <TableCell className="text-center text-emerald-400 print:text-black text-[10px] md:text-xs print:text-[8px]">{totals.adicionais}</TableCell>
               <TableCell className="text-right text-amber-400 print:text-black text-[10px] md:text-xs print:text-[8px] pr-3 md:pr-5 print:pr-1">{formatNum(totals.conv, 1)}%</TableCell>

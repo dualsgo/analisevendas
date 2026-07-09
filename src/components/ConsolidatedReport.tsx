@@ -426,21 +426,21 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
       <Card className="ri-card overflow-hidden print:shadow-none print:border print:border-black print:w-full print:rounded-none">
         <Table className="border border-slate-200 print:table-fixed print:border-collapse">
           <TableHeader className="bg-slate-900 print:bg-slate-200">
-            <TableRow className="hover:bg-slate-900 border-none h-9 print:h-7 print:border-b print:border-black divide-x divide-slate-700 print:divide-black">
-              <TableHead className="text-white print:text-black font-black uppercase text-[9px] pl-3 md:pl-5 print:pl-1 print:w-[15%] w-32 md:w-40 whitespace-nowrap">Colaborador</TableHead>
-              <SortableHead label="Venda" sortKey="venda" currentSort={sortConfig} onSort={setSortConfig} className="text-right print:w-[10%]" description="Soma do faturamento do colaborador." />
-              <SortableHead label="Cps" sortKey="cupons" currentSort={sortConfig} onSort={setSortConfig} className="text-center print:w-[5%]" description="Total de Cupons emitidos." />
-              <SortableHead label="Its" sortKey="itens" currentSort={sortConfig} onSort={setSortConfig} className="text-center print:w-[5%]" description="Total de itens vendidos." />
-              <SortableHead label="PA" sortKey="pa" currentSort={sortConfig} onSort={setSortConfig} className="text-center print:w-[6%]" description="Peças por Atendimento." />
-              <SortableHead label="TKM" sortKey="tkm" currentSort={sortConfig} onSort={setSortConfig} className="text-right print:w-[8%]" description="Ticket Médio por venda." />
-              <SortableHead label="PM" sortKey="pm" currentSort={sortConfig} onSort={setSortConfig} className="text-right print:w-[8%]" description="Preço Médio por item." />
-              <SortableHead label="CPF" sortKey="ident" currentSort={sortConfig} onSort={setSortConfig} className="text-center print:w-[6%]" description="% de vendas com CPF identificado." />
-              <TableHead className="text-white print:text-black font-black uppercase text-[9px] text-center print:w-[6%]">SLP</TableHead>
-              <TableHead className="text-white print:text-black font-black uppercase text-[9px] text-center print:w-[6%]">BAR</TableHead>
-              <TableHead className="text-white print:text-black font-black uppercase text-[9px] text-center print:w-[6%]">SAC</TableHead>
-              <SortableHead label="Pick" sortKey="pickups" currentSort={sortConfig} onSort={setSortConfig} className="text-center print:w-[6%]" />
-              <SortableHead label="Adic" sortKey="adicionais" currentSort={sortConfig} onSort={setSortConfig} className="text-center print:w-[6%]" />
-              <SortableHead label="Conv" sortKey="conv" currentSort={sortConfig} onSort={setSortConfig} className="text-right pr-3 md:pr-5 print:pr-1 print:w-[8%]" />
+            <TableRow className="hover:bg-slate-900 border-none h-11 print:h-7 print:border-b print:border-black divide-x divide-slate-700 print:divide-black">
+              <TableHead className="text-white print:text-black font-black uppercase text-[9px] text-center align-middle print:w-[15%] w-32 md:w-40 whitespace-nowrap">Colaborador</TableHead>
+              <SortableHead label="Venda" sortKey="venda" currentSort={sortConfig} onSort={setSortConfig} className="text-center align-middle print:w-[10%]" />
+              <SortableHead label="Cupons" sortKey="cupons" currentSort={sortConfig} onSort={setSortConfig} className="text-center align-middle print:w-[5%]" />
+              <SortableHead label="Itens" sortKey="itens" currentSort={sortConfig} onSort={setSortConfig} className="text-center align-middle print:w-[5%]" />
+              <SortableHead label="PA" sortKey="pa" currentSort={sortConfig} onSort={setSortConfig} className="text-center align-middle print:w-[6%]" />
+              <SortableHead label="Ticket Méd." sortKey="tkm" currentSort={sortConfig} onSort={setSortConfig} className="text-center align-middle print:w-[8%]" />
+              <SortableHead label="Preço Méd." sortKey="pm" currentSort={sortConfig} onSort={setSortConfig} className="text-center align-middle print:w-[8%]" />
+              <SortableHead label="CPF" sortKey="ident" currentSort={sortConfig} onSort={setSortConfig} className="text-center align-middle print:w-[6%]" />
+              <TableHead className="text-white print:text-black font-black uppercase text-[9px] text-center align-middle print:w-[6%]">SLP</TableHead>
+              <TableHead className="text-white print:text-black font-black uppercase text-[9px] text-center align-middle print:w-[6%]">BAR</TableHead>
+              <TableHead className="text-white print:text-black font-black uppercase text-[9px] text-center align-middle print:w-[6%]">SAC</TableHead>
+              <SortableHead label="Retiradas" sortKey="pickups" currentSort={sortConfig} onSort={setSortConfig} className="text-center align-middle print:w-[6%]" />
+              <SortableHead label="Adicionais" sortKey="adicionais" currentSort={sortConfig} onSort={setSortConfig} className="text-center align-middle print:w-[6%]" />
+              <SortableHead label="Conversão" sortKey="conv" currentSort={sortConfig} onSort={setSortConfig} className="text-center align-middle print:w-[8%]" />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -462,146 +462,169 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
 
                const gPa = gCupons > 0 ? gItens / gCupons : 0;
                const gTkm = gCupons > 0 ? gVenda / gCupons : 0;
-               const gPm = gItens > 0 ? gVenda / gItens : 0;
+const gPm = gItens > 0 ? gVenda / gItens : 0;
                const gIdentPerc = gCupons > 0 ? Math.min(gIdent / gCupons, 1) * 100 : 0;
                const gConv = gPickups > 0 ? (gAdic / gPickups) * 100 : 0;
 
                return (
                  <React.Fragment key={posKey}>
                    {members.map((v, i) => {
-                     const deltaPA = v.deltas.pa;
-                     const deltaTKM = v.deltas.tkm;
-                     const deltaIdent = v.deltas.ident;
-                     const rowColor = v.groupColor || "bg-white";
+                      const rowColor = v.groupColor || "bg-white";
+                      
+                      const avgVenda = gVenda / members.length;
+                      const isAboveVenda = v.current.venda > avgVenda;
+                      const isBelowVenda = v.current.venda < avgVenda;
+                      
+                      const isAbovePA = v.metrics.pa > gPa;
+                      const isBelowPA = v.metrics.pa < gPa;
+                      
+                      const isAboveTKM = v.metrics.tkm > gTkm;
+                      const isBelowTKM = v.metrics.tkm < gTkm;
+                      
+                      const isAbovePM = v.metrics.pm > gPm;
+                      const isBelowPM = v.metrics.pm < gPm;
+                      
+                      const isAboveIdent = v.metrics.ident > gIdentPerc;
+                      const isBelowIdent = v.metrics.ident < gIdentPerc;
+                      
+                      const isAboveConv = v.metrics.conv > gConv;
+                      const isBelowConv = v.metrics.conv < gConv;
 
-                     return (
-                       <TableRow 
-                         key={v.name + i} 
-                         onClick={() => setSelectedColab(v)}
-                         className={cn("border-b border-slate-200 divide-x divide-slate-200 group cursor-pointer print:bg-white print:border-b print:border-slate-300 print:h-8 h-10 print:divide-slate-300", rowColor)}>
-                         <TableCell className="pl-3 md:pl-5 print:pl-1 whitespace-nowrap">
-                           <div className="flex items-center gap-2">
-                             <Select value={v.finalPosKey} onValueChange={(val) => setManualPositions(prev => ({...prev, [v.name]: val}))}>
-                               <SelectTrigger className={cn("h-6 w-8 flex-shrink-0 text-[11px] px-0 py-0 border-none flex items-center justify-center rounded cursor-pointer transition-colors shadow-none print:hidden", posInfo.color, "[&>svg]:hidden")} onClick={(e) => e.stopPropagation()}>
-                                 <span>{posInfo.label.split(' ')[0]}</span>
-                               </SelectTrigger>
-                               <SelectContent>
-                                 <SelectItem value="P1" className="text-[10px] font-black uppercase text-rose-800">🟥 P1 CAIXA</SelectItem>
-                                 <SelectItem value="P2" className="text-[10px] font-black uppercase text-amber-800">🟨 P2 PORTA</SelectItem>
-                                 <SelectItem value="P3" className="text-[10px] font-black uppercase text-emerald-800">🟩 P3 SALÃO</SelectItem>
-                                 <SelectItem value="DIG" className="text-[10px] font-black uppercase text-sky-800">🟦 DIGITAL</SelectItem>
-                                 <SelectItem value="NONE" className="text-[10px] font-black uppercase text-slate-500">➖ SEM VENDAS</SelectItem>
-                               </SelectContent>
-                             </Select>
-                             <span className="hidden print:inline-block mr-1 text-[8px]">{posInfo.label.split(' ')[0]}</span>
-                             <p className={cn("font-black text-slate-800 uppercase leading-none text-[11px] md:text-xs print:text-[8px] truncate")}>{v.name}</p>
-                           </div>
-                         </TableCell>
-                         
-                         <TableCell className="text-right">
-                           <span className="font-black text-slate-800 text-xs md:text-sm print:text-[8px]">{formatBRL(v.current.venda)}</span>
-                         </TableCell>
-                         
-                         <TableCell className="text-center">
-                           <span className="font-black text-slate-700 text-xs md:text-sm print:text-[8px]">{v.current.cupons}</span>
-                         </TableCell>
+                      return (
+                        <TableRow 
+                          key={v.name + i} 
+                          onClick={() => setSelectedColab(v)}
+                          className={cn("border-b border-slate-200 divide-x divide-slate-200 group cursor-pointer print:bg-white print:border-b print:border-slate-300 print:h-8 h-10 print:divide-slate-300", rowColor)}>
+                          <TableCell className="text-center align-middle whitespace-nowrap">
+                            <div className="flex items-center justify-center gap-2">
+                              <Select value={v.finalPosKey} onValueChange={(val) => setManualPositions(prev => ({...prev, [v.name]: val}))}>
+                                <SelectTrigger className={cn("h-6 w-8 flex-shrink-0 text-[11px] px-0 py-0 border-none flex items-center justify-center rounded cursor-pointer transition-colors shadow-none print:hidden", posInfo.color, "[&>svg]:hidden")} onClick={(e) => e.stopPropagation()}>
+                                  <span>{posInfo.label.split(' ')[0]}</span>
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="P1" className="text-[10px] font-black uppercase text-rose-800">🟥 P1 CAIXA</SelectItem>
+                                  <SelectItem value="P2" className="text-[10px] font-black uppercase text-amber-800">🟨 P2 PORTA</SelectItem>
+                                  <SelectItem value="P3" className="text-[10px] font-black uppercase text-emerald-800">🟩 P3 SALÃO</SelectItem>
+                                  <SelectItem value="DIG" className="text-[10px] font-black uppercase text-sky-800">🟦 DIGITAL</SelectItem>
+                                  <SelectItem value="NONE" className="text-[10px] font-black uppercase text-slate-500">➖ SEM VENDAS</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <span className="hidden print:inline-block mr-1 text-[8px]">{posInfo.label.split(' ')[0]}</span>
+                              <p className={cn("font-black text-slate-800 uppercase leading-none text-[11px] md:text-xs print:text-[8px] truncate")}>{v.name}</p>
+                            </div>
+                          </TableCell>
+                          
+                          <TableCell className="text-center align-middle">
+                            <div className="flex items-center justify-center gap-0.5">
+                              <span className={cn("font-black text-xs md:text-sm print:text-[8px]", isAboveVenda ? "text-emerald-700" : isBelowVenda ? "text-rose-600" : "text-slate-800")}>{formatBRL(v.current.venda)}</span>
+                              {isAboveVenda ? <ArrowUpRight className="w-3 h-3 text-emerald-500 print:hidden" /> : isBelowVenda ? <ArrowDownRight className="w-3 h-3 text-rose-500 print:hidden" /> : null}
+                            </div>
+                          </TableCell>
+                          
+                          <TableCell className="text-center align-middle">
+                            <span className="font-black text-slate-700 text-xs md:text-sm print:text-[8px]">{v.current.cupons}</span>
+                          </TableCell>
 
-                         <TableCell className="text-center">
-                           <span className="font-black text-slate-700 text-xs md:text-sm print:text-[8px]">{v.current.itens.toFixed(0)}</span>
-                         </TableCell>
+                          <TableCell className="text-center align-middle">
+                            <span className="font-black text-slate-700 text-xs md:text-sm print:text-[8px]">{v.current.itens.toFixed(0)}</span>
+                          </TableCell>
 
-                         <TableCell className="text-center">
-                           <div className="flex items-center justify-center gap-0.5">
-                             <span className={cn("font-black text-xs md:text-sm print:text-[8px]", deltaPA > 0 ? "text-emerald-700" : deltaPA < 0 ? "text-rose-600" : "text-slate-700")}>{formatNum(v.metrics.pa)}</span>
-                             {deltaPA !== 0 && (deltaPA > 0 ? <ArrowUpRight className="w-3 h-3 text-emerald-500 print:hidden" /> : <ArrowDownRight className="w-3 h-3 text-rose-500 print:hidden" />)}
-                           </div>
-                         </TableCell>
+                          <TableCell className="text-center align-middle">
+                            <div className="flex items-center justify-center gap-0.5">
+                              <span className={cn("font-black text-xs md:text-sm print:text-[8px]", isAbovePA ? "text-emerald-700" : isBelowPA ? "text-rose-600" : "text-slate-700")}>{formatNum(v.metrics.pa)}</span>
+                              {isAbovePA ? <ArrowUpRight className="w-3 h-3 text-emerald-500 print:hidden" /> : isBelowPA ? <ArrowDownRight className="w-3 h-3 text-rose-500 print:hidden" /> : null}
+                            </div>
+                          </TableCell>
 
-                         <TableCell className="text-right">
-                           <div className="flex items-center justify-end gap-0.5">
-                             <span className={cn("font-black text-xs md:text-sm print:text-[8px]", deltaTKM > 0 ? "text-emerald-700" : deltaTKM < 0 ? "text-rose-600" : "text-slate-700")}>{formatBRL(v.metrics.tkm)}</span>
-                             {deltaTKM !== 0 && (deltaTKM > 0 ? <ArrowUpRight className="w-3 h-3 text-emerald-500 print:hidden" /> : <ArrowDownRight className="w-3 h-3 text-rose-500 print:hidden" />)}
-                           </div>
-                         </TableCell>
+                          <TableCell className="text-center align-middle">
+                            <div className="flex items-center justify-center gap-0.5">
+                              <span className={cn("font-black text-xs md:text-sm print:text-[8px]", isAboveTKM ? "text-emerald-700" : isBelowTKM ? "text-rose-600" : "text-slate-700")}>{formatBRL(v.metrics.tkm)}</span>
+                              {isAboveTKM ? <ArrowUpRight className="w-3 h-3 text-emerald-500 print:hidden" /> : isBelowTKM ? <ArrowDownRight className="w-3 h-3 text-rose-500 print:hidden" /> : null}
+                            </div>
+                          </TableCell>
 
-                         <TableCell className="text-right">
-                           <span className="font-black text-slate-700 text-xs md:text-sm print:text-[8px]">{formatBRL(v.metrics.pm)}</span>
-                         </TableCell>
+                          <TableCell className="text-center align-middle">
+                            <div className="flex items-center justify-center gap-0.5">
+                              <span className={cn("font-black text-xs md:text-sm print:text-[8px]", isAbovePM ? "text-emerald-700" : isBelowPM ? "text-rose-600" : "text-slate-700")}>{formatBRL(v.metrics.pm)}</span>
+                              {isAbovePM ? <ArrowUpRight className="w-3 h-3 text-emerald-500 print:hidden" /> : isBelowPM ? <ArrowDownRight className="w-3 h-3 text-rose-500 print:hidden" /> : null}
+                            </div>
+                          </TableCell>
 
-                         <TableCell className="text-center">
-                           <div className="flex items-center justify-center gap-0.5">
-                             <span className={cn("font-black text-xs md:text-sm print:text-[8px]", deltaIdent > 0 ? "text-emerald-700" : deltaIdent < 0 ? "text-rose-600" : "text-slate-700")}>{v.metrics.ident.toFixed(0)}%</span>
-                             {deltaIdent !== 0 && (deltaIdent > 0 ? <ArrowUpRight className="w-3 h-3 text-emerald-500 print:hidden" /> : <ArrowDownRight className="w-3 h-3 text-rose-500 print:hidden" />)}
-                           </div>
-                         </TableCell>
+                          <TableCell className="text-center align-middle">
+                            <div className="flex items-center justify-center gap-0.5">
+                              <span className={cn("font-black text-xs md:text-sm print:text-[8px]", isAboveIdent ? "text-emerald-700" : isBelowIdent ? "text-rose-600" : "text-slate-700")}>{v.metrics.ident.toFixed(0)}%</span>
+                              {isAboveIdent ? <ArrowUpRight className="w-3 h-3 text-emerald-500 print:hidden" /> : isBelowIdent ? <ArrowDownRight className="w-3 h-3 text-rose-500 print:hidden" /> : null}
+                            </div>
+                          </TableCell>
 
-                         <TableCell className="text-center">
-                           <span className="hidden print:inline text-[8px] font-black">{v.slpQty}</span>
-                           <Badge className={cn("print:hidden font-black border-none px-1.5 text-[10px] h-5", v.slpQty > 0 ? "bg-orange-100 text-orange-700" : "bg-slate-50 text-slate-300")}>
-                             {v.slpQty}
-                           </Badge>
-                         </TableCell>
+                          <TableCell className="text-center align-middle">
+                            <span className="hidden print:inline text-[8px] font-black">{v.slpQty}</span>
+                            <Badge className={cn("print:hidden font-black border-none px-1.5 text-[10px] h-5", v.slpQty > 0 ? "bg-orange-100 text-orange-700" : "bg-slate-50 text-slate-300")}>
+                              {v.slpQty}
+                            </Badge>
+                          </TableCell>
 
-                         <TableCell className="text-center">
-                           <span className="hidden print:inline text-[8px] font-black">{v.baralhoQty}</span>
-                           <Badge className={cn("print:hidden font-black border-none px-1.5 text-[10px] h-5", v.baralhoQty > 0 ? "bg-rose-100 text-rose-700" : "bg-slate-50 text-slate-300")}>
-                             {v.baralhoQty}
-                           </Badge>
-                         </TableCell>
+                          <TableCell className="text-center align-middle">
+                            <span className="hidden print:inline text-[8px] font-black">{v.baralhoQty}</span>
+                            <Badge className={cn("print:hidden font-black border-none px-1.5 text-[10px] h-5", v.baralhoQty > 0 ? "bg-rose-100 text-rose-700" : "bg-slate-50 text-slate-300")}>
+                              {v.baralhoQty}
+                            </Badge>
+                          </TableCell>
 
-                         <TableCell className="text-center">
-                           <span className="hidden print:inline text-[8px] font-black">{v.sacolaQty}</span>
-                           <Badge className={cn("print:hidden font-black border-none px-1.5 text-[10px] h-5", v.sacolaQty > 0 ? "bg-emerald-100 text-emerald-700" : "bg-slate-50 text-slate-300")}>
-                             {v.sacolaQty}
-                           </Badge>
-                         </TableCell>
+                          <TableCell className="text-center align-middle">
+                            <span className="hidden print:inline text-[8px] font-black">{v.sacolaQty}</span>
+                            <Badge className={cn("print:hidden font-black border-none px-1.5 text-[10px] h-5", v.sacolaQty > 0 ? "bg-emerald-100 text-emerald-700" : "bg-slate-50 text-slate-300")}>
+                              {v.sacolaQty}
+                            </Badge>
+                          </TableCell>
 
-                         <TableCell className="text-center">
-                           <span className="hidden print:inline text-[8px] font-black">{v.pickupsAtendidas}</span>
-                           <Badge className={cn("print:hidden font-black border-none px-1.5 text-[10px] h-5", v.pickupsAtendidas > 0 ? "bg-sky-100 text-sky-700" : "bg-slate-50 text-slate-300")}>
-                             {v.pickupsAtendidas}
-                           </Badge>
-                         </TableCell>
+                          <TableCell className="text-center align-middle">
+                            <span className="hidden print:inline text-[8px] font-black">{v.pickupsAtendidas}</span>
+                            <Badge className={cn("print:hidden font-black border-none px-1.5 text-[10px] h-5", v.pickupsAtendidas > 0 ? "bg-sky-100 text-sky-700" : "bg-slate-50 text-slate-300")}>
+                              {v.pickupsAtendidas}
+                            </Badge>
+                          </TableCell>
 
-                         <TableCell className="text-center">
-                           <span className="hidden print:inline text-[8px] font-black">{v.adicionaisFeitos}</span>
-                           <Badge className={cn("print:hidden font-black border-none px-1.5 text-[10px] h-5", v.adicionaisFeitos > 0 ? "bg-emerald-100 text-emerald-700" : "bg-slate-50 text-slate-300")}>
-                             {v.adicionaisFeitos}
-                           </Badge>
-                         </TableCell>
+                          <TableCell className="text-center align-middle">
+                            <span className="hidden print:inline text-[8px] font-black">{v.adicionaisFeitos}</span>
+                            <Badge className={cn("print:hidden font-black border-none px-1.5 text-[10px] h-5", v.adicionaisFeitos > 0 ? "bg-emerald-100 text-emerald-700" : "bg-slate-50 text-slate-300")}>
+                              {v.adicionaisFeitos}
+                            </Badge>
+                          </TableCell>
 
-                         <TableCell className="text-right pr-3 md:pr-5 print:pr-1">
-                           <span className="hidden print:inline text-[8px] font-black">{formatNum(v.metrics.conv, 1)}%</span>
-                           <Badge className={cn(
-                             "print:hidden font-black border-none px-1.5 text-[10px] h-5",
-                             v.metrics.conv >= 20 ? "bg-emerald-100 text-emerald-700" : 
-                             v.metrics.conv >= 10 ? "bg-sky-100 text-sky-700" : "bg-slate-100 text-slate-400"
-                           )}>
-                             {formatNum(v.metrics.conv, 1)}%
-                           </Badge>
-                         </TableCell>
-                       </TableRow>
-                     );
-                   })}
+                          <TableCell className="text-center align-middle">
+                            <Badge className={cn(
+                              "print:hidden font-black border-none px-1.5 text-[10px] h-5",
+                              isAboveConv ? "bg-emerald-100 text-emerald-700" : isBelowConv ? "bg-rose-100 text-rose-700" : "bg-slate-100 text-slate-500"
+                            )}>
+                              <div className="flex items-center gap-0.5">
+                                {formatNum(v.metrics.conv, 1)}%
+                                {isAboveConv ? <ArrowUpRight className="w-2.5 h-2.5" /> : isBelowConv ? <ArrowDownRight className="w-2.5 h-2.5" /> : null}
+                              </div>
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
 
                    {/* SUBTOTAL ROW */}
                    <TableRow className="border-t border-b-[6px] border-b-slate-100 print:border-b-2 print:border-black font-black bg-slate-900 text-white hover:bg-slate-800 transition-colors divide-x divide-slate-700 print:divide-black">
-                     <TableCell className="pl-3 md:pl-5 print:pl-1 text-[9px] uppercase tracking-wider text-slate-300 whitespace-nowrap">
+                     <TableCell className="text-center align-middle text-[9px] uppercase tracking-wider text-slate-300 whitespace-nowrap">
                        <span className="bg-white/10 px-2 py-1 rounded-md border border-white/10 inline-block">Subtotal • {posInfo.label.split(' ')[0]} {posInfo.label.split(' ')[1]}</span>
                      </TableCell>
-                     <TableCell className="text-right text-xs md:text-sm print:text-[8px] text-emerald-400">{formatBRL(gVenda)}</TableCell>
-                     <TableCell className="text-center text-xs md:text-sm print:text-[8px]">{gCupons}</TableCell>
-                     <TableCell className="text-center text-xs md:text-sm print:text-[8px]">{gItens.toFixed(0)}</TableCell>
-                     <TableCell className="text-center text-xs md:text-sm print:text-[8px] text-orange-400">{formatNum(gPa)}</TableCell>
-                     <TableCell className="text-right text-xs md:text-sm print:text-[8px] text-sky-400">{formatBRL(gTkm)}</TableCell>
-                     <TableCell className="text-right text-xs md:text-sm print:text-[8px]">{formatBRL(gPm)}</TableCell>
-                     <TableCell className="text-center text-xs md:text-sm print:text-[8px]">{gIdentPerc.toFixed(0)}%</TableCell>
-                     <TableCell className="text-center text-[10px] md:text-xs print:text-[8px] text-slate-300">{gSlp}</TableCell>
-                     <TableCell className="text-center text-[10px] md:text-xs print:text-[8px] text-slate-300">{gBaralhos}</TableCell>
-                     <TableCell className="text-center text-[10px] md:text-xs print:text-[8px] text-slate-300">{gSacolas}</TableCell>
-                     <TableCell className="text-center text-[10px] md:text-xs print:text-[8px] text-slate-300">{gPickups}</TableCell>
-                     <TableCell className="text-center text-[10px] md:text-xs print:text-[8px] text-slate-300">{gAdic}</TableCell>
-                     <TableCell className="text-right pr-3 md:pr-5 print:pr-1 text-[10px] md:text-xs print:text-[8px] text-amber-400">{formatNum(gConv, 1)}%</TableCell>
+                     <TableCell className="text-center align-middle text-xs md:text-sm print:text-[8px] text-emerald-400">{formatBRL(gVenda)}</TableCell>
+                     <TableCell className="text-center align-middle text-xs md:text-sm print:text-[8px]">{gCupons}</TableCell>
+                     <TableCell className="text-center align-middle text-xs md:text-sm print:text-[8px]">{gItens.toFixed(0)}</TableCell>
+                     <TableCell className="text-center align-middle text-xs md:text-sm print:text-[8px] text-orange-400">{formatNum(gPa)}</TableCell>
+                     <TableCell className="text-center align-middle text-xs md:text-sm print:text-[8px] text-sky-400">{formatBRL(gTkm)}</TableCell>
+                     <TableCell className="text-center align-middle text-xs md:text-sm print:text-[8px]">{formatBRL(gPm)}</TableCell>
+                     <TableCell className="text-center align-middle text-xs md:text-sm print:text-[8px]">{gIdentPerc.toFixed(0)}%</TableCell>
+                     <TableCell className="text-center align-middle text-[10px] md:text-xs print:text-[8px] text-slate-300">{gSlp}</TableCell>
+                     <TableCell className="text-center align-middle text-[10px] md:text-xs print:text-[8px] text-slate-300">{gBaralhos}</TableCell>
+                     <TableCell className="text-center align-middle text-[10px] md:text-xs print:text-[8px] text-slate-300">{gSacolas}</TableCell>
+                     <TableCell className="text-center align-middle text-[10px] md:text-xs print:text-[8px] text-slate-300">{gPickups}</TableCell>
+                     <TableCell className="text-center align-middle text-[10px] md:text-xs print:text-[8px] text-slate-300">{gAdic}</TableCell>
+                     <TableCell className="text-center align-middle text-[10px] md:text-xs print:text-[8px] text-amber-400">{formatNum(gConv, 1)}%</TableCell>
                    </TableRow>
                  </React.Fragment>
                );
@@ -609,20 +632,20 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
           </TableBody>
           <TableFooter className="bg-slate-900 print:bg-slate-200">
             <TableRow className="hover:bg-slate-900 border-none h-12 print:h-7 print:border-t print:border-black font-black divide-x divide-slate-700 print:divide-black">
-              <TableCell className="text-white print:text-black uppercase text-[11px] md:text-xs print:text-[8px] pl-3 md:pl-5 print:pl-1 whitespace-nowrap">Consolidado</TableCell>
-              <TableCell className="text-right text-emerald-400 print:text-black text-xs md:text-sm print:text-[8px]">{formatBRL(totals.venda)}</TableCell>
-              <TableCell className="text-center text-sky-400 print:text-black text-xs md:text-sm print:text-[8px]">{totals.cupons}</TableCell>
-              <TableCell className="text-center text-white print:text-black text-xs md:text-sm print:text-[8px]">{totals.itens.toFixed(0)}</TableCell>
-              <TableCell className="text-center text-orange-400 print:text-black text-xs md:text-sm print:text-[8px]">{formatNum(totals.pa)}</TableCell>
-              <TableCell className="text-right text-purple-400 print:text-black text-xs md:text-sm print:text-[8px]">{formatBRL(totals.tkm)}</TableCell>
-              <TableCell className="text-right text-white print:text-black text-xs md:text-sm print:text-[8px]">{formatBRL(totals.pm)}</TableCell>
-              <TableCell className="text-center text-white print:text-black text-xs md:text-sm print:text-[8px]">{totals.ident_perc.toFixed(0)}%</TableCell>
-              <TableCell className="text-center text-orange-400 print:text-black text-[10px] md:text-xs print:text-[8px]">{totals.slp}</TableCell>
-              <TableCell className="text-center text-rose-400 print:text-black text-[10px] md:text-xs print:text-[8px]">{totals.baralhos}</TableCell>
-              <TableCell className="text-center text-emerald-400 print:text-black text-[10px] md:text-xs print:text-[8px]">{totals.sacolas}</TableCell>
-              <TableCell className="text-center text-sky-400 print:text-black text-[10px] md:text-xs print:text-[8px]">{totals.pickups}</TableCell>
-              <TableCell className="text-center text-emerald-400 print:text-black text-[10px] md:text-xs print:text-[8px]">{totals.adicionais}</TableCell>
-              <TableCell className="text-right text-amber-400 print:text-black text-[10px] md:text-xs print:text-[8px] pr-3 md:pr-5 print:pr-1">{formatNum(totals.conv, 1)}%</TableCell>
+              <TableCell className="text-center align-middle text-white print:text-black uppercase text-[11px] md:text-xs print:text-[8px] whitespace-nowrap">Consolidado</TableCell>
+              <TableCell className="text-center align-middle text-emerald-400 print:text-black text-xs md:text-sm print:text-[8px]">{formatBRL(totals.venda)}</TableCell>
+              <TableCell className="text-center align-middle text-sky-400 print:text-black text-xs md:text-sm print:text-[8px]">{totals.cupons}</TableCell>
+              <TableCell className="text-center align-middle text-white print:text-black text-xs md:text-sm print:text-[8px]">{totals.itens.toFixed(0)}</TableCell>
+              <TableCell className="text-center align-middle text-orange-400 print:text-black text-xs md:text-sm print:text-[8px]">{formatNum(totals.pa)}</TableCell>
+              <TableCell className="text-center align-middle text-purple-400 print:text-black text-xs md:text-sm print:text-[8px]">{formatBRL(totals.tkm)}</TableCell>
+              <TableCell className="text-center align-middle text-white print:text-black text-xs md:text-sm print:text-[8px]">{formatBRL(totals.pm)}</TableCell>
+              <TableCell className="text-center align-middle text-white print:text-black text-xs md:text-sm print:text-[8px]">{totals.ident_perc.toFixed(0)}%</TableCell>
+              <TableCell className="text-center align-middle text-orange-400 print:text-black text-[10px] md:text-xs print:text-[8px]">{totals.slp}</TableCell>
+              <TableCell className="text-center align-middle text-rose-400 print:text-black text-[10px] md:text-xs print:text-[8px]">{totals.baralhos}</TableCell>
+              <TableCell className="text-center align-middle text-emerald-400 print:text-black text-[10px] md:text-xs print:text-[8px]">{totals.sacolas}</TableCell>
+              <TableCell className="text-center align-middle text-sky-400 print:text-black text-[10px] md:text-xs print:text-[8px]">{totals.pickups}</TableCell>
+              <TableCell className="text-center align-middle text-emerald-400 print:text-black text-[10px] md:text-xs print:text-[8px]">{totals.adicionais}</TableCell>
+              <TableCell className="text-center align-middle text-amber-400 print:text-black text-[10px] md:text-xs print:text-[8px]">{formatNum(totals.conv, 1)}%</TableCell>
             </TableRow>
           </TableFooter>
         </Table>
@@ -821,7 +844,7 @@ function ReportKPI({ label, value, icon: Icon, color, large }: any) {
   );
 }
 
-function SortableHead({ label, sortKey, currentSort, onSort, className, description }: any) {
+function SortableHead({ label, sortKey, currentSort, onSort, className }: any) {
   const isActive = currentSort.key === sortKey;
   const handleSort = () => {
     onSort({
@@ -837,21 +860,13 @@ function SortableHead({ label, sortKey, currentSort, onSort, className, descript
         className
       )}
     >
-      <div className={cn("flex items-center gap-1.5", className?.includes("text-right") ? "justify-end" : className?.includes("text-center") ? "justify-center" : "")}>
-        <button onClick={handleSort} className="hover:text-orange-500 flex items-center gap-1.5 focus:outline-none">
+      <div className="flex items-center justify-center gap-1.5 w-full h-full">
+        <button onClick={handleSort} className="hover:text-orange-500 flex items-center justify-center gap-1.5 focus:outline-none w-full">
           {label}
           <div className="flex flex-col">
             <ArrowUpRight className={cn("w-2 h-2 transition-all", isActive ? (currentSort.direction === 'asc' ? "text-orange-500" : "text-orange-500 opacity-50") : "text-white/20")} />
           </div>
         </button>
-        {description && (
-          <AnalysisHelp 
-            title={label} 
-            description={description} 
-            className="text-white/20 hover:text-white/50" 
-            iconClassName="w-2.5 h-2.5"
-          />
-        )}
       </div>
     </TableHead>
   );

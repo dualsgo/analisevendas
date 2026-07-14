@@ -388,6 +388,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
 
     { id: "customer_loyalty", label: "Fidelidade & Recorrência", icon: Users2, category: "Clientes", color: "text-emerald-600 font-black" },
     { id: "ritmo_operacional", label: "Ritmo de Atendimento", icon: Timer, category: "Operacional" },
+    { id: "heatmap", label: "Mapa de Calor", icon: Flame, category: "Operacional", color: "text-orange-500 font-black" },
     { id: "desempenho_turno", label: "Desempenho por Turno", icon: Timer, category: "Operacional", color: "text-indigo-600 font-black" },
 
     { id: "pickup_dashboard", label: "Dashboard Pickup", icon: Zap, category: "Operacional", color: "text-emerald-600 font-black" },

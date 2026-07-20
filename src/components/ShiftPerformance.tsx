@@ -4,7 +4,7 @@ import React, { useMemo, useState } from "react";
 import { DetailedSaleRow } from "@/lib/types";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Activity, Clock, Info, Search, Timer, Users } from "lucide-react";
+import { Activity, Clock, Info, Search, Timer, Users, LayoutGrid } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { parseISO, getHours, getMinutes, format, getDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -17,6 +17,7 @@ const DAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
 export function ShiftPerformance({ data }: ShiftPerformanceProps) {
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const [heatmapMetric, setHeatmapMetric] = useState<"vNF" | "tkm" | "pa">("vNF");
 
   const sales = useMemo(() =>
     data.filter(r => !r.is_cancelada && r.tpNF === 1 && !r.is_devolucao && r.dhEmi),
@@ -45,7 +46,7 @@ export function ShiftPerformance({ data }: ShiftPerformanceProps) {
     });
   }, [sales, selectedDay]);
 
-  const { shiftMetrics, employeeMetrics } = useMemo(() => {
+  const { shiftMetrics, employeeMetrics, dailyMetrics } = useMemo(() => {
     const turnos = {
       manha: { id: "manha", nome: "Manhã (Abert. às 13h40)", cupons: 0, vNF: 0, desconto: 0, cpf: 0, vendedores: new Set<string>(), itens: 0 },
       tarde: { id: "tarde", nome: "Tarde (13h40 às 18h20)", cupons: 0, vNF: 0, desconto: 0, cpf: 0, vendedores: new Set<string>(), itens: 0 },
@@ -54,6 +55,7 @@ export function ShiftPerformance({ data }: ShiftPerformanceProps) {
 
     type EmpMetrics = { cupons: number; vNF: number; itens: number; };
     const empData: Record<string, { manha: EmpMetrics; tarde: EmpMetrics; noite: EmpMetrics; total: EmpMetrics }> = {};
+    const dailyShiftData: Record<string, { manha: EmpMetrics; tarde: EmpMetrics; noite: EmpMetrics; total: EmpMetrics }> = {};
 
     for (const s of filteredSales) {
       const d = parseISO(s.dhEmi);
@@ -82,6 +84,22 @@ export function ShiftPerformance({ data }: ShiftPerformanceProps) {
       
       const qItens = parseFloat(s.itens_qtd) || 0;
       bucket.itens += qItens;
+
+      const dStr = format(d, "yyyy-MM-dd");
+      if (!dailyShiftData[dStr]) {
+        dailyShiftData[dStr] = {
+            manha: { cupons: 0, vNF: 0, itens: 0 },
+            tarde: { cupons: 0, vNF: 0, itens: 0 },
+            noite: { cupons: 0, vNF: 0, itens: 0 },
+            total: { cupons: 0, vNF: 0, itens: 0 }
+        };
+      }
+      dailyShiftData[dStr][turno].cupons++;
+      dailyShiftData[dStr][turno].vNF += parseFloat(s.vNF) || 0;
+      dailyShiftData[dStr][turno].itens += qItens;
+      dailyShiftData[dStr].total.cupons++;
+      dailyShiftData[dStr].total.vNF += parseFloat(s.vNF) || 0;
+      dailyShiftData[dStr].total.itens += qItens;
 
       if (vend !== "COLABORADOR NÃO IDENTIFICADO") {
         if (!empData[vend]) {
@@ -117,11 +135,60 @@ export function ShiftPerformance({ data }: ShiftPerformanceProps) {
     const totalCupons = shiftData.reduce((acc, t) => acc + t.cupons, 0);
 
     const empList = Object.entries(empData).map(([nome, data]) => ({ nome, ...data })).sort((a, b) => b.total.vNF - a.total.vNF);
+    const dailyList = Object.entries(dailyShiftData).map(([data, metrics]) => ({ data, ...metrics })).sort((a, b) => a.data.localeCompare(b.data));
 
-    return { shiftMetrics: shiftData, totalCupons, employeeMetrics: empList };
+    return { shiftMetrics: shiftData, totalCupons, employeeMetrics: empList, dailyMetrics: dailyList };
   }, [filteredSales]);
 
   const fmtBRL = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+  const getMetricValue = (metrics: { cupons: number; vNF: number; itens: number; }, metric: "vNF" | "tkm" | "pa") => {
+    if (!metrics || metrics.cupons === 0) return 0;
+    if (metric === "vNF") return metrics.vNF;
+    if (metric === "tkm") return metrics.vNF / metrics.cupons;
+    if (metric === "pa") return metrics.itens / metrics.cupons;
+    return 0;
+  };
+
+  const getStats = (list: any[], key: "manha" | "tarde" | "noite") => {
+    let min = Infinity, max = -Infinity;
+    list.forEach(item => {
+      const v = getMetricValue(item[key], heatmapMetric);
+      if (v > 0) { min = Math.min(min, v); max = Math.max(max, v); }
+    });
+    if (min === Infinity) min = 0;
+    return { min, max };
+  };
+
+  const empStats = {
+    manha: getStats(employeeMetrics, "manha"),
+    tarde: getStats(employeeMetrics, "tarde"),
+    noite: getStats(employeeMetrics, "noite"),
+  };
+
+  const dailyStats = {
+    manha: getStats(dailyMetrics, "manha"),
+    tarde: getStats(dailyMetrics, "tarde"),
+    noite: getStats(dailyMetrics, "noite"),
+  };
+
+  const getHeatmapColor = (val: number, min: number, max: number) => {
+    if (!val || val === 0) return "bg-slate-50 text-slate-300 border-slate-200";
+    if (min === max) return "bg-emerald-500 text-white border-emerald-600";
+    
+    const ratio = (val - min) / (max - min);
+    if (ratio < 0.2) return "bg-rose-500 text-white border-rose-600";
+    if (ratio < 0.4) return "bg-rose-200 text-rose-900 border-rose-300";
+    if (ratio < 0.6) return "bg-amber-100 text-amber-900 border-amber-200";
+    if (ratio < 0.8) return "bg-emerald-200 text-emerald-900 border-emerald-300";
+    return "bg-emerald-500 text-white border-emerald-600";
+  };
+
+  const fmtMetric = (val: number, metric: "vNF" | "tkm" | "pa") => {
+    if (val === 0) return "-";
+    if (metric === "vNF" || metric === "tkm") return fmtBRL(val);
+    return val.toFixed(2);
+  };
 
   if (sales.length === 0) {
     return (
@@ -340,6 +407,114 @@ export function ShiftPerformance({ data }: ShiftPerformanceProps) {
               </tbody>
             </table>
           </div>
+        </div>
+      </div>
+
+      {/* Mapa de Calor */}
+      <div className="space-y-4 mt-8 pt-6 border-t border-slate-100">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 px-2">
+          <div>
+            <div className="flex items-center gap-2">
+              <LayoutGrid className="w-5 h-5 text-indigo-500" />
+              <h3 className="text-base font-black text-slate-700 uppercase tracking-widest">Mapa de Calor (Feedback)</h3>
+            </div>
+            <p className="text-xs font-medium text-slate-400 mt-1">Identifique padrões de desempenho visualmente. Verde indica alta performance no turno, vermelho indica necessidade de ajuste.</p>
+          </div>
+          
+          <div className="flex bg-slate-100 p-1.5 rounded-xl self-start md:self-auto border border-slate-200 shadow-inner">
+             <button onClick={() => setHeatmapMetric("vNF")} className={cn("px-4 py-1.5 text-xs font-black uppercase rounded-lg transition-all", heatmapMetric === "vNF" ? "bg-white shadow-sm text-indigo-700" : "text-slate-500 hover:text-slate-700")}>Faturamento</button>
+             <button onClick={() => setHeatmapMetric("tkm")} className={cn("px-4 py-1.5 text-xs font-black uppercase rounded-lg transition-all", heatmapMetric === "tkm" ? "bg-white shadow-sm text-indigo-700" : "text-slate-500 hover:text-slate-700")}>TKM</button>
+             <button onClick={() => setHeatmapMetric("pa")} className={cn("px-4 py-1.5 text-xs font-black uppercase rounded-lg transition-all", heatmapMetric === "pa" ? "bg-white shadow-sm text-indigo-700" : "text-slate-500 hover:text-slate-700")}>P.A.</button>
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+           {/* General Heatmap */}
+           <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-4 overflow-hidden flex flex-col">
+              <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-3">Geral da Loja (Por Dia)</h4>
+              <div className="overflow-x-auto flex-1">
+                <table className="w-full text-left text-sm border-collapse min-w-[400px]">
+                  <thead>
+                    <tr>
+                      <th className="p-2 border-b text-slate-500 font-bold uppercase text-[10px]">Data</th>
+                      <th className="p-2 border-b text-center text-slate-500 font-bold uppercase text-[10px]">Manhã</th>
+                      <th className="p-2 border-b text-center text-slate-500 font-bold uppercase text-[10px]">Tarde</th>
+                      <th className="p-2 border-b text-center text-slate-500 font-bold uppercase text-[10px]">Noite</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dailyMetrics.map((d) => {
+                      const mVal = getMetricValue(d.manha, heatmapMetric);
+                      const tVal = getMetricValue(d.tarde, heatmapMetric);
+                      const nVal = getMetricValue(d.noite, heatmapMetric);
+                      return (
+                        <tr key={d.data} className="hover:bg-slate-50 transition-colors">
+                           <td className="p-2 font-bold text-xs text-slate-600 border-b border-r">
+                             {format(parseISO(d.data), "dd/MM (EEE)", { locale: ptBR }).toUpperCase()}
+                           </td>
+                           <td className={cn("p-2 text-center text-xs font-bold border-b border-r transition-colors", getHeatmapColor(mVal, dailyStats.manha.min, dailyStats.manha.max))}>
+                             {fmtMetric(mVal, heatmapMetric)}
+                           </td>
+                           <td className={cn("p-2 text-center text-xs font-bold border-b border-r transition-colors", getHeatmapColor(tVal, dailyStats.tarde.min, dailyStats.tarde.max))}>
+                             {fmtMetric(tVal, heatmapMetric)}
+                           </td>
+                           <td className={cn("p-2 text-center text-xs font-bold border-b transition-colors", getHeatmapColor(nVal, dailyStats.noite.min, dailyStats.noite.max))}>
+                             {fmtMetric(nVal, heatmapMetric)}
+                           </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+           </div>
+
+           {/* Employee Heatmap */}
+           <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-4 overflow-hidden flex flex-col">
+              <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-3">Colaboradores</h4>
+              <div className="overflow-x-auto flex-1">
+                <table className="w-full text-left text-sm border-collapse min-w-[400px]">
+                  <thead>
+                    <tr>
+                      <th className="p-2 border-b text-slate-500 font-bold uppercase text-[10px] sticky left-0 bg-white shadow-[1px_0_0_#e2e8f0] z-10">Colaborador</th>
+                      <th className="p-2 border-b text-center text-slate-500 font-bold uppercase text-[10px]">Manhã</th>
+                      <th className="p-2 border-b text-center text-slate-500 font-bold uppercase text-[10px]">Tarde</th>
+                      <th className="p-2 border-b text-center text-slate-500 font-bold uppercase text-[10px]">Noite</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {employeeMetrics.map((emp) => {
+                      const mVal = getMetricValue(emp.manha, heatmapMetric);
+                      const tVal = getMetricValue(emp.tarde, heatmapMetric);
+                      const nVal = getMetricValue(emp.noite, heatmapMetric);
+                      return (
+                        <tr key={emp.nome} className="hover:bg-slate-50 transition-colors">
+                           <td className="p-2 font-black text-[11px] text-slate-700 border-b border-r sticky left-0 bg-white shadow-[1px_0_0_#e2e8f0] z-10">
+                             {emp.nome.length > 18 ? emp.nome.substring(0, 18) + '...' : emp.nome}
+                           </td>
+                           <td className={cn("p-2 text-center text-xs font-bold border-b border-r transition-colors", getHeatmapColor(mVal, empStats.manha.min, empStats.manha.max))}>
+                             {fmtMetric(mVal, heatmapMetric)}
+                           </td>
+                           <td className={cn("p-2 text-center text-xs font-bold border-b border-r transition-colors", getHeatmapColor(tVal, empStats.tarde.min, empStats.tarde.max))}>
+                             {fmtMetric(tVal, heatmapMetric)}
+                           </td>
+                           <td className={cn("p-2 text-center text-xs font-bold border-b transition-colors", getHeatmapColor(nVal, empStats.noite.min, empStats.noite.max))}>
+                             {fmtMetric(nVal, heatmapMetric)}
+                           </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+           </div>
+        </div>
+        
+        <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-tighter mt-4 justify-end bg-slate-50 p-2 rounded-xl w-fit ml-auto border border-slate-100">
+           <span className="text-slate-400 mr-1">Legenda (relativo ao turno):</span>
+           <div className="flex items-center"><div className="w-3 h-3 bg-rose-500 rounded-sm mr-1 border border-rose-600"></div> Baixo</div>
+           <div className="flex items-center ml-1"><div className="w-3 h-3 bg-amber-100 rounded-sm mr-1 border border-amber-200"></div> Médio</div>
+           <div className="flex items-center ml-1"><div className="w-3 h-3 bg-emerald-500 rounded-sm mr-1 border border-emerald-600"></div> Alto</div>
         </div>
       </div>
 

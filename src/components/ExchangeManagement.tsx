@@ -98,6 +98,35 @@ export function ExchangeManagement({ data, vinculos }: ExchangeManagementProps) 
     };
   }, [filteredVinculos]);
 
+  const vendorRanking = useMemo(() => {
+    const map = new Map<string, { totalTrocas: number, upsellCount: number, saldoLiquido: number, scoreSoma: number, difPecas: number }>();
+
+    filteredVinculos.forEach(v => {
+      const vend = v.vendedor || "DESCONHECIDO";
+      if (!map.has(vend)) {
+        map.set(vend, { totalTrocas: 0, upsellCount: 0, saldoLiquido: 0, scoreSoma: 0, difPecas: 0 });
+      }
+      const data = map.get(vend)!;
+      data.totalTrocas++;
+      if (v.valor_diferenca > 0.1) data.upsellCount++; // considera upsell se diferença > 0 (adicionando margem 0.1 por float)
+      data.saldoLiquido += v.valor_diferenca;
+      data.scoreSoma += v.score_qualidade;
+      data.difPecas += v.diferenca_itens;
+    });
+
+    return Array.from(map.entries()).map(([nome, data]) => ({
+      nome,
+      totalTrocas: data.totalTrocas,
+      taxaUpsell: (data.upsellCount / data.totalTrocas) * 100,
+      saldoLiquido: data.saldoLiquido,
+      scoreMedio: data.scoreSoma / data.totalTrocas,
+      difPecas: data.difPecas
+    })).sort((a, b) => {
+       if (b.saldoLiquido !== a.saldoLiquido) return b.saldoLiquido - a.saldoLiquido; // Primeiro por quem gerou mais saldo líquido
+       return b.taxaUpsell - a.taxaUpsell; // Desempate por taxa de upsell
+    });
+  }, [filteredVinculos]);
+
   const getSaleData = (chave: string) => data.find(d => d.chave === chave);
 
   // Exibe nome/cpf do veínculo mesmo quando o XML de entrada não foi importado
@@ -165,6 +194,74 @@ export function ExchangeManagement({ data, vinculos }: ExchangeManagementProps) 
           </div>
         </div>
       </Card>
+
+      {/* Ranking de Qualidade */}
+      {vendorRanking.length > 0 && vendorFilter === "all" && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 px-2">
+            <Trophy className="w-4 h-4 text-orange-500" />
+            <h3 className="text-sm font-black text-slate-700 uppercase tracking-widest">Ranking de Performance em Trocas</h3>
+          </div>
+          
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm border-collapse min-w-[600px]">
+                <thead>
+                  <tr>
+                    <th className="p-3 bg-slate-50 border-b text-slate-500 font-bold uppercase text-[10px] tracking-widest w-12 text-center">Pos</th>
+                    <th className="p-3 bg-slate-50 border-b text-slate-500 font-bold uppercase text-[10px] tracking-widest">Colaborador</th>
+                    <th className="p-3 bg-slate-50 border-b text-slate-500 font-bold uppercase text-[10px] tracking-widest text-center">Trocas Feitas</th>
+                    <th className="p-3 bg-slate-50 border-b text-slate-500 font-bold uppercase text-[10px] tracking-widest text-center">Taxa de Upsell</th>
+                    <th className="p-3 bg-slate-50 border-b text-slate-500 font-bold uppercase text-[10px] tracking-widest text-center">Dif. de Peças</th>
+                    <th className="p-3 bg-slate-50 border-b text-slate-500 font-black uppercase text-[10px] tracking-widest text-right">Saldo Líquido</th>
+                    <th className="p-3 bg-slate-50 border-b text-slate-500 font-bold uppercase text-[10px] tracking-widest text-center">Score Médio</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {vendorRanking.map((vr, i) => {
+                    const isTop = i === 0;
+                    return (
+                      <tr key={vr.nome} className="hover:bg-slate-50 transition-colors">
+                        <td className="p-3 text-center border-r bg-white">
+                           <div className={cn("w-6 h-6 mx-auto rounded-full flex items-center justify-center text-[10px] font-black", 
+                              isTop ? "bg-orange-100 text-orange-600" : (i === 1 ? "bg-slate-200 text-slate-600" : (i === 2 ? "bg-amber-100 text-amber-700" : "text-slate-400")))}>
+                             {i + 1}
+                           </div>
+                        </td>
+                        <td className="p-3 font-black text-[11px] text-slate-700 uppercase bg-white">{vr.nome}</td>
+                        <td className="p-3 text-center text-xs font-bold text-slate-600">{vr.totalTrocas}</td>
+                        <td className="p-3 text-center">
+                           <Badge className={cn("font-bold text-[10px] uppercase shadow-none", vr.taxaUpsell >= 50 ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200" : (vr.taxaUpsell >= 25 ? "bg-blue-100 text-blue-700 hover:bg-blue-200" : "bg-slate-100 text-slate-600 hover:bg-slate-200"))}>
+                             {vr.taxaUpsell.toFixed(0)}%
+                           </Badge>
+                        </td>
+                        <td className="p-3 text-center">
+                          <span className={cn("text-xs font-black", vr.difPecas > 0 ? "text-emerald-500" : (vr.difPecas < 0 ? "text-rose-500" : "text-slate-400"))}>
+                            {vr.difPecas > 0 ? `+${vr.difPecas}` : vr.difPecas}
+                          </span>
+                        </td>
+                        <td className="p-3 text-right">
+                          <span className={cn("font-black", vr.saldoLiquido > 0 ? "text-emerald-600" : (vr.saldoLiquido < 0 ? "text-rose-600" : "text-slate-500"))}>
+                            {vr.saldoLiquido > 0 ? "+" : ""}{formatBRL(vr.saldoLiquido)}
+                          </span>
+                        </td>
+                        <td className="p-3 text-center">
+                           <div className="flex items-center justify-center gap-2">
+                             <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                <div className={cn("h-full rounded-full", vr.scoreMedio >= 75 ? "bg-emerald-500" : (vr.scoreMedio >= 50 ? "bg-amber-500" : "bg-rose-500"))} style={{ width: `${vr.scoreMedio}%` }} />
+                             </div>
+                             <span className="text-[10px] font-black text-slate-700 w-6">{vr.scoreMedio.toFixed(0)}</span>
+                           </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="space-y-4">
         <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-2">Análise de Qualidade ({filteredVinculos.length})</h3>

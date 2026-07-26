@@ -60,7 +60,10 @@ import {
   Sparkles,
   Settings2
 } from "lucide-react";
-import { format, parseISO, min, max } from "date-fns";
+import { format, parseISO, min, max, startOfDay, endOfDay, isWithinInterval } from "date-fns";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarUI } from "@/components/ui/calendar";
+import { DateRange } from "react-day-picker";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import {
@@ -141,6 +144,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   const [activeTab, setActiveTab] = useState("executivo");
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const { setOpenMobile, state } = useSidebar();
   const isCollapsed = state === "collapsed";
 
@@ -169,14 +173,36 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
   }, [data]);
 
   const filteredData = useMemo(() => {
-    if (hiddenCollaborators.length === 0) return data;
-    return data.filter(s => !s.vendedor || !hiddenCollaborators.includes(s.vendedor));
-  }, [data, hiddenCollaborators]);
+    let result = data;
+    if (hiddenCollaborators.length > 0) {
+      result = result.filter(s => !s.vendedor || !hiddenCollaborators.includes(s.vendedor));
+    }
+    if (dateRange?.from) {
+      const start = startOfDay(dateRange.from);
+      const end = dateRange.to ? endOfDay(dateRange.to) : endOfDay(dateRange.from);
+      result = result.filter(s => {
+        const d = parseISO(s.dhEmi);
+        return isWithinInterval(d, { start, end });
+      });
+    }
+    return result;
+  }, [data, hiddenCollaborators, dateRange]);
 
   const filteredVinculos = useMemo(() => {
-    if (hiddenCollaborators.length === 0) return vinculos;
-    return vinculos.filter(v => !v.vendedor || !hiddenCollaborators.includes(v.vendedor));
-  }, [vinculos, hiddenCollaborators]);
+    let result = vinculos;
+    if (hiddenCollaborators.length > 0) {
+      result = result.filter(v => !v.vendedor || !hiddenCollaborators.includes(v.vendedor));
+    }
+    if (dateRange?.from) {
+      const start = startOfDay(dateRange.from);
+      const end = dateRange.to ? endOfDay(dateRange.to) : endOfDay(dateRange.from);
+      result = result.filter(v => {
+        const d = parseISO(v.data_saida || v.data_entrada);
+        return isWithinInterval(d, { start, end });
+      });
+    }
+    return result;
+  }, [vinculos, hiddenCollaborators, dateRange]);
 
   const [selectedChannels, setSelectedChannels] = useState({
     fisica: true,
@@ -525,7 +551,42 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
         
         {/* Equipe Portal to Header */}
         {mounted && document.getElementById("header-actions") ? createPortal(
-          <Sheet>
+          <div className="flex items-center gap-2">
+             <Popover>
+               <PopoverTrigger asChild>
+                 <Button variant="outline" size="sm" className={cn("rounded-xl border-slate-200 text-slate-500 font-bold text-[10px] uppercase gap-2", !dateRange && "text-muted-foreground")}>
+                   <CalendarIcon className="w-3.5 h-3.5 text-indigo-500" />
+                   {dateRange?.from ? (
+                     dateRange.to ? (
+                       <>
+                         {format(dateRange.from, "dd/MM/yy")} - {format(dateRange.to, "dd/MM/yy")}
+                       </>
+                     ) : (
+                       format(dateRange.from, "dd/MM/yy")
+                     )
+                   ) : (
+                     <span>Filtrar Período</span>
+                   )}
+                 </Button>
+               </PopoverTrigger>
+               <PopoverContent className="w-auto p-0" align="end">
+                 <CalendarUI
+                   initialFocus
+                   mode="range"
+                   defaultMonth={dateRange?.from}
+                   selected={dateRange}
+                   onSelect={setDateRange}
+                   numberOfMonths={2}
+                 />
+                 <div className="p-3 border-t flex justify-end">
+                    <Button variant="ghost" size="sm" onClick={() => setDateRange(undefined)} className="text-[10px] uppercase font-bold text-slate-500">
+                      Limpar Filtro
+                    </Button>
+                 </div>
+               </PopoverContent>
+             </Popover>
+
+             <Sheet>
                <SheetTrigger asChild>
                  <Button variant="outline" size="sm" className="rounded-xl border-slate-200 text-slate-500 font-bold text-[10px] uppercase gap-2">
                     <Users2 className="w-3.5 h-3.5 text-indigo-500" />
@@ -573,7 +634,8 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
                     </div>
                  </div>
                </SheetContent>
-             </Sheet>,
+             </Sheet>
+          </div>,
           document.getElementById("header-actions")!
         ) : null}
   

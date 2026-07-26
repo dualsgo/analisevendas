@@ -5,196 +5,242 @@ import { DetailedSaleRow } from "@/lib/types";
 import { format, parseISO, startOfDay, addDays, differenceInDays, getDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer, 
-  ReferenceLine,
-  AreaChart,
-  Area
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, AreaChart, Area
 } from "recharts";
-import { 
-  Card, 
-  CardContent, 
-  CardHeader, 
-  CardTitle, 
-  CardDescription 
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
-} from "@/components/ui/select";
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from "@/components/ui/table";
-import { 
-  Accordion, 
-  AccordionContent, 
-  AccordionItem, 
-  AccordionTrigger 
-} from "@/components/ui/accordion";
-import { 
-  TrendingUp, 
-  Calendar, 
-  UserCheck, 
-  BarChart3,
-  ArrowUpRight,
-  Target
+  TrendingUp, Calendar, UserCheck, BarChart3, ArrowUpRight, ArrowDownRight, Target,
+  Smartphone, Bike
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+const SLP_CODES = ['5135238', '5135269', '5135270', '5135273', '5146458', '5146469', '5146470', '5146471', '5146472', '5146473', '5146474', '5146475', '5146476', '5146501', '5146504', '5146505', '5141894', '5141895', '5141896', '5141897', '5141898', '5141899', '5141900', '5141902', '5141903', '5141904', '5141905', '5141907', '5141909', '5141910', '5141911', '5141912', '5141913', '5141914', '5141915', '5141916', '5141917', '5141920', '5141949', '5141978', '5140469', '5140475', '5140476', '5140477', '5140478', '5140479', '5146477', '5146478', '5146502', '5146503'];
+const SOCIAL_CODES = ['5057181', '5055875', '5135601', '5129270', '5129271', '5129247', '5129262', '5122642', '5122641', '5135612', '5122639', '5122638', '5133676', '5113644', '5113641', '5113642', '5113643', '5129267', '5129255', '5143422', '5139528', '5143423', '5145833', '5139527', '5147797', '5147796', '5145834', '5079753', '5079752', '5106673', '5106671', '5106674', '5106672', '5088519', '5097336', '5097335', '5011918', '5136558'];
+const BARALHO_CODES = ['5147797', '5147796', '5149977', '5149978'];
+const SACOLA_CODES = ['5133676', '5113644'];
+
+const formatBRL = (val: number) => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+const formatNum = (val: number, precision = 2) => val.toLocaleString('pt-BR', { minimumFractionDigits: precision, maximumFractionDigits: precision });
 
 interface DailyPerformanceProps {
   data: DetailedSaleRow[];
 }
 
-type MetricType = 'venda' | 'cupons' | 'itens' | 'tkm' | 'pa' | 'cadastros' | 'taxaIdentificacao';
+type MetricType = 'venda' | 'cupons' | 'itens' | 'tkm' | 'pa' | 'identPerc';
 
 export function DailyPerformance({ data }: DailyPerformanceProps) {
   const [selectedMetric, setSelectedMetric] = useState<MetricType>('venda');
   const [viewMode, setViewMode] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const [dayOfWeekFilter, setDayOfWeekFilter] = useState<string>('all');
-  const [selectedVendors, setSelectedVendors] = useState<string[]>([]);
+  
+  // Toggles just like ConsolidatedReport
+  const [includePickups, setIncludePickups] = useState(false);
+  const [includeDelivery, setIncludeDelivery] = useState(false);
+  const [includeFigurinhas, setIncludeFigurinhas] = useState(true);
+  const [includeAlbuns, setIncludeAlbuns] = useState(true);
+  const [includeBaralhos, setIncludeBaralhos] = useState(true);
+  const [includeSLP, setIncludeSLP] = useState(true);
+  const [includeSacolas, setIncludeSacolas] = useState(true);
 
-  const baseData = useMemo(() => {
-    return data.filter(r => 
-      (r.canal === "LOJA_FISICA" || 
-       r.canal === "RETIRADA_ADICIONAL" || 
-       r.is_adicional || 
-       r.is_adicional_suspeito) && 
-      r.tpNF === 1 && 
-      !r.is_cancelada
-    );
-  }, [data]);
-
-  const allVendors = useMemo(() => {
-    const vendors = new Set(baseData.map(r => r.vendedor).filter(v => v && v !== "COLABORADOR NÃO IDENTIFICADO"));
-    return Array.from(vendors).sort();
-  }, [baseData]);
-
-  const filteredByVendor = useMemo(() => {
-    if (selectedVendors.length === 0) return baseData;
-    return baseData.filter(r => selectedVendors.includes(r.vendedor));
-  }, [baseData, selectedVendors]);
-
-  const filteredByDayOfWeek = useMemo(() => {
-    if (dayOfWeekFilter === 'all') return filteredByVendor;
-    return filteredByVendor.filter(r => {
-      const date = parseISO(r.dhEmi);
-      return getDay(date).toString() === dayOfWeekFilter;
-    });
-  }, [filteredByVendor, dayOfWeekFilter]);
-
-  const calculateMetrics = (rows: DetailedSaleRow[]) => {
-    const venda = rows.reduce((acc, r) => acc + parseFloat(r.vNF), 0);
-    const cupons = rows.length;
-    const itens = rows.reduce((acc, r) => acc + parseFloat(r.itens_qtd), 0);
-    const cadastros = rows.filter(r => r.cpf_cnpj_dest && r.cpf_cnpj_dest.trim() !== "").length;
-    
-    return {
-      venda,
-      cupons,
-      itens,
-      tkm: cupons > 0 ? venda / cupons : 0,
-      pa: cupons > 0 ? itens / cupons : 0,
-      cadastros,
-      taxaIdentificacao: cupons > 0 ? (cadastros / cupons) * 100 : 0
-    };
+  const [selectedDateRow, setSelectedDateRow] = useState<any>(null);
+  
+  // Toggles filtering logic
+  const isBaralho = (it: any) => {
+    if (BARALHO_CODES.includes(it.cProd)) return true;
+    const p = it.xProd.toUpperCase();
+    return p.includes("BARALHO") || p.includes("ACAO SOCIAL") || p.includes("DOACAO") || p.includes("ALMANAQUE");
+  };
+  
+  const isSacola = (it: any) => {
+    if (SACOLA_CODES.includes(it.cProd)) return true;
+    const p = it.xProd.toUpperCase();
+    return p.includes("SACOLA");
   };
 
   const performanceData = useMemo(() => {
-    if (filteredByDayOfWeek.length === 0) return [];
+    const activeSales = data.filter(s => !s.is_cancelada && s.tpNF === 1);
+    
+    let processedData = activeSales.map(s => {
+      const isFisica = s.canal === "LOJA_FISICA" || s.canal === "RETIRADA_ADICIONAL" || s.is_adicional || s.is_adicional_suspeito;
+      const isOnline = s.canal === "RETIRADA_ONLINE";
+      const isDelivery = s.canal === "DELIVERY";
 
-    const sortedData = [...filteredByDayOfWeek].sort((a, b) => 
+      const shouldProcess = isFisica || (isOnline && includePickups) || (isDelivery && includeDelivery);
+      
+      if (!shouldProcess) return null;
+
+      let saleRealVenda = parseFloat(s.vNF);
+      let saleRealItens = parseFloat(s.itens_qtd);
+      let isIdentified = s.cpf_cnpj_dest && s.cpf_cnpj_dest.trim() !== "" ? 1 : 0;
+      
+      let saleFilteredVenda = 0;
+      let saleFilteredItens = 0;
+      let validItemsCount = 0;
+      
+      let slpQty = 0, baralhoQty = 0, sacolaQty = 0;
+
+      s.itens.forEach(it => {
+        if (SLP_CODES.includes(it.cProd)) slpQty += it.qCom;
+        if (SOCIAL_CODES.includes(it.cProd) || isBaralho(it) || isSacola(it)) {
+          if (isBaralho(it)) baralhoQty += it.qCom;
+          else if (isSacola(it)) sacolaQty += it.qCom;
+          else baralhoQty += it.qCom;
+        }
+
+        const isFig = ["5147790", "5147791", "5149187"].includes(it.cProd);
+        const isAlb = it.cProd === "5147812";
+        const isBar = isBaralho(it);
+        const isSac = isSacola(it);
+        const isSlpItem = SLP_CODES.includes(it.cProd);
+
+        let includeItem = true;
+        if (isFig && !includeFigurinhas) includeItem = false;
+        if (isAlb && !includeAlbuns) includeItem = false;
+        if (isBar && !includeBaralhos) includeItem = false;
+        if (isSac && !includeSacolas) includeItem = false;
+        if (isSlpItem && !includeSLP) includeItem = false;
+
+        if (includeItem) {
+            saleFilteredVenda += it.vProd;
+            saleFilteredItens += it.qCom;
+            validItemsCount++;
+        }
+      });
+      
+      if (validItemsCount === 0) {
+        saleFilteredVenda = 0;
+        saleFilteredItens = 0;
+      } else if (validItemsCount === s.itens.length) {
+        saleFilteredVenda = saleRealVenda;
+        saleFilteredItens = saleRealItens;
+      } else {
+        const totalVProd = s.itens.reduce((acc, it) => acc + it.vProd, 0);
+        const ratio = totalVProd > 0 ? saleRealVenda / totalVProd : 1;
+        saleFilteredVenda = saleFilteredVenda * ratio;
+      }
+
+      let saleFilteredCupons = validItemsCount > 0 ? 1 : 0;
+      let saleFilteredIdent = validItemsCount > 0 ? isIdentified : 0;
+      
+      let pickupsAtendidas = isOnline ? 1 : 0;
+      let adicionaisFeitos = (s.is_adicional || s.is_adicional_suspeito || s.canal === "RETIRADA_ADICIONAL") ? 1 : 0;
+
+      return {
+        ...s,
+        saleFilteredVenda,
+        saleFilteredItens,
+        saleFilteredCupons,
+        saleFilteredIdent,
+        slpQty, baralhoQty, sacolaQty, pickupsAtendidas, adicionaisFeitos
+      };
+    }).filter(Boolean);
+
+    // Apply Day of Week filter
+    if (dayOfWeekFilter !== 'all') {
+      processedData = processedData.filter(r => r && getDay(parseISO(r.dhEmi)).toString() === dayOfWeekFilter);
+    }
+
+    const sortedData = [...processedData].sort((a: any, b: any) => 
       parseISO(a.dhEmi).getTime() - parseISO(b.dhEmi).getTime()
     );
 
+    if (sortedData.length === 0) return [];
+
+    const groupData = (groups: Record<string, any[]>, getLabel: (key: string, firstRow: any) => string) => {
+       return Object.entries(groups).map(([key, rows]) => {
+         const venda = rows.reduce((acc, r) => acc + r.saleFilteredVenda, 0);
+         const cupons = rows.reduce((acc, r) => acc + r.saleFilteredCupons, 0);
+         const itens = rows.reduce((acc, r) => acc + r.saleFilteredItens, 0);
+         const ident = rows.reduce((acc, r) => acc + r.saleFilteredIdent, 0);
+         const slpQty = rows.reduce((acc, r) => acc + r.slpQty, 0);
+         const baralhoQty = rows.reduce((acc, r) => acc + r.baralhoQty, 0);
+         const sacolaQty = rows.reduce((acc, r) => acc + r.sacolaQty, 0);
+         const pickups = rows.reduce((acc, r) => acc + r.pickupsAtendidas, 0);
+         const adicionais = rows.reduce((acc, r) => acc + r.adicionaisFeitos, 0);
+         
+         const pa = cupons > 0 ? itens / cupons : 0;
+         const tkm = cupons > 0 ? venda / cupons : 0;
+         const pm = itens > 0 ? venda / itens : 0;
+         const identPerc = cupons > 0 ? (ident / cupons) * 100 : 0;
+         const conv = pickups > 0 ? (adicionais / pickups) * 100 : 0;
+
+         // Breakdown by vendor
+         const vendorGroups: Record<string, any> = {};
+         rows.forEach(r => {
+           const v = r.vendedor || "OUTROS";
+           if (!vendorGroups[v]) {
+             vendorGroups[v] = { venda: 0, cupons: 0, itens: 0, ident: 0, slpQty: 0, baralhoQty: 0, sacolaQty: 0, pickups: 0, adicionais: 0 };
+           }
+           vendorGroups[v].venda += r.saleFilteredVenda;
+           vendorGroups[v].cupons += r.saleFilteredCupons;
+           vendorGroups[v].itens += r.saleFilteredItens;
+           vendorGroups[v].ident += r.saleFilteredIdent;
+           vendorGroups[v].slpQty += r.slpQty;
+           vendorGroups[v].baralhoQty += r.baralhoQty;
+           vendorGroups[v].sacolaQty += r.sacolaQty;
+           vendorGroups[v].pickups += r.pickupsAtendidas;
+           vendorGroups[v].adicionais += r.adicionaisFeitos;
+         });
+         
+         const vendors = Object.entries(vendorGroups).map(([name, vg]) => ({
+           name,
+           ...vg,
+           pa: vg.cupons > 0 ? vg.itens / vg.cupons : 0,
+           tkm: vg.cupons > 0 ? vg.venda / vg.cupons : 0,
+           pm: vg.itens > 0 ? vg.venda / vg.itens : 0,
+           identPerc: vg.cupons > 0 ? (vg.ident / vg.cupons) * 100 : 0,
+           conv: vg.pickups > 0 ? (vg.adicionais / vg.pickups) * 100 : 0,
+         })).sort((a,b) => b.venda - a.venda);
+
+         return {
+           key,
+           label: getLabel(key, rows[0]),
+           venda, cupons, itens, ident, pa, tkm, pm, identPerc, conv,
+           slpQty, baralhoQty, sacolaQty, pickups, adicionais,
+           vendors
+         };
+       });
+    };
+
     if (viewMode === 'daily') {
-      const groups: Record<string, DetailedSaleRow[]> = {};
+      const groups: Record<string, any[]> = {};
       sortedData.forEach(r => {
-        const day = r.dhEmi.substring(0, 10);
+        const day = (r as any).dhEmi.substring(0, 10);
         if (!groups[day]) groups[day] = [];
         groups[day].push(r);
       });
-
-      return Object.entries(groups).map(([date, rows]) => ({
-        label: format(parseISO(date), "dd/MM (eee)", { locale: ptBR }),
-        fullDate: date,
-        ...calculateMetrics(rows),
-        vendors: Object.entries(
-          rows.reduce((acc, r) => {
-            const v = r.vendedor || "COLABORADOR";
-            if (!acc[v]) acc[v] = [];
-            acc[v].push(r);
-            return acc;
-          }, {} as Record<string, DetailedSaleRow[]>)
-        ).map(([name, vRows]) => ({ name, ...calculateMetrics(vRows) }))
-      }));
+      return groupData(groups, (key) => format(parseISO(key), "dd/MM/yy (eee)", { locale: ptBR }).toUpperCase());
     } else if (viewMode === 'weekly') {
-      const firstDate = startOfDay(parseISO(sortedData[0].dhEmi));
-      const weeks: { label: string; rows: DetailedSaleRow[] }[] = [];
-      
+      const firstDate = startOfDay(parseISO((sortedData[0] as any).dhEmi));
+      const groups: Record<string, any[]> = {};
       sortedData.forEach(r => {
-        const currentDate = startOfDay(parseISO(r.dhEmi));
+        const currentDate = startOfDay(parseISO((r as any).dhEmi));
         const diff = differenceInDays(currentDate, firstDate);
         const weekIndex = Math.floor(diff / 7);
-        
-        if (!weeks[weekIndex]) {
-          const weekStart = addDays(firstDate, weekIndex * 7);
-          const weekEnd = addDays(weekStart, 6);
-          weeks[weekIndex] = {
-            label: `Sem. ${weekIndex + 1} (${format(weekStart, "dd/MM")})`,
-            rows: []
-          };
-        }
-        weeks[weekIndex].rows.push(r);
+        const weekStart = addDays(firstDate, weekIndex * 7);
+        const key = `W${weekIndex}_${format(weekStart, 'yyyy-MM-dd')}`;
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(r);
       });
-
-      return weeks.filter(Boolean).map(w => ({
-        label: w.label,
-        ...calculateMetrics(w.rows),
-        vendors: Object.entries(
-          w.rows.reduce((acc, r) => {
-            const v = r.vendedor || "COLABORADOR";
-            if (!acc[v]) acc[v] = [];
-            acc[v].push(r);
-            return acc;
-          }, {} as Record<string, DetailedSaleRow[]>)
-        ).map(([name, vRows]) => ({ name, ...calculateMetrics(vRows) }))
-      }));
+      return groupData(groups, (key) => {
+        const dStr = key.split('_')[1];
+        return `SEM. INIC. ${format(parseISO(dStr), "dd/MM")}`;
+      });
     } else {
-      // Monthly
-      const groups: Record<string, DetailedSaleRow[]> = {};
+      const groups: Record<string, any[]> = {};
       sortedData.forEach(r => {
-        const month = r.dhEmi.substring(0, 7);
+        const month = (r as any).dhEmi.substring(0, 7);
         if (!groups[month]) groups[month] = [];
         groups[month].push(r);
       });
-
-      return Object.entries(groups).map(([month, rows]) => ({
-        label: format(parseISO(month + "-01"), "MMMM yy", { locale: ptBR }).toUpperCase(),
-        ...calculateMetrics(rows),
-        vendors: Object.entries(
-          rows.reduce((acc, r) => {
-            const v = r.vendedor || "COLABORADOR";
-            if (!acc[v]) acc[v] = [];
-            acc[v].push(r);
-            return acc;
-          }, {} as Record<string, DetailedSaleRow[]>)
-        ).map(([name, vRows]) => ({ name, ...calculateMetrics(vRows) }))
-      }));
+      return groupData(groups, (key) => format(parseISO(key + "-01"), "MMMM yy", { locale: ptBR }).toUpperCase());
     }
-  }, [filteredByDayOfWeek, viewMode]);
+  }, [data, viewMode, dayOfWeekFilter, includePickups, includeDelivery, includeFigurinhas, includeAlbuns, includeBaralhos, includeSLP, includeSacolas]);
 
   const averageValue = useMemo(() => {
     if (performanceData.length === 0) return 0;
@@ -202,7 +248,28 @@ export function DailyPerformance({ data }: DailyPerformanceProps) {
     return sum / performanceData.length;
   }, [performanceData, selectedMetric]);
 
-  const consolidatedTotal = useMemo(() => calculateMetrics(filteredByDayOfWeek), [filteredByDayOfWeek]);
+  const totals = useMemo(() => {
+    const sum = performanceData.reduce((acc, v) => ({
+      venda: acc.venda + v.venda,
+      cupons: acc.cupons + v.cupons,
+      itens: acc.itens + v.itens,
+      pickups: acc.pickups + v.pickups,
+      adicionais: acc.adicionais + v.adicionais,
+      ident: acc.ident + v.ident,
+      slp: acc.slp + v.slpQty,
+      baralhos: acc.baralhos + v.baralhoQty,
+      sacolas: acc.sacolas + v.sacolaQty
+    }), { venda: 0, cupons: 0, itens: 0, pickups: 0, adicionais: 0, ident: 0, slp: 0, baralhos: 0, sacolas: 0 });
+
+    return {
+      ...sum,
+      pa: sum.cupons > 0 ? sum.itens / sum.cupons : 0,
+      tkm: sum.cupons > 0 ? sum.venda / sum.cupons : 0,
+      pm: sum.itens > 0 ? sum.venda / sum.itens : 0,
+      identPerc: sum.cupons > 0 ? (Math.min(sum.ident / sum.cupons, 1)) * 100 : 0,
+      conv: sum.pickups > 0 ? (sum.adicionais / sum.pickups) * 100 : 0
+    };
+  }, [performanceData]);
 
   const metricLabels: Record<MetricType, string> = {
     venda: "Venda Total",
@@ -210,71 +277,84 @@ export function DailyPerformance({ data }: DailyPerformanceProps) {
     itens: "Peças",
     tkm: "Ticket Médio",
     pa: "P.A.",
-    cadastros: "Cadastros",
-    taxaIdentificacao: "Identificação (%)"
+    identPerc: "Identificação (%)"
   };
 
   const formatValue = (val: number, type: MetricType) => {
     if (type === 'venda' || type === 'tkm') return val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-    if (type === 'pa' || type === 'taxaIdentificacao') return val.toFixed(2);
+    if (type === 'pa' || type === 'identPerc') return val.toFixed(2);
     return val.toString();
   };
 
   return (
-    <div className="space-y-6 md:space-y-8 animate-in fade-in duration-500">
-      {/* Filtros Otimizados */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-white p-4 rounded-2xl border border-orange-100 shadow-sm">
-        <div className="space-y-1.5 text-center">
-          <label className="text-[9px] font-black uppercase text-slate-400 px-1">Visão</label>
-          <div className="flex gap-1 w-full sm:w-auto">
-            <Button size="sm" variant={viewMode === 'daily' ? 'default' : 'outline'} onClick={() => setViewMode('daily')} className="flex-1 h-8 text-[9px] font-black uppercase px-2">Dia</Button>
-            <Button size="sm" variant={viewMode === 'weekly' ? 'default' : 'outline'} onClick={() => setViewMode('weekly')} className="flex-1 h-8 text-[9px] font-black uppercase px-2">7D</Button>
-            <Button size="sm" variant={viewMode === 'monthly' ? 'default' : 'outline'} onClick={() => setViewMode('monthly')} className="flex-1 h-8 text-[9px] font-black uppercase px-2">Meses</Button>
+    <div className="space-y-6 md:space-y-8 animate-in fade-in duration-500 pb-20">
+      
+      {/* Toggles & View Controls */}
+      <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm flex flex-col xl:flex-row items-center justify-between gap-4">
+        
+        <div className="flex flex-wrap items-center gap-4 w-full xl:w-auto">
+          <div className="space-y-1.5 text-center shrink-0">
+            <label className="text-[9px] font-black uppercase text-slate-400 px-1">Visão Temporal</label>
+            <div className="flex gap-1 w-full sm:w-auto bg-slate-50 p-1 rounded-xl">
+              <Button size="sm" variant={viewMode === 'daily' ? 'default' : 'ghost'} onClick={() => setViewMode('daily')} className="flex-1 h-8 text-[9px] font-black uppercase px-3 shadow-none">Dia</Button>
+              <Button size="sm" variant={viewMode === 'weekly' ? 'default' : 'ghost'} onClick={() => setViewMode('weekly')} className="flex-1 h-8 text-[9px] font-black uppercase px-3 shadow-none">Semana</Button>
+              <Button size="sm" variant={viewMode === 'monthly' ? 'default' : 'ghost'} onClick={() => setViewMode('monthly')} className="flex-1 h-8 text-[9px] font-black uppercase px-3 shadow-none">Mês</Button>
+            </div>
+          </div>
+
+          <div className="space-y-1.5 text-center">
+            <label className="text-[9px] font-black uppercase text-slate-400 px-1">Filtro de Dia da Semana</label>
+            <Select value={dayOfWeekFilter} onValueChange={setDayOfWeekFilter}>
+              <SelectTrigger className="h-10 text-[10px] font-bold border-slate-100 bg-slate-50 rounded-xl"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">TODOS OS DIAS</SelectItem>
+                {["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map((d, i) => <SelectItem key={i} value={i.toString()}>{d.toUpperCase()}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
         </div>
-        <div className="space-y-1.5 text-center">
-          <label className="text-[9px] font-black uppercase text-slate-400 px-1">Indicador</label>
-          <Select value={selectedMetric} onValueChange={(v) => setSelectedMetric(v as MetricType)}>
-            <SelectTrigger className="h-8 text-[10px] font-bold border-slate-100"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {Object.entries(metricLabels).map(([val, label]) => <SelectItem key={val} value={val}>{label}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-1.5 text-center">
-          <label className="text-[9px] font-black uppercase text-slate-400 px-1">Semana</label>
-          <Select value={dayOfWeekFilter} onValueChange={setDayOfWeekFilter}>
-            <SelectTrigger className="h-8 text-[10px] font-bold border-slate-100"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos</SelectItem>
-              {["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map((d, i) => <SelectItem key={i} value={i.toString()}>{d}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-1.5 text-center">
-          <label className="text-[9px] font-black uppercase text-slate-400 px-1">Colaborador</label>
-          <Select value={selectedVendors[0] || "all"} onValueChange={(v) => setSelectedVendors(v === "all" ? [] : [v])}>
-            <SelectTrigger className="h-8 text-[10px] font-bold border-slate-100"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos</SelectItem>
-              {allVendors.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
-            </SelectContent>
-          </Select>
+        
+        <div className="flex flex-wrap items-center gap-4 bg-slate-50 p-2.5 rounded-xl border border-slate-100 flex-1 justify-end w-full xl:w-auto">
+          <div className="flex flex-col gap-1 border-r border-slate-200 pr-4">
+            <span className="text-[8px] font-black uppercase text-slate-400">Canais Extras</span>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <Badge onClick={() => setIncludePickups(!includePickups)} className={cn("cursor-pointer font-black text-[9px] uppercase transition-colors shadow-none", includePickups ? "bg-sky-100 text-sky-700 hover:bg-sky-200" : "bg-white text-slate-400 border-dashed border hover:bg-slate-100")}><Smartphone className="w-3 h-3 mr-1"/> Retiradas</Badge>
+              <Badge onClick={() => setIncludeDelivery(!includeDelivery)} className={cn("cursor-pointer font-black text-[9px] uppercase transition-colors shadow-none", includeDelivery ? "bg-rose-100 text-rose-700 hover:bg-rose-200" : "bg-white text-slate-400 border-dashed border hover:bg-slate-100")}><Bike className="w-3 h-3 mr-1"/> Delivery</Badge>
+            </div>
+          </div>
+          <div className="flex flex-col gap-1 hidden lg:flex">
+            <span className="text-[8px] font-black uppercase text-slate-400">Considerar Itens</span>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <Badge onClick={() => setIncludeFigurinhas(!includeFigurinhas)} className={cn("cursor-pointer font-black text-[9px] uppercase transition-colors shadow-none", includeFigurinhas ? "bg-amber-100 text-amber-700 hover:bg-amber-200" : "bg-white text-slate-400 border-dashed border hover:bg-slate-100")}>Figurinhas</Badge>
+              <Badge onClick={() => setIncludeAlbuns(!includeAlbuns)} className={cn("cursor-pointer font-black text-[9px] uppercase transition-colors shadow-none", includeAlbuns ? "bg-sky-100 text-sky-700 hover:bg-sky-200" : "bg-white text-slate-400 border-dashed border hover:bg-slate-100")}>Álbuns</Badge>
+              <Badge onClick={() => setIncludeBaralhos(!includeBaralhos)} className={cn("cursor-pointer font-black text-[9px] uppercase transition-colors shadow-none", includeBaralhos ? "bg-rose-100 text-rose-700 hover:bg-rose-200" : "bg-white text-slate-400 border-dashed border hover:bg-slate-100")}>Baralhos</Badge>
+              <Badge onClick={() => setIncludeSLP(!includeSLP)} className={cn("cursor-pointer font-black text-[9px] uppercase transition-colors shadow-none", includeSLP ? "bg-orange-100 text-orange-700 hover:bg-orange-200" : "bg-white text-slate-400 border-dashed border hover:bg-slate-100")}>SLP</Badge>
+              <Badge onClick={() => setIncludeSacolas(!includeSacolas)} className={cn("cursor-pointer font-black text-[9px] uppercase transition-colors shadow-none", includeSacolas ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200" : "bg-white text-slate-400 border-dashed border hover:bg-slate-100")}>Sacolas</Badge>
+            </div>
+          </div>
         </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        <QuickStat label="Venda" value={formatValue(consolidatedTotal.venda, 'venda')} icon={TrendingUp} color="text-orange-500" />
-        <QuickStat label="Tickets" value={consolidatedTotal.cupons} icon={Calendar} color="text-sky-500" />
-        <QuickStat label="TKM" value={formatValue(consolidatedTotal.tkm, 'tkm')} icon={Target} color="text-purple-500" />
-        <QuickStat label="P.A." value={consolidatedTotal.pa.toFixed(2)} icon={ArrowUpRight} color="text-pink-500" />
-        <QuickStat label="Ident." value={`${consolidatedTotal.taxaIdentificacao.toFixed(1)}%`} icon={UserCheck} color="text-blue-500" />
-        <QuickStat label="Peças" value={consolidatedTotal.itens} icon={BarChart3} color="text-emerald-500" />
+        <QuickStat label="Venda" value={formatBRL(totals.venda)} icon={TrendingUp} color="text-orange-500" />
+        <QuickStat label="Tickets" value={totals.cupons} icon={Calendar} color="text-sky-500" />
+        <QuickStat label="TKM" value={formatBRL(totals.tkm)} icon={Target} color="text-purple-500" />
+        <QuickStat label="P.A." value={formatNum(totals.pa)} icon={ArrowUpRight} color="text-pink-500" />
+        <QuickStat label="Ident." value={`${formatNum(totals.identPerc, 1)}%`} icon={UserCheck} color="text-blue-500" />
+        <QuickStat label="Peças" value={totals.itens.toFixed(0)} icon={BarChart3} color="text-emerald-500" />
       </div>
 
       <Card className="ri-card overflow-hidden shadow-md">
         <CardHeader className="bg-slate-50/50 border-b p-4 flex flex-row items-center justify-between">
-          <CardTitle className="text-[10px] font-black uppercase tracking-widest text-slate-500">{metricLabels[selectedMetric]}</CardTitle>
+          <div className="flex items-center gap-4">
+             <CardTitle className="text-[10px] font-black uppercase tracking-widest text-slate-500">Curva de {metricLabels[selectedMetric]}</CardTitle>
+             <Select value={selectedMetric} onValueChange={(v) => setSelectedMetric(v as MetricType)}>
+               <SelectTrigger className="h-8 text-[10px] font-bold border-slate-200 w-32"><SelectValue /></SelectTrigger>
+               <SelectContent>
+                 {Object.entries(metricLabels).map(([val, label]) => <SelectItem key={val} value={val} className="text-[10px] font-bold">{label}</SelectItem>)}
+               </SelectContent>
+             </Select>
+          </div>
           <Badge variant="outline" className="bg-white text-[10px] font-black">AVG: {formatValue(averageValue, selectedMetric)}</Badge>
         </CardHeader>
         <CardContent className="p-4">
@@ -299,37 +379,142 @@ export function DailyPerformance({ data }: DailyPerformanceProps) {
         </CardContent>
       </Card>
 
-      <Accordion type="single" collapsible className="space-y-2">
-        {performanceData.map((item, index) => (
-          <AccordionItem key={index} value={`item-${index}`} className="bg-white border rounded-xl px-4 py-1 shadow-sm">
-            <AccordionTrigger className="hover:no-underline py-3">
-              <div className="flex-1 flex justify-between items-center text-left pr-4">
-                <div className="min-w-0">
-                  <p className="text-[11px] font-black text-slate-800 uppercase truncate">{item.label}</p>
-                </div>
-                <div className="flex gap-6">
-                  <MiniMetric label="VENDA" value={formatValue(item.venda, 'venda')} />
-                  <MiniMetric label="PA" value={item.pa.toFixed(2)} />
-                  <MiniMetric label="IDENT" value={`${item.taxaIdentificacao.toFixed(0)}%`} />
-                </div>
-              </div>
-            </AccordionTrigger>
-            <AccordionContent className="pb-4 pt-2 border-t">
-              <div className="space-y-2">
-                {item.vendors.map((v, vIndex) => (
-                  <div key={vIndex} className="flex justify-between items-center p-2 hover:bg-slate-50 rounded-lg">
-                    <span className="text-[10px] font-black text-slate-600 uppercase">{v.name}</span>
-                    <div className="flex gap-4">
-                      <span className="text-[10px] font-bold text-slate-700">{formatValue(v.venda, 'venda')}</span>
-                      <span className="text-[10px] font-bold text-orange-600">{v.pa.toFixed(2)} PA</span>
+      <Card className="ri-card overflow-hidden">
+        <Table className="border border-slate-200">
+          <TableHeader className="bg-slate-900">
+            <TableRow className="hover:bg-slate-900 border-none h-11 divide-x divide-slate-700">
+              <TableHead className="text-white font-black uppercase text-[9px] text-center align-middle w-32 md:w-40 whitespace-nowrap">Período</TableHead>
+              <TableHead className="text-white font-black uppercase text-[9px] text-center align-middle">Venda</TableHead>
+              <TableHead className="text-white font-black uppercase text-[9px] text-center align-middle">Cupons</TableHead>
+              <TableHead className="text-white font-black uppercase text-[9px] text-center align-middle">Itens</TableHead>
+              <TableHead className="text-white font-black uppercase text-[9px] text-center align-middle">PA</TableHead>
+              <TableHead className="text-white font-black uppercase text-[9px] text-center align-middle">Ticket Méd.</TableHead>
+              <TableHead className="text-white font-black uppercase text-[9px] text-center align-middle">Preço Méd.</TableHead>
+              <TableHead className="text-white font-black uppercase text-[9px] text-center align-middle">CPF</TableHead>
+              <TableHead className="text-white font-black uppercase text-[9px] text-center align-middle">SLP</TableHead>
+              <TableHead className="text-white font-black uppercase text-[9px] text-center align-middle">BAR</TableHead>
+              <TableHead className="text-white font-black uppercase text-[9px] text-center align-middle">SAC</TableHead>
+              <TableHead className="text-white font-black uppercase text-[9px] text-center align-middle">Retiradas</TableHead>
+              <TableHead className="text-white font-black uppercase text-[9px] text-center align-middle">Adicionais</TableHead>
+              <TableHead className="text-white font-black uppercase text-[9px] text-center align-middle">Conversão</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {performanceData.map((d, i) => {
+              const isAboveVenda = d.venda > (totals.venda / performanceData.length);
+              const isBelowVenda = d.venda < (totals.venda / performanceData.length);
+              
+              return (
+                <TableRow 
+                  key={d.label + i}
+                  onClick={() => setSelectedDateRow(d)}
+                  className="border-b border-slate-200 divide-x divide-slate-200 group cursor-pointer h-10 hover:bg-slate-50"
+                >
+                  <TableCell className="text-center align-middle">
+                     <p className="font-black text-slate-800 uppercase leading-none text-[11px] md:text-xs">{d.label}</p>
+                  </TableCell>
+                  <TableCell className="text-center align-middle">
+                    <div className="flex items-center justify-center gap-0.5">
+                      <span className={cn("font-black text-xs md:text-sm", isAboveVenda ? "text-emerald-700" : isBelowVenda ? "text-rose-600" : "text-slate-800")}>{formatBRL(d.venda)}</span>
+                      {isAboveVenda ? <ArrowUpRight className="w-3 h-3 text-emerald-500" /> : isBelowVenda ? <ArrowDownRight className="w-3 h-3 text-rose-500" /> : null}
                     </div>
-                  </div>
-                ))}
+                  </TableCell>
+                  <TableCell className="text-center align-middle"><span className="font-black text-slate-700 text-xs md:text-sm">{d.cupons}</span></TableCell>
+                  <TableCell className="text-center align-middle"><span className="font-black text-slate-700 text-xs md:text-sm">{d.itens.toFixed(0)}</span></TableCell>
+                  <TableCell className="text-center align-middle"><span className="font-black text-slate-700 text-xs md:text-sm">{formatNum(d.pa)}</span></TableCell>
+                  <TableCell className="text-center align-middle"><span className="font-black text-slate-700 text-xs md:text-sm">{formatBRL(d.tkm)}</span></TableCell>
+                  <TableCell className="text-center align-middle"><span className="font-black text-slate-700 text-xs md:text-sm">{formatBRL(d.pm)}</span></TableCell>
+                  <TableCell className="text-center align-middle"><span className="font-black text-slate-700 text-xs md:text-sm">{formatNum(d.identPerc, 0)}%</span></TableCell>
+                  <TableCell className="text-center align-middle"><Badge className={cn("font-black border-none px-1.5 text-[10px] h-5", d.slpQty > 0 ? "bg-orange-100 text-orange-700" : "bg-slate-50 text-slate-300")}>{d.slpQty}</Badge></TableCell>
+                  <TableCell className="text-center align-middle"><Badge className={cn("font-black border-none px-1.5 text-[10px] h-5", d.baralhoQty > 0 ? "bg-rose-100 text-rose-700" : "bg-slate-50 text-slate-300")}>{d.baralhoQty}</Badge></TableCell>
+                  <TableCell className="text-center align-middle"><Badge className={cn("font-black border-none px-1.5 text-[10px] h-5", d.sacolaQty > 0 ? "bg-emerald-100 text-emerald-700" : "bg-slate-50 text-slate-300")}>{d.sacolaQty}</Badge></TableCell>
+                  <TableCell className="text-center align-middle"><Badge className={cn("font-black border-none px-1.5 text-[10px] h-5", d.pickups > 0 ? "bg-sky-100 text-sky-700" : "bg-slate-50 text-slate-300")}>{d.pickups}</Badge></TableCell>
+                  <TableCell className="text-center align-middle"><Badge className={cn("font-black border-none px-1.5 text-[10px] h-5", d.adicionais > 0 ? "bg-emerald-100 text-emerald-700" : "bg-slate-50 text-slate-300")}>{d.adicionais}</Badge></TableCell>
+                  <TableCell className="text-center align-middle"><Badge className={cn("font-black border-none px-1.5 text-[10px] h-5", d.conv > (totals.conv || 0) ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500")}>{formatNum(d.conv, 1)}%</Badge></TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+          <TableFooter className="bg-slate-900">
+            <TableRow className="hover:bg-slate-900 border-none h-12 font-black divide-x divide-slate-700">
+              <TableCell className="text-center align-middle text-white uppercase text-[11px] md:text-xs whitespace-nowrap">Consolidado ({performanceData.length})</TableCell>
+              <TableCell className="text-center align-middle text-emerald-400 text-xs md:text-sm">{formatBRL(totals.venda)}</TableCell>
+              <TableCell className="text-center align-middle text-sky-400 text-xs md:text-sm">{totals.cupons}</TableCell>
+              <TableCell className="text-center align-middle text-white text-xs md:text-sm">{totals.itens.toFixed(0)}</TableCell>
+              <TableCell className="text-center align-middle text-orange-400 text-xs md:text-sm">{formatNum(totals.pa)}</TableCell>
+              <TableCell className="text-center align-middle text-purple-400 text-xs md:text-sm">{formatBRL(totals.tkm)}</TableCell>
+              <TableCell className="text-center align-middle text-white text-xs md:text-sm">{formatBRL(totals.pm)}</TableCell>
+              <TableCell className="text-center align-middle text-white text-xs md:text-sm">{totals.identPerc.toFixed(0)}%</TableCell>
+              <TableCell className="text-center align-middle text-orange-400 text-[10px] md:text-xs">{totals.slp}</TableCell>
+              <TableCell className="text-center align-middle text-rose-400 text-[10px] md:text-xs">{totals.baralhos}</TableCell>
+              <TableCell className="text-center align-middle text-emerald-400 text-[10px] md:text-xs">{totals.sacolas}</TableCell>
+              <TableCell className="text-center align-middle text-sky-400 text-[10px] md:text-xs">{totals.pickups}</TableCell>
+              <TableCell className="text-center align-middle text-emerald-400 text-[10px] md:text-xs">{totals.adicionais}</TableCell>
+              <TableCell className="text-center align-middle text-amber-400 text-[10px] md:text-xs">{formatNum(totals.conv, 1)}%</TableCell>
+            </TableRow>
+          </TableFooter>
+        </Table>
+      </Card>
+
+      <Sheet open={!!selectedDateRow} onOpenChange={(open) => !open && setSelectedDateRow(null)}>
+        <SheetContent className="w-full sm:max-w-xl bg-slate-50 p-0 overflow-y-auto border-l-4 border-indigo-500">
+          {selectedDateRow && (
+            <div className="h-full flex flex-col">
+              <div className="bg-slate-900 p-6 md:p-8 border-b-4 border-indigo-500">
+                <SheetTitle className="text-xl md:text-2xl font-black text-white uppercase tracking-tighter leading-none">{selectedDateRow.label}</SheetTitle>
+                <SheetDescription className="text-slate-400 font-bold uppercase text-[9px] md:text-[10px] tracking-[0.2em] mt-2">Visão Detalhada de Equipe</SheetDescription>
               </div>
-            </AccordionContent>
-          </AccordionItem>
-        ))}
-      </Accordion>
+              <div className="p-6">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+                  <div className="bg-white p-3 rounded-2xl border border-slate-200 text-center shadow-sm">
+                    <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Venda</p>
+                    <p className="text-base font-black text-emerald-600">{formatBRL(selectedDateRow.venda)}</p>
+                  </div>
+                  <div className="bg-white p-3 rounded-2xl border border-slate-200 text-center shadow-sm">
+                    <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Tickets</p>
+                    <p className="text-base font-black text-sky-600">{selectedDateRow.cupons}</p>
+                  </div>
+                  <div className="bg-white p-3 rounded-2xl border border-slate-200 text-center shadow-sm">
+                    <p className="text-[9px] font-black text-slate-400 uppercase mb-1">TKM</p>
+                    <p className="text-base font-black text-purple-600">{formatBRL(selectedDateRow.tkm)}</p>
+                  </div>
+                  <div className="bg-white p-3 rounded-2xl border border-slate-200 text-center shadow-sm">
+                    <p className="text-[9px] font-black text-slate-400 uppercase mb-1">P.A.</p>
+                    <p className="text-base font-black text-orange-600">{formatNum(selectedDateRow.pa)}</p>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                  <Table>
+                    <TableHeader className="bg-slate-100">
+                      <TableRow className="h-10 hover:bg-slate-100">
+                        <TableHead className="text-[9px] font-black text-slate-500 uppercase">Vendedor</TableHead>
+                        <TableHead className="text-[9px] font-black text-slate-500 uppercase text-right">Venda</TableHead>
+                        <TableHead className="text-[9px] font-black text-slate-500 uppercase text-center">PA</TableHead>
+                        <TableHead className="text-[9px] font-black text-slate-500 uppercase text-center">TKM</TableHead>
+                        <TableHead className="text-[9px] font-black text-slate-500 uppercase text-center">SLP/SAC/BAR</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {selectedDateRow.vendors.map((v: any) => (
+                        <TableRow key={v.name} className="h-10">
+                          <TableCell className="text-[10px] font-black text-slate-800 uppercase">{v.name}</TableCell>
+                          <TableCell className="text-[11px] font-bold text-slate-700 text-right">{formatBRL(v.venda)}</TableCell>
+                          <TableCell className="text-[11px] font-bold text-orange-600 text-center">{formatNum(v.pa)}</TableCell>
+                          <TableCell className="text-[11px] font-bold text-purple-600 text-center">{formatBRL(v.tkm)}</TableCell>
+                          <TableCell className="text-[10px] font-bold text-slate-500 text-center">
+                            {v.slpQty} / {v.sacolaQty} / {v.baralhoQty}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
@@ -349,14 +534,5 @@ function QuickStat({ label, value, icon: Icon, color }: any) {
         </p>
       </div>
     </Card>
-  );
-}
-
-function MiniMetric({ label, value }: any) {
-  return (
-    <div className="hidden sm:block text-center">
-      <p className="text-[8px] font-black text-slate-400 uppercase mb-0.5">{label}</p>
-      <p className="text-[10px] font-black text-slate-700">{value}</p>
-    </div>
   );
 }

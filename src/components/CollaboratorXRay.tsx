@@ -4,7 +4,6 @@ import React, { useMemo, useState } from "react";
 import { DetailedSaleRow, VinculoTroca } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { 
   ResponsiveContainer, 
@@ -20,6 +19,7 @@ import {
 import { 
   UserCheck, 
   TrendingUp, 
+  TrendingDown,
   Search, 
   Clock, 
   Calendar as CalendarIcon, 
@@ -31,10 +31,16 @@ import {
   Lightbulb,
   CheckCircle2, 
   Package,
-  Layers
+  Layers,
+  Heart,
+  ShoppingBasket,
+  Tag,
+  Target,
+  Boxes
 } from "lucide-react";
 import { parseISO, getHours, getDay } from "date-fns";
 import { cn } from "@/lib/utils";
+import agingDataRaw from "@/data/aging-campaign.json";
 
 interface CollaboratorXRayProps {
   data: DetailedSaleRow[];
@@ -43,6 +49,29 @@ interface CollaboratorXRayProps {
 
 const DAYS_NAME = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
 const DAYS_SHORT = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+
+// CÓDIGOS OFICIAIS DE CAMPANHAS E PRODUTOS ESTRATÉGICOS
+const SLP_CODES = [
+  '5135238', '5135269', '5135270', '5135273', '5146458', '5146469', '5146470', '5146471', 
+  '5146472', '5146473', '5146474', '5146475', '5146476', '5146501', '5146504', '5146505', 
+  '5141894', '5141895', '5141896', '5141897', '5141898', '5141899', '5141900', '5141902', 
+  '5141903', '5141904', '5141905', '5141907', '5141909', '5141910', '5141911', '5141912', 
+  '5141913', '5141914', '5141915', '5141916', '5141917', '5141920', '5141949', '5141978', 
+  '5140469', '5140475', '5140476', '5140477', '5140478', '5140479', '5146477', '5146478', 
+  '5146502', '5146503'
+];
+
+const SOCIAL_CODES = [
+  '5057181', '5055875', '5135601', '5129270', '5129271', '5129247', '5129262', '5122642', 
+  '5122641', '5135612', '5122639', '5122638', '5133676', '5113644', '5113641', '5113642', 
+  '5113643', '5129267', '5129255', '5143422', '5139528', '5143423', '5145833', '5139527', 
+  '5147797', '5147796', '5145834', '5079753', '5079752', '5106673', '5106671', '5106674', 
+  '5106672', '5088519', '5097336', '5097335', '5011918', '5136558'
+];
+
+const BARALHO_CODES = ['5147797', '5147796', '5149977', '5149978'];
+const SACOLA_CODES = ['5133676', '5113644'];
+const AGING_CODES = new Set(agingDataRaw.map((item: { codigo: number | string }) => String(item.codigo)));
 
 export function CollaboratorXRay({ data = [], vinculos = [] }: CollaboratorXRayProps) {
   const [searchTerm, setSearchTerm] = useState("");
@@ -89,6 +118,83 @@ export function CollaboratorXRay({ data = [], vinculos = [] }: CollaboratorXRayP
     const totalCPF = activeSales.filter(s => s.cpf_cnpj_dest && s.cpf_cnpj_dest.trim() !== "").length;
     const totalDesconto = activeSales.reduce((acc, s) => acc + (parseFloat(s.desconto_total) || 0), 0);
 
+    let storeSlpQty = 0;
+    let storeSlpValor = 0;
+    let storeSlpCupons = 0;
+
+    let storeSocialQty = 0;
+    let storeSocialValor = 0;
+    let storeSocialCupons = 0;
+
+    let storeSacolaQty = 0;
+    let storeSacolaValor = 0;
+
+    let storeBaralhoQty = 0;
+    let storeBaralhoValor = 0;
+
+    let storeAgingQty = 0;
+    let storeAgingValor = 0;
+    let storeAgingCupons = 0;
+
+    let storeRetiradasCount = 0;
+    let storeRetiradasValor = 0;
+
+    let storeAdicionaisCount = 0;
+    let storeAdicionaisValor = 0;
+
+    activeSales.forEach(s => {
+      let hasSlp = false;
+      let hasSocial = false;
+      let hasAging = false;
+
+      if (s.canal === "RETIRADA_ONLINE" || s.is_retirada_online) {
+        storeRetiradasCount++;
+        storeRetiradasValor += parseFloat(s.vNF) || 0;
+      }
+      if (s.is_adicional || s.canal === "RETIRADA_ADICIONAL") {
+        storeAdicionaisCount++;
+        storeAdicionaisValor += parseFloat(s.vNF) || 0;
+      }
+
+      s.itens?.forEach(item => {
+        const c = item.cProd;
+        const q = item.qCom || 0;
+        const v = (item.vProd || 0) - (item.vDesc || 0);
+
+        if (SLP_CODES.includes(c)) {
+          storeSlpQty += q;
+          storeSlpValor += v;
+          hasSlp = true;
+        }
+        if (SOCIAL_CODES.includes(c)) {
+          storeSocialQty += q;
+          storeSocialValor += v;
+          hasSocial = true;
+        }
+        if (SACOLA_CODES.includes(c)) {
+          storeSacolaQty += q;
+          storeSacolaValor += v;
+        }
+        if (BARALHO_CODES.includes(c)) {
+          storeBaralhoQty += q;
+          storeBaralhoValor += v;
+        }
+        if (AGING_CODES.has(c)) {
+          storeAgingQty += q;
+          storeAgingValor += v;
+          hasAging = true;
+        }
+      });
+
+      if (hasSlp) storeSlpCupons++;
+      if (hasSocial) storeSocialCupons++;
+      if (hasAging) storeAgingCupons++;
+    });
+
+    const storeSlpPenetracao = totalCupons > 0 ? (storeSlpCupons / totalCupons) * 100 : 0;
+    const storeSocialPenetracao = totalCupons > 0 ? (storeSocialCupons / totalCupons) * 100 : 0;
+    const storeAgingPenetracao = totalCupons > 0 ? (storeAgingCupons / totalCupons) * 100 : 0;
+
     const numVendors = vendorSummaryList.length || 1;
     const topVendor = vendorSummaryList[0] || { name: "N/A", venda: 0, cupons: 0, itens: 0 };
 
@@ -106,6 +212,34 @@ export function CollaboratorXRay({ data = [], vinculos = [] }: CollaboratorXRayP
       cpfRateLoja: totalCupons > 0 ? (totalCPF / totalCupons) * 100 : 0,
       descontoRateLoja: totalVenda > 0 ? (totalDesconto / (totalVenda + totalDesconto)) * 100 : 0,
       
+      // Métricas Estratégicas Globais da Loja
+      storeSlpQty,
+      storeSlpValor,
+      storeSlpCupons,
+      storeSlpPenetracao,
+
+      storeSocialQty,
+      storeSocialValor,
+      storeSocialCupons,
+      storeSocialPenetracao,
+
+      storeSacolaQty,
+      storeSacolaValor,
+
+      storeBaralhoQty,
+      storeBaralhoValor,
+
+      storeAgingQty,
+      storeAgingValor,
+      storeAgingCupons,
+      storeAgingPenetracao,
+
+      storeRetiradasCount,
+      storeRetiradasValor,
+
+      storeAdicionaisCount,
+      storeAdicionaisValor,
+
       // Top performer metrics
       topVendorName: topVendor.name,
       topVendorTkm: topVendor.cupons > 0 ? topVendor.venda / topVendor.cupons : 0,
@@ -145,7 +279,29 @@ export function CollaboratorXRay({ data = [], vinculos = [] }: CollaboratorXRayP
         trocasPositivasCount: 0,
         trocasSecasCount: 0,
         trocasScoreMedio: 0,
-        precoMedioItem: 0
+        precoMedioItem: 0,
+
+        // Métricas Estratégicas Zeradas
+        slpQty: 0,
+        slpValor: 0,
+        slpCuponsCount: 0,
+        slpPenetracaoRate: 0,
+        socialQty: 0,
+        socialValor: 0,
+        socialCuponsCount: 0,
+        socialPenetracaoRate: 0,
+        sacolaQty: 0,
+        sacolaValor: 0,
+        baralhoQty: 0,
+        baralhoValor: 0,
+        agingQty: 0,
+        agingValor: 0,
+        agingCuponsCount: 0,
+        agingPenetracaoRate: 0,
+        retiradasCount: 0,
+        retiradasValor: 0,
+        adicionaisCount: 0,
+        adicionaisValor: 0
       };
     }
 
@@ -163,6 +319,84 @@ export function CollaboratorXRay({ data = [], vinculos = [] }: CollaboratorXRayP
     const descontoPercent = (vendaTotal + descontoTotal) > 0 ? (descontoTotal / (vendaTotal + descontoTotal)) * 100 : 0;
     const shareLoja = storeMetrics.totalVenda > 0 ? (vendaTotal / storeMetrics.totalVenda) * 100 : 0;
     const precoMedioItem = itensTotal > 0 ? vendaTotal / itensTotal : 0;
+
+    // Métricas Estratégicas e Campanhas
+    let slpQty = 0;
+    let slpValor = 0;
+    let slpCuponsCount = 0;
+
+    let socialQty = 0;
+    let socialValor = 0;
+    let socialCuponsCount = 0;
+
+    let sacolaQty = 0;
+    let sacolaValor = 0;
+
+    let baralhoQty = 0;
+    let baralhoValor = 0;
+
+    let agingQty = 0;
+    let agingValor = 0;
+    let agingCuponsCount = 0;
+
+    let retiradasCount = 0;
+    let retiradasValor = 0;
+
+    let adicionaisCount = 0;
+    let adicionaisValor = 0;
+
+    vendorSales.forEach(s => {
+      let hasSlp = false;
+      let hasSocial = false;
+      let hasAging = false;
+
+      if (s.canal === "RETIRADA_ONLINE" || s.is_retirada_online) {
+        retiradasCount++;
+        retiradasValor += parseFloat(s.vNF) || 0;
+      }
+      if (s.is_adicional || s.canal === "RETIRADA_ADICIONAL") {
+        adicionaisCount++;
+        adicionaisValor += parseFloat(s.vNF) || 0;
+      }
+
+      s.itens?.forEach(item => {
+        const c = item.cProd;
+        const q = item.qCom || 0;
+        const v = (item.vProd || 0) - (item.vDesc || 0);
+
+        if (SLP_CODES.includes(c)) {
+          slpQty += q;
+          slpValor += v;
+          hasSlp = true;
+        }
+        if (SOCIAL_CODES.includes(c)) {
+          socialQty += q;
+          socialValor += v;
+          hasSocial = true;
+        }
+        if (SACOLA_CODES.includes(c)) {
+          sacolaQty += q;
+          sacolaValor += v;
+        }
+        if (BARALHO_CODES.includes(c)) {
+          baralhoQty += q;
+          baralhoValor += v;
+        }
+        if (AGING_CODES.has(c)) {
+          agingQty += q;
+          agingValor += v;
+          hasAging = true;
+        }
+      });
+
+      if (hasSlp) slpCuponsCount++;
+      if (hasSocial) socialCuponsCount++;
+      if (hasAging) agingCuponsCount++;
+    });
+
+    const slpPenetracaoRate = cuponsTotal > 0 ? (slpCuponsCount / cuponsTotal) * 100 : 0;
+    const socialPenetracaoRate = cuponsTotal > 0 ? (socialCuponsCount / cuponsTotal) * 100 : 0;
+    const agingPenetracaoRate = cuponsTotal > 0 ? (agingCuponsCount / cuponsTotal) * 100 : 0;
 
     // Dados de Troca
     const trocasCount = vendorVinculos.length;
@@ -189,7 +423,35 @@ export function CollaboratorXRay({ data = [], vinculos = [] }: CollaboratorXRayP
       trocasPositivasCount,
       trocasSecasCount,
       trocasScoreMedio,
-      precoMedioItem
+      precoMedioItem,
+
+      // Métricas Estratégicas
+      slpQty,
+      slpValor,
+      slpCuponsCount,
+      slpPenetracaoRate,
+
+      socialQty,
+      socialValor,
+      socialCuponsCount,
+      socialPenetracaoRate,
+
+      sacolaQty,
+      sacolaValor,
+
+      baralhoQty,
+      baralhoValor,
+
+      agingQty,
+      agingValor,
+      agingCuponsCount,
+      agingPenetracaoRate,
+
+      retiradasCount,
+      retiradasValor,
+
+      adicionaisCount,
+      adicionaisValor
     };
   }, [vendorSales, vendorVinculos, storeMetrics.totalVenda]);
 
@@ -357,15 +619,23 @@ export function CollaboratorXRay({ data = [], vinculos = [] }: CollaboratorXRayP
 
   // Perfil Comportamental Diagnóstico
   const behavioralDiagnosis = useMemo(() => {
-    const { tkm, pa, cpfRate, descontoPercent, trocasCount, trocasPositivasCount } = vendorMetrics;
-    const { tkmLoja, paLoja, cpfRateLoja } = storeMetrics;
+    const { 
+      tkm, pa, cpfRate, descontoPercent, trocasCount, trocasPositivasCount,
+      slpQty, slpPenetracaoRate, socialQty, socialPenetracaoRate,
+      agingQty, agingValor, retiradasCount, adicionaisCount, adicionaisValor
+    } = vendorMetrics;
+    const { tkmLoja, paLoja, cpfRateLoja, storeSlpPenetracao, storeSocialPenetracao } = storeMetrics;
     const monoPercent = basketBreakdown[0].percent;
 
     let perfilTitle = "Atendente Padrão";
     let perfilDesc = "Desempenho equilibrado na média geral da equipe.";
     let badgeColor = "bg-blue-50 text-blue-700 border-blue-200";
 
-    if (pa >= paLoja * 1.15 && monoPercent < 35) {
+    if (slpPenetracaoRate >= storeSlpPenetracao * 1.3 && slpQty >= 5) {
+      perfilTitle = "Campeão de Venda Sugestiva (SLP)";
+      perfilDesc = "Excelente engajamento e conversão de itens SLP no balcão e checkout.";
+      badgeColor = "bg-orange-50 text-orange-700 border-orange-200";
+    } else if (pa >= paLoja * 1.15 && monoPercent < 35) {
       perfilTitle = "Especialista em Cross-Selling";
       perfilDesc = "Excelente capacidade de vender itens adicionais e montar cestas completas.";
       badgeColor = "bg-emerald-50 text-emerald-700 border-emerald-200";
@@ -383,11 +653,49 @@ export function CollaboratorXRay({ data = [], vinculos = [] }: CollaboratorXRayP
       badgeColor = "bg-amber-50 text-amber-700 border-amber-200";
     }
 
-    // Ações recomendadas de treinamento
+    // Ações recomendadas de treinamento com DADOS REAIS de SLP e campanhas
     const recommendations: string[] = [];
-    if (monoPercent > 40) {
-      recommendations.push("Oferecer treinamento prático em Venda Sugestiva (SLP) para reduzir os cupons de 1 item.");
+
+    // Recomendação SLP com dados empíricos
+    if (slpQty === 0) {
+      recommendations.push(
+        `Oferecer treinamento prático em Venda Sugestiva (SLP) para reduzir cupons de 1 item: o colaborador não possui nenhuma venda de SLP registrada (Média da Loja: ${storeSlpPenetracao.toFixed(1)}% dos cupons).`
+      );
+    } else if (slpPenetracaoRate < storeSlpPenetracao) {
+      recommendations.push(
+        `Reforçar a abordagem de Venda Sugestiva (SLP): o colaborador realizou ${slpQty} venda(s) de SLP (${slpPenetracaoRate.toFixed(1)}% dos cupons vs Média da Loja: ${storeSlpPenetracao.toFixed(1)}%).`
+      );
+    } else if (monoPercent > 40) {
+      recommendations.push(
+        `Incentivar oferta de SLP no momento da cobrança para converter cupons de 1 item (SLP atual: ${slpQty} itens em ${slpPenetracaoRate.toFixed(1)}% dos cupons).`
+      );
     }
+
+    // Recomendação Ação Social
+    if (socialPenetracaoRate < storeSocialPenetracao * 0.7) {
+      recommendations.push(
+        `Estimular oferta de produtos de Ação Social no balcão: realizou ${socialQty} item(ns) (${socialPenetracaoRate.toFixed(1)}% dos cupons vs Média da Loja: ${storeSocialPenetracao.toFixed(1)}%).`
+      );
+    }
+
+    // Destaque/Recomendação Aging
+    if (agingQty > 0) {
+      recommendations.push(
+        `Manter o foco em produtos da Campanha Aging: ${agingQty} item(ns) desmobilizado(s), resgatando R$ ${agingValor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} em estoque antigo.`
+      );
+    }
+
+    // Retiradas & Adicionais
+    if (retiradasCount > 0 && adicionaisCount === 0) {
+      recommendations.push(
+        `Treinar técnica de adicional em retiradas online: atendeu ${retiradasCount} retirada(s) mas não gerou nenhum pedido adicional de balcão.`
+      );
+    } else if (adicionaisCount > 0) {
+      recommendations.push(
+        `Ótima conversão em vendas adicionais omnichannel: gerou ${adicionaisCount} pedido(s) adicional(is) totalizando R$ ${adicionaisValor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.`
+      );
+    }
+
     if (cpfRate < cpfRateLoja) {
       recommendations.push(`Reforçar a abordagem no caixa para aumentar o cadastro de CPF (Atual: ${cpfRate.toFixed(1)}% vs Média: ${cpfRateLoja.toFixed(1)}%).`);
     }
@@ -531,12 +839,14 @@ export function CollaboratorXRay({ data = [], vinculos = [] }: CollaboratorXRayP
                   {vendorMetrics.pa.toFixed(2)}
                 </h3>
                 {vendorMetrics.pa >= storeMetrics.paLoja ? (
-                  <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] font-bold">
-                    Acima da Média ({storeMetrics.paLoja.toFixed(2)})
+                  <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] font-bold inline-flex items-center gap-1">
+                    <TrendingUp className="w-3 h-3 text-emerald-600" />
+                    Acima Média ({storeMetrics.paLoja.toFixed(2)})
                   </Badge>
                 ) : (
-                  <Badge className="bg-amber-50 text-amber-700 border-amber-200 text-[10px] font-bold">
-                    Abaixo da Média ({storeMetrics.paLoja.toFixed(2)})
+                  <Badge className="bg-rose-50 text-rose-700 border-rose-200 text-[10px] font-bold inline-flex items-center gap-1">
+                    <TrendingDown className="w-3 h-3 text-rose-600" />
+                    Abaixo Média ({storeMetrics.paLoja.toFixed(2)})
                   </Badge>
                 )}
               </div>
@@ -565,7 +875,17 @@ export function CollaboratorXRay({ data = [], vinculos = [] }: CollaboratorXRayP
                 <h3 className="text-2xl font-headline font-extrabold text-slate-900">
                   {vendorMetrics.cpfRate.toFixed(1)}%
                 </h3>
-                <span className="text-xs font-semibold text-slate-500">dos cupons</span>
+                {vendorMetrics.cpfRate >= storeMetrics.cpfRateLoja ? (
+                  <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] font-bold inline-flex items-center gap-1">
+                    <TrendingUp className="w-3 h-3 text-emerald-600" />
+                    Acima Média
+                  </Badge>
+                ) : (
+                  <Badge className="bg-rose-50 text-rose-700 border-rose-200 text-[10px] font-bold inline-flex items-center gap-1">
+                    <TrendingDown className="w-3 h-3 text-rose-600" />
+                    Abaixo Média
+                  </Badge>
+                )}
               </div>
               <Progress value={vendorMetrics.cpfRate} className="h-2 mt-2 bg-slate-100" />
             </div>
@@ -637,6 +957,194 @@ export function CollaboratorXRay({ data = [], vinculos = [] }: CollaboratorXRayP
                 ({financialProjections.monoConvertedCount} atendimentos de 1 item transformados em 2 itens)
               </span>
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* SEÇÃO DE CAMPANHAS E PRODUTOS ESTRATÉGICOS */}
+      <Card className="bg-white/90 backdrop-blur-md border border-slate-200/80 shadow-2xs">
+        <CardHeader>
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
+            <div>
+              <CardTitle className="text-lg font-headline font-bold text-slate-900 flex items-center gap-2">
+                <Target className="w-5 h-5 text-orange-600" />
+                Engajamento em Campanhas & Produtos Estratégicos
+              </CardTitle>
+              <CardDescription className="text-xs text-slate-500">
+                Desempenho detalhado do colaborador ({selectedVendor}) na venda de produtos de incentivo, campanhas e checkout.
+              </CardDescription>
+            </div>
+            <Badge className="bg-orange-100 text-orange-800 border-orange-200 font-extrabold text-xs w-fit">
+              Auditoria de Ofertas & Venda Sugestiva
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            
+            {/* CARD 1: SLP (VENDA SUGESTIVA) */}
+            <div className="p-4 rounded-2xl bg-orange-50/80 border border-orange-200/80 space-y-2.5 flex flex-col justify-between">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-orange-900 uppercase tracking-wider flex items-center gap-1.5">
+                  <ShoppingBag className="w-3.5 h-3.5 text-orange-600" />
+                  SLP (Sugestiva)
+                </span>
+                <Badge className={cn("text-[9px] font-black border-none px-1.5 h-5 flex items-center gap-0.5", vendorMetrics.slpPenetracaoRate >= storeMetrics.storeSlpPenetracao ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800")}>
+                  {vendorMetrics.slpPenetracaoRate >= storeMetrics.storeSlpPenetracao ? (
+                    <><TrendingUp className="w-2.5 h-2.5 text-emerald-700" /> Acima Média</>
+                  ) : (
+                    <><TrendingDown className="w-2.5 h-2.5 text-rose-700" /> Abaixo Média</>
+                  )}
+                </Badge>
+              </div>
+              <div>
+                <div className="text-2xl font-headline font-extrabold text-slate-900">
+                  {vendorMetrics.slpQty} <span className="text-xs font-semibold text-slate-500">itens</span>
+                </div>
+                <p className="text-xs font-bold text-orange-700 mt-0.5">
+                  {vendorMetrics.slpValor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                </p>
+              </div>
+              <div className="pt-2 border-t border-orange-200/60 space-y-1">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-slate-600 font-semibold">Penetração Cupons:</span>
+                  <span className="font-extrabold text-slate-900">{vendorMetrics.slpPenetracaoRate.toFixed(1)}%</span>
+                </div>
+                <div className="flex items-center justify-between text-[10px] text-slate-500">
+                  <span>Média da Loja:</span>
+                  <span className="font-bold text-slate-700">{storeMetrics.storeSlpPenetracao.toFixed(1)}%</span>
+                </div>
+              </div>
+            </div>
+
+            {/* CARD 2: AÇÃO SOCIAL */}
+            <div className="p-4 rounded-2xl bg-rose-50/80 border border-rose-200/80 space-y-2.5 flex flex-col justify-between">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-rose-900 uppercase tracking-wider flex items-center gap-1.5">
+                  <Heart className="w-3.5 h-3.5 text-rose-600" />
+                  Ação Social
+                </span>
+                <Badge className={cn("text-[9px] font-black border-none px-1.5 h-5 flex items-center gap-0.5", vendorMetrics.socialPenetracaoRate >= storeMetrics.storeSocialPenetracao ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800")}>
+                  {vendorMetrics.socialPenetracaoRate >= storeMetrics.storeSocialPenetracao ? (
+                    <><TrendingUp className="w-2.5 h-2.5 text-emerald-700" /> Acima Média</>
+                  ) : (
+                    <><TrendingDown className="w-2.5 h-2.5 text-rose-700" /> Abaixo Média</>
+                  )}
+                </Badge>
+              </div>
+              <div>
+                <div className="text-2xl font-headline font-extrabold text-slate-900">
+                  {vendorMetrics.socialQty} <span className="text-xs font-semibold text-slate-500">itens</span>
+                </div>
+                <p className="text-xs font-bold text-rose-700 mt-0.5">
+                  {vendorMetrics.socialValor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                </p>
+              </div>
+              <div className="pt-2 border-t border-rose-200/60 space-y-1">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-slate-600 font-semibold">Penetração Cupons:</span>
+                  <span className="font-extrabold text-slate-900">{vendorMetrics.socialPenetracaoRate.toFixed(1)}%</span>
+                </div>
+                <div className="flex items-center justify-between text-[10px] text-slate-500">
+                  <span>Média da Loja:</span>
+                  <span className="font-bold text-slate-700">{storeMetrics.storeSocialPenetracao.toFixed(1)}%</span>
+                </div>
+              </div>
+            </div>
+
+            {/* CARD 3: ITENS AGING */}
+            <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-200/80 space-y-2.5 flex flex-col justify-between">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
+                  <Boxes className="w-3.5 h-3.5 text-amber-600" />
+                  Itens Aging
+                </span>
+                <Badge className={cn("text-[9px] font-black border-none px-1.5 h-5 flex items-center gap-0.5", vendorMetrics.agingQty > 0 ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800")}>
+                  {vendorMetrics.agingQty > 0 ? (
+                    <><TrendingUp className="w-2.5 h-2.5 text-emerald-700" /> Desmobilizando</>
+                  ) : (
+                    <><TrendingDown className="w-2.5 h-2.5 text-rose-700" /> Sem Vendas</>
+                  )}
+                </Badge>
+              </div>
+              <div>
+                <div className="text-2xl font-headline font-extrabold text-slate-900">
+                  {vendorMetrics.agingQty} <span className="text-xs font-semibold text-slate-500">unidades</span>
+                </div>
+                <p className="text-xs font-bold text-amber-700 mt-0.5">
+                  {vendorMetrics.agingValor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                </p>
+              </div>
+              <div className="pt-2 border-t border-amber-200/60 space-y-1">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-slate-600 font-semibold">Presença Cupons:</span>
+                  <span className="font-extrabold text-slate-900">{vendorMetrics.agingCuponsCount} cupons ({vendorMetrics.agingPenetracaoRate.toFixed(1)}%)</span>
+                </div>
+              </div>
+            </div>
+
+            {/* CARD 4: SACOLAS & BARALHOS */}
+            <div className="p-4 rounded-2xl bg-indigo-50/80 border border-indigo-200/80 space-y-2.5 flex flex-col justify-between">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-indigo-900 uppercase tracking-wider flex items-center gap-1.5">
+                  <ShoppingBasket className="w-3.5 h-3.5 text-indigo-600" />
+                  Checkout & Extras
+                </span>
+                <Badge className="text-[9px] font-black bg-indigo-100 text-indigo-800 border-none px-1.5 h-5">
+                  Balcão
+                </Badge>
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center justify-between text-xs font-bold text-slate-800">
+                  <span>Sacolas:</span>
+                  <span>{vendorMetrics.sacolaQty} un ({vendorMetrics.sacolaValor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})</span>
+                </div>
+                <div className="flex items-center justify-between text-xs font-bold text-slate-800">
+                  <span>Baralhos:</span>
+                  <span>{vendorMetrics.baralhoQty} un ({vendorMetrics.baralhoValor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})</span>
+                </div>
+              </div>
+              <div className="pt-2 border-t border-indigo-200/60 text-[10px] text-slate-500 font-semibold flex items-center justify-between">
+                <span>Total Checkout:</span>
+                <span className="font-extrabold text-indigo-700">{vendorMetrics.sacolaQty + vendorMetrics.baralhoQty} itens</span>
+              </div>
+            </div>
+
+            {/* CARD 5: RETIRADAS & PEDIDOS ADICIONAIS */}
+            <div className="p-4 rounded-2xl bg-teal-50/80 border border-teal-200/80 space-y-2.5 flex flex-col justify-between">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-teal-900 uppercase tracking-wider flex items-center gap-1.5">
+                  <Tag className="w-3.5 h-3.5 text-teal-600" />
+                  Omnichannel
+                </span>
+                <Badge className={cn("text-[9px] font-black border-none px-1.5 h-5 flex items-center gap-0.5", vendorMetrics.adicionaisCount > 0 ? "bg-emerald-100 text-emerald-800" : vendorMetrics.retiradasCount > 0 ? "bg-rose-100 text-rose-800" : "bg-slate-100 text-slate-600")}>
+                  {vendorMetrics.adicionaisCount > 0 ? (
+                    <><TrendingUp className="w-2.5 h-2.5 text-emerald-700" /> Conversão Ativa</>
+                  ) : vendorMetrics.retiradasCount > 0 ? (
+                    <><TrendingDown className="w-2.5 h-2.5 text-rose-700" /> Sem Adicional</>
+                  ) : (
+                    "Sem Pickup"
+                  )}
+                </Badge>
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center justify-between text-xs font-bold text-slate-800">
+                  <span>Retiradas:</span>
+                  <span>{vendorMetrics.retiradasCount} cupons</span>
+                </div>
+                <div className="flex items-center justify-between text-xs font-bold text-slate-800">
+                  <span>Adicionais:</span>
+                  <span className="text-teal-700">{vendorMetrics.adicionaisCount} ({vendorMetrics.adicionaisValor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})</span>
+                </div>
+              </div>
+              <div className="pt-2 border-t border-teal-200/60 text-[10px] text-slate-500 font-semibold flex items-center justify-between">
+                <span>Taxa Adicional/Pickup:</span>
+                <span className="font-extrabold text-teal-800">
+                  {vendorMetrics.retiradasCount > 0 ? `${((vendorMetrics.adicionaisCount / vendorMetrics.retiradasCount) * 100).toFixed(0)}%` : "N/A"}
+                </span>
+              </div>
+            </div>
+
           </div>
         </CardContent>
       </Card>

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
-import { DetailedSaleRow } from "@/lib/types";
+import { DetailedSaleRow, Item } from "@/lib/types";
 import { format, parseISO, startOfDay, addDays, differenceInDays, getDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { 
@@ -27,6 +27,44 @@ const SACOLA_CODES = ['5133676', '5113644'];
 const formatBRL = (val: number) => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const formatNum = (val: number, precision = 2) => val.toLocaleString('pt-BR', { minimumFractionDigits: precision, maximumFractionDigits: precision });
 
+export interface VendorAggregate {
+  name: string;
+  venda: number;
+  cupons: number;
+  itens: number;
+  ident: number;
+  slpQty: number;
+  baralhoQty: number;
+  sacolaQty: number;
+  pickups: number;
+  adicionais: number;
+  pa: number;
+  tkm: number;
+  pm: number;
+  identPerc: number;
+  conv: number;
+}
+
+export interface GroupedDailyData {
+  key: string;
+  label: string;
+  venda: number;
+  cupons: number;
+  itens: number;
+  ident: number;
+  pa: number;
+  tkm: number;
+  pm: number;
+  identPerc: number;
+  conv: number;
+  slpQty: number;
+  baralhoQty: number;
+  sacolaQty: number;
+  pickups: number;
+  adicionais: number;
+  vendors: VendorAggregate[];
+}
+
 interface DailyPerformanceProps {
   data: DetailedSaleRow[];
 }
@@ -47,18 +85,18 @@ export function DailyPerformance({ data }: DailyPerformanceProps) {
   const [includeSLP, setIncludeSLP] = useState(true);
   const [includeSacolas, setIncludeSacolas] = useState(true);
 
-  const [selectedDateRow, setSelectedDateRow] = useState<any>(null);
+  const [selectedDateRow, setSelectedDateRow] = useState<GroupedDailyData | null>(null);
   
   // Toggles filtering logic
-  const isBaralho = (it: any) => {
+  const isBaralho = (it: Item) => {
     if (BARALHO_CODES.includes(it.cProd)) return true;
-    const p = it.xProd.toUpperCase();
+    const p = (it.xProd || "").toUpperCase();
     return p.includes("BARALHO") || p.includes("ACAO SOCIAL") || p.includes("DOACAO") || p.includes("ALMANAQUE");
   };
   
-  const isSacola = (it: any) => {
+  const isSacola = (it: Item) => {
     if (SACOLA_CODES.includes(it.cProd)) return true;
-    const p = it.xProd.toUpperCase();
+    const p = (it.xProd || "").toUpperCase();
     return p.includes("SACOLA");
   };
 
@@ -430,7 +468,7 @@ export function DailyPerformance({ data }: DailyPerformanceProps) {
                   <TableCell className="text-center align-middle"><Badge className={cn("font-black border-none px-1.5 text-[10px] h-5", d.sacolaQty > 0 ? "bg-emerald-100 text-emerald-700" : "bg-slate-50 text-slate-300")}>{d.sacolaQty}</Badge></TableCell>
                   <TableCell className="text-center align-middle"><Badge className={cn("font-black border-none px-1.5 text-[10px] h-5", d.pickups > 0 ? "bg-sky-100 text-sky-700" : "bg-slate-50 text-slate-300")}>{d.pickups}</Badge></TableCell>
                   <TableCell className="text-center align-middle"><Badge className={cn("font-black border-none px-1.5 text-[10px] h-5", d.adicionais > 0 ? "bg-emerald-100 text-emerald-700" : "bg-slate-50 text-slate-300")}>{d.adicionais}</Badge></TableCell>
-                  <TableCell className="text-center align-middle"><Badge className={cn("font-black border-none px-1.5 text-[10px] h-5", d.conv > (totals.conv || 0) ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500")}>{formatNum(d.conv, 1)}%</Badge></TableCell>
+                  <TableCell className="text-center align-middle"><Badge className={cn("font-black border-none px-1.5 text-[10px] h-5", d.conv >= (totals.conv || 0) ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700")}>{formatNum(d.conv, 1)}%</Badge></TableCell>
                 </TableRow>
               );
             })}
@@ -496,7 +534,7 @@ export function DailyPerformance({ data }: DailyPerformanceProps) {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {selectedDateRow.vendors.map((v: any) => (
+                      {selectedDateRow.vendors.map((v: VendorAggregate) => (
                         <TableRow key={v.name} className="h-10">
                           <TableCell className="text-[10px] font-black text-slate-800 uppercase">{v.name}</TableCell>
                           <TableCell className="text-[11px] font-bold text-slate-700 text-right">{formatBRL(v.venda)}</TableCell>
@@ -519,7 +557,14 @@ export function DailyPerformance({ data }: DailyPerformanceProps) {
   );
 }
 
-function QuickStat({ label, value, icon: Icon, color }: any) {
+interface QuickStatProps {
+  label: string;
+  value: string | number;
+  icon: React.ComponentType<{ className?: string }>;
+  color: string;
+}
+
+function QuickStat({ label, value, icon: Icon, color }: QuickStatProps) {
   return (
     <Card className="ri-card p-4 flex flex-col items-center justify-center text-center gap-3 shadow-sm min-h-[100px]">
       <div className={cn("p-2 rounded-lg bg-slate-50", color)}>

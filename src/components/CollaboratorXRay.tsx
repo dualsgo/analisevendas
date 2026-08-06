@@ -4,6 +4,7 @@ import React, { useMemo, useState } from "react";
 import { DetailedSaleRow, VinculoTroca } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { 
   ResponsiveContainer, 
@@ -33,10 +34,14 @@ import {
   Package,
   Layers,
   Heart,
-  ShoppingBasket,
   Tag,
   Target,
-  Boxes
+  Boxes,
+  Copy,
+  Download,
+  Check,
+  FileText,
+  Utensils
 } from "lucide-react";
 import { parseISO, getHours, getDay } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -71,11 +76,14 @@ const SOCIAL_CODES = [
 
 const BARALHO_CODES = ['5147797', '5147796', '5149977', '5149978'];
 const SACOLA_CODES = ['5133676', '5113644'];
+const LANCHINHO_CODES = ['5132632', '5135912', '5132608', '5135830', '5135839'];
 const AGING_CODES = new Set(agingDataRaw.map((item: { codigo: number | string }) => String(item.codigo)));
 
 export function CollaboratorXRay({ data = [], vinculos = [] }: CollaboratorXRayProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedVendor, setSelectedVendor] = useState<string>("");
+  const [copiedMarkdown, setCopiedMarkdown] = useState(false);
+  const [copiedJSON, setCopiedJSON] = useState(false);
 
   // Vendas válidas ativas de saída
   const activeSales = useMemo(() => {
@@ -132,6 +140,9 @@ export function CollaboratorXRay({ data = [], vinculos = [] }: CollaboratorXRayP
     let storeBaralhoQty = 0;
     let storeBaralhoValor = 0;
 
+    let storeLanchinhoQty = 0;
+    let storeLanchinhoValor = 0;
+
     let storeAgingQty = 0;
     let storeAgingValor = 0;
     let storeAgingCupons = 0;
@@ -166,19 +177,31 @@ export function CollaboratorXRay({ data = [], vinculos = [] }: CollaboratorXRayP
           storeSlpValor += v;
           hasSlp = true;
         }
-        if (SOCIAL_CODES.includes(c)) {
+
+        const isSac = SACOLA_CODES.includes(c);
+        const isBar = BARALHO_CODES.includes(c);
+        const isLan = LANCHINHO_CODES.includes(c);
+        const isSocOther = SOCIAL_CODES.includes(c);
+
+        if (isSac || isBar || isLan || isSocOther) {
           storeSocialQty += q;
           storeSocialValor += v;
           hasSocial = true;
+
+          if (isSac) {
+            storeSacolaQty += q;
+            storeSacolaValor += v;
+          }
+          if (isBar) {
+            storeBaralhoQty += q;
+            storeBaralhoValor += v;
+          }
+          if (isLan) {
+            storeLanchinhoQty += q;
+            storeLanchinhoValor += v;
+          }
         }
-        if (SACOLA_CODES.includes(c)) {
-          storeSacolaQty += q;
-          storeSacolaValor += v;
-        }
-        if (BARALHO_CODES.includes(c)) {
-          storeBaralhoQty += q;
-          storeBaralhoValor += v;
-        }
+
         if (AGING_CODES.has(c)) {
           storeAgingQty += q;
           storeAgingValor += v;
@@ -294,6 +317,8 @@ export function CollaboratorXRay({ data = [], vinculos = [] }: CollaboratorXRayP
         sacolaValor: 0,
         baralhoQty: 0,
         baralhoValor: 0,
+        lanchinhoQty: 0,
+        lanchinhoValor: 0,
         agingQty: 0,
         agingValor: 0,
         agingCuponsCount: 0,
@@ -335,6 +360,9 @@ export function CollaboratorXRay({ data = [], vinculos = [] }: CollaboratorXRayP
     let baralhoQty = 0;
     let baralhoValor = 0;
 
+    let lanchinhoQty = 0;
+    let lanchinhoValor = 0;
+
     let agingQty = 0;
     let agingValor = 0;
     let agingCuponsCount = 0;
@@ -369,19 +397,31 @@ export function CollaboratorXRay({ data = [], vinculos = [] }: CollaboratorXRayP
           slpValor += v;
           hasSlp = true;
         }
-        if (SOCIAL_CODES.includes(c)) {
+
+        const isSac = SACOLA_CODES.includes(c);
+        const isBar = BARALHO_CODES.includes(c);
+        const isLan = LANCHINHO_CODES.includes(c);
+        const isSocOther = SOCIAL_CODES.includes(c);
+
+        if (isSac || isBar || isLan || isSocOther) {
           socialQty += q;
           socialValor += v;
           hasSocial = true;
+
+          if (isSac) {
+            sacolaQty += q;
+            sacolaValor += v;
+          }
+          if (isBar) {
+            baralhoQty += q;
+            baralhoValor += v;
+          }
+          if (isLan) {
+            lanchinhoQty += q;
+            lanchinhoValor += v;
+          }
         }
-        if (SACOLA_CODES.includes(c)) {
-          sacolaQty += q;
-          sacolaValor += v;
-        }
-        if (BARALHO_CODES.includes(c)) {
-          baralhoQty += q;
-          baralhoValor += v;
-        }
+
         if (AGING_CODES.has(c)) {
           agingQty += q;
           agingValor += v;
@@ -441,6 +481,9 @@ export function CollaboratorXRay({ data = [], vinculos = [] }: CollaboratorXRayP
 
       baralhoQty,
       baralhoValor,
+
+      lanchinhoQty,
+      lanchinhoValor,
 
       agingQty,
       agingValor,
@@ -718,6 +761,171 @@ export function CollaboratorXRay({ data = [], vinculos = [] }: CollaboratorXRayP
     };
   }, [vendorMetrics, storeMetrics, basketBreakdown]);
 
+  // Gerador de Prompt Formatado em Markdown para IA (ChatGPT / Gemini / Claude)
+  const generateAIPromptText = () => {
+    return `PROMPT PARA GERAÇÃO DE FEEDBACK DE DESEMPENHO (IA)
+======================================================
+Você é um Gestor de Vendas especialista em varejo. Utilize os dados empíricos de vendas apresentados abaixo para redigir um feedback individualizado, construtivo, motivador e focado em metas para o colaborador: **${selectedVendor}**.
+
+---
+### 1. RESUMO GERAL DO COLABORADOR
+- **Colaborador:** ${selectedVendor}
+- **Faturamento Total:** ${vendorMetrics.vendaTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+- **Participação na Loja (Share):** ${vendorMetrics.shareLoja.toFixed(1)}% (Média por Vendedor: ${storeMetrics.avgVendaPerVendor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})
+- **Total de Atendimentos (Cupons):** ${vendorMetrics.cuponsTotal} cupons
+- **Total de Peças Vendidas:** ${vendorMetrics.itensTotal} unidades
+
+---
+### 2. INDICADORES CHAVE (KPIs) VS BENCHMARK DA LOJA
+- **Ticket Médio (TKM):** ${vendorMetrics.tkm.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} (Média da Loja: ${storeMetrics.tkmLoja.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} | Líder da Loja: ${storeMetrics.topVendorTkm.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})
+- **Peças por Atendimento (P.A.):** ${vendorMetrics.pa.toFixed(2)} (Média da Loja: ${storeMetrics.paLoja.toFixed(2)} | Líder da Loja: ${storeMetrics.topVendorPa.toFixed(2)})
+- **Taxa de Captura de CPF:** ${vendorMetrics.cpfRate.toFixed(1)}% (Média da Loja: ${storeMetrics.cpfRateLoja.toFixed(1)}%)
+- **Concessão de Desconto:** R$ ${vendorMetrics.descontoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${vendorMetrics.descontoPercent.toFixed(1)}% das vendas | Média Loja: ${storeMetrics.descontoRateLoja.toFixed(1)}%)
+- **Preço Médio por Item:** ${vendorMetrics.precoMedioItem.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+
+---
+### 3. CAMPANHAS E PRODUTOS ESTRATÉGICOS
+- **Venda Sugestiva (SLP):** ${vendorMetrics.slpQty} itens | ${vendorMetrics.slpValor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} (Penetração: ${vendorMetrics.slpPenetracaoRate.toFixed(1)}% dos cupons vs Loja: ${storeMetrics.storeSlpPenetracao.toFixed(1)}%)
+- **Ação Social (Total):** ${vendorMetrics.socialQty} itens | ${vendorMetrics.socialValor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} (Penetração: ${vendorMetrics.socialPenetracaoRate.toFixed(1)}% dos cupons vs Loja: ${storeMetrics.storeSocialPenetracao.toFixed(1)}%)
+  * Detalhamento Ação Social:
+    - Sacolas: ${vendorMetrics.sacolaQty} un (R$ ${vendorMetrics.sacolaValor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})
+    - Baralhos: ${vendorMetrics.baralhoQty} un (R$ ${vendorMetrics.baralhoValor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})
+    - Lanchinho: ${vendorMetrics.lanchinhoQty} un (R$ ${vendorMetrics.lanchinhoValor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})
+- **Campanha Aging (Estoque Antigo):** ${vendorMetrics.agingQty} un desmobilizada(s) | R$ ${vendorMetrics.agingValor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} resgatado(s) (${vendorMetrics.agingCuponsCount} cupons)
+- **Omnichannel:** ${vendorMetrics.retiradasCount} retiradas online atendidas | ${vendorMetrics.adicionaisCount} vendas adicionais geradas (R$ ${vendorMetrics.adicionaisValor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})
+
+---
+### 4. TAMANHO E PROFUNDIDADE DA CESTA
+${basketBreakdown.map(b => `- **${b.name}:** ${b.count} cupons (${b.percent.toFixed(1)}%)`).join('\n')}
+
+---
+### 5. QUALIDADE E UPSELL EM TROCAS
+- **Total de Trocas Atendidas:** ${vendorMetrics.trocasCount}
+- **Diferença de Valor Gerada:** R$ ${vendorMetrics.trocasValorDiferenca.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+- **Trocas com Upsell (Positivas):** ${vendorMetrics.trocasPositivasCount} (${vendorMetrics.trocasCount > 0 ? ((vendorMetrics.trocasPositivasCount / vendorMetrics.trocasCount) * 100).toFixed(0) : 0}%)
+- **Score de Qualidade em Trocas:** ${vendorMetrics.trocasScoreMedio > 0 ? vendorMetrics.trocasScoreMedio.toFixed(1) + '/100' : 'N/A'}
+
+---
+### 6. RITMIA E TOP PRODUTOS
+- **Hora de Ouro (Pico de Venda):** ${peakHoursInfo.goldHour} (R$ ${peakHoursInfo.goldHourFat.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})
+- **Hora de Maior PA:** ${peakHoursInfo.bestPaHour} (PA: ${peakHoursInfo.bestPaValue.toFixed(2)})
+- **Top 5 Produtos Vendidos:**
+${topProducts.map((p, i) => `  ${i + 1}. [Cód ${p.code}] ${p.name} - ${p.qtd} un (R$ ${p.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})`).join('\n')}
+
+---
+### 7. POTENCIAL FINANCEIRO DE CRESCIMENTO (GANHO ADICIONAL)
+- **Potencial Total Combinado:** + R$ ${financialProjections.potencialTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+- **Equiparação ao TKM Médio da Loja:** + R$ ${financialProjections.ganhoTkmLoja.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+- **Equiparação ao PA Médio da Loja:** + R$ ${financialProjections.ganhoPaLoja.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (+ ${financialProjections.pecasAdicionaisLoja} peças)
+- **Conversão de 30% dos Cupons Mono-item em 2 itens:** + R$ ${financialProjections.ganhoConversaoMono.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${financialProjections.monoConvertedCount} cupons)
+
+---
+### 8. DIAGNÓSTICO E RECOMENDAÇÕES PRÁTICAS
+- **Perfil Calculado:** ${behavioralDiagnosis.perfilTitle} - "${behavioralDiagnosis.perfilDesc}"
+- **Plano de Ação Recomendado:**
+${behavioralDiagnosis.recommendations.map(r => `- ${r}`).join('\n')}
+`;
+  };
+
+  // Gerador de Payload JSON Estruturado
+  const generateJSONPayload = () => {
+    return JSON.stringify({
+      colaborador: selectedVendor,
+      dataExportacao: new Date().toISOString(),
+      metricasGerais: {
+        vendaTotal: vendorMetrics.vendaTotal,
+        cuponsTotal: vendorMetrics.cuponsTotal,
+        itensTotal: vendorMetrics.itensTotal,
+        shareLojaPercent: Number(vendorMetrics.shareLoja.toFixed(2)),
+        tkm: Number(vendorMetrics.tkm.toFixed(2)),
+        pa: Number(vendorMetrics.pa.toFixed(2)),
+        cpfRatePercent: Number(vendorMetrics.cpfRate.toFixed(2)),
+        descontoTotal: vendorMetrics.descontoTotal,
+        descontoPercent: Number(vendorMetrics.descontoPercent.toFixed(2)),
+        precoMedioItem: Number(vendorMetrics.precoMedioItem.toFixed(2)),
+      },
+      benchmarksLoja: {
+        vendaMediaColaborador: storeMetrics.avgVendaPerVendor,
+        tkmLoja: storeMetrics.tkmLoja,
+        paLoja: storeMetrics.paLoja,
+        cpfRateLojaPercent: storeMetrics.cpfRateLoja,
+        topVendorName: storeMetrics.topVendorName,
+        topVendorTkm: storeMetrics.topVendorTkm,
+        topVendorPa: storeMetrics.topVendorPa,
+      },
+      campanhasEstrategicas: {
+        slp: {
+          quantidade: vendorMetrics.slpQty,
+          valor: vendorMetrics.slpValor,
+          penetracaoPercent: Number(vendorMetrics.slpPenetracaoRate.toFixed(2)),
+          penetracaoLojaPercent: Number(storeMetrics.storeSlpPenetracao.toFixed(2))
+        },
+        acaoSocial: {
+          totalQuantidade: vendorMetrics.socialQty,
+          totalValor: vendorMetrics.socialValor,
+          penetracaoPercent: Number(vendorMetrics.socialPenetracaoRate.toFixed(2)),
+          penetracaoLojaPercent: Number(storeMetrics.storeSocialPenetracao.toFixed(2)),
+          breakdown: {
+            sacolas: { quantidade: vendorMetrics.sacolaQty, valor: vendorMetrics.sacolaValor },
+            baralhos: { quantidade: vendorMetrics.baralhoQty, valor: vendorMetrics.baralhoValor },
+            lanchinho: { quantidade: vendorMetrics.lanchinhoQty, valor: vendorMetrics.lanchinhoValor },
+          }
+        },
+        aging: {
+          quantidade: vendorMetrics.agingQty,
+          valor: vendorMetrics.agingValor,
+          cupons: vendorMetrics.agingCuponsCount,
+          penetracaoPercent: Number(vendorMetrics.agingPenetracaoRate.toFixed(2))
+        },
+        omnichannel: {
+          retiradasOnline: vendorMetrics.retiradasCount,
+          vendasAdicionaisCount: vendorMetrics.adicionaisCount,
+          vendasAdicionaisValor: vendorMetrics.adicionaisValor,
+        }
+      },
+      distribuicaoCesta: basketBreakdown,
+      qualidadeTrocas: {
+        trocasCount: vendorMetrics.trocasCount,
+        valorDiferenca: vendorMetrics.trocasValorDiferenca,
+        trocasPositivasCount: vendorMetrics.trocasPositivasCount,
+        scoreMedio: vendorMetrics.trocasScoreMedio
+      },
+      projeçãoPotencialFinanceiro: financialProjections,
+      horariosERitmia: {
+        horaDeOuro: peakHoursInfo.goldHour,
+        faturamentoHoraDeOuro: peakHoursInfo.goldHourFat,
+        melhorPaHora: peakHoursInfo.bestPaHour,
+        melhorPaValor: peakHoursInfo.bestPaValue
+      },
+      topProdutos: topProducts,
+      diagnosticoComportamental: {
+        perfil: behavioralDiagnosis.perfilTitle,
+        descricao: behavioralDiagnosis.perfilDesc,
+        recomendacoes: behavioralDiagnosis.recommendations
+      }
+    }, null, 2);
+  };
+
+  const handleCopyAIPrompt = () => {
+    const text = generateAIPromptText();
+    navigator.clipboard.writeText(text);
+    setCopiedMarkdown(true);
+    setTimeout(() => setCopiedMarkdown(false), 2500);
+  };
+
+  const handleDownloadJSON = () => {
+    const jsonStr = generateJSONPayload();
+    const blob = new Blob([jsonStr], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `raiox_${(selectedVendor || "colaborador").replace(/\s+/g, "_").toLowerCase()}_analise.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setCopiedJSON(true);
+    setTimeout(() => setCopiedJSON(false), 2500);
+  };
+
   return (
     <div className="space-y-6 pb-12">
       {/* SELETOR SUPERIOR DE COLABORADOR */}
@@ -738,24 +946,66 @@ export function CollaboratorXRay({ data = [], vinculos = [] }: CollaboratorXRayP
               </p>
             </div>
 
-            {/* SELETOR COM BUSCA */}
-            <div className="w-full lg:w-80 space-y-2">
-              <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
-                Colaborador Selecionado:
-              </label>
-              <div className="relative">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <select
-                  value={selectedVendor}
-                  onChange={(e) => setSelectedVendor(e.target.value)}
-                  className="w-full bg-slate-800/90 text-white border border-slate-700 rounded-xl pl-10 pr-4 py-2.5 text-xs font-bold appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all cursor-pointer"
+            {/* SELETOR COM BUSCA E BOTÕES DE EXPORTAÇÃO */}
+            <div className="w-full lg:w-auto space-y-3 flex flex-col items-start lg:items-end">
+              <div className="w-full lg:w-80 space-y-1.5">
+                <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
+                  Colaborador Selecionado:
+                </label>
+                <div className="relative">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <select
+                    value={selectedVendor}
+                    onChange={(e) => setSelectedVendor(e.target.value)}
+                    className="w-full bg-slate-800/90 text-white border border-slate-700 rounded-xl pl-10 pr-4 py-2.5 text-xs font-bold appearance-none focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all cursor-pointer"
+                  >
+                    {vendorSummaryList.map(v => (
+                      <option key={v.name} value={v.name}>
+                        {v.name} • {v.venda.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} ({v.cupons} cupons)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* BOTÕES DE EXPORTAÇÃO */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button
+                  onClick={handleCopyAIPrompt}
+                  size="sm"
+                  className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5 h-9"
                 >
-                  {vendorSummaryList.map(v => (
-                    <option key={v.name} value={v.name}>
-                      {v.name} • {v.venda.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} ({v.cupons} cupons)
-                    </option>
-                  ))}
-                </select>
+                  {copiedMarkdown ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-emerald-300" />
+                      <span>Copiado!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5 text-indigo-200" />
+                      <span>Copiar Resumo para IA (Feedback)</span>
+                    </>
+                  )}
+                </Button>
+
+                <Button
+                  onClick={handleDownloadJSON}
+                  size="sm"
+                  variant="outline"
+                  className="bg-slate-800/80 hover:bg-slate-700 text-slate-200 border-slate-700 font-bold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 h-9"
+                >
+                  {copiedJSON ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Baixado!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-3.5 h-3.5 text-slate-300" />
+                      <span>Baixar JSON</span>
+                    </>
+                  )}
+                </Button>
               </div>
             </div>
           </div>
@@ -980,7 +1230,7 @@ export function CollaboratorXRay({ data = [], vinculos = [] }: CollaboratorXRayP
           </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             
             {/* CARD 1: SLP (VENDA SUGESTIVA) */}
             <div className="p-4 rounded-2xl bg-orange-50/80 border border-orange-200/80 space-y-2.5 flex flex-col justify-between">
@@ -1017,12 +1267,12 @@ export function CollaboratorXRay({ data = [], vinculos = [] }: CollaboratorXRayP
               </div>
             </div>
 
-            {/* CARD 2: AÇÃO SOCIAL */}
+            {/* CARD 2: AÇÃO SOCIAL (SACOLAS, BARALHOS, LANCHINHO) */}
             <div className="p-4 rounded-2xl bg-rose-50/80 border border-rose-200/80 space-y-2.5 flex flex-col justify-between">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-bold text-rose-900 uppercase tracking-wider flex items-center gap-1.5">
                   <Heart className="w-3.5 h-3.5 text-rose-600" />
-                  Ação Social
+                  Ação Social Total
                 </span>
                 <Badge className={cn("text-[9px] font-black border-none px-1.5 h-5 flex items-center gap-0.5", vendorMetrics.socialPenetracaoRate >= storeMetrics.storeSocialPenetracao ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800")}>
                   {vendorMetrics.socialPenetracaoRate >= storeMetrics.storeSocialPenetracao ? (
@@ -1040,6 +1290,23 @@ export function CollaboratorXRay({ data = [], vinculos = [] }: CollaboratorXRayP
                   {vendorMetrics.socialValor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                 </p>
               </div>
+
+              {/* DETALHAMENTO DAS CATEGORIAS SOCIAL */}
+              <div className="space-y-1 py-1.5 border-t border-rose-200/60 text-[11px]">
+                <div className="flex items-center justify-between font-medium text-slate-700">
+                  <span className="text-slate-600">Sacolas:</span>
+                  <span className="font-bold text-slate-900">{vendorMetrics.sacolaQty} un ({vendorMetrics.sacolaValor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})</span>
+                </div>
+                <div className="flex items-center justify-between font-medium text-slate-700">
+                  <span className="text-slate-600">Baralhos:</span>
+                  <span className="font-bold text-slate-900">{vendorMetrics.baralhoQty} un ({vendorMetrics.baralhoValor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})</span>
+                </div>
+                <div className="flex items-center justify-between font-medium text-slate-700">
+                  <span className="text-slate-600">Lanchinho:</span>
+                  <span className="font-bold text-slate-900">{vendorMetrics.lanchinhoQty} un ({vendorMetrics.lanchinhoValor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})</span>
+                </div>
+              </div>
+
               <div className="pt-2 border-t border-rose-200/60 space-y-1">
                 <div className="flex items-center justify-between text-[11px]">
                   <span className="text-slate-600 font-semibold">Penetração Cupons:</span>
@@ -1080,33 +1347,6 @@ export function CollaboratorXRay({ data = [], vinculos = [] }: CollaboratorXRayP
                   <span className="text-slate-600 font-semibold">Presença Cupons:</span>
                   <span className="font-extrabold text-slate-900">{vendorMetrics.agingCuponsCount} cupons ({vendorMetrics.agingPenetracaoRate.toFixed(1)}%)</span>
                 </div>
-              </div>
-            </div>
-
-            {/* CARD 4: SACOLAS & BARALHOS */}
-            <div className="p-4 rounded-2xl bg-indigo-50/80 border border-indigo-200/80 space-y-2.5 flex flex-col justify-between">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-indigo-900 uppercase tracking-wider flex items-center gap-1.5">
-                  <ShoppingBasket className="w-3.5 h-3.5 text-indigo-600" />
-                  Checkout & Extras
-                </span>
-                <Badge className="text-[9px] font-black bg-indigo-100 text-indigo-800 border-none px-1.5 h-5">
-                  Balcão
-                </Badge>
-              </div>
-              <div className="space-y-1">
-                <div className="flex items-center justify-between text-xs font-bold text-slate-800">
-                  <span>Sacolas:</span>
-                  <span>{vendorMetrics.sacolaQty} un ({vendorMetrics.sacolaValor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})</span>
-                </div>
-                <div className="flex items-center justify-between text-xs font-bold text-slate-800">
-                  <span>Baralhos:</span>
-                  <span>{vendorMetrics.baralhoQty} un ({vendorMetrics.baralhoValor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})</span>
-                </div>
-              </div>
-              <div className="pt-2 border-t border-indigo-200/60 text-[10px] text-slate-500 font-semibold flex items-center justify-between">
-                <span>Total Checkout:</span>
-                <span className="font-extrabold text-indigo-700">{vendorMetrics.sacolaQty + vendorMetrics.baralhoQty} itens</span>
               </div>
             </div>
 

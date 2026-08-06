@@ -133,6 +133,7 @@ import { CopaAnalysis } from "./CopaAnalysis";
 import { WeeklyAnalysis } from "./WeeklyAnalysis";
 import { AgingCampaignAnalysis } from "./AgingCampaignAnalysis";
 import { ShiftPerformance } from "./ShiftPerformance";
+import { CollaboratorXRay } from "./CollaboratorXRay";
 
 interface SalesSummaryProps {
   data: DetailedSaleRow[];
@@ -399,6 +400,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
     { id: "performance", label: "Performance", icon: ClipboardList, category: "Resultados", color: "text-emerald-600 font-black" },
     { id: "diario", label: "Performance Diária", icon: CalendarIcon, category: "Resultados" },
 
+    { id: "raio_x_colaborador", label: "Raio-X do Colaborador", icon: UserCheck, category: "Pessoas", color: "text-indigo-600 font-black" },
     { id: "whatsapp", label: "WhatsApp", icon: MessageCircle, category: "Pessoas", color: "text-emerald-500" },
     { id: "colab_ranking_prod", label: "Ranking por Produto", icon: Trophy, category: "Pessoas", color: "text-violet-600 font-black" },
 
@@ -455,6 +457,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
       case "pickup_dashboard": return <PickupDashboard data={filteredData} />;
       case "pickup_track": return <PickupPanel data={filteredData} />;
       case "delivery_track": return <DeliveryPanel data={filteredData} />;
+      case "raio_x_colaborador": return <CollaboratorXRay data={filteredData} vinculos={filteredVinculos} />;
       case "whatsapp": return <WhatsappReports data={filteredData} vinculos={filteredVinculos} />;
       case "elasticidade": return <ElasticityAnalysis data={filteredData} />;
       case "deep_dive": return null;
@@ -500,16 +503,16 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
 
   return (
     <div className="flex-1 flex flex-col md:flex-row h-full overflow-hidden">
-      <Sidebar className="border-r border-slate-200 bg-slate-50 print:hidden" collapsible="none">
-        <SidebarContent className="p-2 md:p-3">
+      <Sidebar className="border-r border-slate-200/80 bg-white/60 backdrop-blur-xl print:hidden" collapsible="none">
+        <SidebarContent className="p-2.5 md:p-3">
           {["Resultados", "Pessoas", "Produtos", "Clientes", "Auditoria", "Operacional"].map((cat) => (
-            <SidebarGroup key={cat} className="mb-1">
-              <SidebarGroupLabel className="text-[9px] font-black uppercase text-slate-400 tracking-[0.15em] mb-0.5 px-2 group-data-[collapsible=icon]:hidden flex items-center gap-1.5">
-                <span className="w-1 h-1 rounded-full bg-indigo-500/30" />
+            <SidebarGroup key={cat} className="mb-2">
+              <SidebarGroupLabel className="text-[10px] font-headline font-bold uppercase text-slate-500 tracking-wider mb-1 px-2.5 group-data-[collapsible=icon]:hidden flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
                 {cat}
               </SidebarGroupLabel>
               <SidebarGroupContent>
-                <SidebarMenu className="gap-0.5">
+                <SidebarMenu className="gap-1">
                   {navItems
                     .filter((item) => item.category === cat)
                     .map((item) => (
@@ -519,14 +522,14 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
                           onClick={() => handleTabChange(item.id)}
                           tooltip={item.label}
                           className={cn(
-                            "rounded-lg py-1.5 px-2.5 transition-all duration-150 h-auto",
+                            "rounded-xl py-2 px-3 transition-all duration-200 h-auto text-xs",
                             activeTab === item.id 
-                              ? "bg-white text-indigo-700 shadow-sm border border-slate-200 font-bold" 
-                              : "hover:bg-white/80 text-slate-600 font-medium border border-transparent"
+                              ? "bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-sm shadow-indigo-200 font-bold" 
+                              : "hover:bg-slate-100/80 text-slate-700 font-medium"
                           )}
                         >
-                          <item.icon className={cn("w-4 h-4 shrink-0 group-data-[collapsible=icon]:mr-0 mr-2", activeTab !== item.id && (item.color || "text-slate-400"))} />
-                          <span className="text-[12px] tracking-tight group-data-[collapsible=icon]:hidden truncate">{item.label}</span>
+                          <item.icon className={cn("w-4 h-4 shrink-0 group-data-[collapsible=icon]:mr-0 mr-2.5", activeTab === item.id ? "text-white" : (item.color || "text-slate-400"))} />
+                          <span className="tracking-tight group-data-[collapsible=icon]:hidden truncate">{item.label}</span>
                         </SidebarMenuButton>
                       </SidebarMenuItem>
                     ))}
@@ -535,10 +538,10 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
             </SidebarGroup>
           ))}
         </SidebarContent>
-        <div className="mt-auto p-3 border-t border-slate-200 group-data-[collapsible=icon]:hidden">
+        <div className="mt-auto p-3.5 border-t border-slate-200/80 group-data-[collapsible=icon]:hidden">
           <div className="flex flex-col gap-0.5">
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Versão Atual</p>
-            <p className="text-[10px] font-bold text-slate-500 uppercase">09/03/2026 • 21:03</p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Versão Ativa</p>
+            <p className="text-xs font-semibold text-slate-600">v2.0 • Ri Happy Analytics</p>
           </div>
         </div>
       </Sidebar>

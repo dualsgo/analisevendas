@@ -19,26 +19,26 @@ interface TopBarStatsProps {
 
 function StatItem({ icon: Icon, label, value, color }: { icon: any, label: string, value: number, color: string }) {
   return (
-    <div className="flex flex-col items-center">
-      <div className="flex items-center gap-1.5">
-        <Icon className={cn("w-3.5 h-3.5", color)} />
-        <span className={cn("text-sm font-black", color)}>{value}</span>
-      </div>
-      <span className="text-[9px] font-black text-slate-500 uppercase tracking-tighter leading-none mt-0.5">{label}</span>
+    <div className="flex items-center gap-1.5 px-2">
+      <Icon className={cn("w-3.5 h-3.5", color)} />
+      <span className={cn("text-xs font-extrabold font-headline", color)}>{value}</span>
+      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{label}</span>
     </div>
   );
 }
 
 export function TopBarStats({ stats }: TopBarStatsProps) {
   return (
-    <div className="hidden lg:flex items-center gap-6 bg-white/40 backdrop-blur-sm px-6 py-2.5 rounded-full border border-white/50 shadow-inner mx-4">
+    <div className="hidden lg:flex items-center gap-2 bg-slate-100/70 backdrop-blur-md px-4 py-1.5 rounded-2xl border border-slate-200/80 shadow-2xs mx-4">
       <StatItem icon={ArrowUpRight} label="Saídas" value={stats.saidas} color="text-emerald-600" />
+      <div className="w-px h-3.5 bg-slate-200" />
       <StatItem icon={ArrowDownLeft} label="Entradas" value={stats.entradas} color="text-blue-600" />
-      <StatItem icon={Ban} label="Canceladas" value={stats.canceladas} color="text-red-500" />
-      <div className="w-px h-6 bg-orange-300/50" />
-      <div className="flex items-center gap-2">
-         <FileText className="w-4 h-4 text-orange-700" />
-         <span className="text-xs font-black text-orange-900">{stats.total} <span className="text-[9px] opacity-70">TOTAL</span></span>
+      <div className="w-px h-3.5 bg-slate-200" />
+      <StatItem icon={Ban} label="Canceladas" value={stats.canceladas} color="text-rose-500" />
+      <div className="w-px h-3.5 bg-slate-200" />
+      <div className="flex items-center gap-1.5 px-2 text-indigo-700">
+         <FileText className="w-3.5 h-3.5 text-indigo-600" />
+         <span className="text-xs font-extrabold font-headline">{stats.total} <span className="text-[10px] font-bold text-slate-500 uppercase">Total</span></span>
       </div>
     </div>
   );

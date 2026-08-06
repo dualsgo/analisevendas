@@ -56,18 +56,22 @@ export default function Home() {
                     initial="hidden"
                     animate="visible"
                     className={cn(
-                      "bg-white/80 backdrop-blur-2xl rounded-[2.5rem] md:rounded-[3.5rem] shadow-2xl shadow-indigo-500/10 border border-white p-6 md:p-12 text-center relative overflow-hidden",
+                      "bg-white/90 backdrop-blur-2xl rounded-3xl md:rounded-[2.5rem] shadow-xl shadow-indigo-500/5 border border-slate-200/80 p-6 md:p-12 text-center relative overflow-hidden",
                       (history.length > 0 || parsedRows.length > 0) ? "lg:col-span-7" : "max-w-3xl w-full mx-auto"
                     )}
                   >
-                    {/* Decorative background element */}
-                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-32 bg-indigo-500/10 blur-[100px] rounded-full pointer-events-none" />
+                    {/* Decorative ambient background lights */}
+                    <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-96 h-48 bg-gradient-to-r from-indigo-500/15 to-violet-500/15 blur-[90px] rounded-full pointer-events-none" />
                     
                     <div className="mb-6 md:mb-10 relative z-10">
-                      <div className="inline-block bg-indigo-50 text-indigo-600 px-4 py-1.5 rounded-full text-[9px] md:text-[10px] font-bold uppercase mb-4 tracking-widest">Início da Jornada</div>
-                      <h2 className="text-xl md:text-3xl font-bold text-slate-800 tracking-tight mb-2 leading-tight">Painel de Inteligência</h2>
+                      <div className="inline-flex items-center gap-1.5 bg-indigo-50 text-indigo-700 border border-indigo-200/80 px-3.5 py-1 rounded-full text-[10px] font-bold uppercase mb-4 tracking-widest">
+                        <span>Central de Processamento</span>
+                      </div>
+                      <h2 className="text-2xl md:text-4xl font-headline font-extrabold text-slate-900 tracking-tight mb-3 leading-tight">
+                        Painel de Inteligência
+                      </h2>
                       <p className="text-slate-500 font-medium text-xs md:text-sm leading-relaxed max-w-md mx-auto mb-6">
-                        Arraste seus pacotes <span className="text-indigo-600 font-bold">ZIP</span> ou <span className="text-indigo-600 font-bold">XMLs</span> para iniciar uma nova análise.
+                        Carregue seus arquivos <span className="text-indigo-600 font-bold">ZIP</span> ou <span className="text-indigo-600 font-bold">XMLs</span> para gerar análises estratégicas.
                       </p>
 
                       <UploadZone onDataParsed={processData} isProcessing={processorStatus === "processing"} />
@@ -76,24 +80,24 @@ export default function Home() {
                         <motion.div 
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
-                          className="mt-8 p-6 bg-emerald-50 border-2 border-emerald-100 rounded-3xl text-left flex flex-col sm:flex-row items-center justify-between gap-6"
+                          className="mt-8 p-6 bg-emerald-50/90 border border-emerald-200/90 rounded-2xl text-left flex flex-col sm:flex-row items-center justify-between gap-6 shadow-sm"
                         >
                           <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm text-emerald-600">
+                            <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-sm text-emerald-600 border border-emerald-100">
                               <LayoutDashboard className="w-6 h-6" />
                             </div>
                             <div>
-                               <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight">Análise em Memória</h4>
-                               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mt-1">
-                                  {fileStats.saidas} Saídas • {fileStats.total} Total Notas
+                               <h4 className="text-sm font-bold text-slate-900 tracking-tight">Análise em Memória Pronta</h4>
+                               <p className="text-xs font-semibold text-slate-500 tracking-wide mt-0.5">
+                                  {fileStats.saidas} Saídas • {fileStats.total} Total de Notas
                                </p>
                             </div>
                           </div>
                           <Button 
                             onClick={confirmDashboard}
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl h-14 px-10 font-black gap-2 shadow-lg shadow-emerald-100 w-full sm:w-auto"
+                            className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl h-12 px-8 font-bold gap-2 shadow-md shadow-emerald-200/60 w-full sm:w-auto text-xs uppercase tracking-wider"
                           >
-                            ACESSAR DASHBOARD
+                            Acessar Dashboard
                             <ArrowRight className="w-4 h-4" />
                           </Button>
                         </motion.div>
@@ -104,12 +108,12 @@ export default function Home() {
                       <motion.div 
                         initial={{ opacity: 0, y: 10 }} 
                         animate={{ opacity: 1, y: 0 }} 
-                        className="mt-8 flex flex-col items-center gap-4 text-indigo-600"
+                        className="mt-8 flex flex-col items-center gap-3 text-indigo-600"
                       >
                         <div className="relative">
-                           <Loader2 className="w-10 h-10 md:w-12 h-12 animate-spin opacity-20" />
+                           <Loader2 className="w-10 h-10 animate-spin opacity-80" />
                         </div>
-                        <span className="text-xs md:text-sm font-bold animate-pulse tracking-tight uppercase">Analisando nota por nota...</span>
+                        <span className="text-xs md:text-sm font-bold tracking-wide uppercase text-indigo-700">Processando lote de dados...</span>
                       </motion.div>
                     )}
                   </motion.section>

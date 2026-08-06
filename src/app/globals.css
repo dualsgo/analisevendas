@@ -38,14 +38,34 @@
 
 @layer components {
   .tab-trigger-custom {
-    @apply py-3 px-4 text-sm font-medium transition-all text-slate-500 border-b-2 border-transparent hover:text-slate-900 rounded-none;
+    @apply py-2.5 px-4 text-sm font-medium transition-all text-slate-500 border-b-2 border-transparent hover:text-slate-800 rounded-none tracking-tight;
   }
   .tab-trigger-custom[data-state="active"] {
-    @apply border-indigo-600 text-indigo-700 bg-transparent shadow-none font-semibold;
+    @apply border-indigo-600 text-indigo-700 bg-transparent shadow-none font-bold;
   }
   
   .ri-card {
-    @apply bg-white rounded-2xl shadow-sm border border-slate-200 transition-all duration-300;
+    @apply bg-white/90 backdrop-blur-md rounded-2xl shadow-sm border border-slate-200/80 hover:border-slate-300/90 transition-all duration-300 hover:shadow-md;
+  }
+
+  .glass-panel {
+    @apply bg-white/80 backdrop-blur-xl border border-white/60 shadow-xl shadow-slate-200/50;
+  }
+
+  .glass-card {
+    @apply bg-white/70 backdrop-blur-md border border-slate-200/60 shadow-sm hover:shadow-md transition-all duration-300;
+  }
+
+  /* Custom Smooth Scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-slate-300/70 rounded-full hover:bg-slate-400/80 transition-colors;
   }
 
   .scrollbar-hide::-webkit-scrollbar {
@@ -67,6 +87,9 @@
 @layer base {
   * { @apply border-border; }
   body { 
-    @apply bg-background text-foreground antialiased selection:bg-indigo-100 selection:text-indigo-900 overflow-x-hidden; 
+    @apply bg-background text-foreground antialiased selection:bg-indigo-600 selection:text-white overflow-x-hidden font-body; 
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-headline tracking-tight;
   }
 }

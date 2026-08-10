@@ -134,6 +134,7 @@ import { WeeklyAnalysis } from "./WeeklyAnalysis";
 import { AgingCampaignAnalysis } from "./AgingCampaignAnalysis";
 import { ShiftPerformance } from "./ShiftPerformance";
 import { CollaboratorXRay } from "./CollaboratorXRay";
+import { ProductCouponAnalysis } from "./ProductCouponAnalysis";
 
 interface SalesSummaryProps {
   data: DetailedSaleRow[];
@@ -405,6 +406,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
     { id: "colab_ranking_prod", label: "Ranking por Produto", icon: Trophy, category: "Pessoas", color: "text-violet-600 font-black" },
 
     { id: "item_ranking", label: "Ranking de Itens", icon: ShoppingCart, category: "Produtos", color: "text-orange-600 font-black" },
+    { id: "product_coupon_analysis", label: "Solo vs. Múltiplo (Por Item)", icon: Layers, category: "Produtos", color: "text-indigo-600 font-black" },
     { id: "unmissable_offers", label: "Ofertas Imperdíveis", icon: Flame, category: "Produtos", color: "text-rose-600 font-black" },
     { id: "market_basket", label: "Matriz de Afinidade", icon: Boxes, category: "Produtos", color: "text-indigo-600 font-black" },
     { id: "venda_sugestiva", label: "Venda Sugestiva (SLP)", icon: ShoppingBag, category: "Produtos", color: "text-orange-600 font-black" },
@@ -470,6 +472,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
       case "customer_loyalty": return <CustomerLoyalty data={filteredData} vinculos={filteredVinculos} />;
       case "price_profile": return <PriceProfile data={filteredData} />;
       case "item_ranking": return <ItemRanking data={filteredData} />;
+      case "product_coupon_analysis": return <ProductCouponAnalysis data={filteredData} />;
       case "unmissable_offers": return <UnmissableOffersAnalysis data={filteredData} />;
       case "pacing": return null;
       case "market_basket": return <MatrizAfinidade data={filteredData} />;

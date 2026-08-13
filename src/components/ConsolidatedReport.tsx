@@ -32,6 +32,16 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { 
   Printer, 
   ArrowUpRight, 
@@ -55,7 +65,8 @@ import {
   Bike,
   AlertTriangle,
   AlertCircle,
-  Lightbulb
+  Lightbulb,
+  Settings2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -70,16 +81,99 @@ export interface PositionGoal {
   weight: string;
   paMeta: number;
   tkmMeta: number;
+  cpfMeta: number; // Meta de Cadastros (% de cupons com CPF)
 }
 
 const DEFAULT_POSITION_GOALS: Record<string, PositionGoal> = {
-  "P2": { key: "P2", name: "P2 — Porta", weight: "5%", paMeta: 1.60, tkmMeta: 140.00 },
-  "P1": { key: "P1", name: "P1 — Caixa", weight: "25%", paMeta: 1.64, tkmMeta: 138.00 },
-  "P3": { key: "P3", name: "P3 — Salão", weight: "70%", paMeta: 1.80, tkmMeta: 155.00 },
-  "DIG": { key: "DIG", name: "Digital / Retirada", weight: "-", paMeta: 1.75, tkmMeta: 150.00 },
-  "LOJA": { key: "LOJA", name: "LOJA (Consolidado)", weight: "100%", paMeta: 1.75, tkmMeta: 150.00 },
-  "NONE": { key: "NONE", name: "Sem Vendas", weight: "-", paMeta: 1.75, tkmMeta: 150.00 }
+  "P2": { key: "P2", name: "P2 — Porta", weight: "5%", paMeta: 1.60, tkmMeta: 140.00, cpfMeta: 80.0 },
+  "P1": { key: "P1", name: "P1 — Caixa", weight: "25%", paMeta: 1.64, tkmMeta: 138.00, cpfMeta: 85.0 },
+  "P3": { key: "P3", name: "P3 — Salão", weight: "70%", paMeta: 1.80, tkmMeta: 155.00, cpfMeta: 85.0 },
+  "DIG": { key: "DIG", name: "Digital / Retirada", weight: "-", paMeta: 1.75, tkmMeta: 150.00, cpfMeta: 85.0 },
+  "LOJA": { key: "LOJA", name: "LOJA (Consolidado)", weight: "100%", paMeta: 1.75, tkmMeta: 150.00, cpfMeta: 85.0 },
+  "NONE": { key: "NONE", name: "Sem Vendas", weight: "-", paMeta: 1.75, tkmMeta: 150.00, cpfMeta: 85.0 }
 };
+
+export type AlertLevel = 'VERDE' | 'AMARELO' | 'ALERTA' | 'ALERTA_EXTREMO';
+
+export interface AttainmentInfo {
+  level: AlertLevel;
+  label: string;
+  shortLabel: string;
+  pct: number;
+  badgeClass: string;
+  textClass: string;
+  bgClass: string;
+  borderClass: string;
+  icon: 'check' | 'info' | 'alert' | 'x';
+}
+
+export function getAttainmentLevel(real: number, meta: number): AttainmentInfo {
+  if (!meta || meta <= 0) {
+    return {
+      level: 'VERDE',
+      label: 'Sem Meta',
+      shortLabel: 'N/A',
+      pct: 100,
+      badgeClass: 'bg-slate-100 text-slate-700',
+      textClass: 'text-slate-700',
+      bgClass: 'bg-slate-50',
+      borderClass: 'border-slate-200',
+      icon: 'check'
+    };
+  }
+
+  const pct = (real / meta) * 100;
+
+  if (pct >= 90) {
+    return {
+      level: 'VERDE',
+      label: 'Verde (≥ 90%)',
+      shortLabel: 'VERDE',
+      pct,
+      badgeClass: 'bg-emerald-500 text-white font-black',
+      textClass: 'text-emerald-700 font-extrabold',
+      bgClass: 'bg-emerald-50/50',
+      borderClass: 'border-emerald-200',
+      icon: 'check'
+    };
+  } else if (pct >= 80) {
+    return {
+      level: 'AMARELO',
+      label: 'Amarelo (80% a 89,9%)',
+      shortLabel: 'AMARELO',
+      pct,
+      badgeClass: 'bg-amber-400 text-slate-950 font-black',
+      textClass: 'text-amber-700 font-extrabold',
+      bgClass: 'bg-amber-50/50',
+      borderClass: 'border-amber-200',
+      icon: 'info'
+    };
+  } else if (pct >= 75) {
+    return {
+      level: 'ALERTA',
+      label: 'Alerta (75% a 79,9%)',
+      shortLabel: 'ALERTA',
+      pct,
+      badgeClass: 'bg-orange-500 text-white font-black',
+      textClass: 'text-orange-600 font-black',
+      bgClass: 'bg-orange-50/50',
+      borderClass: 'border-orange-200',
+      icon: 'alert'
+    };
+  } else {
+    return {
+      level: 'ALERTA_EXTREMO',
+      label: 'Alerta Extremo (< 75%)',
+      shortLabel: 'EXTREMO',
+      pct,
+      badgeClass: 'bg-rose-600 text-white font-black',
+      textClass: 'text-rose-600 font-black',
+      bgClass: 'bg-rose-50/50',
+      borderClass: 'border-rose-200',
+      icon: 'x'
+    };
+  }
+}
 
 const POSITIONS = {
   "P1": { label: "🟥 P1 Caixa", color: "bg-rose-100 text-rose-800", rowColor: "bg-rose-50/50 hover:bg-rose-100/50" },
@@ -292,18 +386,45 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
       const posInfo = POSITIONS[finalPosKey as keyof typeof POSITIONS] || POSITIONS["NONE"];
 
       const posMeta = positionGoals[finalPosKey] || positionGoals["LOJA"];
-      const isPaMetaReached = filteredPA >= posMeta.paMeta;
-      const isTkmMetaReached = filteredTKM >= posMeta.tkmMeta;
-      const isMetaReached = isPaMetaReached && isTkmMetaReached;
-      const metaStatus = isMetaReached ? "DENTRO" : (isPaMetaReached || isTkmMetaReached ? "PARCIAL" : "FORA");
+      const posPaMeta = posMeta.paMeta;
+      const posTkmMeta = posMeta.tkmMeta;
+      const posPmMeta = posPaMeta > 0 ? (posTkmMeta / posPaMeta) : 0;
+      const posCpfMeta = posMeta.cpfMeta || 85.0;
+
+      const paAtt = getAttainmentLevel(filteredPA, posPaMeta);
+      const tkmAtt = getAttainmentLevel(filteredTKM, posTkmMeta);
+      const pmAtt = getAttainmentLevel(filteredPM, posPmMeta);
+      const cpfAtt = getAttainmentLevel(filteredIdent, posCpfMeta);
+
+      const avgAttPct = (paAtt.pct + tkmAtt.pct + pmAtt.pct + cpfAtt.pct) / 4;
+      const overallAtt = getAttainmentLevel(avgAttPct, 100);
+
+      const isPaMetaReached = paAtt.level === 'VERDE';
+      const isTkmMetaReached = tkmAtt.level === 'VERDE';
+      const isPmMetaReached = pmAtt.level === 'VERDE';
+      const isCpfMetaReached = cpfAtt.level === 'VERDE';
+
+      const isMetaReached = isPaMetaReached && isTkmMetaReached && isPmMetaReached && isCpfMetaReached;
+      const metaStatus = overallAtt.level === 'VERDE' ? "DENTRO" : (overallAtt.level === 'AMARELO' ? "PARCIAL" : (overallAtt.level === 'ALERTA' ? "ALERTA" : "EXTREMO"));
 
       return {
         ...v,
         autoPosKey,
         finalPosKey,
         posMeta,
+        posPaMeta,
+        posTkmMeta,
+        posPmMeta,
+        posCpfMeta,
+        paAtt,
+        tkmAtt,
+        pmAtt,
+        cpfAtt,
+        overallAtt,
         isPaMetaReached,
         isTkmMetaReached,
+        isPmMetaReached,
+        isCpfMetaReached,
         isMetaReached,
         metaStatus,
         group: posInfo.label,
@@ -579,22 +700,134 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
                 </Badge>
               </div>
               <p className="text-[11px] font-medium text-slate-400 print:text-slate-600">
-                Avaliação de desempenho individual vinculada à meta da função (Caixa, Porta e Salão).
+                Avaliação de desempenho individual vinculada às metas da função (PA, TKM, Preço Médio e CPF).
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3 bg-slate-950/80 px-4 py-2 rounded-xl border border-slate-800 print:hidden">
-            <div className="text-center">
-              <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block">Atingimento Time</span>
-              <span className="text-sm font-black text-emerald-400">{summaryMetaStats.withinMeta} / {summaryMetaStats.total} na Meta</span>
-            </div>
-            <div className="h-6 w-px bg-slate-800" />
-            <div className="text-center">
-              <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block">Taxa Sucesso</span>
-              <span className={cn("text-sm font-black", summaryMetaStats.pct >= 70 ? "text-emerald-400" : summaryMetaStats.pct >= 50 ? "text-amber-400" : "text-rose-400")}>
-                {summaryMetaStats.pct.toFixed(0)}%
-              </span>
+          <div className="flex items-center gap-3">
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm" className="bg-slate-800 hover:bg-slate-700 text-white border-slate-700 font-bold text-xs gap-1.5 print:hidden shadow-sm">
+                  <Settings2 className="w-4 h-4 text-indigo-400" />
+                  <span>Configurar Metas</span>
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-xl bg-slate-900 text-white border-slate-800">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2 text-base font-black uppercase tracking-tight text-white">
+                    <Target className="w-5 h-5 text-indigo-400" />
+                    Configuração de Metas por Função
+                  </DialogTitle>
+                  <DialogDescription className="text-slate-400 text-xs">
+                    Defina as metas operacionais por posição. A <strong className="text-indigo-300">Meta de Preço Médio</strong> é calculada automaticamente dividindo o Ticket Médio (TKM) pelo PA.
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="space-y-4 py-3 max-h-[60vh] overflow-y-auto pr-1">
+                  {["P1", "P2", "P3", "DIG", "LOJA"].map(pKey => {
+                    const posInfo = POSITIONS[pKey as keyof typeof POSITIONS] || { label: pKey };
+                    const currentGoal = positionGoals[pKey] || DEFAULT_POSITION_GOALS[pKey] || DEFAULT_POSITION_GOALS["LOJA"];
+                    const calculatedPM = currentGoal.paMeta > 0 ? (currentGoal.tkmMeta / currentGoal.paMeta) : 0;
+
+                    return (
+                      <div key={pKey} className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <span className="font-black text-xs uppercase text-indigo-300 flex items-center gap-1.5">
+                            {posInfo.label}
+                          </span>
+                          <span className="text-[10px] font-bold text-slate-400">
+                            PM Meta: <strong className="text-indigo-400">{formatBRL(calculatedPM)}</strong>
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-2.5">
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-black uppercase text-slate-400">PA Meta</label>
+                            <Input 
+                              type="number" 
+                              step="0.01" 
+                              value={currentGoal.paMeta}
+                              onChange={(e) => {
+                                const val = parseFloat(e.target.value) || 0;
+                                setPositionGoals(prev => ({
+                                  ...prev,
+                                  [pKey]: { ...currentGoal, paMeta: val }
+                                }));
+                              }}
+                              className="bg-slate-900 border-slate-700 text-white text-xs h-8 font-bold"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-black uppercase text-slate-400">TKM Meta (R$)</label>
+                            <Input 
+                              type="number" 
+                              step="1" 
+                              value={currentGoal.tkmMeta}
+                              onChange={(e) => {
+                                const val = parseFloat(e.target.value) || 0;
+                                setPositionGoals(prev => ({
+                                  ...prev,
+                                  [pKey]: { ...currentGoal, tkmMeta: val }
+                                }));
+                              }}
+                              className="bg-slate-900 border-slate-700 text-white text-xs h-8 font-bold"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-black uppercase text-slate-400">CPF Meta (%)</label>
+                            <Input 
+                              type="number" 
+                              step="1" 
+                              value={currentGoal.cpfMeta || 85}
+                              onChange={(e) => {
+                                const val = parseFloat(e.target.value) || 0;
+                                setPositionGoals(prev => ({
+                                  ...prev,
+                                  [pKey]: { ...currentGoal, cpfMeta: val }
+                                }));
+                              }}
+                              className="bg-slate-900 border-slate-700 text-white text-xs h-8 font-bold"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <DialogFooter className="flex items-center justify-between sm:justify-between border-t border-slate-800 pt-3">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => setPositionGoals(DEFAULT_POSITION_GOALS)}
+                    className="text-slate-400 hover:text-white text-xs"
+                  >
+                    Restaurar Padrões
+                  </Button>
+                  <DialogTrigger asChild>
+                    <Button size="sm" className="bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs px-4">
+                      Salvar Metas
+                    </Button>
+                  </DialogTrigger>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            <div className="flex items-center gap-3 bg-slate-950/80 px-4 py-2 rounded-xl border border-slate-800 print:hidden">
+              <div className="text-center">
+                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block">Atingimento Time</span>
+                <span className="text-sm font-black text-emerald-400">{summaryMetaStats.withinMeta} / {summaryMetaStats.total} na Meta</span>
+              </div>
+              <div className="h-6 w-px bg-slate-800" />
+              <div className="text-center">
+                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block">Taxa Sucesso</span>
+                <span className={cn("text-sm font-black", summaryMetaStats.pct >= 70 ? "text-emerald-400" : summaryMetaStats.pct >= 50 ? "text-amber-400" : "text-rose-400")}>
+                  {summaryMetaStats.pct.toFixed(0)}%
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -606,7 +839,7 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
             { key: "P3", label: "P3 — Salão", color: "from-emerald-500/10 to-emerald-950/20 border-emerald-500/30 text-emerald-300", badgeColor: "bg-emerald-500 text-white" },
             { key: "LOJA", label: "LOJA (Consolidado)", color: "from-indigo-500/10 to-indigo-950/20 border-indigo-500/30 text-indigo-300", badgeColor: "bg-indigo-500 text-white" }
           ].map(item => {
-            const g = positionGoals[item.key] || DEFAULT_POSITION_GOALS[item.key];
+            const g = positionGoals[item.key] || DEFAULT_POSITION_GOALS[item.key] || DEFAULT_POSITION_GOALS["LOJA"];
             const posMembers = item.key === "LOJA" ? reportData : reportData.filter(r => r.finalPosKey === item.key);
             const withinCount = posMembers.filter(r => r.isMetaReached).length;
             
@@ -686,6 +919,8 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
               }
             }
 
+            const pmMetaValue = g.paMeta > 0 ? (g.tkmMeta / g.paMeta) : 0;
+
             return (
               <div key={item.key} className={cn("bg-slate-950/70 p-4 rounded-xl border flex flex-col justify-between space-y-3 relative overflow-hidden print:bg-slate-100 print:text-black print:border-black", item.color)}>
                 <div className="flex items-center justify-between gap-1">
@@ -717,15 +952,23 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
                   </div>
                 </div>
 
-                {/* PA META & TKM META */}
+                {/* METAS DA POSIÇÃO (PA, TKM, PM, CPF) */}
                 <div className="grid grid-cols-2 gap-1.5 pt-0.5">
                   <div className="bg-slate-900/90 p-1.5 rounded-lg border border-slate-800 print:bg-white print:border-slate-300">
                     <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest block print:text-slate-600">PA Meta</span>
-                    <span className="text-sm font-black text-white print:text-black">{formatNum(g.paMeta)}</span>
+                    <span className="text-xs font-black text-white print:text-black">{formatNum(g.paMeta)}</span>
                   </div>
                   <div className="bg-slate-900/90 p-1.5 rounded-lg border border-slate-800 print:bg-white print:border-slate-300">
                     <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest block print:text-slate-600">TKM Meta</span>
-                    <span className="text-sm font-black text-white print:text-black">{formatBRL(g.tkmMeta)}</span>
+                    <span className="text-xs font-black text-white print:text-black">{formatBRL(g.tkmMeta)}</span>
+                  </div>
+                  <div className="bg-slate-900/90 p-1.5 rounded-lg border border-slate-800 print:bg-white print:border-slate-300">
+                    <span className="text-[8px] font-bold text-indigo-400 uppercase tracking-widest block print:text-slate-600">P.M. Meta</span>
+                    <span className="text-xs font-black text-indigo-300 print:text-black">{formatBRL(pmMetaValue)}</span>
+                  </div>
+                  <div className="bg-slate-900/90 p-1.5 rounded-lg border border-slate-800 print:bg-white print:border-slate-300">
+                    <span className="text-[8px] font-bold text-emerald-400 uppercase tracking-widest block print:text-slate-600">CPF Meta</span>
+                    <span className="text-xs font-black text-emerald-300 print:text-black">{(g.cpfMeta || 85).toFixed(0)}%</span>
                   </div>
                 </div>
 
@@ -758,30 +1001,37 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
           })}
         </div>
 
-        {/* LEGENDA DE VERIFICAÇÃO DE CORES */}
+        {/* LEGENDA DE VERIFICAÇÃO DE CORES E NÍVEIS DE ALERTA */}
         <div className="mt-5 pt-4 border-t border-slate-800 flex flex-col gap-2 text-xs print:border-black">
           <div className="flex flex-wrap items-center gap-3 text-[10px] font-bold text-slate-300 print:text-black">
-            <span className="text-slate-400 font-black uppercase tracking-wider">Status Colaborador:</span>
+            <span className="text-slate-400 font-black uppercase tracking-wider">Status de Atingimento:</span>
             <div className="flex items-center gap-1">
               <Badge className="bg-emerald-500 text-white font-black text-[9px] px-2 py-0.5 border-none gap-1">
                 <CheckCircle2 className="w-3 h-3" />
-                <span>DENTRO (Verde)</span>
+                <span>VERDE (≥ 90%)</span>
               </Badge>
-              <span className="text-slate-400 font-normal">PA ≥ Meta & TKM ≥ Meta</span>
+              <span className="text-slate-400 font-normal">Alvo Atingido</span>
             </div>
             <div className="flex items-center gap-1">
-              <Badge className="bg-amber-500 text-white font-black text-[9px] px-2 py-0.5 border-none gap-1">
+              <Badge className="bg-amber-400 text-slate-950 font-black text-[9px] px-2 py-0.5 border-none gap-1">
                 <Info className="w-3 h-3" />
-                <span>PARCIAL (Amarelo)</span>
+                <span>AMARELO (80% a 89,99%)</span>
               </Badge>
-              <span className="text-slate-400 font-normal">1 Indicador Atingido</span>
+              <span className="text-slate-400 font-normal">Na Trave</span>
             </div>
             <div className="flex items-center gap-1">
-              <Badge className="bg-rose-500 text-white font-black text-[9px] px-2 py-0.5 border-none gap-1">
-                <XCircle className="w-3 h-3" />
-                <span>FORA (Vermelho)</span>
+              <Badge className="bg-orange-500 text-white font-black text-[9px] px-2 py-0.5 border-none gap-1">
+                <AlertTriangle className="w-3 h-3" />
+                <span>ALERTA (75% a 79,99%)</span>
               </Badge>
-              <span className="text-slate-400 font-normal">Nenhum Atingido</span>
+              <span className="text-slate-400 font-normal">Abaixo da Meta</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Badge className="bg-rose-600 text-white font-black text-[9px] px-2 py-0.5 border-none gap-1">
+                <XCircle className="w-3 h-3" />
+                <span>ALERTA EXTREMO (&lt; 75%)</span>
+              </Badge>
+              <span className="text-slate-400 font-normal">Desempenho Crítico</span>
             </div>
           </div>
 
@@ -826,13 +1076,13 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
             <TableRow className="hover:bg-slate-900 border-none h-11 print:h-7 print:border-b print:border-black divide-x divide-slate-700 print:divide-black">
               <TableHead className="text-white print:text-black font-black uppercase text-[9px] text-center align-middle print:w-[12%] w-32 md:w-36 whitespace-nowrap">Colaborador</TableHead>
               <SortableHead label="Status Meta" sortKey="status" currentSort={sortConfig} onSort={setSortConfig} className="text-center align-middle print:w-[8%]" />
-              <SortableHead label="Venda" sortKey="venda" currentSort={sortConfig} onSort={setSortConfig} className="text-center align-middle print:w-[9%]" />
-              <SortableHead label="Cupons" sortKey="cupons" currentSort={sortConfig} onSort={setSortConfig} className="text-center align-middle print:w-[5%]" />
+              <SortableHead label="Venda (% Total)" sortKey="venda" currentSort={sortConfig} onSort={setSortConfig} className="text-center align-middle print:w-[9%]" />
+              <SortableHead label="Cupons (% Total)" sortKey="cupons" currentSort={sortConfig} onSort={setSortConfig} className="text-center align-middle print:w-[6%]" />
               <SortableHead label="Itens" sortKey="itens" currentSort={sortConfig} onSort={setSortConfig} className="text-center align-middle print:w-[5%]" />
               <SortableHead label="PA (Meta)" sortKey="pa" currentSort={sortConfig} onSort={setSortConfig} className="text-center align-middle print:w-[8%]" />
               <SortableHead label="Ticket Méd. (Meta)" sortKey="tkm" currentSort={sortConfig} onSort={setSortConfig} className="text-center align-middle print:w-[9%]" />
-              <SortableHead label="Preço Méd." sortKey="pm" currentSort={sortConfig} onSort={setSortConfig} className="text-center align-middle print:w-[7%]" />
-              <SortableHead label="CPF" sortKey="ident" currentSort={sortConfig} onSort={setSortConfig} className="text-center align-middle print:w-[5%]" />
+              <SortableHead label="Preço Méd. (Meta)" sortKey="pm" currentSort={sortConfig} onSort={setSortConfig} className="text-center align-middle print:w-[8%]" />
+              <SortableHead label="CPF / Cadastros (Meta)" sortKey="ident" currentSort={sortConfig} onSort={setSortConfig} className="text-center align-middle print:w-[7%]" />
               <TableHead className="text-white print:text-black font-black uppercase text-[9px] text-center align-middle print:w-[4%]">SLP</TableHead>
               <TableHead className="text-white print:text-black font-black uppercase text-[9px] text-center align-middle print:w-[4%]">BAR</TableHead>
               <TableHead className="text-white print:text-black font-black uppercase text-[9px] text-center align-middle print:w-[4%]">SAC</TableHead>
@@ -864,7 +1114,7 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
                const gIdentPerc = gCupons > 0 ? Math.min(gIdent / gCupons, 1) * 100 : 0;
                const gConv = gPickups > 0 ? (gAdic / gPickups) * 100 : 0;
 
-               const posGoal = positionGoals[posKey] || positionGoals["LOJA"];
+               const posGoal = positionGoals[posKey] || DEFAULT_POSITION_GOALS[posKey] || DEFAULT_POSITION_GOALS["LOJA"];
                const isSubtotalPaOk = gPa >= posGoal.paMeta;
                const isSubtotalTkmOk = gTkm >= posGoal.tkmMeta;
                const isSubtotalOk = isSubtotalPaOk && isSubtotalTkmOk;
@@ -877,15 +1127,6 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
                       const avgVenda = gVenda / members.length;
                       const isAboveVenda = v.current.venda > avgVenda;
                       const isBelowVenda = v.current.venda < avgVenda;
-                      
-                      const isAbovePM = v.metrics.pm > gPm;
-                      const isBelowPM = v.metrics.pm < gPm;
-                      
-                      const isAboveIdent = v.metrics.ident > gIdentPerc;
-                      const isBelowIdent = v.metrics.ident < gIdentPerc;
-                      
-                      const isAboveConv = v.metrics.conv > gConv;
-                      const isBelowConv = v.metrics.conv < gConv;
 
                       return (
                         <TableRow 
@@ -912,33 +1153,34 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
                           </TableCell>
                           
                           <TableCell className="text-center align-middle">
-                            {v.metaStatus === "DENTRO" ? (
-                              <Badge className="bg-emerald-500 text-white font-black text-[9px] uppercase px-2 py-0.5 border-none shadow-sm gap-1">
-                                <CheckCircle2 className="w-3 h-3" />
-                                <span>DENTRO</span>
-                              </Badge>
-                            ) : v.metaStatus === "PARCIAL" ? (
-                              <Badge className="bg-amber-500 text-white font-black text-[9px] uppercase px-2 py-0.5 border-none shadow-sm gap-1">
-                                <Info className="w-3 h-3" />
-                                <span>PARCIAL</span>
-                              </Badge>
-                            ) : (
-                              <Badge className="bg-rose-500 text-white font-black text-[9px] uppercase px-2 py-0.5 border-none shadow-sm gap-1">
-                                <XCircle className="w-3 h-3" />
-                                <span>FORA</span>
-                              </Badge>
-                            )}
+                            <Badge className={cn("font-black text-[9px] uppercase px-2 py-0.5 border-none shadow-sm gap-1", v.overallAtt.badgeClass)}>
+                              {v.overallAtt.icon === 'check' ? <CheckCircle2 className="w-3 h-3" /> :
+                               v.overallAtt.icon === 'info' ? <Info className="w-3 h-3 text-slate-950" /> :
+                               v.overallAtt.icon === 'alert' ? <AlertTriangle className="w-3 h-3 text-white" /> :
+                               <XCircle className="w-3 h-3 text-white" />}
+                              <span>{v.overallAtt.shortLabel}</span>
+                            </Badge>
                           </TableCell>
 
                           <TableCell className="text-center align-middle">
-                            <div className="flex items-center justify-center gap-0.5">
-                              <span className={cn("font-black text-xs md:text-sm print:text-[8px]", isAboveVenda ? "text-emerald-700" : isBelowVenda ? "text-rose-600" : "text-slate-800")}>{formatBRL(v.current.venda)}</span>
-                              {isAboveVenda ? <ArrowUpRight className="w-3 h-3 text-emerald-500 print:hidden" /> : isBelowVenda ? <ArrowDownRight className="w-3 h-3 text-rose-500 print:hidden" /> : null}
+                            <div className="flex flex-col items-center justify-center">
+                              <div className="flex items-center justify-center gap-0.5">
+                                <span className={cn("font-black text-xs md:text-sm print:text-[8px]", isAboveVenda ? "text-emerald-700" : isBelowVenda ? "text-rose-600" : "text-slate-800")}>{formatBRL(v.current.venda)}</span>
+                                {isAboveVenda ? <ArrowUpRight className="w-3 h-3 text-emerald-500 print:hidden" /> : isBelowVenda ? <ArrowDownRight className="w-3 h-3 text-rose-500 print:hidden" /> : null}
+                              </div>
+                              <span className="text-[8px] font-bold text-slate-400 print:hidden">
+                                {(totals.venda > 0 ? (v.current.venda / totals.venda) * 100 : 0).toFixed(1)}% do total
+                              </span>
                             </div>
                           </TableCell>
                           
                           <TableCell className="text-center align-middle">
-                            <span className="font-black text-slate-700 text-xs md:text-sm print:text-[8px]">{v.current.cupons}</span>
+                            <div className="flex flex-col items-center justify-center">
+                              <span className="font-black text-slate-700 text-xs md:text-sm print:text-[8px]">{v.current.cupons}</span>
+                              <span className="text-[8px] font-bold text-slate-400 print:hidden">
+                                {(totals.cupons > 0 ? (v.current.cupons / totals.cupons) * 100 : 0).toFixed(1)}% do total
+                              </span>
+                            </div>
                           </TableCell>
 
                           <TableCell className="text-center align-middle">
@@ -948,17 +1190,16 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
                           <TableCell className="text-center align-middle">
                             <div className="flex flex-col items-center justify-center">
                               <div className="flex items-center justify-center gap-0.5">
-                                <span className={cn("font-black text-xs md:text-sm print:text-[8px]", v.isPaMetaReached ? "text-emerald-700 font-extrabold" : "text-rose-600 font-extrabold")}>
+                                <span className={cn("font-black text-xs md:text-sm print:text-[8px]", v.paAtt.textClass)}>
                                   {formatNum(v.metrics.pa)}
                                 </span>
-                                {v.isPaMetaReached ? (
-                                  <CheckCircle2 className="w-3 h-3 text-emerald-600 print:hidden" />
-                                ) : (
-                                  <XCircle className="w-3 h-3 text-rose-500 print:hidden" />
-                                )}
+                                {v.paAtt.icon === 'check' ? <CheckCircle2 className="w-3 h-3 text-emerald-600 print:hidden" /> :
+                                 v.paAtt.icon === 'info' ? <Info className="w-3 h-3 text-amber-600 print:hidden" /> :
+                                 v.paAtt.icon === 'alert' ? <AlertTriangle className="w-3 h-3 text-orange-500 print:hidden" /> :
+                                 <XCircle className="w-3 h-3 text-rose-500 print:hidden" />}
                               </div>
                               <span className="text-[8px] font-bold text-slate-400 print:hidden">
-                                Meta {formatNum(v.posMeta.paMeta)}
+                                Meta {formatNum(v.posPaMeta)}
                               </span>
                             </div>
                           </TableCell>
@@ -966,32 +1207,51 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
                           <TableCell className="text-center align-middle">
                             <div className="flex flex-col items-center justify-center">
                               <div className="flex items-center justify-center gap-0.5">
-                                <span className={cn("font-black text-xs md:text-sm print:text-[8px]", v.isTkmMetaReached ? "text-emerald-700 font-extrabold" : "text-rose-600 font-extrabold")}>
+                                <span className={cn("font-black text-xs md:text-sm print:text-[8px]", v.tkmAtt.textClass)}>
                                   {formatBRL(v.metrics.tkm)}
                                 </span>
-                                {v.isTkmMetaReached ? (
-                                  <CheckCircle2 className="w-3 h-3 text-emerald-600 print:hidden" />
-                                ) : (
-                                  <XCircle className="w-3 h-3 text-rose-500 print:hidden" />
-                                )}
+                                {v.tkmAtt.icon === 'check' ? <CheckCircle2 className="w-3 h-3 text-emerald-600 print:hidden" /> :
+                                 v.tkmAtt.icon === 'info' ? <Info className="w-3 h-3 text-amber-600 print:hidden" /> :
+                                 v.tkmAtt.icon === 'alert' ? <AlertTriangle className="w-3 h-3 text-orange-500 print:hidden" /> :
+                                 <XCircle className="w-3 h-3 text-rose-500 print:hidden" />}
                               </div>
                               <span className="text-[8px] font-bold text-slate-400 print:hidden">
-                                Meta {formatBRL(v.posMeta.tkmMeta)}
+                                Meta {formatBRL(v.posTkmMeta)}
                               </span>
                             </div>
                           </TableCell>
 
                           <TableCell className="text-center align-middle">
-                            <div className="flex items-center justify-center gap-0.5">
-                              <span className={cn("font-black text-xs md:text-sm print:text-[8px]", isAbovePM ? "text-emerald-700" : isBelowPM ? "text-rose-600" : "text-slate-700")}>{formatBRL(v.metrics.pm)}</span>
-                              {isAbovePM ? <ArrowUpRight className="w-3 h-3 text-emerald-500 print:hidden" /> : isBelowPM ? <ArrowDownRight className="w-3 h-3 text-rose-500 print:hidden" /> : null}
+                            <div className="flex flex-col items-center justify-center">
+                              <div className="flex items-center justify-center gap-0.5">
+                                <span className={cn("font-black text-xs md:text-sm print:text-[8px]", v.pmAtt.textClass)}>
+                                  {formatBRL(v.metrics.pm)}
+                                </span>
+                                {v.pmAtt.icon === 'check' ? <CheckCircle2 className="w-3 h-3 text-emerald-600 print:hidden" /> :
+                                 v.pmAtt.icon === 'info' ? <Info className="w-3 h-3 text-amber-600 print:hidden" /> :
+                                 v.pmAtt.icon === 'alert' ? <AlertTriangle className="w-3 h-3 text-orange-500 print:hidden" /> :
+                                 <XCircle className="w-3 h-3 text-rose-500 print:hidden" />}
+                              </div>
+                              <span className="text-[8px] font-bold text-slate-400 print:hidden">
+                                Meta {formatBRL(v.posPmMeta)}
+                              </span>
                             </div>
                           </TableCell>
 
                           <TableCell className="text-center align-middle">
-                            <div className="flex items-center justify-center gap-0.5">
-                              <span className={cn("font-black text-xs md:text-sm print:text-[8px]", isAboveIdent ? "text-emerald-700" : isBelowIdent ? "text-rose-600" : "text-slate-700")}>{v.metrics.ident.toFixed(0)}%</span>
-                              {isAboveIdent ? <ArrowUpRight className="w-3 h-3 text-emerald-500 print:hidden" /> : isBelowIdent ? <ArrowDownRight className="w-3 h-3 text-rose-500 print:hidden" /> : null}
+                            <div className="flex flex-col items-center justify-center">
+                              <div className="flex items-center justify-center gap-0.5">
+                                <span className={cn("font-black text-xs md:text-sm print:text-[8px]", v.cpfAtt.textClass)}>
+                                  {v.metrics.ident.toFixed(0)}%
+                                </span>
+                                {v.cpfAtt.icon === 'check' ? <CheckCircle2 className="w-3 h-3 text-emerald-600 print:hidden" /> :
+                                 v.cpfAtt.icon === 'info' ? <Info className="w-3 h-3 text-amber-600 print:hidden" /> :
+                                 v.cpfAtt.icon === 'alert' ? <AlertTriangle className="w-3 h-3 text-orange-500 print:hidden" /> :
+                                 <XCircle className="w-3 h-3 text-rose-500 print:hidden" />}
+                              </div>
+                              <span className="text-[8px] font-bold text-slate-400 print:hidden">
+                                Meta {v.posCpfMeta.toFixed(0)}%
+                              </span>
                             </div>
                           </TableCell>
 
@@ -1051,29 +1311,57 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
                     })}
 
                    {/* SUBTOTAL ROW */}
-                   <TableRow className="border-t border-b-[6px] border-b-slate-100 print:border-b-2 print:border-black font-black bg-slate-900 text-white hover:bg-slate-800 transition-colors divide-x divide-slate-700 print:divide-black">
-                     <TableCell className="text-center align-middle text-[9px] uppercase tracking-wider text-slate-300 whitespace-nowrap">
-                       <span className="bg-white/10 px-2 py-1 rounded-md border border-white/10 inline-block">Subtotal • {posInfo.label.split(' ')[0]} {posInfo.label.split(' ')[1]}</span>
-                     </TableCell>
-                     <TableCell className="text-center align-middle">
-                       <Badge className={cn("font-black text-[9px] uppercase border-none px-1.5 py-0.5", isSubtotalOk ? "bg-emerald-500 text-white" : isSubtotalPaOk || isSubtotalTkmOk ? "bg-amber-500 text-white" : "bg-rose-500 text-white")}>
-                         {isSubtotalOk ? "DENTRO" : isSubtotalPaOk || isSubtotalTkmOk ? "PARCIAL" : "FORA"}
-                       </Badge>
-                     </TableCell>
-                     <TableCell className="text-center align-middle text-xs md:text-sm print:text-[8px] text-emerald-400">{formatBRL(gVenda)}</TableCell>
-                     <TableCell className="text-center align-middle text-xs md:text-sm print:text-[8px]">{gCupons}</TableCell>
-                     <TableCell className="text-center align-middle text-xs md:text-sm print:text-[8px]">{gItens.toFixed(0)}</TableCell>
-                     <TableCell className={cn("text-center align-middle text-xs md:text-sm print:text-[8px] font-black", isSubtotalPaOk ? "text-emerald-400" : "text-rose-400")}>{formatNum(gPa)}</TableCell>
-                     <TableCell className={cn("text-center align-middle text-xs md:text-sm print:text-[8px] font-black", isSubtotalTkmOk ? "text-emerald-400" : "text-rose-400")}>{formatBRL(gTkm)}</TableCell>
-                     <TableCell className="text-center align-middle text-xs md:text-sm print:text-[8px]">{formatBRL(gPm)}</TableCell>
-                     <TableCell className="text-center align-middle text-xs md:text-sm print:text-[8px]">{gIdentPerc.toFixed(0)}%</TableCell>
-                     <TableCell className="text-center align-middle text-[10px] md:text-xs print:text-[8px] text-slate-300">{gSlp}</TableCell>
-                     <TableCell className="text-center align-middle text-[10px] md:text-xs print:text-[8px] text-slate-300">{gBaralhos}</TableCell>
-                     <TableCell className="text-center align-middle text-[10px] md:text-xs print:text-[8px] text-slate-300">{gSacolas}</TableCell>
-                     <TableCell className={cn("text-center align-middle text-[10px] md:text-xs print:text-[8px] font-black", (posKey === "P3" ? (totals.pickups > 0 && (gPickups / totals.pickups) > 0.7) : posKey === "P1" ? (totals.pickups > 0 && (gPickups / totals.pickups) <= 0.3) : gPickups === 0) ? "text-emerald-400" : "text-rose-400")}>{gPickups}</TableCell>
-                     <TableCell className="text-center align-middle text-[10px] md:text-xs print:text-[8px] text-slate-300">{gAdic}</TableCell>
-                     <TableCell className={cn("text-center align-middle text-[10px] md:text-xs print:text-[8px] font-black", gConv >= 30 ? "text-emerald-400" : gConv >= 22 ? "text-amber-400" : gPickups > 0 ? "text-rose-400" : "text-slate-300")}>{formatNum(gConv, 1)}%</TableCell>
-                   </TableRow>
+                   {(() => {
+                     const posGoal = positionGoals[posKey] || DEFAULT_POSITION_GOALS[posKey] || DEFAULT_POSITION_GOALS["LOJA"];
+                     const posPmGoal = posGoal.paMeta > 0 ? (posGoal.tkmMeta / posGoal.paMeta) : 0;
+                     const posCpfGoal = posGoal.cpfMeta || 85.0;
+
+                     const subPaAtt = getAttainmentLevel(gPa, posGoal.paMeta);
+                     const subTkmAtt = getAttainmentLevel(gTkm, posGoal.tkmMeta);
+                     const subPmAtt = getAttainmentLevel(gPm, posPmGoal);
+                     const subCpfAtt = getAttainmentLevel(gIdentPerc, posCpfGoal);
+                     const subAvgPct = (subPaAtt.pct + subTkmAtt.pct + subPmAtt.pct + subCpfAtt.pct) / 4;
+                     const subOverall = getAttainmentLevel(subAvgPct, 100);
+
+                     const subVendaShare = totals.venda > 0 ? (gVenda / totals.venda) * 100 : 0;
+                     const subCuponsShare = totals.cupons > 0 ? (gCupons / totals.cupons) * 100 : 0;
+
+                     return (
+                       <TableRow className="border-t border-b-[6px] border-b-slate-100 print:border-b-2 print:border-black font-black bg-slate-900 text-white hover:bg-slate-800 transition-colors divide-x divide-slate-700 print:divide-black">
+                         <TableCell className="text-center align-middle text-[9px] uppercase tracking-wider text-slate-300 whitespace-nowrap">
+                           <span className="bg-white/10 px-2 py-1 rounded-md border border-white/10 inline-block">Subtotal • {posInfo.label.split(' ')[0]} {posInfo.label.split(' ')[1]}</span>
+                         </TableCell>
+                         <TableCell className="text-center align-middle">
+                           <Badge className={cn("font-black text-[9px] uppercase border-none px-1.5 py-0.5", subOverall.badgeClass)}>
+                             {subOverall.shortLabel}
+                           </Badge>
+                         </TableCell>
+                         <TableCell className="text-center align-middle text-xs md:text-sm print:text-[8px] text-emerald-400">
+                           <div className="flex flex-col items-center">
+                             <span>{formatBRL(gVenda)}</span>
+                             <span className="text-[8px] font-bold text-slate-400 print:hidden">{subVendaShare.toFixed(1)}% do total</span>
+                           </div>
+                         </TableCell>
+                         <TableCell className="text-center align-middle text-xs md:text-sm print:text-[8px]">
+                           <div className="flex flex-col items-center">
+                             <span>{gCupons}</span>
+                             <span className="text-[8px] font-bold text-slate-400 print:hidden">{subCuponsShare.toFixed(1)}% do total</span>
+                           </div>
+                         </TableCell>
+                         <TableCell className="text-center align-middle text-xs md:text-sm print:text-[8px]">{gItens.toFixed(0)}</TableCell>
+                         <TableCell className={cn("text-center align-middle text-xs md:text-sm print:text-[8px] font-black", subPaAtt.textClass)}>{formatNum(gPa)}</TableCell>
+                         <TableCell className={cn("text-center align-middle text-xs md:text-sm print:text-[8px] font-black", subTkmAtt.textClass)}>{formatBRL(gTkm)}</TableCell>
+                         <TableCell className={cn("text-center align-middle text-xs md:text-sm print:text-[8px] font-black", subPmAtt.textClass)}>{formatBRL(gPm)}</TableCell>
+                         <TableCell className={cn("text-center align-middle text-xs md:text-sm print:text-[8px] font-black", subCpfAtt.textClass)}>{gIdentPerc.toFixed(0)}%</TableCell>
+                         <TableCell className="text-center align-middle text-[10px] md:text-xs print:text-[8px] text-slate-300">{gSlp}</TableCell>
+                         <TableCell className="text-center align-middle text-[10px] md:text-xs print:text-[8px] text-slate-300">{gBaralhos}</TableCell>
+                         <TableCell className="text-center align-middle text-[10px] md:text-xs print:text-[8px] text-slate-300">{gSacolas}</TableCell>
+                         <TableCell className={cn("text-center align-middle text-[10px] md:text-xs print:text-[8px] font-black", (posKey === "P3" ? (totals.pickups > 0 && (gPickups / totals.pickups) > 0.7) : posKey === "P1" ? (totals.pickups > 0 && (gPickups / totals.pickups) <= 0.3) : gPickups === 0) ? "text-emerald-400" : "text-rose-400")}>{gPickups}</TableCell>
+                         <TableCell className="text-center align-middle text-[10px] md:text-xs print:text-[8px] text-slate-300">{gAdic}</TableCell>
+                         <TableCell className={cn("text-center align-middle text-[10px] md:text-xs print:text-[8px] font-black", gConv >= 30 ? "text-emerald-400" : gConv >= 22 ? "text-amber-400" : gPickups > 0 ? "text-rose-400" : "text-slate-300")}>{formatNum(gConv, 1)}%</TableCell>
+                       </TableRow>
+                     );
+                   })()}
                  </React.Fragment>
                );
             })}
@@ -1082,12 +1370,32 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
             <TableRow className="hover:bg-slate-900 border-none h-12 print:h-7 print:border-t print:border-black font-black divide-x divide-slate-700 print:divide-black">
               <TableCell className="text-center align-middle text-white print:text-black uppercase text-[11px] md:text-xs print:text-[8px] whitespace-nowrap">Consolidado Loja</TableCell>
               <TableCell className="text-center align-middle">
-                <Badge className={cn("font-black text-[9px] uppercase border-none px-2 py-0.5", totals.pa >= 1.75 && totals.tkm >= 150 ? "bg-emerald-500 text-white" : "bg-amber-500 text-white")}>
-                  {totals.pa >= 1.75 && totals.tkm >= 150 ? "DENTRO" : "ATENÇÃO"}
-                </Badge>
+                {(() => {
+                  const storePaAtt = getAttainmentLevel(totals.pa, 1.75);
+                  const storeTkmAtt = getAttainmentLevel(totals.tkm, 150.00);
+                  const storePmAtt = getAttainmentLevel(totals.pm, 150.00 / 1.75);
+                  const storeCpfAtt = getAttainmentLevel(totals.ident_perc, 85.0);
+                  const storeAvg = (storePaAtt.pct + storeTkmAtt.pct + storePmAtt.pct + storeCpfAtt.pct) / 4;
+                  const storeOverall = getAttainmentLevel(storeAvg, 100);
+                  return (
+                    <Badge className={cn("font-black text-[9px] uppercase border-none px-2 py-0.5", storeOverall.badgeClass)}>
+                      {storeOverall.shortLabel}
+                    </Badge>
+                  );
+                })()}
               </TableCell>
-              <TableCell className="text-center align-middle text-emerald-400 print:text-black text-xs md:text-sm print:text-[8px]">{formatBRL(totals.venda)}</TableCell>
-              <TableCell className="text-center align-middle text-sky-400 print:text-black text-xs md:text-sm print:text-[8px]">{totals.cupons}</TableCell>
+              <TableCell className="text-center align-middle text-emerald-400 print:text-black text-xs md:text-sm print:text-[8px]">
+                <div className="flex flex-col items-center">
+                  <span>{formatBRL(totals.venda)}</span>
+                  <span className="text-[8px] font-bold text-slate-400 print:hidden">100% total</span>
+                </div>
+              </TableCell>
+              <TableCell className="text-center align-middle text-sky-400 print:text-black text-xs md:text-sm print:text-[8px]">
+                <div className="flex flex-col items-center">
+                  <span>{totals.cupons}</span>
+                  <span className="text-[8px] font-bold text-slate-400 print:hidden">100% total</span>
+                </div>
+              </TableCell>
               <TableCell className="text-center align-middle text-white print:text-black text-xs md:text-sm print:text-[8px]">{totals.itens.toFixed(0)}</TableCell>
               <TableCell className={cn("text-center align-middle text-xs md:text-sm print:text-[8px] font-black", totals.pa >= 1.75 ? "text-emerald-400" : "text-rose-400")}>{formatNum(totals.pa)}</TableCell>
               <TableCell className={cn("text-center align-middle text-xs md:text-sm print:text-[8px] font-black", totals.tkm >= 150 ? "text-emerald-400" : "text-rose-400")}>{formatBRL(totals.tkm)}</TableCell>
@@ -1206,10 +1514,12 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
                   <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 text-center">
                     <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Faturamento</p>
                     <p className="text-lg font-black text-slate-800">{formatBRL(selectedColab.current.venda)}</p>
+                    <p className="text-[9px] font-bold text-indigo-600 uppercase mt-0.5">{(totals.venda > 0 ? (selectedColab.current.venda / totals.venda) * 100 : 0).toFixed(1)}% da loja</p>
                   </div>
                   <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 text-center">
                     <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Tickets</p>
                     <p className="text-lg font-black text-slate-800">{selectedColab.current.cupons}</p>
+                    <p className="text-[9px] font-bold text-indigo-600 uppercase mt-0.5">{(totals.cupons > 0 ? (selectedColab.current.cupons / totals.cupons) * 100 : 0).toFixed(1)}% da loja</p>
                   </div>
                 </div>
 
@@ -1247,21 +1557,28 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
                     <PerformanceMetric 
                       label="P.A. (FILTRADO)" 
                       value={formatNum(selectedColab.metrics.pa)} 
-                      average={`Meta: ${formatNum(selectedColab.posMeta.paMeta)}`} 
-                      delta={selectedColab.metrics.pa - selectedColab.posMeta.paMeta} 
+                      average={`Meta: ${formatNum(selectedColab.posPaMeta)}`} 
+                      delta={selectedColab.metrics.pa - selectedColab.posPaMeta} 
                     />
                     <PerformanceMetric 
                       label="TICKET MÉDIO (FILTRADO)" 
                       value={formatBRL(selectedColab.metrics.tkm)} 
-                      average={`Meta: ${formatBRL(selectedColab.posMeta.tkmMeta)}`} 
-                      delta={selectedColab.metrics.tkm - selectedColab.posMeta.tkmMeta} 
+                      average={`Meta: ${formatBRL(selectedColab.posTkmMeta)}`} 
+                      delta={selectedColab.metrics.tkm - selectedColab.posTkmMeta} 
+                      isCurrency 
+                    />
+                    <PerformanceMetric 
+                      label="PREÇO MÉDIO (P.M.)" 
+                      value={formatBRL(selectedColab.metrics.pm)} 
+                      average={`Meta: ${formatBRL(selectedColab.posPmMeta)}`} 
+                      delta={selectedColab.metrics.pm - selectedColab.posPmMeta} 
                       isCurrency 
                     />
                     <PerformanceMetric 
                       label="IDENTIFICAÇÃO (CPF)" 
                       value={`${selectedColab.metrics.ident.toFixed(0)}%`} 
-                      average={`Real: ${selectedColab.realMetrics.ident.toFixed(0)}%`} 
-                      delta={selectedColab.deltas.ident} 
+                      average={`Meta: ${selectedColab.posCpfMeta.toFixed(0)}%`} 
+                      delta={selectedColab.metrics.ident - selectedColab.posCpfMeta} 
                       isPercent 
                     />
                   </div>

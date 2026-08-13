@@ -52,7 +52,10 @@ import {
   Filter,
   Search,
   ChevronRight,
-  Bike
+  Bike,
+  AlertTriangle,
+  AlertCircle,
+  Lightbulb
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -402,6 +405,105 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
     return { withinMeta, total, pct };
   }, [reportData]);
 
+  const insights = useMemo(() => {
+    const alerts: string[] = [];
+    const highlights: string[] = [];
+    const recommendations: string[] = [];
+
+    const totalPickups = totals.pickups;
+    const totalCupons = totals.cupons;
+
+    const p1Members = reportData.filter(r => r.finalPosKey === "P1");
+    const p2Members = reportData.filter(r => r.finalPosKey === "P2");
+    const p3Members = reportData.filter(r => r.finalPosKey === "P3");
+
+    const p1Cupons = p1Members.reduce((a, c) => a + c.current.cupons, 0);
+    const p2Cupons = p2Members.reduce((a, c) => a + c.current.cupons, 0);
+    const p3Cupons = p3Members.reduce((a, c) => a + c.current.cupons, 0);
+
+    const p1CuponsShare = totalCupons > 0 ? (p1Cupons / totalCupons) * 100 : 0;
+    const p2CuponsShare = totalCupons > 0 ? (p2Cupons / totalCupons) * 100 : 0;
+    const p3CuponsShare = totalCupons > 0 ? (p3Cupons / totalCupons) * 100 : 0;
+
+    const p1Pickups = p1Members.reduce((a, c) => a + c.pickupsAtendidas, 0);
+    const p2Pickups = p2Members.reduce((a, c) => a + c.pickupsAtendidas, 0);
+    const p3Pickups = p3Members.reduce((a, c) => a + c.pickupsAtendidas, 0);
+
+    const p1PickupShare = totalPickups > 0 ? (p1Pickups / totalPickups) * 100 : 0;
+    const p2PickupShare = totalPickups > 0 ? (p2Pickups / totalPickups) * 100 : 0;
+    const p3PickupShare = totalPickups > 0 ? (p3Pickups / totalPickups) * 100 : 0;
+
+    const p1Adic = p1Members.reduce((a, c) => a + c.adicionaisFeitos, 0);
+    const p3Adic = p3Members.reduce((a, c) => a + c.adicionaisFeitos, 0);
+
+    const p1Conv = p1Pickups > 0 ? (p1Adic / p1Pickups) * 100 : 0;
+    const p3Conv = p3Pickups > 0 ? (p3Adic / p3Pickups) * 100 : 0;
+
+    // 1. RETIRADAS CONCENTRATION
+    if (p2Pickups > 0) {
+      alerts.push(`Alta concentração de retiradas no P2 Porta: ${p2Pickups} retiradas atendidas (${p2PickupShare.toFixed(1)}% do total), acima da média proposta (meta: 0 retiradas na porta).`);
+      recommendations.push(`Instruir o P2 Porta a encaminhar clientes de retiradas online imediatamente para o balcão do Salão (P3).`);
+    }
+
+    if (p1PickupShare > 30) {
+      alerts.push(`Alta concentração de retiradas no P1 Caixa: ${p1PickupShare.toFixed(1)}% das retiradas da loja (acima da meta proposta de no máximo 30%).`);
+      recommendations.push(`Redirecionar a entrega de produtos de retirada online do Caixa para a equipe de atendimento no Salão (P3).`);
+    }
+
+    if (p3PickupShare <= 70 && totalPickups > 0) {
+      alerts.push(`Baixa concentração de retiradas no P3 Salão: Apenas ${p3PickupShare.toFixed(1)}% das retiradas (meta proposta é > 70%).`);
+    } else if (p3PickupShare > 70 && totalPickups > 0) {
+      highlights.push(`Excelente foco no Salão: P3 Salão responde por ${p3PickupShare.toFixed(1)}% de todas as retiradas (Meta > 70% atingida com sucesso!).`);
+    }
+
+    // 2. CUPON SHARE CONCENTRATION
+    if (p2CuponsShare > 10) {
+      alerts.push(`Sobrecarga no P2 Porta: Retendo ${p2CuponsShare.toFixed(1)}% dos cupons totais da loja (referência esperada é 5%).`);
+    } else if (p2CuponsShare <= 5 && p2Members.length > 0) {
+      highlights.push(`Fluxo de Porta P2 equilibrado: ${p2CuponsShare.toFixed(1)}% dos cupons retidos na porta (dentro da meta de 5%).`);
+    }
+
+    if (p1CuponsShare > 30) {
+      alerts.push(`Acúmulo de cupons no P1 Caixa: ${p1CuponsShare.toFixed(1)}% dos cupons da loja (referência esperada é 25%).`);
+    }
+
+    // 3. CONVERSÃO DE ADICIONAIS
+    if (p3Conv >= 30 && p3Pickups > 0) {
+      highlights.push(`Alta Eficiência no Salão: P3 Salão alcançou ${p3Conv.toFixed(1)}% de conversão de adicionais em retiradas (meta ≥ 30%).`);
+    } else if (p3Conv < 22 && p3Pickups > 0) {
+      alerts.push(`Baixa Conversão de Adicionais no Salão: P3 Salão está em ${p3Conv.toFixed(1)}% (abaixo da faixa crítica de 22%).`);
+      recommendations.push(`Capacitar a equipe do Salão para ofertar produtos complementares na entrega de cada retirada.`);
+    }
+
+    // 4. PERFORMERS & META STATS
+    const colaboradoresNaMeta = reportData.filter(r => r.isMetaReached);
+    const percentNaMeta = reportData.length > 0 ? (colaboradoresNaMeta.length / reportData.length) * 100 : 0;
+
+    if (percentNaMeta >= 70) {
+      highlights.push(`Desempenho Geral do Time: ${colaboradoresNaMeta.length} de ${reportData.length} colaboradores (${percentNaMeta.toFixed(0)}%) atingiram as metas individuais da posição.`);
+    } else {
+      alerts.push(`Apenas ${colaboradoresNaMeta.length} de ${reportData.length} colaboradores (${percentNaMeta.toFixed(0)}%) atingiram PA e TKM da sua posição.`);
+    }
+
+    // Top Vendedor
+    if (reportData.length > 0) {
+      const sorted = [...reportData].sort((a, b) => b.current.venda - a.current.venda);
+      const top = sorted[0];
+      highlights.push(`Destaque de Vendas: ${top.name} (${POSITIONS[top.finalPosKey as keyof typeof POSITIONS]?.label || top.finalPosKey}) lidera com ${formatBRL(top.current.venda)} em vendas (PA ${formatNum(top.metrics.pa)}).`);
+    }
+
+    // Top Conversão
+    const vendorsWithPickups = reportData.filter(r => r.pickupsAtendidas > 0);
+    if (vendorsWithPickups.length > 0) {
+      const topConv = [...vendorsWithPickups].sort((a, b) => b.metrics.conv - a.metrics.conv)[0];
+      if (topConv.metrics.conv >= 30) {
+        highlights.push(`Campeão de Venda Adicional: ${topConv.name} registrou ${formatNum(topConv.metrics.conv, 1)}% de conversão (${topConv.adicionaisFeitos} adicionais em ${topConv.pickupsAtendidas} retiradas).`);
+      }
+    }
+
+    return { alerts, highlights, recommendations };
+  }, [reportData, totals]);
+
   return (
     <div className={cn(
       "space-y-6 animate-in fade-in duration-500 pb-20 print:p-0 print:pb-0 print:space-y-0",
@@ -507,26 +609,139 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
             const g = positionGoals[item.key] || DEFAULT_POSITION_GOALS[item.key];
             const posMembers = item.key === "LOJA" ? reportData : reportData.filter(r => r.finalPosKey === item.key);
             const withinCount = posMembers.filter(r => r.isMetaReached).length;
+            
+            const posCupons = posMembers.reduce((acc, v) => acc + v.current.cupons, 0);
+            const posSharePct = totals.cupons > 0 ? (posCupons / totals.cupons) * 100 : 0;
+            const expectedWeightNum = parseFloat(g.weight.replace('%', '')) || 100;
+
+            const posPickups = posMembers.reduce((acc, v) => acc + v.pickupsAtendidas, 0);
+            const posPickupSharePct = totals.pickups > 0 ? (posPickups / totals.pickups) * 100 : 0;
+            const posAdicionais = posMembers.reduce((acc, v) => acc + v.adicionaisFeitos, 0);
+            const posConvPct = posPickups > 0 ? (posAdicionais / posPickups) * 100 : 0;
+
+            let shareColorClass = "text-emerald-400 border-emerald-500/30 bg-emerald-500/10";
+            let shareBadgeLabel = "Ideal (Verde)";
+            let shareStatusBadgeBg = "bg-emerald-500 text-white";
+
+            if (item.key !== "LOJA") {
+              if (posSharePct <= expectedWeightNum) {
+                shareColorClass = "text-emerald-400 border-emerald-500/30 bg-emerald-500/10";
+                shareBadgeLabel = "Até Meta (Verde)";
+                shareStatusBadgeBg = "bg-emerald-500 text-white font-black";
+              } else if (posSharePct <= expectedWeightNum + 5) {
+                shareColorClass = "text-amber-400 border-amber-500/30 bg-amber-500/10";
+                shareBadgeLabel = "Pouco Acima (Amarelo)";
+                shareStatusBadgeBg = "bg-amber-500 text-slate-950 font-black";
+              } else {
+                shareColorClass = "text-rose-400 border-rose-500/30 bg-rose-500/10";
+                shareBadgeLabel = "Muito Acima (Vermelho)";
+                shareStatusBadgeBg = "bg-rose-500 text-white font-black";
+              }
+            }
+
+            let pickupStatusBadge = "0 Retiradas";
+            let pickupBadgeBg = "bg-emerald-500 text-white font-black";
+
+            if (item.key === "P3") {
+              if (posPickupSharePct > 70) {
+                pickupStatusBadge = `${posPickupSharePct.toFixed(0)}% (>70% Verde)`;
+                pickupBadgeBg = "bg-emerald-500 text-white font-black";
+              } else {
+                pickupStatusBadge = `${posPickupSharePct.toFixed(0)}% (≤70% Vermelho)`;
+                pickupBadgeBg = "bg-rose-500 text-white font-black";
+              }
+            } else if (item.key === "P1") {
+              if (posPickupSharePct <= 30) {
+                pickupStatusBadge = `${posPickupSharePct.toFixed(0)}% (≤30% Verde)`;
+                pickupBadgeBg = "bg-emerald-500 text-white font-black";
+              } else {
+                pickupStatusBadge = `${posPickupSharePct.toFixed(0)}% (>30% Vermelho)`;
+                pickupBadgeBg = "bg-rose-500 text-white font-black";
+              }
+            } else if (item.key === "P2") {
+              if (posPickups === 0) {
+                pickupStatusBadge = "0 Ret. (Verde)";
+                pickupBadgeBg = "bg-emerald-500 text-white font-black";
+              } else {
+                pickupStatusBadge = `${posPickups} Ret. (>0 Vermelho)`;
+                pickupBadgeBg = "bg-rose-500 text-white font-black";
+              }
+            } else {
+              pickupStatusBadge = `${posPickups} Tot. (100%)`;
+              pickupBadgeBg = "bg-indigo-500 text-white font-black";
+            }
+
+            let convStatusBadge = "Sem Retiradas";
+            let convBadgeBg = "bg-slate-800 text-slate-400";
+            if (posPickups > 0) {
+              if (posConvPct >= 30) {
+                convStatusBadge = `${posConvPct.toFixed(1)}% (≥30% Verde)`;
+                convBadgeBg = "bg-emerald-500 text-white font-black";
+              } else if (posConvPct >= 22) {
+                convStatusBadge = `${posConvPct.toFixed(1)}% (22-30% Amarelo)`;
+                convBadgeBg = "bg-amber-500 text-slate-950 font-black";
+              } else {
+                convStatusBadge = `${posConvPct.toFixed(1)}% (<22% Vermelho)`;
+                convBadgeBg = "bg-rose-500 text-white font-black";
+              }
+            }
 
             return (
               <div key={item.key} className={cn("bg-slate-950/70 p-4 rounded-xl border flex flex-col justify-between space-y-3 relative overflow-hidden print:bg-slate-100 print:text-black print:border-black", item.color)}>
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-1">
                   <span className={cn("px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider", item.badgeColor)}>
                     {item.label}
                   </span>
-                  <span className="text-[10px] font-black text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-700 print:text-black print:bg-white">
-                    Peso: {g.weight}
-                  </span>
+                  {item.key !== "LOJA" && (
+                    <Badge className={cn("text-[9px] font-black uppercase px-2 py-0.5 border-none", shareStatusBadgeBg)}>
+                      {shareBadgeLabel}
+                    </Badge>
+                  )}
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 pt-1">
-                  <div className="bg-slate-900/90 p-2 rounded-lg border border-slate-800 print:bg-white print:border-slate-300">
-                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block print:text-slate-600">PA Meta</span>
-                    <span className="text-base font-black text-white print:text-black">{formatNum(g.paMeta)}</span>
+                {/* PESO NOS CUPONS (REAL VS ESPERADO) */}
+                <div className="bg-slate-900/90 p-2 rounded-lg border border-slate-800 space-y-1 print:bg-white print:border-slate-300">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block print:text-slate-600">Peso Cupons (Real)</span>
+                    <span className="text-[9px] font-black text-slate-400">Ref: {g.weight}</span>
                   </div>
-                  <div className="bg-slate-900/90 p-2 rounded-lg border border-slate-800 print:bg-white print:border-slate-300">
-                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block print:text-slate-600">TKM Meta</span>
-                    <span className="text-base font-black text-white print:text-black">{formatBRL(g.tkmMeta)}</span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-black text-white print:text-black">
+                      {posSharePct.toFixed(1)}% <span className="text-[9px] font-medium text-slate-400">da loja</span>
+                    </span>
+                    {item.key !== "LOJA" && (
+                      <span className={cn("text-[9px] font-black px-1.5 py-0.5 rounded border", shareColorClass)}>
+                        {posSharePct <= expectedWeightNum ? `≤ ${expectedWeightNum}%` : `+${(posSharePct - expectedWeightNum).toFixed(1)}%`}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* PA META & TKM META */}
+                <div className="grid grid-cols-2 gap-1.5 pt-0.5">
+                  <div className="bg-slate-900/90 p-1.5 rounded-lg border border-slate-800 print:bg-white print:border-slate-300">
+                    <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest block print:text-slate-600">PA Meta</span>
+                    <span className="text-sm font-black text-white print:text-black">{formatNum(g.paMeta)}</span>
+                  </div>
+                  <div className="bg-slate-900/90 p-1.5 rounded-lg border border-slate-800 print:bg-white print:border-slate-300">
+                    <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest block print:text-slate-600">TKM Meta</span>
+                    <span className="text-sm font-black text-white print:text-black">{formatBRL(g.tkmMeta)}</span>
+                  </div>
+                </div>
+
+                {/* RETIRADAS & CONVERSÃO DO GRUPO */}
+                <div className="grid grid-cols-2 gap-1.5 pt-0.5">
+                  <div className="bg-slate-900/90 p-1.5 rounded-lg border border-slate-800 space-y-0.5 print:bg-white print:border-slate-300">
+                    <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest block print:text-slate-600">Retiradas</span>
+                    <Badge className={cn("text-[8px] font-black uppercase px-1 py-0.5 border-none truncate w-full justify-center", pickupBadgeBg)}>
+                      {pickupStatusBadge}
+                    </Badge>
+                  </div>
+                  <div className="bg-slate-900/90 p-1.5 rounded-lg border border-slate-800 space-y-0.5 print:bg-white print:border-slate-300">
+                    <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest block print:text-slate-600">Conversão</span>
+                    <Badge className={cn("text-[8px] font-black uppercase px-1 py-0.5 border-none truncate w-full justify-center", convBadgeBg)}>
+                      {convStatusBadge}
+                    </Badge>
                   </div>
                 </div>
 
@@ -541,6 +756,66 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
               </div>
             );
           })}
+        </div>
+
+        {/* LEGENDA DE VERIFICAÇÃO DE CORES */}
+        <div className="mt-5 pt-4 border-t border-slate-800 flex flex-col gap-2 text-xs print:border-black">
+          <div className="flex flex-wrap items-center gap-3 text-[10px] font-bold text-slate-300 print:text-black">
+            <span className="text-slate-400 font-black uppercase tracking-wider">Status Colaborador:</span>
+            <div className="flex items-center gap-1">
+              <Badge className="bg-emerald-500 text-white font-black text-[9px] px-2 py-0.5 border-none gap-1">
+                <CheckCircle2 className="w-3 h-3" />
+                <span>DENTRO (Verde)</span>
+              </Badge>
+              <span className="text-slate-400 font-normal">PA ≥ Meta & TKM ≥ Meta</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Badge className="bg-amber-500 text-white font-black text-[9px] px-2 py-0.5 border-none gap-1">
+                <Info className="w-3 h-3" />
+                <span>PARCIAL (Amarelo)</span>
+              </Badge>
+              <span className="text-slate-400 font-normal">1 Indicador Atingido</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Badge className="bg-rose-500 text-white font-black text-[9px] px-2 py-0.5 border-none gap-1">
+                <XCircle className="w-3 h-3" />
+                <span>FORA (Vermelho)</span>
+              </Badge>
+              <span className="text-slate-400 font-normal">Nenhum Atingido</span>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 text-[10px] font-bold text-slate-300 pt-1.5 border-t border-slate-800/60 print:text-black">
+            <span className="text-slate-400 font-black uppercase tracking-wider">Indicador Conversão:</span>
+            <div className="flex items-center gap-1">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block" />
+              <span className="text-emerald-400 font-bold">Verde (≥ 30%)</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block" />
+              <span className="text-amber-400 font-bold">Amarelo (22% a 29,99%)</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block" />
+              <span className="text-rose-400 font-bold">Vermelho (&lt; 22%)</span>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 text-[10px] font-bold text-slate-300 pt-1.5 border-t border-slate-800/60 print:text-black">
+            <span className="text-slate-400 font-black uppercase tracking-wider">Indicador Retiradas:</span>
+            <div className="flex items-center gap-1">
+              <span className="text-emerald-400 font-bold">P3 Salão:</span>
+              <span className="text-slate-300 font-normal">🟢 &gt; 70% das retiradas | 🔴 ≤ 70%</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-emerald-400 font-bold">P1 Caixa:</span>
+              <span className="text-slate-300 font-normal">🟢 ≤ 30% das retiradas | 🔴 &gt; 30%</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-emerald-400 font-bold">P2 Porta / Outras:</span>
+              <span className="text-slate-300 font-normal">🟢 0 retiradas | 🔴 &gt; 0 retiradas</span>
+            </div>
+          </div>
         </div>
       </Card>
 
@@ -743,7 +1018,12 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
 
                           <TableCell className="text-center align-middle">
                             <span className="hidden print:inline text-[8px] font-black">{v.pickupsAtendidas}</span>
-                            <Badge className={cn("print:hidden font-black border-none px-1.5 text-[10px] h-5", v.pickupsAtendidas > 0 ? "bg-sky-100 text-sky-700" : "bg-slate-50 text-slate-300")}>
+                            <Badge className={cn(
+                              "print:hidden font-black border-none px-1.5 text-[10px] h-5",
+                              v.finalPosKey === "P3" ? (v.pickupsAtendidas > 0 ? "bg-emerald-100 text-emerald-800" : "bg-slate-50 text-slate-400") :
+                              v.finalPosKey === "P1" ? (v.pickupsAtendidas > 0 ? "bg-sky-100 text-sky-800" : "bg-slate-50 text-slate-400") :
+                              (v.pickupsAtendidas === 0 ? "bg-slate-50 text-slate-400" : "bg-rose-100 text-rose-800")
+                            )}>
                               {v.pickupsAtendidas}
                             </Badge>
                           </TableCell>
@@ -757,12 +1037,12 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
 
                           <TableCell className="text-center align-middle">
                             <Badge className={cn(
-                              "print:hidden font-black border-none px-1.5 text-[10px] h-5",
-                              isAboveConv ? "bg-emerald-100 text-emerald-700" : isBelowConv ? "bg-rose-100 text-rose-700" : "bg-slate-100 text-slate-500"
+                              "print:hidden font-black border-none px-2 text-[10px] h-5",
+                              v.metrics.conv >= 30 ? "bg-emerald-500 text-white" : v.metrics.conv >= 22 ? "bg-amber-500 text-slate-950 font-extrabold" : v.pickupsAtendidas > 0 ? "bg-rose-500 text-white" : "bg-slate-100 text-slate-500"
                             )}>
-                              <div className="flex items-center gap-0.5">
+                              <div className="flex items-center gap-1">
                                 {formatNum(v.metrics.conv, 1)}%
-                                {isAboveConv ? <ArrowUpRight className="w-2.5 h-2.5" /> : isBelowConv ? <ArrowDownRight className="w-2.5 h-2.5" /> : null}
+                                {v.metrics.conv >= 30 ? <CheckCircle2 className="w-2.5 h-2.5 text-white" /> : v.metrics.conv >= 22 ? <Info className="w-2.5 h-2.5 text-slate-950" /> : v.pickupsAtendidas > 0 ? <XCircle className="w-2.5 h-2.5 text-white" /> : null}
                               </div>
                             </Badge>
                           </TableCell>
@@ -790,9 +1070,9 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
                      <TableCell className="text-center align-middle text-[10px] md:text-xs print:text-[8px] text-slate-300">{gSlp}</TableCell>
                      <TableCell className="text-center align-middle text-[10px] md:text-xs print:text-[8px] text-slate-300">{gBaralhos}</TableCell>
                      <TableCell className="text-center align-middle text-[10px] md:text-xs print:text-[8px] text-slate-300">{gSacolas}</TableCell>
-                     <TableCell className="text-center align-middle text-[10px] md:text-xs print:text-[8px] text-slate-300">{gPickups}</TableCell>
+                     <TableCell className={cn("text-center align-middle text-[10px] md:text-xs print:text-[8px] font-black", (posKey === "P3" ? (totals.pickups > 0 && (gPickups / totals.pickups) > 0.7) : posKey === "P1" ? (totals.pickups > 0 && (gPickups / totals.pickups) <= 0.3) : gPickups === 0) ? "text-emerald-400" : "text-rose-400")}>{gPickups}</TableCell>
                      <TableCell className="text-center align-middle text-[10px] md:text-xs print:text-[8px] text-slate-300">{gAdic}</TableCell>
-                     <TableCell className="text-center align-middle text-[10px] md:text-xs print:text-[8px] text-amber-400">{formatNum(gConv, 1)}%</TableCell>
+                     <TableCell className={cn("text-center align-middle text-[10px] md:text-xs print:text-[8px] font-black", gConv >= 30 ? "text-emerald-400" : gConv >= 22 ? "text-amber-400" : gPickups > 0 ? "text-rose-400" : "text-slate-300")}>{formatNum(gConv, 1)}%</TableCell>
                    </TableRow>
                  </React.Fragment>
                );
@@ -818,10 +1098,96 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
               <TableCell className="text-center align-middle text-emerald-400 print:text-black text-[10px] md:text-xs print:text-[8px]">{totals.sacolas}</TableCell>
               <TableCell className="text-center align-middle text-sky-400 print:text-black text-[10px] md:text-xs print:text-[8px]">{totals.pickups}</TableCell>
               <TableCell className="text-center align-middle text-emerald-400 print:text-black text-[10px] md:text-xs print:text-[8px]">{totals.adicionais}</TableCell>
-              <TableCell className="text-center align-middle text-amber-400 print:text-black text-[10px] md:text-xs print:text-[8px]">{formatNum(totals.conv, 1)}%</TableCell>
+              <TableCell className={cn("text-center align-middle text-[10px] md:text-xs print:text-[8px] font-black", totals.conv >= 30 ? "text-emerald-400" : totals.conv >= 22 ? "text-amber-400" : "text-rose-400")}>{formatNum(totals.conv, 1)}%</TableCell>
             </TableRow>
           </TableFooter>
         </Table>
+      </Card>
+
+      {/* MURAL DE ALERTAS E INSIGHTS OPERACIONAIS */}
+      <Card className="ri-card bg-slate-900 text-white p-5 md:p-6 rounded-2xl border border-slate-800 shadow-xl print:bg-white print:text-black print:border print:border-black space-y-6">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-slate-800 pb-4 print:border-black">
+          <div className="flex items-center gap-3">
+            <div className="bg-amber-500/20 text-amber-400 p-2.5 rounded-xl border border-amber-500/30 print:hidden">
+              <AlertTriangle className="w-6 h-6" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-base md:text-lg font-black uppercase tracking-tight text-white print:text-black">
+                  Mural de Alertas & Resumo Operacional
+                </h2>
+                <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/30 text-[9px] font-black uppercase tracking-widest px-2 py-0.5 print:hidden">
+                  Atualização Dinâmica
+                </Badge>
+              </div>
+              <p className="text-[11px] font-medium text-slate-400 print:text-slate-600">
+                Resumo em formato de texto dos gargalos, superações e recomendações atualizados ao editar as posições na tabela.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-5">
+          {/* ALERTAS CRÍTICOS & GARGALOS */}
+          <div className="bg-slate-950/80 p-4 rounded-xl border border-rose-500/30 space-y-3 print:bg-slate-50 print:border-black">
+            <div className="flex items-center gap-2 text-rose-400 font-black text-xs uppercase tracking-wider print:text-rose-700">
+              <AlertCircle className="w-4 h-4" />
+              <span>Gargalos & Atenção ({insights.alerts.length})</span>
+            </div>
+            <div className="space-y-2">
+              {insights.alerts.length === 0 ? (
+                <p className="text-[11px] text-emerald-400 font-bold italic">Nenhum gargalo identificado. Operação no alvo!</p>
+              ) : (
+                insights.alerts.map((alertText, idx) => (
+                  <div key={idx} className="bg-rose-950/30 border border-rose-500/20 p-2.5 rounded-lg flex items-start gap-2 print:bg-rose-50 print:border-rose-300">
+                    <span className="w-2 h-2 rounded-full bg-rose-500 mt-1 flex-shrink-0" />
+                    <p className="text-[11px] font-bold leading-snug text-rose-200 print:text-rose-950">{alertText}</p>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* DESTAQUES POSITIVOS */}
+          <div className="bg-slate-950/80 p-4 rounded-xl border border-emerald-500/30 space-y-3 print:bg-slate-50 print:border-black">
+            <div className="flex items-center gap-2 text-emerald-400 font-black text-xs uppercase tracking-wider print:text-emerald-700">
+              <CheckCircle2 className="w-4 h-4" />
+              <span>Destaques Positivos ({insights.highlights.length})</span>
+            </div>
+            <div className="space-y-2">
+              {insights.highlights.length === 0 ? (
+                <p className="text-[11px] text-slate-400 font-bold italic">Nenhum destaque mapeado no momento.</p>
+              ) : (
+                insights.highlights.map((highText, idx) => (
+                  <div key={idx} className="bg-emerald-950/30 border border-emerald-500/20 p-2.5 rounded-lg flex items-start gap-2 print:bg-emerald-50 print:border-emerald-300">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 mt-1 flex-shrink-0" />
+                    <p className="text-[11px] font-bold leading-snug text-emerald-200 print:text-emerald-950">{highText}</p>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* RECOMENDAÇÕES PARA O GESTOR */}
+          <div className="bg-slate-950/80 p-4 rounded-xl border border-indigo-500/30 space-y-3 print:bg-slate-50 print:border-black">
+            <div className="flex items-center gap-2 text-indigo-400 font-black text-xs uppercase tracking-wider print:text-indigo-700">
+              <Lightbulb className="w-4 h-4" />
+              <span>Plano de Ação para o Gestor ({insights.recommendations.length})</span>
+            </div>
+            <div className="space-y-2">
+              {insights.recommendations.length === 0 ? (
+                <p className="text-[11px] text-slate-400 font-bold italic">Manter alocação e fluxo operacional atual.</p>
+              ) : (
+                insights.recommendations.map((recText, idx) => (
+                  <div key={idx} className="bg-indigo-950/30 border border-indigo-500/20 p-2.5 rounded-lg flex items-start gap-2 print:bg-indigo-50 print:border-indigo-300">
+                    <span className="w-2 h-2 rounded-full bg-indigo-500 mt-1 flex-shrink-0" />
+                    <p className="text-[11px] font-bold leading-snug text-indigo-200 print:text-indigo-950">{recText}</p>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
       </Card>
 
       {/* fecha captureRef */}

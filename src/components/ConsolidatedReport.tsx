@@ -124,10 +124,10 @@ export function getAttainmentLevel(real: number, meta: number): AttainmentInfo {
 
   const pct = (real / meta) * 100;
 
-  if (pct >= 90) {
+  if (pct >= 100) {
     return {
       level: 'VERDE',
-      label: 'Atingido (≥ 90%)',
+      label: 'Atingido (≥ 100%)',
       shortLabel: 'ATINGIDO',
       pct,
       badgeClass: 'bg-emerald-500 text-white font-black',
@@ -136,10 +136,10 @@ export function getAttainmentLevel(real: number, meta: number): AttainmentInfo {
       borderClass: 'border-emerald-200',
       icon: 'check'
     };
-  } else if (pct >= 80) {
+  } else if (pct >= 90) {
     return {
       level: 'AMARELO',
-      label: 'Na Trave (80% a 89,9%)',
+      label: 'Na Trave (90% a 99,9%)',
       shortLabel: 'NA TRAVE',
       pct,
       badgeClass: 'bg-amber-400 text-slate-950 font-black',
@@ -151,7 +151,7 @@ export function getAttainmentLevel(real: number, meta: number): AttainmentInfo {
   } else if (pct >= 75) {
     return {
       level: 'ALERTA',
-      label: 'Atenção (75% a 79,9%)',
+      label: 'Atenção (75% a 89,9%)',
       shortLabel: 'ATENÇÃO',
       pct,
       badgeClass: 'bg-orange-500 text-white font-black',
@@ -183,7 +183,7 @@ const POSITIONS = {
   "NONE": { label: "➖ Sem Vendas", color: "bg-slate-100 text-slate-500", rowColor: "bg-slate-50/50 hover:bg-slate-100/50" }
 };
 
-function getAutoPositionKey(v: any, avgCupons: number) {
+function getAutoPositionKey(v: any) {
   if (v.filtered.cupons === 0) return "NONE";
 
   const pa = v.filtered.itens / v.filtered.cupons;
@@ -191,13 +191,13 @@ function getAutoPositionKey(v: any, avgCupons: number) {
   
   if (isDigital) return "DIG";
 
-  // Alto volume de cupons (acima de 120% da média) e PA baixo = Caixa
-  if (v.filtered.cupons > (avgCupons * 1.2) && pa < 1.8) return "P1";
+  // Alto volume de cupons e PA baixo = Caixa
+  if (v.filtered.cupons >= 30 && pa < 1.68) return "P1";
 
-  // PA Alto = Consultivo
-  if (pa >= 2.5) return "P3";
+  // PA Alto (>= 2.2) = Salão (Consultivo)
+  if (pa >= 2.2) return "P3";
   
-  // PA Médio = Pista
+  // PA Médio = Porta (Pista)
   return "P2";
 }
 
@@ -381,7 +381,7 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
       const filteredIdent = v.filtered.cupons > 0 ? Math.min((v.filtered.ident / v.filtered.cupons) * 100, 100) : 0;
       const conv = v.pickupsAtendidas > 0 ? (v.adicionaisFeitos / v.pickupsAtendidas) * 100 : 0;
 
-      const autoPosKey = getAutoPositionKey(v, avgCupons);
+      const autoPosKey = getAutoPositionKey(v);
       const finalPosKey = manualPositions[v.name] || autoPosKey;
       const posInfo = POSITIONS[finalPosKey as keyof typeof POSITIONS] || POSITIONS["NONE"];
 
@@ -1008,21 +1008,21 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
             <div className="flex items-center gap-1">
               <Badge className="bg-emerald-500 text-white font-black text-[9px] px-2 py-0.5 border-none gap-1">
                 <CheckCircle2 className="w-3 h-3" />
-                <span>ATINGIDO (≥ 90%)</span>
+                <span>ATINGIDO (≥ 100%)</span>
               </Badge>
               <span className="text-slate-400 font-normal">Alvo Atingido</span>
             </div>
             <div className="flex items-center gap-1">
               <Badge className="bg-amber-400 text-slate-950 font-black text-[9px] px-2 py-0.5 border-none gap-1">
                 <Info className="w-3 h-3" />
-                <span>NA TRAVE (80% a 89,99%)</span>
+                <span>NA TRAVE (90% a 99,99%)</span>
               </Badge>
-              <span className="text-slate-400 font-normal">Desempenho Aceitável</span>
+              <span className="text-slate-400 font-normal">Próximo da Meta</span>
             </div>
             <div className="flex items-center gap-1">
               <Badge className="bg-orange-500 text-white font-black text-[9px] px-2 py-0.5 border-none gap-1">
                 <AlertTriangle className="w-3 h-3" />
-                <span>ATENÇÃO (75% a 79,99%)</span>
+                <span>ATENÇÃO (75% a 89,99%)</span>
               </Badge>
               <span className="text-slate-400 font-normal">Abaixo da Meta</span>
             </div>
@@ -1123,10 +1123,6 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
                  <React.Fragment key={posKey}>
                    {members.map((v, i) => {
                       const rowColor = v.groupColor || "bg-white";
-                      
-                      const avgVenda = gVenda / members.length;
-                      const isAboveVenda = v.current.venda > avgVenda;
-                      const isBelowVenda = v.current.venda < avgVenda;
 
                       return (
                         <TableRow 
@@ -1164,10 +1160,7 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
 
                           <TableCell className="text-center align-middle">
                             <div className="flex flex-col items-center justify-center">
-                              <div className="flex items-center justify-center gap-0.5">
-                                <span className={cn("font-black text-xs md:text-sm print:text-[8px]", isAboveVenda ? "text-emerald-700" : isBelowVenda ? "text-rose-600" : "text-slate-800")}>{formatBRL(v.current.venda)}</span>
-                                {isAboveVenda ? <ArrowUpRight className="w-3 h-3 text-emerald-500 print:hidden" /> : isBelowVenda ? <ArrowDownRight className="w-3 h-3 text-rose-500 print:hidden" /> : null}
-                              </div>
+                              <span className="font-black text-slate-800 text-xs md:text-sm print:text-[8px]">{formatBRL(v.current.venda)}</span>
                               <span className="text-[8px] font-bold text-slate-400 print:hidden">
                                 {(totals.venda > 0 ? (v.current.venda / totals.venda) * 100 : 0).toFixed(1)}% do total
                               </span>

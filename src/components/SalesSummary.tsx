@@ -135,6 +135,7 @@ import { WeeklyAnalysis } from "./WeeklyAnalysis";
 import { AgingCampaignAnalysis } from "./AgingCampaignAnalysis";
 import { ShiftPerformance } from "./ShiftPerformance";
 import { CollaboratorXRay } from "./CollaboratorXRay";
+import { WeightedPerformanceReport } from "./WeightedPerformanceReport";
 import { ProductCouponAnalysis } from "./ProductCouponAnalysis";
 import { RealtimeImpactPanel } from "./RealtimeImpactPanel";
 import { Search, CheckCircle2 } from "lucide-react";
@@ -407,6 +408,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
     { id: "diario", label: "Performance Diária", icon: CalendarIcon, category: "Resultados" },
 
     { id: "raio_x_colaborador", label: "Raio-X do Colaborador", icon: UserCheck, category: "Pessoas", color: "text-indigo-600 font-black" },
+    { id: "weighted_performance", label: "Meta Ponderada (Por Escala)", icon: Scale, category: "Pessoas", color: "text-indigo-600 font-black" },
     { id: "whatsapp", label: "WhatsApp", icon: MessageCircle, category: "Pessoas", color: "text-emerald-500" },
     { id: "colab_ranking_prod", label: "Ranking por Produto", icon: Trophy, category: "Pessoas", color: "text-violet-600 font-black" },
 
@@ -471,6 +473,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
       case "pickup_track": return <PickupPanel data={filteredData} />;
       case "delivery_track": return <DeliveryPanel data={filteredData} />;
       case "raio_x_colaborador": return <CollaboratorXRay data={filteredData} vinculos={filteredVinculos} />;
+      case "weighted_performance": return <WeightedPerformanceReport data={filteredData} vinculos={filteredVinculos} />;
       case "whatsapp": return <WhatsappReports data={filteredData} vinculos={filteredVinculos} />;
       case "elasticidade": return <ElasticityAnalysis data={filteredData} />;
       case "deep_dive": return null;

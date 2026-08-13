@@ -33,7 +33,9 @@ import {
   Clock,
   ArrowUpRight,
   ArrowDownRight,
-  Activity
+  Activity,
+  Users,
+  Eye
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -41,6 +43,19 @@ import { cn } from "@/lib/utils";
 interface RealtimeImpactPanelProps {
   data: DetailedSaleRow[];
 }
+
+const VENDOR_COLORS = [
+  "#10b981", // Emerald
+  "#f59e0b", // Amber
+  "#ef4444", // Red
+  "#06b6d4", // Cyan
+  "#8b5cf6", // Violet
+  "#f97316", // Orange
+  "#ec4899", // Pink
+  "#14b8a6", // Teal
+  "#3b82f6", // Blue
+  "#a855f7", // Purple
+];
 
 interface TimelinePoint {
   index: number;
@@ -59,7 +74,7 @@ interface TimelinePoint {
   storePA: number;
   storeTKM: number;
 
-  // Accumulated vendor metrics up to this coupon
+  // Accumulated vendor metrics up to this coupon (for target vendor)
   vendorCupons: number;
   vendorItens: number;
   vendorVenda: number;
@@ -74,10 +89,12 @@ interface TimelinePoint {
 
   isMonoItem: boolean;
   impactType: "POSITIVE" | "NEGATIVE" | "NEUTRAL";
+  [key: string]: any;
 }
 
 export function RealtimeImpactPanel({ data }: RealtimeImpactPanelProps) {
   const [selectedVendor, setSelectedVendor] = useState<string>("all");
+  const [viewAllCollaborators, setViewAllCollaborators] = useState<boolean>(true);
   const [metricMode, setMetricMode] = useState<"pa" | "tkm">("pa");
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [currentStepIndex, setCurrentStepIndex] = useState<number>(-1);
@@ -98,10 +115,19 @@ export function RealtimeImpactPanel({ data }: RealtimeImpactPanelProps) {
     return Array.from(set).sort();
   }, [data]);
 
+  // Color map for vendors
+  const vendorColorMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    vendors.forEach((v, idx) => {
+      map[v] = VENDOR_COLORS[idx % VENDOR_COLORS.length];
+    });
+    return map;
+  }, [vendors]);
+
   // Set default selected vendor when vendors list loads
   useEffect(() => {
     if (vendors.length > 0 && selectedVendor === "all") {
-      setSelectedVendor(vendors[0]);
+      setSelectedVendor("all");
     }
   }, [vendors, selectedVendor]);
 
@@ -171,7 +197,7 @@ export function RealtimeImpactPanel({ data }: RealtimeImpactPanelProps) {
       const isMonoItem = itens_qtd <= 1;
       const impactType = itens_qtd >= 2 ? "POSITIVE" : (itens_qtd <= 1 ? "NEGATIVE" : "NEUTRAL");
 
-      points.push({
+      const point: TimelinePoint = {
         index: idx,
         time: timeStr,
         timeStr,
@@ -196,7 +222,18 @@ export function RealtimeImpactPanel({ data }: RealtimeImpactPanelProps) {
         storeTkmDelta,
         isMonoItem,
         impactType
+      };
+
+      // Add snapshot of ALL vendor metrics up to this timestamp for multi-line comparison
+      vendors.forEach(vendKey => {
+        const acc = vendorAcc[vendKey];
+        if (acc && acc.cupons > 0) {
+          point[`pa_${vendKey}`] = parseFloat((acc.itens / acc.cupons).toFixed(2));
+          point[`tkm_${vendKey}`] = parseFloat((acc.venda / acc.cupons).toFixed(2));
+        }
       });
+
+      points.push(point);
     });
 
     return points;
@@ -270,24 +307,42 @@ export function RealtimeImpactPanel({ data }: RealtimeImpactPanelProps) {
               </Badge>
             </div>
             <p className="text-xs font-medium text-slate-400 mt-0.5">
-              Visualize exatamente como cada cupom emitido altera o PA e o TKM do colaborador e o saldo da loja no minuto exato da venda.
+              Visualize a curva acumulada de todos os colaboradores simultaneamente e meça o impacto de cada atendimento na loja.
             </p>
           </div>
         </div>
 
         {/* SELECTOR CONTROLS */}
         <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+          {/* TOGGLE ALL COLLABORATORS LINES */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setViewAllCollaborators(!viewAllCollaborators)}
+            className={cn(
+              "h-9 px-3 text-xs font-bold rounded-xl gap-2 border transition-all",
+              viewAllCollaborators ? "bg-indigo-600 text-white border-indigo-500 font-black shadow-sm" : "bg-slate-950 text-slate-300 border-slate-800 hover:text-white"
+            )}
+          >
+            <Users className="w-4 h-4" />
+            <span>{viewAllCollaborators ? "Todas as Linhas Ativas" : "Exibir Todos os Vendedores"}</span>
+          </Button>
+
           {/* VENDOR SELECTOR */}
           <div className="flex flex-col gap-1 flex-1 sm:flex-initial">
-            <label className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Colaborador em Foco</label>
             <Select value={selectedVendor} onValueChange={(val) => { setSelectedVendor(val); setCurrentStepIndex(-1); }}>
               <SelectTrigger className="w-full sm:w-48 bg-slate-950 border-slate-700 text-white text-xs font-bold h-9">
                 <SelectValue placeholder="Selecione o Colaborador" />
               </SelectTrigger>
               <SelectContent className="bg-slate-900 text-white border-slate-800">
-                <SelectItem value="all" className="text-xs font-bold text-indigo-400">🌐 Todos (Visão Loja)</SelectItem>
+                <SelectItem value="all" className="text-xs font-bold text-indigo-400">🌐 Visão Consolidada Loja</SelectItem>
                 {vendors.map(v => (
-                  <SelectItem key={v} value={v} className="text-xs font-bold">{v}</SelectItem>
+                  <SelectItem key={v} value={v} className="text-xs font-bold">
+                    <span className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: vendorColorMap[v] }} />
+                      {v}
+                    </span>
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -295,7 +350,6 @@ export function RealtimeImpactPanel({ data }: RealtimeImpactPanelProps) {
 
           {/* METRIC MODE TOGGLE */}
           <div className="flex flex-col gap-1">
-            <label className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Métrica Analisada</label>
             <div className="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800">
               <Button
                 variant="ghost"
@@ -406,7 +460,10 @@ export function RealtimeImpactPanel({ data }: RealtimeImpactPanelProps) {
               <div className="flex items-center justify-between text-slate-800 pt-1">
                 <div>
                   <p className="text-[10px] font-bold text-slate-400 uppercase">Vendedor</p>
-                  <p className="text-xs font-black text-slate-900">{activePoint.vendedor}</p>
+                  <p className="text-xs font-black text-slate-900 flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: vendorColorMap[activePoint.vendedor] || '#6366f1' }} />
+                    {activePoint.vendedor}
+                  </p>
                 </div>
                 <div className="text-right">
                   <p className="text-[10px] font-bold text-slate-400 uppercase">Atendimento</p>
@@ -417,14 +474,14 @@ export function RealtimeImpactPanel({ data }: RealtimeImpactPanelProps) {
               {/* DELTA SUMMARY */}
               <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-200/80">
                 <div className="bg-white p-2 rounded-lg border border-slate-200 text-center">
-                  <span className="text-[8px] font-bold text-slate-400 uppercase block">Impacto PA Colaborador</span>
+                  <span className="text-[8px] font-bold text-slate-400 uppercase block">PA Colaborador</span>
                   <span className={cn("text-xs font-black flex items-center justify-center gap-0.5", activePoint.vendorPaDelta > 0 ? "text-emerald-600" : activePoint.vendorPaDelta < 0 ? "text-rose-600" : "text-slate-700")}>
                     {activePoint.vendorPaDelta > 0 ? <ArrowUpRight className="w-3 h-3 text-emerald-600" /> : activePoint.vendorPaDelta < 0 ? <ArrowDownRight className="w-3 h-3 text-rose-600" /> : null}
                     {formatNum(activePoint.vendorPA)} ({activePoint.vendorPaDelta >= 0 ? "+" : ""}{formatNum(activePoint.vendorPaDelta)})
                   </span>
                 </div>
                 <div className="bg-white p-2 rounded-lg border border-slate-200 text-center">
-                  <span className="text-[8px] font-bold text-slate-400 uppercase block">Impacto PA Loja</span>
+                  <span className="text-[8px] font-bold text-slate-400 uppercase block">PA Loja Consolidado</span>
                   <span className={cn("text-xs font-black flex items-center justify-center gap-0.5", activePoint.storePaDelta > 0 ? "text-emerald-600" : activePoint.storePaDelta < 0 ? "text-rose-600" : "text-slate-700")}>
                     {activePoint.storePaDelta > 0 ? <ArrowUpRight className="w-3 h-3 text-emerald-600" /> : activePoint.storePaDelta < 0 ? <ArrowDownRight className="w-3 h-3 text-rose-600" /> : null}
                     {formatNum(activePoint.storePA)} ({activePoint.storePaDelta >= 0 ? "+" : ""}{formatNum(activePoint.storePaDelta)})
@@ -501,17 +558,20 @@ export function RealtimeImpactPanel({ data }: RealtimeImpactPanelProps) {
                 Evolução Cronológica: {metricMode === "pa" ? "PA (Peças por Atendimento)" : "Ticket Médio (TKM)"}
               </h3>
               <p className="text-[10px] font-semibold text-slate-400">
-                Linha roxa = Loja Consolidada • Linha verde = {targetVendorName}
+                Linha Roxa Destaque = Loja Consolidada • Linhas Coloridas = Colaboradores da Loja
               </p>
             </div>
           </div>
-          <Badge className="bg-slate-100 text-slate-700 font-black text-[10px]">
-            {activeTimelinePoints.length} atendimentos na curva
-          </Badge>
+
+          <div className="flex items-center gap-2">
+            <Badge className="bg-slate-100 text-slate-700 font-black text-[10px]">
+              {activeTimelinePoints.length} atendimentos na curva
+            </Badge>
+          </div>
         </div>
 
-        {/* RECHARTS TIME-SERIES LINE CHART */}
-        <div className="h-80 w-full pt-2">
+        {/* RECHARTS TIME-SERIES MULTI-LINE CHART */}
+        <div className="h-96 w-full pt-2">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={activeTimelinePoints} margin={{ top: 10, right: 20, left: 10, bottom: 20 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
@@ -532,27 +592,44 @@ export function RealtimeImpactPanel({ data }: RealtimeImpactPanelProps) {
                   if (active && payload && payload.length) {
                     const dataPoint = payload[0].payload as TimelinePoint;
                     return (
-                      <div className="bg-slate-900 text-white p-3 rounded-xl shadow-xl border border-slate-800 text-xs space-y-1">
-                        <p className="font-black text-indigo-300 border-b border-slate-800 pb-1 flex items-center justify-between gap-4">
-                          <span>🕒 {dataPoint.timeStr}</span>
-                          <span className="text-[10px] font-bold text-slate-400">{dataPoint.vendedor}</span>
-                        </p>
-                        <p className="text-slate-200">
+                      <div className="bg-slate-900 text-white p-3.5 rounded-2xl shadow-2xl border border-slate-800 text-xs space-y-2 max-w-xs sm:max-w-sm">
+                        <div className="border-b border-slate-800 pb-1.5 flex items-center justify-between gap-4">
+                          <span className="font-mono font-bold text-indigo-300">🕒 {dataPoint.timeStr}</span>
+                          <span className="text-[10px] font-bold text-slate-400 uppercase">{dataPoint.vendedor}</span>
+                        </div>
+                        <p className="text-slate-300 text-[11px]">
                           🛒 Atendimento: <strong className="text-white">{dataPoint.itens_qtd} item(s)</strong> ({formatBRL(dataPoint.vNF)})
                         </p>
-                        <p className="text-indigo-400 font-bold">
-                          🏬 PA Loja Acum.: {formatNum(dataPoint.storePA)} (Delta: {dataPoint.storePaDelta >= 0 ? "+" : ""}{formatNum(dataPoint.storePaDelta)})
-                        </p>
-                        <p className="text-emerald-400 font-bold">
-                          👤 PA {dataPoint.vendedor}: {formatNum(dataPoint.vendorPA)} (Delta: {dataPoint.vendorPaDelta >= 0 ? "+" : ""}{formatNum(dataPoint.vendorPaDelta)})
-                        </p>
+                        <div className="pt-1 space-y-1 max-h-48 overflow-y-auto pr-1">
+                          <div className="text-indigo-400 font-extrabold flex items-center justify-between text-xs border-b border-slate-800/80 pb-1">
+                            <span>🏬 Loja Consolidada:</span>
+                            <span>{metricMode === "pa" ? formatNum(dataPoint.storePA) : formatBRL(dataPoint.storeTKM)}</span>
+                          </div>
+                          {vendors.map(v => {
+                            const val = metricMode === "pa" ? (dataPoint as any)[`pa_${v}`] : (dataPoint as any)[`tkm_${v}`];
+                            if (val === undefined || val === null) return null;
+                            const color = vendorColorMap[v] || "#10b981";
+                            const isCurrentVendor = dataPoint.vendedor === v;
+                            return (
+                              <div key={v} className={cn("flex items-center justify-between text-[11px] font-bold py-0.5", isCurrentVendor ? "bg-slate-800/80 px-1.5 py-1 rounded border border-indigo-500/30" : "")}>
+                                <span className="flex items-center gap-1.5" style={{ color }}>
+                                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
+                                  {v}:
+                                </span>
+                                <span className="text-white">
+                                  {metricMode === "pa" ? formatNum(val) : formatBRL(val)}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
                     );
                   }
                   return null;
                 }}
               />
-              <Legend wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', paddingTop: '10px' }} />
+              <Legend wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', paddingTop: '12px' }} />
               
               {/* Reference line for target PA of 1.75 or TKM 150 */}
               <ReferenceLine 
@@ -568,38 +645,52 @@ export function RealtimeImpactPanel({ data }: RealtimeImpactPanelProps) {
                 dataKey={metricMode === "pa" ? "storePA" : "storeTKM"} 
                 name="Loja Consolidada" 
                 stroke="#6366f1" 
-                strokeWidth={3} 
+                strokeWidth={4} 
                 dot={false}
-                activeDot={{ r: 6, fill: "#6366f1" }}
+                activeDot={{ r: 7, fill: "#6366f1" }}
               />
 
-              {/* Line 2: Selected Vendor Cumulative */}
-              <Line 
-                type="monotone" 
-                dataKey={metricMode === "pa" ? "vendorPA" : "vendorTKM"} 
-                name={targetVendorName} 
-                stroke="#10b981" 
-                strokeWidth={3} 
-                dot={(props: any) => {
-                  const { cx, cy, payload } = props;
-                  if (payload.isTargetVendor || selectedVendor === "all") {
-                    const isMono = payload.isMonoItem;
-                    return (
-                      <circle 
-                        key={props.key} 
-                        cx={cx} 
-                        cy={cy} 
-                        r={4} 
-                        fill={isMono ? "#ef4444" : "#10b981"} 
-                        stroke="#ffffff" 
-                        strokeWidth={1.5} 
-                      />
-                    );
-                  }
-                  return <React.Fragment key={props.key} />;
-                }}
-                activeDot={{ r: 7, fill: "#10b981" }}
-              />
+              {/* Lines for each Collaborator */}
+              {vendors.map(v => {
+                const isSelected = selectedVendor === v;
+                const shouldRender = viewAllCollaborators || selectedVendor === "all" || isSelected;
+                if (!shouldRender) return null;
+
+                const color = vendorColorMap[v] || "#10b981";
+                const dataKey = metricMode === "pa" ? `pa_${v}` : `tkm_${v}`;
+
+                return (
+                  <Line
+                    key={v}
+                    type="monotone"
+                    dataKey={dataKey}
+                    name={v}
+                    stroke={color}
+                    strokeWidth={isSelected ? 3 : (selectedVendor === "all" || viewAllCollaborators ? 2 : 1)}
+                    strokeOpacity={selectedVendor !== "all" && !isSelected && viewAllCollaborators ? 0.4 : 1}
+                    connectNulls
+                    dot={isSelected ? (props: any) => {
+                      const { cx, cy, payload } = props;
+                      if (payload.vendedor === v) {
+                        const isMono = payload.isMonoItem;
+                        return (
+                          <circle 
+                            key={props.key} 
+                            cx={cx} 
+                            cy={cy} 
+                            r={4} 
+                            fill={isMono ? "#ef4444" : color} 
+                            stroke="#ffffff" 
+                            strokeWidth={1.5} 
+                          />
+                        );
+                      }
+                      return <React.Fragment key={props.key} />;
+                    } : false}
+                    activeDot={{ r: 5, fill: color }}
+                  />
+                );
+              })}
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -653,6 +744,7 @@ export function RealtimeImpactPanel({ data }: RealtimeImpactPanelProps) {
                 logPoints.map((pt) => {
                   const isPositive = pt.itens_qtd >= 2;
                   const isNegative = pt.itens_qtd <= 1;
+                  const vendorColor = vendorColorMap[pt.vendedor] || "#6366f1";
 
                   return (
                     <tr 
@@ -670,7 +762,10 @@ export function RealtimeImpactPanel({ data }: RealtimeImpactPanelProps) {
                         </div>
                       </td>
                       <td className="py-2 px-3 font-bold text-slate-900 uppercase whitespace-nowrap">
-                        {pt.vendedor}
+                        <div className="flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: vendorColor }} />
+                          <span>{pt.vendedor}</span>
+                        </div>
                       </td>
                       <td className="py-2 px-3 text-center font-bold">
                         <span className={cn("px-2 py-0.5 rounded text-[10px] font-black", pt.itens_qtd >= 2 ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800")}>

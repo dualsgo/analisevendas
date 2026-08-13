@@ -127,8 +127,8 @@ export function getAttainmentLevel(real: number, meta: number): AttainmentInfo {
   if (pct >= 90) {
     return {
       level: 'VERDE',
-      label: 'Verde (≥ 90%)',
-      shortLabel: 'VERDE',
+      label: 'Atingido (≥ 90%)',
+      shortLabel: 'ATINGIDO',
       pct,
       badgeClass: 'bg-emerald-500 text-white font-black',
       textClass: 'text-emerald-700 font-extrabold',
@@ -139,8 +139,8 @@ export function getAttainmentLevel(real: number, meta: number): AttainmentInfo {
   } else if (pct >= 80) {
     return {
       level: 'AMARELO',
-      label: 'Amarelo (80% a 89,9%)',
-      shortLabel: 'AMARELO',
+      label: 'Na Trave (80% a 89,9%)',
+      shortLabel: 'NA TRAVE',
       pct,
       badgeClass: 'bg-amber-400 text-slate-950 font-black',
       textClass: 'text-amber-700 font-extrabold',
@@ -151,8 +151,8 @@ export function getAttainmentLevel(real: number, meta: number): AttainmentInfo {
   } else if (pct >= 75) {
     return {
       level: 'ALERTA',
-      label: 'Alerta (75% a 79,9%)',
-      shortLabel: 'ALERTA',
+      label: 'Atenção (75% a 79,9%)',
+      shortLabel: 'ATENÇÃO',
       pct,
       badgeClass: 'bg-orange-500 text-white font-black',
       textClass: 'text-orange-600 font-black',
@@ -163,8 +163,8 @@ export function getAttainmentLevel(real: number, meta: number): AttainmentInfo {
   } else {
     return {
       level: 'ALERTA_EXTREMO',
-      label: 'Alerta Extremo (< 75%)',
-      shortLabel: 'EXTREMO',
+      label: 'Crítico (< 75%)',
+      shortLabel: 'CRÍTICO',
       pct,
       badgeClass: 'bg-rose-600 text-white font-black',
       textClass: 'text-rose-600 font-black',
@@ -1008,28 +1008,28 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
             <div className="flex items-center gap-1">
               <Badge className="bg-emerald-500 text-white font-black text-[9px] px-2 py-0.5 border-none gap-1">
                 <CheckCircle2 className="w-3 h-3" />
-                <span>VERDE (≥ 90%)</span>
+                <span>ATINGIDO (≥ 90%)</span>
               </Badge>
               <span className="text-slate-400 font-normal">Alvo Atingido</span>
             </div>
             <div className="flex items-center gap-1">
               <Badge className="bg-amber-400 text-slate-950 font-black text-[9px] px-2 py-0.5 border-none gap-1">
                 <Info className="w-3 h-3" />
-                <span>AMARELO (80% a 89,99%)</span>
+                <span>NA TRAVE (80% a 89,99%)</span>
               </Badge>
-              <span className="text-slate-400 font-normal">Na Trave</span>
+              <span className="text-slate-400 font-normal">Desempenho Aceitável</span>
             </div>
             <div className="flex items-center gap-1">
               <Badge className="bg-orange-500 text-white font-black text-[9px] px-2 py-0.5 border-none gap-1">
                 <AlertTriangle className="w-3 h-3" />
-                <span>ALERTA (75% a 79,99%)</span>
+                <span>ATENÇÃO (75% a 79,99%)</span>
               </Badge>
               <span className="text-slate-400 font-normal">Abaixo da Meta</span>
             </div>
             <div className="flex items-center gap-1">
               <Badge className="bg-rose-600 text-white font-black text-[9px] px-2 py-0.5 border-none gap-1">
                 <XCircle className="w-3 h-3" />
-                <span>ALERTA EXTREMO (&lt; 75%)</span>
+                <span>CRÍTICO (&lt; 75%)</span>
               </Badge>
               <span className="text-slate-400 font-normal">Desempenho Crítico</span>
             </div>

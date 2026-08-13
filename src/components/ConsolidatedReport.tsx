@@ -1075,7 +1075,6 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
           <TableHeader className="bg-slate-900 print:bg-slate-200">
             <TableRow className="hover:bg-slate-900 border-none h-11 print:h-7 print:border-b print:border-black divide-x divide-slate-700 print:divide-black">
               <TableHead className="text-white print:text-black font-black uppercase text-[9px] text-center align-middle print:w-[12%] w-32 md:w-36 whitespace-nowrap">Colaborador</TableHead>
-              <SortableHead label="Status Meta" sortKey="status" currentSort={sortConfig} onSort={setSortConfig} className="text-center align-middle print:w-[8%]" />
               <SortableHead label="Venda (% Total)" sortKey="venda" currentSort={sortConfig} onSort={setSortConfig} className="text-center align-middle print:w-[9%]" />
               <SortableHead label="Cupons (% Total)" sortKey="cupons" currentSort={sortConfig} onSort={setSortConfig} className="text-center align-middle print:w-[6%]" />
               <SortableHead label="Itens" sortKey="itens" currentSort={sortConfig} onSort={setSortConfig} className="text-center align-middle print:w-[5%]" />
@@ -1146,16 +1145,6 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
                               <span className="hidden print:inline-block mr-1 text-[8px]">{posInfo.label.split(' ')[0]}</span>
                               <p className={cn("font-black text-slate-800 uppercase leading-none text-[11px] md:text-xs print:text-[8px] truncate")}>{v.name}</p>
                             </div>
-                          </TableCell>
-                          
-                          <TableCell className="text-center align-middle">
-                            <Badge className={cn("font-black text-[9px] uppercase px-2 py-0.5 border-none shadow-sm gap-1", v.overallAtt.badgeClass)}>
-                              {v.overallAtt.icon === 'check' ? <CheckCircle2 className="w-3 h-3" /> :
-                               v.overallAtt.icon === 'info' ? <Info className="w-3 h-3 text-slate-950" /> :
-                               v.overallAtt.icon === 'alert' ? <AlertTriangle className="w-3 h-3 text-white" /> :
-                               <XCircle className="w-3 h-3 text-white" />}
-                              <span>{v.overallAtt.shortLabel}</span>
-                            </Badge>
                           </TableCell>
 
                           <TableCell className="text-center align-middle">
@@ -1314,7 +1303,6 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
                      const subPmAtt = getAttainmentLevel(gPm, posPmGoal);
                      const subCpfAtt = getAttainmentLevel(gIdentPerc, posCpfGoal);
                      const subAvgPct = (subPaAtt.pct + subTkmAtt.pct + subPmAtt.pct + subCpfAtt.pct) / 4;
-                     const subOverall = getAttainmentLevel(subAvgPct, 100);
 
                      const subVendaShare = totals.venda > 0 ? (gVenda / totals.venda) * 100 : 0;
                      const subCuponsShare = totals.cupons > 0 ? (gCupons / totals.cupons) * 100 : 0;
@@ -1323,11 +1311,6 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
                        <TableRow className="border-t border-b-[6px] border-b-slate-100 print:border-b-2 print:border-black font-black bg-slate-900 text-white hover:bg-slate-800 transition-colors divide-x divide-slate-700 print:divide-black">
                          <TableCell className="text-center align-middle text-[9px] uppercase tracking-wider text-slate-300 whitespace-nowrap">
                            <span className="bg-white/10 px-2 py-1 rounded-md border border-white/10 inline-block">Subtotal • {posInfo.label.split(' ')[0]} {posInfo.label.split(' ')[1]}</span>
-                         </TableCell>
-                         <TableCell className="text-center align-middle">
-                           <Badge className={cn("font-black text-[9px] uppercase border-none px-1.5 py-0.5", subOverall.badgeClass)}>
-                             {subOverall.shortLabel}
-                           </Badge>
                          </TableCell>
                          <TableCell className="text-center align-middle text-xs md:text-sm print:text-[8px] text-emerald-400">
                            <div className="flex flex-col items-center">
@@ -1362,21 +1345,6 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
           <TableFooter className="bg-slate-900 print:bg-slate-200">
             <TableRow className="hover:bg-slate-900 border-none h-12 print:h-7 print:border-t print:border-black font-black divide-x divide-slate-700 print:divide-black">
               <TableCell className="text-center align-middle text-white print:text-black uppercase text-[11px] md:text-xs print:text-[8px] whitespace-nowrap">Consolidado Loja</TableCell>
-              <TableCell className="text-center align-middle">
-                {(() => {
-                  const storePaAtt = getAttainmentLevel(totals.pa, 1.75);
-                  const storeTkmAtt = getAttainmentLevel(totals.tkm, 150.00);
-                  const storePmAtt = getAttainmentLevel(totals.pm, 150.00 / 1.75);
-                  const storeCpfAtt = getAttainmentLevel(totals.ident_perc, 85.0);
-                  const storeAvg = (storePaAtt.pct + storeTkmAtt.pct + storePmAtt.pct + storeCpfAtt.pct) / 4;
-                  const storeOverall = getAttainmentLevel(storeAvg, 100);
-                  return (
-                    <Badge className={cn("font-black text-[9px] uppercase border-none px-2 py-0.5", storeOverall.badgeClass)}>
-                      {storeOverall.shortLabel}
-                    </Badge>
-                  );
-                })()}
-              </TableCell>
               <TableCell className="text-center align-middle text-emerald-400 print:text-black text-xs md:text-sm print:text-[8px]">
                 <div className="flex flex-col items-center">
                   <span>{formatBRL(totals.venda)}</span>

@@ -89,6 +89,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { DailyPerformance } from "./DailyPerformance";
 import { ImpactProjection } from './ImpactProjection';
 import { ConversionAudit } from "./ConversionAudit";
@@ -135,6 +136,8 @@ import { AgingCampaignAnalysis } from "./AgingCampaignAnalysis";
 import { ShiftPerformance } from "./ShiftPerformance";
 import { CollaboratorXRay } from "./CollaboratorXRay";
 import { ProductCouponAnalysis } from "./ProductCouponAnalysis";
+import { RealtimeImpactPanel } from "./RealtimeImpactPanel";
+import { Search, CheckCircle2 } from "lucide-react";
 
 interface SalesSummaryProps {
   data: DetailedSaleRow[];
@@ -146,6 +149,8 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   const [activeTab, setActiveTab] = useState("executivo");
+  const [isNavOpen, setIsNavOpen] = useState(false);
+  const [menuSearch, setMenuSearch] = useState("");
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const { setOpenMobile, state } = useSidebar();
   const isCollapsed = state === "collapsed";
@@ -437,12 +442,18 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
 
 
 
+    { id: "realtime_impact", label: "Impacto em Tempo Real", icon: Zap, category: "Operacional", color: "text-indigo-600 font-black" },
     { id: "consecutive_cupons", label: "Vendas Divididas (Fragmentadas)", icon: Layers, category: "Auditoria", color: "text-rose-600 font-black" },
   ];
+
+  const activeNavItem = useMemo(() => {
+    return navItems.find(item => item.id === activeTab) || navItems[0];
+  }, [activeTab, navItems]);
 
   const renderActiveTab = () => {
     switch(activeTab) {
       case "executivo": return <ExecutiveSummary data={filteredData} vinculos={filteredVinculos} onSwitchTab={handleTabChange} />;
+      case "realtime_impact": return <RealtimeImpactPanel data={filteredData} />;
       case "gap_analise": return <GapAnalysis data={filteredData} />;
       case "impacto": return <ImpactProjection data={filteredData} />;
       case "heatmap": return <HeatmapAnalysis data={filteredData} vinculos={filteredVinculos} />;
@@ -505,54 +516,101 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
   };
 
   return (
-    <div className="flex-1 flex flex-col md:flex-row h-full overflow-hidden">
-      <Sidebar className="border-r border-slate-200/80 bg-white/60 backdrop-blur-xl print:hidden" collapsible="none">
-        <SidebarContent className="p-2.5 md:p-3">
-          {["Resultados", "Pessoas", "Produtos", "Clientes", "Auditoria", "Operacional"].map((cat) => (
-            <SidebarGroup key={cat} className="mb-2">
-              <SidebarGroupLabel className="text-[10px] font-headline font-bold uppercase text-slate-500 tracking-wider mb-1 px-2.5 group-data-[collapsible=icon]:hidden flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
-                {cat}
-              </SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu className="gap-1">
-                  {navItems
-                    .filter((item) => item.category === cat)
-                    .map((item) => (
-                      <SidebarMenuItem key={item.id}>
-                        <SidebarMenuButton 
-                          isActive={activeTab === item.id} 
-                          onClick={() => handleTabChange(item.id)}
-                          tooltip={item.label}
-                          className={cn(
-                            "rounded-xl py-2 px-3 transition-all duration-200 h-auto text-xs",
-                            activeTab === item.id 
-                              ? "bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-sm shadow-indigo-200 font-bold" 
-                              : "hover:bg-slate-100/80 text-slate-700 font-medium"
-                          )}
-                        >
-                          <item.icon className={cn("w-4 h-4 shrink-0 group-data-[collapsible=icon]:mr-0 mr-2.5", activeTab === item.id ? "text-white" : (item.color || "text-slate-400"))} />
-                          <span className="tracking-tight group-data-[collapsible=icon]:hidden truncate">{item.label}</span>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    ))}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-          ))}
-        </SidebarContent>
-        <div className="mt-auto p-3.5 border-t border-slate-200/80 group-data-[collapsible=icon]:hidden">
-          <div className="flex flex-col gap-0.5">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Versão Ativa</p>
-            <p className="text-xs font-semibold text-slate-600">v2.0 • Ri Happy Analytics</p>
-          </div>
-        </div>
-      </Sidebar>
+    <div className="flex-1 flex flex-col h-full overflow-hidden w-full">
+      {/* Navigation Portal to Header (Top-Left Hamburger Menu) */}
+      {mounted && typeof document !== "undefined" && document.getElementById("header-left-menu") ? createPortal(
+        <div className="flex items-center gap-2">
+          <Sheet open={isNavOpen} onOpenChange={setIsNavOpen}>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="sm" className="bg-slate-900 hover:bg-slate-800 text-white font-black rounded-xl h-10 px-3.5 gap-2 shadow-md uppercase text-xs">
+                <Menu className="w-5 h-5 text-indigo-400" />
+                <span className="hidden sm:inline">Análises</span>
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="w-full sm:max-w-md bg-slate-900 border-r border-slate-800 text-white p-0 flex flex-col overflow-hidden">
+              <SheetHeader className="p-5 border-b border-slate-800 bg-slate-950/90 space-y-1">
+                <div className="flex items-center gap-2.5">
+                  <div className="bg-indigo-600 p-2 rounded-xl text-white shadow-md shadow-indigo-500/20">
+                    <Sparkles className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <SheetTitle className="text-lg font-black text-white uppercase tracking-tight">Análises Estratégicas</SheetTitle>
+                    <SheetDescription className="text-slate-400 font-bold text-[10px] uppercase tracking-wider">Catálogo de Painéis de Inteligência</SheetDescription>
+                  </div>
+                </div>
+                {/* SEARCH INPUT IN HAMBURGER MENU */}
+                <div className="relative pt-3">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-6" />
+                  <Input
+                    type="text"
+                    placeholder="Buscar análise por nome..."
+                    value={menuSearch}
+                    onChange={(e) => setMenuSearch(e.target.value)}
+                    className="bg-slate-900 border-slate-700 text-white text-xs pl-9 h-9 font-bold placeholder:text-slate-500 rounded-xl"
+                  />
+                </div>
+              </SheetHeader>
 
-      <div className={cn(
-        "flex-1 overflow-y-auto bg-slate-50 p-3 md:p-5 flex flex-col gap-4 scrollbar-hide print:p-0 print:bg-white transition-all duration-300",
-        isCollapsed ? "text-mode-large" : ""
-      )}>
+              <div className="flex-1 overflow-y-auto p-4 space-y-5 scrollbar-thin">
+                {["Resultados", "Pessoas", "Produtos", "Clientes", "Auditoria", "Operacional"].map(cat => {
+                  const itemsInCat = navItems.filter(item => 
+                    item.category === cat && 
+                    (menuSearch.trim() === "" || item.label.toLowerCase().includes(menuSearch.toLowerCase()))
+                  );
+                  if (itemsInCat.length === 0) return null;
+
+                  return (
+                    <div key={cat} className="space-y-1.5">
+                      <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest px-2 flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+                        {cat} ({itemsInCat.length})
+                      </p>
+                      <div className="space-y-1">
+                        {itemsInCat.map(item => {
+                          const isActive = activeTab === item.id;
+                          const IconComp = item.icon;
+                          return (
+                            <button
+                              key={item.id}
+                              onClick={() => {
+                                handleTabChange(item.id);
+                                setIsNavOpen(false);
+                              }}
+                              className={cn(
+                                "w-full text-left px-3 py-2.5 rounded-xl flex items-center justify-between text-xs font-bold transition-all",
+                                isActive 
+                                  ? "bg-indigo-600 text-white font-black shadow-md shadow-indigo-500/20" 
+                                  : "hover:bg-slate-800 text-slate-300 hover:text-white"
+                              )}
+                            >
+                              <div className="flex items-center gap-2.5 truncate">
+                                <IconComp className={cn("w-4 h-4 shrink-0", isActive ? "text-white" : (item.color || "text-slate-400"))} />
+                                <span className="truncate">{item.label}</span>
+                              </div>
+                              {isActive && <CheckCircle2 className="w-4 h-4 text-white shrink-0 ml-2" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </SheetContent>
+          </Sheet>
+
+          {/* ACTIVE SCREEN INDICATOR BADGE IN HEADER */}
+          {activeNavItem && (
+            <Badge className="bg-indigo-50 text-indigo-800 border border-indigo-200/80 font-black text-xs px-3 py-1 uppercase rounded-xl flex items-center gap-1.5 shadow-2xs">
+              <activeNavItem.icon className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+              <span className="truncate max-w-[140px] sm:max-w-[220px] md:max-w-[300px]">{activeNavItem.label}</span>
+            </Badge>
+          )}
+        </div>,
+        document.getElementById("header-left-menu")!
+      ) : null}
+
+      <div className="flex-1 overflow-y-auto bg-slate-50 p-3 md:p-5 flex flex-col gap-4 scrollbar-hide print:p-0 print:bg-white w-full">
         
         
         {/* Equipe Portal to Header */}

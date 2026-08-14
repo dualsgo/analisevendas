@@ -12,7 +12,12 @@ import {
   clearEscalaStore, 
   getPosicaoForColaboradorAndDate,
   EscalaItem,
-  EscalaStore
+  EscalaStore,
+  PositionGoalConfig,
+  DEFAULT_POSITION_METAS,
+  POSITION_NAMES,
+  loadSavedPositionMetas,
+  savePositionMetas
 } from "@/lib/escalaProcessor";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -53,29 +58,7 @@ interface WeightedPerformanceReportProps {
   vinculos: VinculoTroca[];
 }
 
-export interface PositionGoalConfig {
-  P1: number;
-  P2: number;
-  P3: number;
-  DIG: number;
-  DEFAULT: number;
-}
-
-const DEFAULT_POSITION_METAS: PositionGoalConfig = {
-  P1: 1.60,
-  P2: 1.55,
-  P3: 1.80,
-  DIG: 1.75,
-  DEFAULT: 1.75
-};
-
-const POSITION_NAMES: Record<string, string> = {
-  P1: "P1 — Caixa",
-  P2: "P2 — Porta",
-  P3: "P3 — Salão",
-  DIG: "DIG — Digital / Retirada",
-  DEFAULT: "Geral / Padrão"
-};
+export type { PositionGoalConfig };
 
 type StatusFilterType = "ALL" | "HIT" | "MISS" | "JUSTICE";
 type SortByType = "venda" | "pa" | "atingimento" | "nome";
@@ -91,11 +74,15 @@ export function WeightedPerformanceReport({ data = [], vinculos = [] }: Weighted
   const [customMetas, setCustomMetas] = useState<PositionGoalConfig>(DEFAULT_POSITION_METAS);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
-  // Load saved store on mount
+  // Load saved store and metas on mount
   useEffect(() => {
     const saved = loadSavedEscalaStore();
     if (saved) {
       setEscalaStore(saved);
+    }
+    const savedMetas = loadSavedPositionMetas();
+    if (savedMetas) {
+      setCustomMetas(savedMetas);
     }
   }, []);
 

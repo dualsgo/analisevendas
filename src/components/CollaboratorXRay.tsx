@@ -41,11 +41,30 @@ import {
   Download,
   Check,
   FileText,
-  Utensils
+  Utensils,
+  Scale,
+  Award,
+  AlertTriangle,
+  Upload,
+  Info,
+  ShieldCheck,
+  Zap,
+  CalendarCheck
 } from "lucide-react";
 import { parseISO, getHours, getDay } from "date-fns";
 import { cn } from "@/lib/utils";
 import agingDataRaw from "@/data/aging-campaign.json";
+import { 
+  parseEscalaJson, 
+  loadSavedEscalaStore, 
+  saveEscalaStore, 
+  getPosicaoForColaboradorAndDate,
+  EscalaStore,
+  PositionGoalConfig,
+  DEFAULT_POSITION_METAS,
+  POSITION_NAMES,
+  loadSavedPositionMetas
+} from "@/lib/escalaProcessor";
 
 interface CollaboratorXRayProps {
   data: DetailedSaleRow[];
@@ -84,6 +103,59 @@ export function CollaboratorXRay({ data = [], vinculos = [] }: CollaboratorXRayP
   const [selectedVendor, setSelectedVendor] = useState<string>("");
   const [copiedMarkdown, setCopiedMarkdown] = useState(false);
   const [copiedJSON, setCopiedJSON] = useState(false);
+  const [escalaStore, setEscalaStore] = useState<EscalaStore | null>(null);
+  const [customMetas, setCustomMetas] = useState<PositionGoalConfig>(DEFAULT_POSITION_METAS);
+  const [isUploadingEscala, setIsUploadingEscala] = useState(false);
+  const [escalaUploadError, setEscalaUploadError] = useState<string | null>(null);
+
+  // Carregar escala e metas salvas no mount
+  React.useEffect(() => {
+    const savedEscala = loadSavedEscalaStore();
+    if (savedEscala) {
+      setEscalaStore(savedEscala);
+    }
+    const savedMetas = loadSavedPositionMetas();
+    if (savedMetas) {
+      setCustomMetas(savedMetas);
+    }
+  }, []);
+
+  const handleEscalaUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingEscala(true);
+    setEscalaUploadError(null);
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const content = event.target?.result as string;
+        const { escalas, exportedAt } = parseEscalaJson(content);
+
+        const newStore: EscalaStore = {
+          exportedAt,
+          importedAt: new Date().toISOString(),
+          filename: file.name,
+          escalas,
+          aliases: escalaStore?.aliases || {}
+        };
+
+        saveEscalaStore(newStore);
+        setEscalaStore(newStore);
+      } catch (err: any) {
+        console.error(err);
+        setEscalaUploadError(err.message || "Erro ao ler arquivo de escala.");
+      } finally {
+        setIsUploadingEscala(false);
+      }
+    };
+    reader.onerror = () => {
+      setEscalaUploadError("Erro ao carregar o arquivo.");
+      setIsUploadingEscala(false);
+    };
+    reader.readAsText(file);
+  };
 
   // Vendas válidas ativas de saída
   const activeSales = useMemo(() => {
@@ -498,6 +570,134 @@ export function CollaboratorXRay({ data = [], vinculos = [] }: CollaboratorXRayP
     };
   }, [vendorSales, vendorVinculos, storeMetrics.totalVenda]);
 
+  // Métricas Táticas de Escala & Meta Ponderada Individual
+  const vendorTacticalMetrics = useMemo(() => {
+    const byPosition: Record<string, {
+      posKey: string;
+      posName: string;
+      cupons: number;
+      itens: number;
+      venda: number;
+      metaPos: number;
+      pecasEsperadas: number;
+      paPos: number;
+      atingimentoPosPct: number;
+      daysWorked: Set<string>;
+    }> = {};
+
+    let totalPecasEsperadas = 0;
+    const allDaysWorked = new Set<string>();
+
+    vendorSales.forEach(sale => {
+      const saleDate = sale.dhEmi ? sale.dhEmi.split("T")[0] : "";
+      if (saleDate) allDaysWorked.add(saleDate);
+
+      let posKey = "DEFAULT";
+      if (escalaStore && escalaStore.escalas.length > 0 && saleDate) {
+        const foundPos = getPosicaoForColaboradorAndDate(
+          escalaStore.escalas,
+          selectedVendor,
+          saleDate,
+          escalaStore.aliases
+        );
+        if (foundPos) {
+          if (foundPos.startsWith("P1")) posKey = "P1";
+          else if (foundPos.startsWith("P2")) posKey = "P2";
+          else if (foundPos.startsWith("P3")) posKey = "P3";
+          else if (foundPos.startsWith("DIG")) posKey = "DIG";
+          else posKey = foundPos;
+        }
+      }
+
+      const metaPos = customMetas[posKey as keyof PositionGoalConfig] ?? customMetas.DEFAULT;
+      const cupons = 1;
+      const itens = parseFloat(sale.itens_qtd || "0");
+      const venda = parseFloat(sale.vNF || "0");
+
+      if (!byPosition[posKey]) {
+        byPosition[posKey] = {
+          posKey,
+          posName: POSITION_NAMES[posKey] || posKey,
+          cupons: 0,
+          itens: 0,
+          venda: 0,
+          metaPos,
+          pecasEsperadas: 0,
+          paPos: 0,
+          atingimentoPosPct: 0,
+          daysWorked: new Set<string>()
+        };
+      }
+
+      byPosition[posKey].cupons += cupons;
+      byPosition[posKey].itens += itens;
+      byPosition[posKey].venda += venda;
+      if (saleDate) byPosition[posKey].daysWorked.add(saleDate);
+    });
+
+    const positionsList = Object.values(byPosition).map(p => {
+      p.pecasEsperadas = p.cupons * p.metaPos;
+      totalPecasEsperadas += p.pecasEsperadas;
+      p.paPos = p.cupons > 0 ? p.itens / p.cupons : 0;
+      p.atingimentoPosPct = p.metaPos > 0 ? (p.paPos / p.metaPos) * 100 : 0;
+      return p;
+    });
+
+    // Ordenar por volume de cupons decrescente
+    positionsList.sort((a, b) => b.cupons - a.cupons);
+
+    // Identificar melhor e pior posição pelo PA realizado
+    const positionsByPA = [...positionsList].filter(p => p.cupons > 0).sort((a, b) => b.paPos - a.paPos);
+    const bestPosition = positionsByPA.length > 0 ? positionsByPA[0] : null;
+    const worstPosition = positionsByPA.length > 1 ? positionsByPA[positionsByPA.length - 1] : null;
+
+    const cuponsTotal = vendorMetrics.cuponsTotal;
+    const itensTotal = vendorMetrics.itensTotal;
+    const paRealizado = vendorMetrics.pa;
+
+    const metaPonderadaPA = cuponsTotal > 0 ? totalPecasEsperadas / cuponsTotal : customMetas.DEFAULT;
+    const atingimentoPonderadoPct = metaPonderadaPA > 0 ? (paRealizado / metaPonderadaPA) * 100 : 0;
+    const diffPA = paRealizado - metaPonderadaPA;
+    const saldoPecas = itensTotal - totalPecasEsperadas;
+
+    const metaFixaLoja = 1.75;
+    const isBateuPonderada = paRealizado >= metaPonderadaPA;
+    const isBateuFixa = paRealizado >= metaFixaLoja;
+
+    let justicaHighlight: "JUSTIÇA_POSITIVA" | "ALERTA_AJUSTE" | "SUPERAÇÃO_TOTAL" | "ABAIXO" = "ABAIXO";
+    if (isBateuPonderada && isBateuFixa) {
+      justicaHighlight = "SUPERAÇÃO_TOTAL";
+    } else if (isBateuPonderada && !isBateuFixa) {
+      justicaHighlight = "JUSTIÇA_POSITIVA";
+    } else if (!isBateuPonderada && isBateuFixa) {
+      justicaHighlight = "ALERTA_AJUSTE";
+    } else {
+      justicaHighlight = "ABAIXO";
+    }
+
+    // Posição com maior predominância de tempo/cupons
+    const primaryPosition = positionsList.length > 0 ? positionsList[0] : null;
+
+    return {
+      hasEscalaData: Boolean(escalaStore && escalaStore.escalas.length > 0),
+      positionsList,
+      bestPosition,
+      worstPosition,
+      primaryPosition,
+      totalPecasEsperadas,
+      metaPonderadaPA,
+      atingimentoPonderadoPct,
+      diffPA,
+      saldoPecas,
+      metaFixaLoja,
+      isBateuPonderada,
+      isBateuFixa,
+      justicaHighlight,
+      totalDiasTrabalhados: allDaysWorked.size,
+      escalaFilename: escalaStore?.filename
+    };
+  }, [vendorSales, escalaStore, customMetas, selectedVendor, vendorMetrics]);
+
   // Distribuição de Cesta de Compras (Cupons por número de itens)
   const basketBreakdown = useMemo(() => {
     let count1 = 0; // Mono-item
@@ -623,10 +823,11 @@ export function CollaboratorXRay({ data = [], vinculos = [] }: CollaboratorXRayP
       .slice(0, 5);
   }, [vendorSales]);
 
-  // Projeção Financeira de Oportunidade (Ganho em R$)
+  // Projeção Financeira de Oportunidade (Ganho em R$) com Meta Ponderada Justa
   const financialProjections = useMemo(() => {
     const { cuponsTotal, tkm, pa, precoMedioItem } = vendorMetrics;
     const { tkmLoja, paLoja, topVendorTkm } = storeMetrics;
+    const { saldoPecas, metaPonderadaPA } = vendorTacticalMetrics;
 
     // 1. Ganho se o TKM atingisse a Média da Loja
     const deltaTkmLoja = Math.max(0, tkmLoja - tkm);
@@ -641,26 +842,32 @@ export function CollaboratorXRay({ data = [], vinculos = [] }: CollaboratorXRayP
     const pecasAdicionaisLoja = deltaPaLoja * cuponsTotal;
     const ganhoPaLoja = pecasAdicionaisLoja * precoMedioItem;
 
-    // 4. Ganho convertendo 30% dos cupons mono-item (1 item) para 2 itens
+    // 4. Oportunidade Direta da Meta Ponderada Justa (se estiver com saldo de peças negativo)
+    const pecasNecessariasPonderada = saldoPecas < 0 ? Math.abs(saldoPecas) : 0;
+    const ganhoMetaPonderada = pecasNecessariasPonderada * precoMedioItem;
+
+    // 5. Ganho convertendo 30% dos cupons mono-item (1 item) para 2 itens
     const monoItemCount = basketBreakdown[0].count;
     const monoConvertedCount = Math.round(monoItemCount * 0.3);
     const ganhoConversaoMono = monoConvertedCount * precoMedioItem;
 
     // Potencial Total de Ganho Combinado Realista
-    const potencialTotal = Math.max(ganhoTkmLoja, ganhoPaLoja) + ganhoConversaoMono;
+    const potencialTotal = Math.max(ganhoTkmLoja, ganhoMetaPonderada, ganhoPaLoja) + ganhoConversaoMono;
 
     return {
       ganhoTkmLoja,
       ganhoTkmTop,
       pecasAdicionaisLoja: Math.round(pecasAdicionaisLoja),
       ganhoPaLoja,
+      pecasNecessariasPonderada: Math.round(pecasNecessariasPonderada),
+      ganhoMetaPonderada,
       monoConvertedCount,
       ganhoConversaoMono,
       potencialTotal
     };
-  }, [vendorMetrics, storeMetrics, basketBreakdown]);
+  }, [vendorMetrics, storeMetrics, vendorTacticalMetrics, basketBreakdown]);
 
-  // Perfil Comportamental Diagnóstico
+  // Perfil Comportamental Diagnóstico Adaptado à Escala & Justiça
   const behavioralDiagnosis = useMemo(() => {
     const { 
       tkm, pa, cpfRate, descontoPercent, trocasCount, trocasPositivasCount,
@@ -668,13 +875,30 @@ export function CollaboratorXRay({ data = [], vinculos = [] }: CollaboratorXRayP
       agingQty, agingValor, retiradasCount, adicionaisCount, adicionaisValor
     } = vendorMetrics;
     const { tkmLoja, paLoja, cpfRateLoja, storeSlpPenetracao, storeSocialPenetracao } = storeMetrics;
+    const { 
+      justicaHighlight, 
+      metaPonderadaPA, 
+      isBateuPonderada, 
+      bestPosition, 
+      worstPosition, 
+      primaryPosition,
+      hasEscalaData 
+    } = vendorTacticalMetrics;
     const monoPercent = basketBreakdown[0].percent;
 
     let perfilTitle = "Atendente Padrão";
     let perfilDesc = "Desempenho equilibrado na média geral da equipe.";
     let badgeColor = "bg-blue-50 text-blue-700 border-blue-200";
 
-    if (slpPenetracaoRate >= storeSlpPenetracao * 1.3 && slpQty >= 5) {
+    if (justicaHighlight === "JUSTIÇA_POSITIVA") {
+      perfilTitle = "Alta Eficiência em Escala Dinâmica";
+      perfilDesc = `Bateu a meta ponderada justa (${pa.toFixed(2)} PA vs Meta ${metaPonderadaPA.toFixed(2)}) atuando com resiliência em postos de alto giro como ${primaryPosition?.posName || "Caixa/Porta"}.`;
+      badgeColor = "bg-emerald-50 text-emerald-800 border-emerald-300";
+    } else if (justicaHighlight === "SUPERAÇÃO_TOTAL" && pa >= 1.85) {
+      perfilTitle = "Destaque Geral & Mestre de Cesta";
+      perfilDesc = "Superou com folga tanto a meta ponderada da escala quanto o padrão geral da loja.";
+      badgeColor = "bg-indigo-50 text-indigo-800 border-indigo-300";
+    } else if (slpPenetracaoRate >= storeSlpPenetracao * 1.3 && slpQty >= 5) {
       perfilTitle = "Campeão de Venda Sugestiva (SLP)";
       perfilDesc = "Excelente engajamento e conversão de itens SLP no balcão e checkout.";
       badgeColor = "bg-orange-50 text-orange-700 border-orange-200";
@@ -696,8 +920,33 @@ export function CollaboratorXRay({ data = [], vinculos = [] }: CollaboratorXRayP
       badgeColor = "bg-amber-50 text-amber-700 border-amber-200";
     }
 
-    // Ações recomendadas de treinamento com DADOS REAIS de SLP e campanhas
+    // Ações recomendadas de treinamento com DADOS REAIS de Escala, SLP e campanhas
     const recommendations: string[] = [];
+
+    // Recomendação de Escala e Justiça
+    if (hasEscalaData) {
+      if (justicaHighlight === "JUSTIÇA_POSITIVA") {
+        recommendations.push(
+          `Reconhecer o mérito tático: O colaborador atingiu a meta ponderada da escala (${pa.toFixed(2)} vs ${metaPonderadaPA.toFixed(2)} PA), demonstrando excelente aproveitamento nos postos de conversão rápida.`
+        );
+      } else if (justicaHighlight === "ALERTA_AJUSTE") {
+        recommendations.push(
+          `Ajuste de Salão: O colaborador atuou em postos com meta mais elevada (ex: P3 Salão), mas fechou com PA abaixo da meta ponderada esperada (${pa.toFixed(2)} vs ${metaPonderadaPA.toFixed(2)} PA). Reforçar técnicas de consultoria e agregação no salão.`
+        );
+      }
+
+      if (bestPosition && bestPosition.cupons >= 3) {
+        recommendations.push(
+          `Ponto Forte Tático: O colaborador rende mais na posição ${bestPosition.posName} com PA de ${bestPosition.paPos.toFixed(2)} (${bestPosition.atingimentoPosPct.toFixed(0)}% da meta do posto). Priorizar alocação estratégica nessa função em dias de alto fluxo.`
+        );
+      }
+
+      if (worstPosition && worstPosition.atingimentoPosPct < 95 && worstPosition.cupons >= 3) {
+        recommendations.push(
+          `Oportunidade de Desenvolvimento: Trabalhar abordagem específica para a posição ${worstPosition.posName} (PA atual: ${worstPosition.paPos.toFixed(2)} vs Meta ${worstPosition.metaPos.toFixed(2)}).`
+        );
+      }
+    }
 
     // Recomendação SLP com dados empíricos
     if (slpQty === 0) {
@@ -742,9 +991,6 @@ export function CollaboratorXRay({ data = [], vinculos = [] }: CollaboratorXRayP
     if (cpfRate < cpfRateLoja) {
       recommendations.push(`Reforçar a abordagem no caixa para aumentar o cadastro de CPF (Atual: ${cpfRate.toFixed(1)}% vs Média: ${cpfRateLoja.toFixed(1)}%).`);
     }
-    if (pa < paLoja) {
-      recommendations.push(`Trabalhar técnicas de cross-selling no balcão para elevar o PA da média de ${pa.toFixed(2)} para ${paLoja.toFixed(2)}.`);
-    }
     if (descontoPercent > storeMetrics.descontoRateLoja * 1.3) {
       recommendations.push("Monitorar concessão excessiva de descontos e orientar sobre valor percebido.");
     }
@@ -759,13 +1005,27 @@ export function CollaboratorXRay({ data = [], vinculos = [] }: CollaboratorXRayP
       badgeColor,
       recommendations
     };
-  }, [vendorMetrics, storeMetrics, basketBreakdown]);
+  }, [vendorMetrics, storeMetrics, vendorTacticalMetrics, basketBreakdown]);
 
-  // Gerador de Prompt Formatado em Markdown para IA (ChatGPT / Gemini / Claude)
+  // Gerador de Prompt Formatado em Markdown para IA (ChatGPT / Gemini / Claude) com Meta Ponderada
   const generateAIPromptText = () => {
-    return `PROMPT PARA GERAÇÃO DE FEEDBACK DE DESEMPENHO (IA)
-======================================================
-Você é um Gestor de Vendas especialista em varejo. Utilize os dados empíricos de vendas apresentados abaixo para redigir um feedback individualizado, construtivo, motivador e focado em metas para o colaborador: **${selectedVendor}**.
+    const { 
+      metaPonderadaPA, 
+      atingimentoPonderadoPct, 
+      diffPA, 
+      saldoPecas, 
+      isBateuPonderada, 
+      justicaHighlight, 
+      positionsList, 
+      bestPosition, 
+      worstPosition,
+      hasEscalaData
+    } = vendorTacticalMetrics;
+
+    return `PROMPT PARA GERAÇÃO DE FEEDBACK DE DESEMPENHO (IA) - AVALIAÇÃO JUSTA POR META PONDERADA
+========================================================================================
+Você é um Gestor de Vendas especialista em varejo focado em gestão humanizada e justa. 
+Utilize os dados empíricos de vendas e a **Meta Ponderada por Escala** apresentados abaixo para redigir um feedback individualizado, construtivo, motivador e focado em metas para o colaborador: **${selectedVendor}**.
 
 ---
 ### 1. RESUMO GERAL DO COLABORADOR
@@ -776,62 +1036,113 @@ Você é um Gestor de Vendas especialista em varejo. Utilize os dados empíricos
 - **Total de Peças Vendidas:** ${vendorMetrics.itensTotal} unidades
 
 ---
-### 2. INDICADORES CHAVE (KPIs) VS BENCHMARK DA LOJA
-- **Ticket Médio (TKM):** ${vendorMetrics.tkm.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} (Média da Loja: ${storeMetrics.tkmLoja.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} | Líder da Loja: ${storeMetrics.topVendorTkm.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})
-- **Peças por Atendimento (P.A.):** ${vendorMetrics.pa.toFixed(2)} (Média da Loja: ${storeMetrics.paLoja.toFixed(2)} | Líder da Loja: ${storeMetrics.topVendorPa.toFixed(2)})
-- **Taxa de Captura de CPF:** ${vendorMetrics.cpfRate.toFixed(1)}% (Média da Loja: ${storeMetrics.cpfRateLoja.toFixed(1)}%)
+### 2. AVALIAÇÃO JUSTA: META PONDERADA POR ESCALA (CRITÉRIO PRINCIPAL)
+- **PA Realizado:** ${vendorMetrics.pa.toFixed(2)} peças/cupom
+- **Meta Ponderada Individual (P.A.):** ${metaPonderadaPA.toFixed(2)} PA
+- **Atingimento da Meta Ponderada:** ${atingimentoPonderadoPct.toFixed(1)}% (${isBateuPonderada ? '✅ META ATINGIDA' : '❌ ABAIXO DA META'})
+- **Saldo de Peças (Esperadas vs Realizadas):** ${saldoPecas >= 0 ? `+${saldoPecas.toFixed(1)} peças (Superávit)` : `${saldoPecas.toFixed(1)} peças (Déficit)`}
+- **Veredito de Justiça Avaliativa:** ${
+  justicaHighlight === 'JUSTIÇA_POSITIVA' 
+    ? 'JUSTIÇA POSITIVA: O colaborador bateu a meta ponderada justa calculada para a sua escala de trabalho (ex: atuou mais em postos de giro rápido como Caixa/Porta), embora estivesse numericamente abaixo da média fixa rígida de 1,75.'
+    : justicaHighlight === 'SUPERAÇÃO_TOTAL'
+    ? 'SUPERAÇÃO TOTAL: Superou tanto a meta ponderada da escala quanto o padrão geral da loja.'
+    : justicaHighlight === 'ALERTA_AJUSTE'
+    ? 'ALERTA DE OPORTUNIDADE: Atuou em postos de maior potencial de PA (Salão), mas ficou abaixo da meta ponderada esperada para essas posições.'
+    : 'ABAIXO DA META: Não atingiu a meta ponderada correspondente aos postos escalados.'
+}
+${hasEscalaData ? `
+- **Composição da Atuação por Posto Tático:**
+${positionsList.map(p => `  * ${p.posName}: ${p.cupons} cupons (${vendorMetrics.cuponsTotal > 0 ? ((p.cupons / vendorMetrics.cuponsTotal) * 100).toFixed(0) : 0}% da atuação) | PA: ${p.paPos.toFixed(2)} vs Meta ${p.metaPos.toFixed(2)} (Atingimento: ${p.atingimentoPosPct.toFixed(0)}%)`).join('\n')}
+- **Posto onde Mais Rende:** ${bestPosition ? `${bestPosition.posName} (PA ${bestPosition.paPos.toFixed(2)} - ${bestPosition.atingimentoPosPct.toFixed(0)}% da meta)` : 'N/A'}
+- **Posto de Oportunidade:** ${worstPosition ? `${worstPosition.posName} (PA ${worstPosition.paPos.toFixed(2)} - ${worstPosition.atingimentoPosPct.toFixed(0)}% da meta)` : 'N/A'}
+` : '- *Nota: Escala de trabalho não vinculada. Foi aplicada a meta padrão de 1.75 PA.*'}
+
+---
+### 3. INDICADORES CHAVE COMPLEMENTARES (KPIs)
+- **Ticket Médio (TKM):** ${vendorMetrics.tkm.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} (Média Loja: ${storeMetrics.tkmLoja.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})
+- **Taxa de Captura de CPF:** ${vendorMetrics.cpfRate.toFixed(1)}% (Média Loja: ${storeMetrics.cpfRateLoja.toFixed(1)}%)
 - **Concessão de Desconto:** R$ ${vendorMetrics.descontoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${vendorMetrics.descontoPercent.toFixed(1)}% das vendas | Média Loja: ${storeMetrics.descontoRateLoja.toFixed(1)}%)
 - **Preço Médio por Item:** ${vendorMetrics.precoMedioItem.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
 
 ---
-### 3. CAMPANHAS E PRODUTOS ESTRATÉGICOS
+### 4. CAMPANHAS E PRODUTOS ESTRATÉGICOS
 - **Venda Sugestiva (SLP):** ${vendorMetrics.slpQty} itens | ${vendorMetrics.slpValor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} (Penetração: ${vendorMetrics.slpPenetracaoRate.toFixed(1)}% dos cupons vs Loja: ${storeMetrics.storeSlpPenetracao.toFixed(1)}%)
 - **Ação Social (Total):** ${vendorMetrics.socialQty} itens | ${vendorMetrics.socialValor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} (Penetração: ${vendorMetrics.socialPenetracaoRate.toFixed(1)}% dos cupons vs Loja: ${storeMetrics.storeSocialPenetracao.toFixed(1)}%)
-  * Detalhamento Ação Social:
-    - Sacolas: ${vendorMetrics.sacolaQty} un (R$ ${vendorMetrics.sacolaValor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})
-    - Baralhos: ${vendorMetrics.baralhoQty} un (R$ ${vendorMetrics.baralhoValor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})
-    - Lanchinho: ${vendorMetrics.lanchinhoQty} un (R$ ${vendorMetrics.lanchinhoValor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})
+  * Detalhamento Ação Social: Sacolas: ${vendorMetrics.sacolaQty} un | Baralhos: ${vendorMetrics.baralhoQty} un | Lanchinho: ${vendorMetrics.lanchinhoQty} un
 - **Campanha Aging (Estoque Antigo):** ${vendorMetrics.agingQty} un desmobilizada(s) | R$ ${vendorMetrics.agingValor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} resgatado(s) (${vendorMetrics.agingCuponsCount} cupons)
 - **Omnichannel:** ${vendorMetrics.retiradasCount} retiradas online atendidas | ${vendorMetrics.adicionaisCount} vendas adicionais geradas (R$ ${vendorMetrics.adicionaisValor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})
 
 ---
-### 4. TAMANHO E PROFUNDIDADE DA CESTA
+### 5. TAMANHO E PROFUNDIDADE DA CESTA
 ${basketBreakdown.map(b => `- **${b.name}:** ${b.count} cupons (${b.percent.toFixed(1)}%)`).join('\n')}
 
 ---
-### 5. QUALIDADE E UPSELL EM TROCAS
+### 6. QUALIDADE E UPSELL EM TROCAS
 - **Total de Trocas Atendidas:** ${vendorMetrics.trocasCount}
 - **Diferença de Valor Gerada:** R$ ${vendorMetrics.trocasValorDiferenca.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
 - **Trocas com Upsell (Positivas):** ${vendorMetrics.trocasPositivasCount} (${vendorMetrics.trocasCount > 0 ? ((vendorMetrics.trocasPositivasCount / vendorMetrics.trocasCount) * 100).toFixed(0) : 0}%)
 - **Score de Qualidade em Trocas:** ${vendorMetrics.trocasScoreMedio > 0 ? vendorMetrics.trocasScoreMedio.toFixed(1) + '/100' : 'N/A'}
 
 ---
-### 6. RITMIA E TOP PRODUTOS
+### 7. RITMIA E TOP PRODUTOS
 - **Hora de Ouro (Pico de Venda):** ${peakHoursInfo.goldHour} (R$ ${peakHoursInfo.goldHourFat.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})
 - **Hora de Maior PA:** ${peakHoursInfo.bestPaHour} (PA: ${peakHoursInfo.bestPaValue.toFixed(2)})
 - **Top 5 Produtos Vendidos:**
 ${topProducts.map((p, i) => `  ${i + 1}. [Cód ${p.code}] ${p.name} - ${p.qtd} un (R$ ${p.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})`).join('\n')}
 
 ---
-### 7. POTENCIAL FINANCEIRO DE CRESCIMENTO (GANHO ADICIONAL)
+### 8. POTENCIAL FINANCEIRO DE CRESCIMENTO (GANHO ADICIONAL)
 - **Potencial Total Combinado:** + R$ ${financialProjections.potencialTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
 - **Equiparação ao TKM Médio da Loja:** + R$ ${financialProjections.ganhoTkmLoja.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-- **Equiparação ao PA Médio da Loja:** + R$ ${financialProjections.ganhoPaLoja.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (+ ${financialProjections.pecasAdicionaisLoja} peças)
+- **Atingimento da Meta Ponderada Justa:** ${financialProjections.ganhoMetaPonderada > 0 ? `+ R$ ${financialProjections.ganhoMetaPonderada.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (+ ${financialProjections.pecasNecessariasPonderada} peças)` : 'Meta já superada!'}
 - **Conversão de 30% dos Cupons Mono-item em 2 itens:** + R$ ${financialProjections.ganhoConversaoMono.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${financialProjections.monoConvertedCount} cupons)
 
 ---
-### 8. DIAGNÓSTICO E RECOMENDAÇÕES PRÁTICAS
+### 9. DIAGNÓSTICO E RECOMENDAÇÕES PRÁTICAS
 - **Perfil Calculado:** ${behavioralDiagnosis.perfilTitle} - "${behavioralDiagnosis.perfilDesc}"
 - **Plano de Ação Recomendado:**
 ${behavioralDiagnosis.recommendations.map(r => `- ${r}`).join('\n')}
 `;
   };
 
-  // Gerador de Payload JSON Estruturado
+  // Gerador de Payload JSON Estruturado com Meta Ponderada
   const generateJSONPayload = () => {
     return JSON.stringify({
       colaborador: selectedVendor,
       dataExportacao: new Date().toISOString(),
+      avaliacaoPonderadaPorEscala: {
+        temEscalaVinculada: vendorTacticalMetrics.hasEscalaData,
+        arquivoEscala: vendorTacticalMetrics.escalaFilename || null,
+        paRealizado: Number(vendorMetrics.pa.toFixed(2)),
+        metaPonderadaPA: Number(vendorTacticalMetrics.metaPonderadaPA.toFixed(2)),
+        atingimentoPonderadoPercent: Number(vendorTacticalMetrics.atingimentoPonderadoPct.toFixed(2)),
+        saldoPecas: Number(vendorTacticalMetrics.saldoPecas.toFixed(1)),
+        isBateuPonderada: vendorTacticalMetrics.isBateuPonderada,
+        justicaHighlight: vendorTacticalMetrics.justicaHighlight,
+        postosTrabalhados: vendorTacticalMetrics.positionsList.map(p => ({
+          posicao: p.posKey,
+          nomePosicao: p.posName,
+          cupons: p.cupons,
+          itens: p.itens,
+          venda: p.venda,
+          metaPosicao: p.metaPos,
+          paRealizado: Number(p.paPos.toFixed(2)),
+          atingimentoPercent: Number(p.atingimentoPosPct.toFixed(2)),
+          diasTrabalhados: p.daysWorked.size
+        })),
+        ondeMaisRende: vendorTacticalMetrics.bestPosition ? {
+          posicao: vendorTacticalMetrics.bestPosition.posKey,
+          nome: vendorTacticalMetrics.bestPosition.posName,
+          pa: Number(vendorTacticalMetrics.bestPosition.paPos.toFixed(2)),
+          atingimentoPercent: Number(vendorTacticalMetrics.bestPosition.atingimentoPosPct.toFixed(2))
+        } : null,
+        pontoAtencao: vendorTacticalMetrics.worstPosition ? {
+          posicao: vendorTacticalMetrics.worstPosition.posKey,
+          nome: vendorTacticalMetrics.worstPosition.posName,
+          pa: Number(vendorTacticalMetrics.worstPosition.paPos.toFixed(2)),
+          atingimentoPercent: Number(vendorTacticalMetrics.worstPosition.atingimentoPosPct.toFixed(2))
+        } : null,
+      },
       metricasGerais: {
         vendaTotal: vendorMetrics.vendaTotal,
         cuponsTotal: vendorMetrics.cuponsTotal,
@@ -928,21 +1239,37 @@ ${behavioralDiagnosis.recommendations.map(r => `- ${r}`).join('\n')}
 
   return (
     <div className="space-y-6 pb-12">
-      {/* SELETOR SUPERIOR DE COLABORADOR */}
+      {/* SELETOR SUPERIOR DE COLABORADOR & STATUS DE ESCALA */}
       <Card className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white border-none shadow-xl overflow-hidden relative">
         <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/10 blur-[100px] rounded-full pointer-events-none" />
         <CardContent className="p-6 md:p-8 relative z-10">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
             <div className="space-y-2">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 text-xs font-bold uppercase tracking-wider border border-indigo-500/30">
-                <UserCheck className="w-4 h-4 text-indigo-400" />
-                Diagnóstico Individual 360°
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 text-xs font-bold uppercase tracking-wider border border-indigo-500/30">
+                  <UserCheck className="w-4 h-4 text-indigo-400" />
+                  Diagnóstico Individual 360°
+                </div>
+
+                {vendorTacticalMetrics.hasEscalaData ? (
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-bold border border-emerald-500/30">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Escala Vinculada ({escalaStore?.escalas.length} reg.)</span>
+                  </div>
+                ) : (
+                  <label className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 text-xs font-bold border border-amber-500/30 cursor-pointer hover:bg-amber-500/30 transition-colors">
+                    <Upload className="w-3.5 h-3.5 text-amber-400" />
+                    <span>{isUploadingEscala ? "Vinculando..." : "Vincular Escala RH"}</span>
+                    <input type="file" accept=".json" className="hidden" onChange={handleEscalaUpload} />
+                  </label>
+                )}
               </div>
+
               <h2 className="text-2xl md:text-3xl font-headline font-extrabold text-white tracking-tight">
                 Raio-X do Colaborador
               </h2>
               <p className="text-slate-300 text-xs md:text-sm max-w-xl font-medium">
-                Selecione um colaborador para explorar o perfil completo de produtividade, ritmia de horário, análise de cesta e potencial financeiro.
+                Avaliação individual justa por postos táticos de escala (P1, P2, P3, DIG), ritmia horária, profundidade de cesta e potencial financeiro.
               </p>
             </div>
 
@@ -1074,13 +1401,13 @@ ${behavioralDiagnosis.recommendations.map(r => `- ${r}`).join('\n')}
           </CardContent>
         </Card>
 
-        {/* KPI 3: PEÇAS POR ATENDIMENTO (PA) */}
+        {/* KPI 3: PEÇAS POR ATENDIMENTO (PA) & META PONDERADA JUSTA */}
         <Card className="bg-white/90 backdrop-blur-md border border-slate-200/80 shadow-2xs hover:shadow-md transition-all">
           <CardContent className="p-5 space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Peças por Atendimento (PA)</span>
-              <div className="p-2 bg-blue-50 text-blue-600 rounded-xl">
-                <ShoppingBag className="w-4 h-4" />
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">PA & Meta Ponderada</span>
+              <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
+                <Scale className="w-4 h-4" />
               </div>
             </div>
             <div>
@@ -1088,25 +1415,44 @@ ${behavioralDiagnosis.recommendations.map(r => `- ${r}`).join('\n')}
                 <h3 className="text-2xl font-headline font-extrabold text-slate-900">
                   {vendorMetrics.pa.toFixed(2)}
                 </h3>
-                {vendorMetrics.pa >= storeMetrics.paLoja ? (
-                  <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] font-bold inline-flex items-center gap-1">
-                    <TrendingUp className="w-3 h-3 text-emerald-600" />
-                    Acima Média ({storeMetrics.paLoja.toFixed(2)})
+                <span className="text-xs font-bold text-slate-400">
+                  / Meta {vendorTacticalMetrics.metaPonderadaPA.toFixed(2)}
+                </span>
+                {vendorTacticalMetrics.justicaHighlight === "JUSTIÇA_POSITIVA" && (
+                  <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px] font-extrabold inline-flex items-center gap-0.5" title="Bateu a meta ponderada da escala!">
+                    <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                    Meta Atingida!
                   </Badge>
-                ) : (
-                  <Badge className="bg-rose-50 text-rose-700 border-rose-200 text-[10px] font-bold inline-flex items-center gap-1">
+                )}
+                {vendorTacticalMetrics.justicaHighlight === "SUPERAÇÃO_TOTAL" && (
+                  <Badge className="bg-indigo-100 text-indigo-800 border-indigo-300 text-[10px] font-extrabold inline-flex items-center gap-0.5">
+                    <Award className="w-3 h-3 text-indigo-600" />
+                    Superou Tudo
+                  </Badge>
+                )}
+                {vendorTacticalMetrics.justicaHighlight === "ALERTA_AJUSTE" && (
+                  <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[10px] font-extrabold inline-flex items-center gap-0.5" title="Abaixo do potencial esperado para os postos trabalhados">
+                    <AlertTriangle className="w-3 h-3 text-amber-600" />
+                    Abaixo Posto
+                  </Badge>
+                )}
+                {vendorTacticalMetrics.justicaHighlight === "ABAIXO" && (
+                  <Badge className="bg-rose-50 text-rose-700 border-rose-200 text-[10px] font-extrabold inline-flex items-center gap-0.5">
                     <TrendingDown className="w-3 h-3 text-rose-600" />
-                    Abaixo Média ({storeMetrics.paLoja.toFixed(2)})
+                    {vendorTacticalMetrics.atingimentoPonderadoPct.toFixed(0)}% Meta
                   </Badge>
                 )}
               </div>
-              <p className="text-xs font-semibold text-slate-500 mt-1">
-                Total de {vendorMetrics.itensTotal} itens vendidos
-              </p>
+              <div className="flex items-center justify-between text-xs font-semibold text-slate-600 mt-1">
+                <span>Atingimento da Escala:</span>
+                <span className={cn("font-extrabold", vendorTacticalMetrics.isBateuPonderada ? "text-emerald-600" : "text-rose-600")}>
+                  {vendorTacticalMetrics.atingimentoPonderadoPct.toFixed(1)}% ({vendorTacticalMetrics.saldoPecas >= 0 ? `+${vendorTacticalMetrics.saldoPecas.toFixed(1)}` : vendorTacticalMetrics.saldoPecas.toFixed(1)} un)
+                </span>
+              </div>
             </div>
             <div className="pt-2 border-t border-slate-100 text-[11px] text-slate-500 font-medium flex items-center justify-between">
-              <span>Líder da Loja:</span>
-              <span className="font-bold text-slate-700">{storeMetrics.topVendorPa.toFixed(2)} PA</span>
+              <span>Média Fixa Loja:</span>
+              <span className="font-bold text-slate-700">{storeMetrics.paLoja.toFixed(2)} PA</span>
             </div>
           </CardContent>
         </Card>
@@ -1147,6 +1493,186 @@ ${behavioralDiagnosis.recommendations.map(r => `- ${r}`).join('\n')}
         </Card>
       </div>
 
+      {/* SEÇÃO PRINCIPAL DE JUSTIÇA: DESEMPENHO TÁTICO POR POSTO / ESCALA */}
+      <Card className="bg-gradient-to-br from-indigo-950/90 via-slate-900 to-slate-950 text-white border-none shadow-xl overflow-hidden relative">
+        <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-500/10 blur-[90px] pointer-events-none" />
+        <CardHeader className="p-6 md:p-8 pb-4 relative z-10">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 text-xs font-bold uppercase tracking-wider border border-indigo-500/30">
+                <Scale className="w-3.5 h-3.5 text-indigo-400" />
+                Avaliação Ponderada por Posto Tático
+              </div>
+              <CardTitle className="text-xl md:text-2xl font-headline font-extrabold text-white flex items-center gap-2.5">
+                Desempenho Tático por Escala ({selectedVendor})
+              </CardTitle>
+              <CardDescription className="text-xs md:text-sm text-slate-300 font-medium max-w-2xl">
+                Avaliamos cada colaborador com base na sua rotina real nos postos de trabalho (Caixa, Porta, Salão e Retirada), garantindo justiça e mérito real.
+              </CardDescription>
+            </div>
+
+            {/* STATUS DO ARQUIVO DE ESCALA */}
+            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10 flex items-center gap-3">
+              <div className="p-2.5 bg-indigo-500/20 text-indigo-300 rounded-xl">
+                <CalendarCheck className="w-5 h-5 text-indigo-400" />
+              </div>
+              <div>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Status da Escala</span>
+                <p className="text-xs font-bold text-white">
+                  {vendorTacticalMetrics.hasEscalaData 
+                    ? `${escalaStore?.escalas.length} escalas processadas` 
+                    : "Escala Padrão Aplicada"}
+                </p>
+                <span className="text-[10px] text-indigo-300 block">
+                  {vendorTacticalMetrics.totalDiasTrabalhados} dia(s) com vendas
+                </span>
+              </div>
+            </div>
+          </div>
+        </CardHeader>
+
+        <CardContent className="p-6 md:p-8 pt-2 space-y-6 relative z-10">
+          {/* VEREDITO PEDAGÓGICO DE JUSTIÇA AVALIATIVA */}
+          <div className={cn(
+            "p-5 rounded-2xl border backdrop-blur-md transition-all",
+            vendorTacticalMetrics.justicaHighlight === "JUSTIÇA_POSITIVA" && "bg-emerald-950/40 border-emerald-500/40 text-emerald-200",
+            vendorTacticalMetrics.justicaHighlight === "SUPERAÇÃO_TOTAL" && "bg-indigo-950/40 border-indigo-500/40 text-indigo-200",
+            vendorTacticalMetrics.justicaHighlight === "ALERTA_AJUSTE" && "bg-amber-950/40 border-amber-500/40 text-amber-200",
+            vendorTacticalMetrics.justicaHighlight === "ABAIXO" && "bg-rose-950/40 border-rose-500/40 text-rose-200"
+          )}>
+            <div className="flex items-start gap-3.5">
+              <div className={cn(
+                "p-2 rounded-xl shrink-0 mt-0.5",
+                vendorTacticalMetrics.justicaHighlight === "JUSTIÇA_POSITIVA" && "bg-emerald-500/20 text-emerald-300",
+                vendorTacticalMetrics.justicaHighlight === "SUPERAÇÃO_TOTAL" && "bg-indigo-500/20 text-indigo-300",
+                vendorTacticalMetrics.justicaHighlight === "ALERTA_AJUSTE" && "bg-amber-500/20 text-amber-300",
+                vendorTacticalMetrics.justicaHighlight === "ABAIXO" && "bg-rose-500/20 text-rose-300"
+              )}>
+                {vendorTacticalMetrics.isBateuPonderada ? (
+                  <ShieldCheck className="w-5 h-5 text-emerald-400" />
+                ) : (
+                  <AlertCircle className="w-5 h-5 text-rose-400" />
+                )}
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h4 className="text-sm font-extrabold uppercase tracking-wide text-white">
+                    {vendorTacticalMetrics.justicaHighlight === "JUSTIÇA_POSITIVA" && "⚖️ Veredito Justo: Meta Atingida pela Escala"}
+                    {vendorTacticalMetrics.justicaHighlight === "SUPERAÇÃO_TOTAL" && "🏆 Superação Global: Acima de Todas as Metas"}
+                    {vendorTacticalMetrics.justicaHighlight === "ALERTA_AJUSTE" && "⚠️ Oportunidade de Salão: Abaixo do Potencial do Posto"}
+                    {vendorTacticalMetrics.justicaHighlight === "ABAIXO" && "📉 Abaixo da Meta Ponderada Justa"}
+                  </h4>
+                  <Badge className="bg-white/20 text-white font-bold text-[10px] border-none px-2 py-0.5">
+                    Meta Justa: {vendorTacticalMetrics.metaPonderadaPA.toFixed(2)} PA • Realizado: {vendorMetrics.pa.toFixed(2)} PA
+                  </Badge>
+                </div>
+                <p className="text-xs md:text-sm text-slate-200 leading-relaxed font-normal">
+                  {vendorTacticalMetrics.justicaHighlight === "JUSTIÇA_POSITIVA" && (
+                    <>
+                      O colaborador atuou predominantemente em postos de conversão rápida e alto giro ({vendorTacticalMetrics.primaryPosition?.posName || "Caixa/Porta"}). 
+                      Seu PA de <strong className="text-white font-extrabold">{vendorMetrics.pa.toFixed(2)}</strong> superou a meta ponderada justa de <strong className="text-white font-extrabold">{vendorTacticalMetrics.metaPonderadaPA.toFixed(2)} PA</strong>, 
+                      gerando um saldo positivo de <strong className="text-emerald-300 font-extrabold">+{vendorTacticalMetrics.saldoPecas.toFixed(1)} peças</strong>. 
+                      Julgá-lo pela meta fixa genérica de 1.75 seria injusto e desmotivador!
+                    </>
+                  )}
+                  {vendorTacticalMetrics.justicaHighlight === "SUPERAÇÃO_TOTAL" && (
+                    <>
+                      Excelente desempenho global! O colaborador atingiu <strong className="text-white font-extrabold">{vendorMetrics.pa.toFixed(2)} PA</strong>, 
+                      superando tanto a meta ponderada da sua escala (<strong className="text-white font-extrabold">{vendorTacticalMetrics.metaPonderadaPA.toFixed(2)} PA</strong>) 
+                      quanto a média geral da loja, entregando um saldo de <strong className="text-emerald-300 font-extrabold">+{vendorTacticalMetrics.saldoPecas.toFixed(1)} peças</strong>.
+                    </>
+                  )}
+                  {vendorTacticalMetrics.justicaHighlight === "ALERTA_AJUSTE" && (
+                    <>
+                      O colaborador atuou em postos que exigem maior agregação e consultoria (ex: Salão), mas seu PA realizado de <strong className="text-white font-extrabold">{vendorMetrics.pa.toFixed(2)}</strong> ficou abaixo da meta ponderada esperada para suas posições (<strong className="text-white font-extrabold">{vendorTacticalMetrics.metaPonderadaPA.toFixed(2)} PA</strong>), 
+                      com déficit de <strong className="text-amber-300 font-extrabold">{vendorTacticalMetrics.saldoPecas.toFixed(1)} peças</strong>.
+                    </>
+                  )}
+                  {vendorTacticalMetrics.justicaHighlight === "ABAIXO" && (
+                    <>
+                      O colaborador realizou <strong className="text-white font-extrabold">{vendorMetrics.pa.toFixed(2)} PA</strong> frente à meta ponderada de <strong className="text-white font-extrabold">{vendorTacticalMetrics.metaPonderadaPA.toFixed(2)} PA</strong> ({vendorTacticalMetrics.atingimentoPonderadoPct.toFixed(1)}% de atingimento), 
+                      com déficit de <strong className="text-rose-300 font-extrabold">{vendorTacticalMetrics.saldoPecas.toFixed(1)} peças</strong> nos {vendorMetrics.cuponsTotal} atendimentos.
+                    </>
+                  )}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* GRID DE POSTOS TÁTICOS TRABALHADOS */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-extrabold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                <Layers className="w-4 h-4 text-indigo-400" />
+                Detalhamento dos Postos Escalados
+              </span>
+              <span className="text-[11px] font-semibold text-slate-400">
+                {vendorTacticalMetrics.positionsList.length} posto(s) registrado(s)
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {vendorTacticalMetrics.positionsList.map(pos => {
+                const isBest = vendorTacticalMetrics.bestPosition?.posKey === pos.posKey && pos.cupons >= 2;
+                const isWorst = vendorTacticalMetrics.worstPosition?.posKey === pos.posKey && pos.cupons >= 2 && pos.atingimentoPosPct < 100;
+                const shareCupons = vendorMetrics.cuponsTotal > 0 ? (pos.cupons / vendorMetrics.cuponsTotal) * 100 : 0;
+
+                return (
+                  <div key={pos.posKey} className="bg-white/5 hover:bg-white/10 rounded-2xl p-4 border border-white/10 space-y-3 transition-all flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between gap-1 mb-2">
+                        <Badge className="bg-indigo-500/30 text-indigo-200 border-indigo-400/30 font-bold text-xs">
+                          {pos.posName}
+                        </Badge>
+                        {isBest && (
+                          <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/30 text-[9px] font-extrabold flex items-center gap-0.5">
+                            ⭐ Onde Mais Rende
+                          </Badge>
+                        )}
+                        {isWorst && (
+                          <Badge className="bg-rose-500/20 text-rose-300 border-rose-500/30 text-[9px] font-extrabold flex items-center gap-0.5">
+                            ⚠️ Ponto Atenção
+                          </Badge>
+                        )}
+                      </div>
+
+                      <div className="space-y-1">
+                        <div className="flex items-baseline justify-between">
+                          <span className="text-[11px] font-semibold text-slate-400">PA Realizado:</span>
+                          <span className={cn("text-lg font-headline font-black", pos.paPos >= pos.metaPos ? "text-emerald-400" : "text-rose-400")}>
+                            {pos.paPos.toFixed(2)} <span className="text-xs text-slate-400 font-medium">/ {pos.metaPos.toFixed(2)}</span>
+                          </span>
+                        </div>
+                        <Progress value={Math.min(100, pos.atingimentoPosPct)} className="h-1.5 bg-white/10" />
+                        <div className="flex items-center justify-between text-[10px] text-slate-400 pt-0.5">
+                          <span>Atingimento:</span>
+                          <span className="font-bold text-slate-200">{pos.atingimentoPosPct.toFixed(0)}%</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="pt-2.5 border-t border-white/10 space-y-1 text-[11px]">
+                      <div className="flex items-center justify-between text-slate-300">
+                        <span>Cupons ({shareCupons.toFixed(0)}% da rotina):</span>
+                        <span className="font-bold text-white">{pos.cupons} un</span>
+                      </div>
+                      <div className="flex items-center justify-between text-slate-300">
+                        <span>Faturamento no Posto:</span>
+                        <span className="font-bold text-indigo-300">{pos.venda.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-slate-400 text-[10px]">
+                        <span>Dias no Posto:</span>
+                        <span className="font-medium text-slate-200">{pos.daysWorked.size} dia(s)</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* BLOCO DE GANHO DE OPORTUNIDADE FINANCEIRA PROJETADA */}
       <Card className="bg-gradient-to-r from-emerald-900 via-teal-900 to-slate-900 text-white border-none shadow-lg overflow-hidden">
         <CardContent className="p-6 md:p-8">
@@ -1160,7 +1686,7 @@ ${behavioralDiagnosis.recommendations.map(r => `- ${r}`).join('\n')}
                 Projeção de Faturamento Adicional
               </h3>
               <p className="text-xs md:text-sm text-slate-300 font-medium leading-relaxed">
-                Estimativa financeira calculada com base na equiparação das métricas do colaborador ({selectedVendor}) aos padrões da loja e conversão de cupons mono-item.
+                Estimativa financeira calculada com base na meta ponderada justa da escala de {selectedVendor}, equiparação de TKM e conversão de mono-itens.
               </p>
             </div>
 
@@ -1189,12 +1715,18 @@ ${behavioralDiagnosis.recommendations.map(r => `- ${r}`).join('\n')}
             </div>
 
             <div className="bg-white/5 rounded-xl p-4 border border-white/10">
-              <span className="text-[11px] font-bold uppercase text-slate-400 block mb-1">Se PA atingisse a Média da Loja:</span>
+              <span className="text-[11px] font-bold uppercase text-slate-400 block mb-1">Meta Ponderada da Escala:</span>
               <p className="text-lg font-bold text-white">
-                + {financialProjections.ganhoPaLoja.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                {financialProjections.ganhoMetaPonderada > 0 ? (
+                  `+ ${financialProjections.ganhoMetaPonderada.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`
+                ) : (
+                  "Meta Já Atingida! 🎉"
+                )}
               </p>
               <span className="text-[10px] text-slate-400 block mt-0.5">
-                (+ {financialProjections.pecasAdicionaisLoja} peças vendidas nos mesmos cupons)
+                {financialProjections.ganhoMetaPonderada > 0 
+                  ? `(+ ${financialProjections.pecasNecessariasPonderada} peças para a meta justa)`
+                  : `(Saldo positivo: +${vendorTacticalMetrics.saldoPecas.toFixed(1)} peças)`}
               </span>
             </div>
 

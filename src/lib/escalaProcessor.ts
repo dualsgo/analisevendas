@@ -14,7 +14,52 @@ export interface EscalaStore {
   aliases: Record<string, string>; // Maps sales vendor name -> schedule vendor name (or vice versa)
 }
 
+export interface PositionGoalConfig {
+  P1: number;
+  P2: number;
+  P3: number;
+  DIG: number;
+  DEFAULT: number;
+}
+
+export const DEFAULT_POSITION_METAS: PositionGoalConfig = {
+  P1: 1.60,
+  P2: 1.55,
+  P3: 1.80,
+  DIG: 1.75,
+  DEFAULT: 1.75
+};
+
+export const POSITION_NAMES: Record<string, string> = {
+  P1: "P1 — Caixa",
+  P2: "P2 — Porta",
+  P3: "P3 — Salão",
+  DIG: "DIG — Digital / Retirada",
+  DEFAULT: "Geral / Padrão"
+};
+
 const LOCAL_STORAGE_KEY = "analisevendas_escala_store";
+const METAS_LOCAL_STORAGE_KEY = "analisevendas_escala_metas";
+
+export function loadSavedPositionMetas(): PositionGoalConfig {
+  if (typeof window === "undefined") return DEFAULT_POSITION_METAS;
+  try {
+    const raw = localStorage.getItem(METAS_LOCAL_STORAGE_KEY);
+    if (!raw) return DEFAULT_POSITION_METAS;
+    return { ...DEFAULT_POSITION_METAS, ...JSON.parse(raw) };
+  } catch (e) {
+    return DEFAULT_POSITION_METAS;
+  }
+}
+
+export function savePositionMetas(metas: PositionGoalConfig): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(METAS_LOCAL_STORAGE_KEY, JSON.stringify(metas));
+  } catch (e) {
+    console.error("Failed to save position metas", e);
+  }
+}
 
 /**
  * Normalizes vendor/collaborator name for case and whitespace insensitive comparison

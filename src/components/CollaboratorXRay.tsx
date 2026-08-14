@@ -45,6 +45,7 @@ import {
   Scale,
   Award,
   AlertTriangle,
+  AlertCircle,
   Upload,
   Info,
   ShieldCheck,

@@ -4,6 +4,13 @@ import { DetailedSaleRow, VinculoTroca, UploadHistoryItem } from "@/lib/types";
 import { detectarAdicionaisSuspeitos, vincularTrocas as vincularTrocasUtils } from "@/lib/analysis-utils";
 import { format, parseISO, min, max } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
+import {
+    saveCurrentSession,
+    loadCurrentSession,
+    clearCurrentSession,
+    saveUploadHistory,
+    loadUploadHistory
+} from "@/lib/indexed-db";
 
 type ProcessingStatus = "idle" | "processing" | "analyzed" | "success";
 
@@ -22,42 +29,86 @@ export function useSalesProcessor() {
     const [history, setHistory] = useState<UploadHistoryItem[]>([]);
     const { toast } = useToast();
 
-    // Load history from storage on mount
+    // Carrega histórico do IndexedDB (com fallback para localStorage se estiver vazio)
     useEffect(() => {
-        const saved = localStorage.getItem("ri_happy_upload_history");
-        if (saved) {
+        let isMounted = true;
+        async function fetchHistory() {
             try {
-                setHistory(JSON.parse(saved));
-            } catch (e) {
-                console.error("Erro ao carregar histórico");
-            }
-        }
-    }, []);
-
-    // Session persistence: Load current session from sessionStorage
-    useEffect(() => {
-        const sessionData = sessionStorage.getItem("ri_happy_current_session");
-        if (sessionData) {
-            try {
-                const { rows, links, currentStatus } = JSON.parse(sessionData);
-                if (rows && rows.length > 0) {
-                    const normalizedRows = rows.map((r: DetailedSaleRow) => ({
-                        ...r,
-                        vendedor: normalizeVendedor(r.vendedor)
-                    }));
-                    setParsedRows(normalizedRows);
-                    setVinculos(links || []);
-                    setStatus(currentStatus || "success");
+                const idbHistory = await loadUploadHistory();
+                if (idbHistory && idbHistory.length > 0) {
+                    if (isMounted) setHistory(idbHistory);
+                    return;
                 }
             } catch (e) {
-                console.error("Erro ao recuperar sessão");
+                console.warn("Falha ao ler histórico do IndexedDB, tentando localStorage");
+            }
+
+            // Fallback localStorage
+            const saved = localStorage.getItem("ri_happy_upload_history");
+            if (saved && isMounted) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    setHistory(parsed);
+                    // Migra para o IndexedDB
+                    saveUploadHistory(parsed);
+                } catch (e) {
+                    console.error("Erro ao carregar histórico do localStorage");
+                }
             }
         }
+        fetchHistory();
+        return () => { isMounted = false; };
     }, []);
 
-    // Save current session to sessionStorage
+    // Carrega sessão ativa do IndexedDB (com fallback para sessionStorage)
+    useEffect(() => {
+        let isMounted = true;
+        async function fetchSession() {
+            try {
+                const session = await loadCurrentSession();
+                if (session && session.rows && session.rows.length > 0) {
+                    if (isMounted) {
+                        const normalizedRows = session.rows.map((r: DetailedSaleRow) => ({
+                            ...r,
+                            vendedor: normalizeVendedor(r.vendedor)
+                        }));
+                        setParsedRows(normalizedRows);
+                        setVinculos(session.links || []);
+                        setStatus((session.currentStatus as ProcessingStatus) || "success");
+                    }
+                    return;
+                }
+            } catch (e) {
+                console.warn("Falha ao recuperar sessão do IndexedDB, tentando sessionStorage");
+            }
+
+            // Fallback sessionStorage
+            const sessionData = sessionStorage.getItem("ri_happy_current_session");
+            if (sessionData && isMounted) {
+                try {
+                    const { rows, links, currentStatus } = JSON.parse(sessionData);
+                    if (rows && rows.length > 0) {
+                        const normalizedRows = rows.map((r: DetailedSaleRow) => ({
+                            ...r,
+                            vendedor: normalizeVendedor(r.vendedor)
+                        }));
+                        setParsedRows(normalizedRows);
+                        setVinculos(links || []);
+                        setStatus(currentStatus || "success");
+                    }
+                } catch (e) {
+                    console.error("Erro ao recuperar sessão do sessionStorage");
+                }
+            }
+        }
+        fetchSession();
+        return () => { isMounted = false; };
+    }, []);
+
+    // Salva a sessão ativa no IndexedDB e sessionStorage
     useEffect(() => {
         if (status === "success" || status === "analyzed") {
+            saveCurrentSession(parsedRows, vinculos, status);
             try {
                 sessionStorage.setItem("ri_happy_current_session", JSON.stringify({
                     rows: parsedRows,
@@ -65,32 +116,13 @@ export function useSalesProcessor() {
                     currentStatus: status
                 }));
             } catch (e) {
-                console.warn("Session storage quota exceeded");
+                // Quota excedida no sessionStorage é tolerada pois o IndexedDB já gravou com segurança
             }
         } else if (status === "idle") {
+            clearCurrentSession();
             sessionStorage.removeItem("ri_happy_current_session");
         }
     }, [parsedRows, vinculos, status]);
-
-    // Internal helper to save history list to localStorage with fallback for quota
-    const saveToLocalStorage = (list: UploadHistoryItem[]) => {
-        try {
-            localStorage.setItem("ri_happy_upload_history", JSON.stringify(list));
-            return true;
-        } catch (e) {
-            try {
-                const lightHistory = list.map((item, idx) =>
-                    idx === 0 ? item : { ...item, data: [] }
-                );
-                localStorage.setItem("ri_happy_upload_history", JSON.stringify(lightHistory));
-                return true;
-            } catch (e2) {
-                const metadataOnly = list.map(item => ({ ...item, data: [] }));
-                localStorage.setItem("ri_happy_upload_history", JSON.stringify(metadataOnly));
-                return true;
-            }
-        }
-    };
 
     const addToHistory = useCallback((rows: DetailedSaleRow[]) => {
         const saidas = rows.filter(r => r.tpNF === 1 && !r.is_cancelada);
@@ -109,8 +141,15 @@ export function useSalesProcessor() {
         };
 
         setHistory(prev => {
-            const updated = [newItem, ...prev].slice(0, 5);
-            saveToLocalStorage(updated);
+            const updated = [newItem, ...prev.filter(item => item.id !== newItem.id)].slice(0, 10);
+            saveUploadHistory(updated);
+            try {
+                localStorage.setItem("ri_happy_upload_history", JSON.stringify(
+                    updated.map((item, idx) => idx === 0 ? item : { ...item, data: [] })
+                ));
+            } catch (e) {
+                // Silently fallback on IndexedDB
+            }
             return updated;
         });
     }, []);
@@ -138,7 +177,7 @@ export function useSalesProcessor() {
                     variant: "destructive",
                 });
             }
-        }, 100);
+        }, 50);
     }, [addToHistory, toast]);
 
     const confirmDashboard = useCallback(() => {
@@ -149,6 +188,7 @@ export function useSalesProcessor() {
         setParsedRows([]);
         setVinculos([]);
         setStatus("idle");
+        clearCurrentSession();
         sessionStorage.removeItem("ri_happy_current_session");
     }, []);
 
@@ -156,7 +196,7 @@ export function useSalesProcessor() {
         if (!item.data || item.data.length === 0) {
             toast({
                 title: "Dados não disponíveis",
-                description: "O limite de armazenamento foi atingido para este registro. Re-anexe os arquivos.",
+                description: "Este lote antigo não possui os dados salvos em memória. Por favor, reenvie o arquivo.",
                 variant: "destructive"
             });
             return;
@@ -169,14 +209,16 @@ export function useSalesProcessor() {
         setParsedRows(processedRows);
         setVinculos(vincularTrocasUtils(processedRows));
         setStatus("success");
+        saveCurrentSession(processedRows, vincularTrocasUtils(processedRows), "success");
     }, [toast]);
 
     const clearHistory = useCallback(() => {
         setHistory([]);
+        saveUploadHistory([]);
         localStorage.removeItem("ri_happy_upload_history");
         toast({
             title: "Histórico limpo",
-            description: "Todos os registros de uploads recentes foram removidos.",
+            description: "Todos os registros de uploads anteriores foram removidos.",
         });
     }, [toast]);
 

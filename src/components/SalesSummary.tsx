@@ -2,9 +2,9 @@
 "use client";
 
 import React, { useMemo, useState, useEffect } from "react";
+import dynamic from "next/dynamic";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { fadeIn, staggerContainer, childItem, slideUp } from "@/lib/animations";
 import { 
   DetailedSaleRow, 
   VinculoTroca
@@ -58,7 +58,18 @@ import {
   Menu,
   ChevronDown,
   Sparkles,
-  Settings2
+  Settings2,
+  Calculator,
+  Map,
+  Heart,
+  Brain,
+  HelpCircle,
+  Search,
+  CheckCircle2,
+  Loader2,
+  BarChart3,
+  PieChart,
+  Compass
 } from "lucide-react";
 import { format, parseISO, min, max, startOfDay, endOfDay, isWithinInterval } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -66,18 +77,7 @@ import { Calendar as CalendarUI } from "@/components/ui/calendar";
 import { DateRange } from "react-day-picker";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  useSidebar,
-  SidebarTrigger
-} from "@/components/ui/sidebar";
+import { useSidebar } from "@/components/ui/sidebar";
 import { 
   Sheet, 
   SheetContent, 
@@ -90,55 +90,74 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { DailyPerformance } from "./DailyPerformance";
-import { ImpactProjection } from './ImpactProjection';
-import { ConversionAudit } from "./ConversionAudit";
-import { DiscountAudit } from "./DiscountAudit";
-import { ExchangeManagement } from "./ExchangeManagement";
-import { TransactionList } from "./TransactionList";
-import { WhatsappReports } from "./WhatsappReports";
-import { LostOpportunities } from "./LostOpportunities";
-import { RiskRadar } from "./RiskRadar";
-import { ElasticityAnalysis } from "./ElasticityAnalysis";
-import { AdvancedAnalytics } from "./AdvancedAnalytics";
-import { QualityAnalysis } from "./QualityAnalysis";
-import { AdditionalItemsAnalysis } from "./AdditionalItemsAnalysis";
-import { ConsolidatedReport } from "./ConsolidatedReport";
-import { HeatmapAnalysis } from "./HeatmapAnalysis";
-import { UnmissableOffersAnalysis } from "./UnmissableOffersAnalysis";
-import { SalesEnergy } from "./SalesEnergy";
-import { ProductRisk } from "./ProductRisk";
-import { OperationalRhythm } from "./OperationalRhythm";
-import { PaymentMap } from "./PaymentMap";
-import { CustomerLoyalty } from "./CustomerLoyalty";
-import { PriceProfile } from "./PriceProfile";
-import { ItemRanking } from "./ItemRanking";
-import { MatrizAfinidade } from "./MatrizAfinidade";
-import { RiscoTrocas } from "./RiscoTrocas";
-import { GeographicAnalysis } from "./GeographicAnalysis";
-import { ExecutiveSummary } from "./ExecutiveSummary";
-import { PickupPanel } from "./PickupPanel";
-import { PickupDashboard } from "./PickupDashboard";
-import { DeliveryPanel } from "./DeliveryPanel";
-import { GapAnalysis } from "./GapAnalysis";
-import { CouponAnalysis } from "./CouponAnalysis";
-import { CollaboratorProductRanking } from "./CollaboratorProductRanking";
-import { SocialActionPanel } from "./SocialActionPanel";
-import { ConsecutiveCouponAnalysis } from "./ConsecutiveCouponAnalysis";
-import { SundayAnalysis } from "./SundayAnalysis";
-import { ProductivityDiagnostic } from "./ProductivityDiagnostic";
-import { CashReconciliation } from "./CashReconciliation";
-import { Calculator, Map, Heart, Brain, HelpCircle } from "lucide-react";
 import { AnalysisHelp } from "./AnalysisHelp";
-import { CopaAnalysis } from "./CopaAnalysis";
-import { WeeklyAnalysis } from "./WeeklyAnalysis";
-import { AgingCampaignAnalysis } from "./AgingCampaignAnalysis";
-import { ShiftPerformance } from "./ShiftPerformance";
-import { CollaboratorXRay } from "./CollaboratorXRay";
-import { WeightedPerformanceReport } from "./WeightedPerformanceReport";
-import { ProductCouponAnalysis } from "./ProductCouponAnalysis";
-import { RealtimeImpactPanel } from "./RealtimeImpactPanel";
-import { Search, CheckCircle2 } from "lucide-react";
+
+// Loading Skeleton para Dynamic Imports
+function PanelLoading() {
+  return (
+    <div className="w-full h-96 flex flex-col items-center justify-center gap-3 text-indigo-600">
+      <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+      <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Carregando painel analítico...</span>
+    </div>
+  );
+}
+
+// Dynamic Imports de Todos os Painéis (Code-Splitting)
+const ExecutiveSummary = dynamic(() => import("./ExecutiveSummary").then(m => m.ExecutiveSummary), { loading: () => <PanelLoading /> });
+const ProductivityDiagnostic = dynamic(() => import("./ProductivityDiagnostic").then(m => m.ProductivityDiagnostic), { loading: () => <PanelLoading /> });
+const GapAnalysis = dynamic(() => import("./GapAnalysis").then(m => m.GapAnalysis), { loading: () => <PanelLoading /> });
+const ImpactProjection = dynamic(() => import("./ImpactProjection").then(m => m.ImpactProjection), { loading: () => <PanelLoading /> });
+const SimuladorCenarios = dynamic(() => import("./SimuladorCenarios").then(m => m.SimuladorCenarios), { loading: () => <PanelLoading /> });
+const ConsolidatedReport = dynamic(() => import("./ConsolidatedReport").then(m => m.ConsolidatedReport), { loading: () => <PanelLoading /> });
+const DailyPerformance = dynamic(() => import("./DailyPerformance").then(m => m.DailyPerformance), { loading: () => <PanelLoading /> });
+const WeeklyAnalysis = dynamic(() => import("./WeeklyAnalysis").then(m => m.WeeklyAnalysis), { loading: () => <PanelLoading /> });
+const SundayAnalysis = dynamic(() => import("./SundayAnalysis").then(m => m.SundayAnalysis), { loading: () => <PanelLoading /> });
+const ConversionAudit = dynamic(() => import("./ConversionAudit").then(m => m.ConversionAudit), { loading: () => <PanelLoading /> });
+
+const CollaboratorXRay = dynamic(() => import("./CollaboratorXRay").then(m => m.CollaboratorXRay), { loading: () => <PanelLoading /> });
+const ArenaDeTalentos = dynamic(() => import("./ArenaDeTalentos").then(m => m.ArenaDeTalentos), { loading: () => <PanelLoading /> });
+const WeightedPerformanceReport = dynamic(() => import("./WeightedPerformanceReport").then(m => m.WeightedPerformanceReport), { loading: () => <PanelLoading /> });
+const CollaboratorProductRanking = dynamic(() => import("./CollaboratorProductRanking").then(m => m.CollaboratorProductRanking), { loading: () => <PanelLoading /> });
+const WhatsappReports = dynamic(() => import("./WhatsappReports").then(m => m.WhatsappReports), { loading: () => <PanelLoading /> });
+const FeedbackPanel = dynamic(() => import("./FeedbackPanel").then(m => m.FeedbackPanel), { loading: () => <PanelLoading /> });
+
+const ItemRanking = dynamic(() => import("./ItemRanking").then(m => m.ItemRanking), { loading: () => <PanelLoading /> });
+const ProductCouponAnalysis = dynamic(() => import("./ProductCouponAnalysis").then(m => m.ProductCouponAnalysis), { loading: () => <PanelLoading /> });
+const UnmissableOffersAnalysis = dynamic(() => import("./UnmissableOffersAnalysis").then(m => m.UnmissableOffersAnalysis), { loading: () => <PanelLoading /> });
+const MatrizAfinidade = dynamic(() => import("./MatrizAfinidade").then(m => m.MatrizAfinidade), { loading: () => <PanelLoading /> });
+const BasketBehavior = dynamic(() => import("./BasketBehavior").then(m => m.BasketBehavior), { loading: () => <PanelLoading /> });
+const SalesComposition = dynamic(() => import("./SalesComposition").then(m => m.SalesComposition), { loading: () => <PanelLoading /> });
+const AdditionalItemsAnalysis = dynamic(() => import("./AdditionalItemsAnalysis").then(m => m.AdditionalItemsAnalysis), { loading: () => <PanelLoading /> });
+const SocialActionPanel = dynamic(() => import("./SocialActionPanel").then(m => m.SocialActionPanel), { loading: () => <PanelLoading /> });
+const PriceProfile = dynamic(() => import("./PriceProfile").then(m => m.PriceProfile), { loading: () => <PanelLoading /> });
+const ElasticityAnalysis = dynamic(() => import("./ElasticityAnalysis").then(m => m.ElasticityAnalysis), { loading: () => <PanelLoading /> });
+const CopaAnalysis = dynamic(() => import("./CopaAnalysis").then(m => m.CopaAnalysis), { loading: () => <PanelLoading /> });
+const AgingCampaignAnalysis = dynamic(() => import("./AgingCampaignAnalysis").then(m => m.AgingCampaignAnalysis), { loading: () => <PanelLoading /> });
+const LostOpportunities = dynamic(() => import("./LostOpportunities").then(m => m.LostOpportunities), { loading: () => <PanelLoading /> });
+
+const CustomerLoyalty = dynamic(() => import("./CustomerLoyalty").then(m => m.CustomerLoyalty), { loading: () => <PanelLoading /> });
+const GeographicAnalysis = dynamic(() => import("./GeographicAnalysis").then(m => m.GeographicAnalysis), { loading: () => <PanelLoading /> });
+
+const RealtimeImpactPanel = dynamic(() => import("./RealtimeImpactPanel").then(m => m.RealtimeImpactPanel), { loading: () => <PanelLoading /> });
+const OperationalRhythm = dynamic(() => import("./OperationalRhythm").then(m => m.OperationalRhythm), { loading: () => <PanelLoading /> });
+const HeatmapAnalysis = dynamic(() => import("./HeatmapAnalysis").then(m => m.HeatmapAnalysis), { loading: () => <PanelLoading /> });
+const ShiftPerformance = dynamic(() => import("./ShiftPerformance").then(m => m.ShiftPerformance), { loading: () => <PanelLoading /> });
+const SalesEnergy = dynamic(() => import("./SalesEnergy").then(m => m.SalesEnergy), { loading: () => <PanelLoading /> });
+const PickupDashboard = dynamic(() => import("./PickupDashboard").then(m => m.PickupDashboard), { loading: () => <PanelLoading /> });
+const PickupPanel = dynamic(() => import("./PickupPanel").then(m => m.PickupPanel), { loading: () => <PanelLoading /> });
+const DeliveryPanel = dynamic(() => import("./DeliveryPanel").then(m => m.DeliveryPanel), { loading: () => <PanelLoading /> });
+const TransactionList = dynamic(() => import("./TransactionList").then(m => m.TransactionList), { loading: () => <PanelLoading /> });
+const PaymentMap = dynamic(() => import("./PaymentMap").then(m => m.PaymentMap), { loading: () => <PanelLoading /> });
+const CashReconciliation = dynamic(() => import("./CashReconciliation").then(m => m.CashReconciliation), { loading: () => <PanelLoading /> });
+
+const DiscountAudit = dynamic(() => import("./DiscountAudit").then(m => m.DiscountAudit), { loading: () => <PanelLoading /> });
+const ExchangeManagement = dynamic(() => import("./ExchangeManagement").then(m => m.ExchangeManagement), { loading: () => <PanelLoading /> });
+const CouponAnalysis = dynamic(() => import("./CouponAnalysis").then(m => m.CouponAnalysis), { loading: () => <PanelLoading /> });
+const ConsecutiveCouponAnalysis = dynamic(() => import("./ConsecutiveCouponAnalysis").then(m => m.ConsecutiveCouponAnalysis), { loading: () => <PanelLoading /> });
+const RiskRadar = dynamic(() => import("./RiskRadar").then(m => m.RiskRadar), { loading: () => <PanelLoading /> });
+const RiscoTrocas = dynamic(() => import("./RiscoTrocas").then(m => m.RiscoTrocas), { loading: () => <PanelLoading /> });
+const ProductRisk = dynamic(() => import("./ProductRisk").then(m => m.ProductRisk), { loading: () => <PanelLoading /> });
+const QualityAnalysis = dynamic(() => import("./QualityAnalysis").then(m => m.QualityAnalysis), { loading: () => <PanelLoading /> });
 
 interface SalesSummaryProps {
   data: DetailedSaleRow[];
@@ -153,8 +172,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
   const [isNavOpen, setIsNavOpen] = useState(false);
   const [menuSearch, setMenuSearch] = useState("");
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
-  const { setOpenMobile, state } = useSidebar();
-  const isCollapsed = state === "collapsed";
+  const { setOpenMobile } = useSidebar();
 
   const [hiddenCollaborators, setHiddenCollaborators] = useState<string[]>(() => {
     if (typeof window !== 'undefined') {
@@ -212,240 +230,74 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
     return result;
   }, [vinculos, hiddenCollaborators, dateRange]);
 
-  const [selectedChannels, setSelectedChannels] = useState({
-    fisica: true,
-    online: true,
-    adicional: true,
-    troca: true,
-    delivery: true
-  });
-
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
     setOpenMobile(false);
   };
 
-  const [periodView, setPeriodView] = useState<'consolidated' | 'monthly' | 'daily'>('consolidated');
-
-  const analysisPeriod = useMemo(() => {
-    const saidas = filteredData.filter(r => r.tpNF === 1 && !r.is_cancelada);
-    if (saidas.length === 0) return "Sem dados";
-    const dates = saidas.map(r => parseISO(r.dhEmi)).filter(d => !isNaN(d.getTime()));
-    if (dates.length === 0) return "Período Indefinido";
-    const start = min(dates);
-    const end = max(dates);
-    
-    const isSameMonth = format(start, "MM/yyyy") === format(end, "MM/yyyy");
-    const isSameDay = format(start, "dd/MM/yyyy") === format(end, "dd/MM/yyyy");
-
-    if (isSameDay) {
-      return format(start, "dd 'de' MMMM 'de' yyyy", { locale: ptBR }).toUpperCase();
-    }
-    if (isSameMonth) {
-      return format(start, "MMMM 'de' yyyy", { locale: ptBR }).toUpperCase();
-    }
-    return `${format(start, "dd/MM/yy")} — ${format(end, "dd/MM/yy")}`;
-  }, [filteredData]);
-
-  const toggleChannel = (channel: keyof typeof selectedChannels) => {
-    setSelectedChannels(prev => ({ ...prev, [channel]: !prev[channel] }));
-  };
-
-  const metricsByChannel = useMemo(() => {
-    const saidas = filteredData.filter(r => r.tpNF === 1 && !r.is_devolucao && !r.is_cancelada);
-    
-    const fisica    = saidas.filter(r => r.canal === "LOJA_FISICA" && !r.is_troca);
-    const online    = saidas.filter(r => r.canal === "RETIRADA_ONLINE");
-    const adicional = saidas.filter(r => r.canal === "RETIRADA_ADICIONAL");
-    const delivery  = saidas.filter(r => r.canal === "DELIVERY");
-    
-    const calcMetrics = (rows: DetailedSaleRow[]) => {
-      const v = rows.reduce((acc, r) => acc + parseFloat(r.vNF), 0);
-      const c = rows.length;
-      const i = rows.reduce((acc, r) => acc + parseFloat(r.itens_qtd), 0);
-      const identifiedCount = rows.filter(r => r.cpf_cnpj_dest && r.cpf_cnpj_dest.trim() !== "").length;
-
-      return {
-        venda: v,
-        cupons: c,
-        itens: i,
-        tkm: c > 0 ? v / c : 0,
-        pa: c > 0 ? i / c : 0,
-        cadastros: c > 0 ? (identifiedCount / c) * 100 : 0,
-        identified: identifiedCount
-      };
-    };
-
-    const vTroca = filteredVinculos.reduce((acc, v) => acc + v.valor_diferenca, 0);
-    const cTroca = filteredVinculos.length;
-    const iTroca = filteredVinculos.reduce((acc, v) => acc + v.diferenca_itens, 0);
-    const identifiedTroca = filteredVinculos.filter(v => v.cpf_cliente).length;
-
-    return {
-      fisica: calcMetrics(fisica),
-      online: calcMetrics(online),
-      adicional: calcMetrics(adicional),
-      delivery: calcMetrics(delivery),
-      troca: {
-        venda: vTroca,
-        cupons: cTroca,
-        itens: iTroca,
-        tkm: cTroca > 0 ? vTroca / cTroca : 0,
-        pa: cTroca > 0 ? iTroca / cTroca : 0,
-        cadastros: cTroca > 0 ? (identifiedTroca / cTroca) * 100 : 0,
-        identified: identifiedTroca
-      }
-    };
-  }, [filteredData, filteredVinculos]);
-
-  const consolidado = useMemo(() => {
-    let v = 0, c = 0, i = 0, iden = 0;
-    
-    if (selectedChannels.fisica) {
-      v += metricsByChannel.fisica.venda;
-      c += metricsByChannel.fisica.cupons;
-      i += metricsByChannel.fisica.itens;
-      iden += metricsByChannel.fisica.identified;
-    }
-    if (selectedChannels.online) {
-      v += metricsByChannel.online.venda;
-      c += metricsByChannel.online.cupons;
-      i += metricsByChannel.online.itens;
-      iden += metricsByChannel.online.identified;
-    }
-    if (selectedChannels.adicional) {
-      v += metricsByChannel.adicional.venda;
-      c += metricsByChannel.adicional.cupons;
-      i += metricsByChannel.adicional.itens;
-      iden += metricsByChannel.adicional.identified;
-    }
-    if (selectedChannels.delivery) {
-      v += metricsByChannel.delivery.venda;
-      c += metricsByChannel.delivery.cupons;
-      i += metricsByChannel.delivery.itens;
-      iden += metricsByChannel.delivery.identified;
-    }
-    if (selectedChannels.troca) {
-      v += metricsByChannel.troca.venda;
-      c += metricsByChannel.troca.cupons;
-      i += metricsByChannel.troca.itens;
-      iden += metricsByChannel.troca.identified;
-    }
-
-    const allDisabled = !selectedChannels.fisica && !selectedChannels.online && !selectedChannels.adicional && !selectedChannels.troca && !selectedChannels.delivery;
-    if (allDisabled) return { venda: 0, cupons: 0, itens: 0, tkm: 0, pa: 0, cadastros: 0 };
-
-    return {
-      venda: v,
-      cupons: c,
-      itens: i,
-      tkm: c > 0 ? v / c : 0,
-      pa: c > 0 ? i / c : 0,
-      cadastros: c > 0 ? Math.min((iden / c) * 100, 100) : 0
-    };
-  }, [selectedChannels, metricsByChannel]);
-
-  const periodBreakdown = useMemo(() => {
-    if (periodView === 'consolidated') return null;
-
-    const saidas = filteredData.filter(r => r.tpNF === 1 && !r.is_cancelada);
-    const groups: Record<string, DetailedSaleRow[]> = {};
-    
-    saidas.forEach(r => {
-      const date = parseISO(r.dhEmi);
-      const key = periodView === 'monthly' ? format(date, "MM/yyyy") : format(date, "dd/MM/yyyy");
-      if (!groups[key]) groups[key] = [];
-      groups[key].push(r);
-    });
-
-    return Object.entries(groups).map(([key, rows]) => {
-      const venta = rows.reduce((acc, r) => acc + parseFloat(r.vNF), 0);
-      const cupons = rows.length;
-      const itens = rows.reduce((acc, r) => acc + parseFloat(r.itens_qtd), 0);
-      const iden = rows.filter(r => r.cpf_cnpj_dest && r.cpf_cnpj_dest.trim() !== "").length;
-      
-      const label = periodView === 'monthly' 
-        ? format(parseISO(rows[0].dhEmi), "MMMM yyyy", { locale: ptBR }).toUpperCase()
-        : format(parseISO(rows[0].dhEmi), "dd/MM (eee)", { locale: ptBR }).toUpperCase();
-
-      return {
-        key,
-        label,
-        venda: venta,
-        cupons,
-        itens,
-        tkm: cupons > 0 ? venta / cupons : 0,
-        pa: cupons > 0 ? itens / cupons : 0,
-        ident: cupons > 0 ? (iden / cupons) * 100 : 0
-      };
-    }).sort((a, b) => {
-      // Sort by date key
-      if (periodView === 'monthly') {
-        const [ma, ya] = a.key.split('/').map(Number);
-        const [mb, yb] = b.key.split('/').map(Number);
-        return (ya * 12 + ma) - (yb * 12 + mb);
-      } else {
-        const [da, ma, ya] = a.key.split('/').map(Number);
-        const [db, mb, yb] = b.key.split('/').map(Number);
-        return new Date(ya, ma-1, da).getTime() - new Date(yb, mb-1, db).getTime();
-      }
-    }).map((p, i, arr) => {
-      // Add trend comparison with previous month/day
-      if (i === 0) return { ...p, trend: 0 };
-      const prev = arr[i - 1];
-      const trend = prev.venda > 0 ? ((p.venda - prev.venda) / prev.venda) * 100 : 0;
-      return { ...p, trend };
-    });
-  }, [filteredData, periodView]);
-
   const navItems = [
+    // --- RESULTADOS & PRODUTIVIDADE ---
     { id: "executivo", label: "Resumo Executivo", icon: Sparkles, category: "Resultados", color: "text-orange-500 font-black" },
-    { id: "semanal", label: "Análise Semanal (Expurgo)", icon: CalendarIcon, category: "Resultados", color: "text-blue-500 font-black" },
-    { id: "gap_analise", label: "Laboratório de Produtividade", icon: Activity, category: "Resultados", color: "text-rose-500 font-black" },
-
+    { id: "produtividade_diag", label: "Diagnóstico de Produtividade", icon: Brain, category: "Resultados", color: "text-indigo-600 font-black" },
+    { id: "gap_analise", label: "Laboratório de Produtividade (GAP)", icon: Activity, category: "Resultados", color: "text-rose-500 font-black" },
     { id: "impacto", label: "Projeção de Impacto", icon: Target, category: "Resultados", color: "text-purple-500 font-bold" },
-    { id: "performance", label: "Performance", icon: ClipboardList, category: "Resultados", color: "text-emerald-600 font-black" },
+    { id: "simulador_cenarios", label: "Simulador de Cenários (What-If)", icon: Calculator, category: "Resultados", color: "text-emerald-600 font-black" },
+    { id: "performance", label: "Performance Consolidada", icon: ClipboardList, category: "Resultados", color: "text-emerald-600 font-black" },
     { id: "diario", label: "Performance Diária", icon: CalendarIcon, category: "Resultados" },
+    { id: "semanal", label: "Análise Semanal (Expurgo)", icon: CalendarIcon, category: "Resultados", color: "text-blue-500 font-black" },
+    { id: "sunday_analise", label: "Análise de Domingos e Feriados", icon: Store, category: "Resultados", color: "text-amber-500 font-black" },
+    { id: "conversao", label: "Auditoria de Conversão", icon: UserCheck, category: "Resultados", color: "text-teal-600 font-bold" },
 
+    // --- PESSOAS & TALENTOS ---
     { id: "raio_x_colaborador", label: "Raio-X do Colaborador", icon: UserCheck, category: "Pessoas", color: "text-indigo-600 font-black" },
+    { id: "arena_talentos", label: "Arena de Talentos", icon: Sword, category: "Pessoas", color: "text-amber-500 font-black" },
     { id: "weighted_performance", label: "Meta Ponderada (Por Escala)", icon: Scale, category: "Pessoas", color: "text-indigo-600 font-black" },
-    { id: "whatsapp", label: "WhatsApp", icon: MessageCircle, category: "Pessoas", color: "text-emerald-500" },
     { id: "colab_ranking_prod", label: "Ranking por Produto", icon: Trophy, category: "Pessoas", color: "text-violet-600 font-black" },
+    { id: "whatsapp", label: "Relatórios via WhatsApp", icon: MessageCircle, category: "Pessoas", color: "text-emerald-500" },
+    { id: "feedback", label: "Painel de Feedbacks", icon: MessageCircle, category: "Pessoas", color: "text-blue-600 font-bold" },
 
-    { id: "item_ranking", label: "Ranking de Itens", icon: ShoppingCart, category: "Produtos", color: "text-orange-600 font-black" },
+    // --- PRODUTOS & VENDAS ---
+    { id: "item_ranking", label: "Ranking de Itens (Curva ABC)", icon: ShoppingCart, category: "Produtos", color: "text-orange-600 font-black" },
     { id: "product_coupon_analysis", label: "Solo vs. Múltiplo (Por Item)", icon: Layers, category: "Produtos", color: "text-indigo-600 font-black" },
+    { id: "market_basket", label: "Matriz de Afinidade (Cross-Sell)", icon: Boxes, category: "Produtos", color: "text-indigo-600 font-black" },
+    { id: "basket", label: "Comportamento de Cesta", icon: ShoppingBag, category: "Produtos", color: "text-indigo-600 font-black" },
+    { id: "composicao", label: "Composição de Vendas", icon: PieChart, category: "Produtos", color: "text-purple-600 font-black" },
     { id: "unmissable_offers", label: "Ofertas Imperdíveis", icon: Flame, category: "Produtos", color: "text-rose-600 font-black" },
-    { id: "market_basket", label: "Matriz de Afinidade", icon: Boxes, category: "Produtos", color: "text-indigo-600 font-black" },
     { id: "venda_sugestiva", label: "Venda Sugestiva (SLP)", icon: ShoppingBag, category: "Produtos", color: "text-orange-600 font-black" },
     { id: "acao_social", label: "Ação Social & Sacolas", icon: Heart, category: "Produtos", color: "text-rose-500 font-black" },
     { id: "price_profile", label: "Perfil de Preço", icon: DollarSign, category: "Produtos", color: "text-rose-600 font-black" },
-
+    { id: "elasticidade", label: "Elasticidade de Desconto", icon: TrendingUp, category: "Produtos", color: "text-cyan-600 font-black" },
     { id: "copa", label: "Análise Copa (Figurinhas)", icon: Trophy, category: "Produtos", color: "text-amber-500 font-black" },
     { id: "aging_campaign", label: "Campanha Aging", icon: Timer, category: "Produtos", color: "text-rose-600 font-black" },
+    { id: "oportunidades", label: "Oportunidades Perdidas", icon: Lightbulb, category: "Produtos", color: "text-amber-600 font-black" },
 
+    // --- CLIENTES & FIDELIDADE ---
     { id: "customer_loyalty", label: "Fidelidade & Recorrência", icon: Users2, category: "Clientes", color: "text-emerald-600 font-black" },
-    { id: "ritmo_operacional", label: "Ritmo de Atendimento", icon: Timer, category: "Operacional" },
-    { id: "heatmap", label: "Mapa de Calor", icon: Flame, category: "Operacional", color: "text-orange-500 font-black" },
-    { id: "desempenho_turno", label: "Desempenho por Turno", icon: Timer, category: "Operacional", color: "text-indigo-600 font-black" },
+    { id: "geodesic", label: "Análise Geográfica (Por CEP)", icon: Map, category: "Clientes", color: "text-sky-600 font-black" },
 
+    // --- OPERACIONAL & FLUXO ---
+    { id: "realtime_impact", label: "Impacto em Tempo Real", icon: Zap, category: "Operacional", color: "text-indigo-600 font-black" },
+    { id: "ritmo_operacional", label: "Ritmo de Atendimento", icon: Timer, category: "Operacional" },
+    { id: "heatmap", label: "Mapa de Calor de Vendas", icon: Flame, category: "Operacional", color: "text-orange-500 font-black" },
+    { id: "desempenho_turno", label: "Desempenho por Turno", icon: Timer, category: "Operacional", color: "text-indigo-600 font-black" },
+    { id: "energy", label: "Energia de Vendas", icon: Zap, category: "Operacional", color: "text-amber-500 font-black" },
     { id: "pickup_dashboard", label: "Dashboard Pickup", icon: Zap, category: "Operacional", color: "text-emerald-600 font-black" },
     { id: "pickup_track", label: "Monitor Pickup", icon: Smartphone, category: "Operacional", color: "text-sky-600 font-black" },
     { id: "delivery_track", label: "Monitor Delivery", icon: Truck, category: "Operacional", color: "text-rose-600 font-black" },
-    { id: "transacoes", label: "Transações", icon: ListFilter, category: "Operacional" },
+    { id: "transacoes", label: "Lista de Transações", icon: ListFilter, category: "Operacional" },
     { id: "payment_map", label: "Mapa de Pagamentos", icon: CreditCard, category: "Operacional" },
-    { id: "cash_reconcile", label: "Conciliação de Dinheiro", icon: Calculator, category: "Operacional", color: "text-emerald-600 font-black" },
+    { id: "cash_reconcile", label: "Conciliação de Caixa (Dinheiro)", icon: Calculator, category: "Operacional", color: "text-emerald-600 font-black" },
 
+    // --- AUDITORIA, RISCO & COMPLIANCE ---
     { id: "auditoria", label: "Auditoria de Descontos", icon: Percent, category: "Auditoria" },
-    { id: "trocas", label: "Trocas", icon: ArrowRightLeft, category: "Auditoria" },
-    { id: "pa", label: "Análise de PA", icon: Hash, category: "Auditoria" },
+    { id: "trocas", label: "Gestão de Trocas", icon: ArrowRightLeft, category: "Auditoria" },
+    { id: "pa", label: "Análise de PA e Complementos", icon: Hash, category: "Auditoria" },
     { id: "coupon_analysis", label: "Análise de Cupons", icon: Layers, category: "Auditoria", color: "text-rose-500 font-black" },
-
-
-
-
-
-    { id: "realtime_impact", label: "Impacto em Tempo Real", icon: Zap, category: "Operacional", color: "text-indigo-600 font-black" },
     { id: "consecutive_cupons", label: "Vendas Divididas (Fragmentadas)", icon: Layers, category: "Auditoria", color: "text-rose-600 font-black" },
+    { id: "risk_radar", label: "Radar de Alertas e Riscos", icon: ShieldAlert, category: "Auditoria", color: "text-rose-600 font-black" },
+    { id: "sangria", label: "Risco de Trocas & Sangria", icon: ShieldAlert, category: "Auditoria", color: "text-rose-500 font-black" },
+    { id: "product_risk", label: "Risco de Produtos", icon: AlertTriangle, category: "Auditoria", color: "text-amber-600 font-black" },
+    { id: "qualidade_avancada", label: "Auditoria de Qualidade", icon: ShieldCheck, category: "Auditoria", color: "text-emerald-600 font-black" },
   ];
 
   const activeNavItem = useMemo(() => {
@@ -454,68 +306,71 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
 
   const renderActiveTab = () => {
     switch(activeTab) {
+      // Resultados
       case "executivo": return <ExecutiveSummary data={filteredData} vinculos={filteredVinculos} onSwitchTab={handleTabChange} />;
-      case "realtime_impact": return <RealtimeImpactPanel data={filteredData} />;
+      case "produtividade_diag": return <ProductivityDiagnostic data={filteredData} />;
       case "gap_analise": return <GapAnalysis data={filteredData} />;
       case "impacto": return <ImpactProjection data={filteredData} />;
-      case "heatmap": return <HeatmapAnalysis data={filteredData} vinculos={filteredVinculos} />;
-      case "energy": return <SalesEnergy data={filteredData} />;
-      case "basket": return null;
-      case "product_risk": return <ProductRisk data={filteredData} />;
+      case "simulador_cenarios": return <SimuladorCenarios data={filteredData} />;
       case "performance": return <ConsolidatedReport data={filteredData} vinculos={filteredVinculos} />;
       case "diario": return <DailyPerformance data={filteredData} />;
-      case "composicao": return null;
+      case "semanal": return <WeeklyAnalysis data={filteredData} />;
+      case "sunday_analise": return <SundayAnalysis data={filteredData} />;
       case "conversao": return <ConversionAudit data={filteredData} />;
-      case "auditoria": return <DiscountAudit data={filteredData} />;
-      case "trocas": return <ExchangeManagement data={filteredData} vinculos={filteredVinculos} />;
-      case "transacoes": return <TransactionList data={filteredData} />;
+
+      // Pessoas
+      case "raio_x_colaborador": return <CollaboratorXRay data={filteredData} vinculos={filteredVinculos} />;
+      case "arena_talentos": return <ArenaDeTalentos data={filteredData} />;
+      case "weighted_performance": return <WeightedPerformanceReport data={filteredData} vinculos={filteredVinculos} />;
+      case "colab_ranking_prod": return <CollaboratorProductRanking data={filteredData} />;
+      case "whatsapp": return <WhatsappReports data={filteredData} vinculos={filteredVinculos} />;
+      case "feedback": return <FeedbackPanel data={filteredData} vinculos={filteredVinculos} />;
+
+      // Produtos
+      case "item_ranking": return <ItemRanking data={filteredData} />;
+      case "product_coupon_analysis": return <ProductCouponAnalysis data={filteredData} />;
+      case "market_basket": return <MatrizAfinidade data={filteredData} />;
+      case "basket": return <BasketBehavior data={filteredData} />;
+      case "composicao": return <SalesComposition data={filteredData} vinculos={filteredVinculos} />;
+      case "unmissable_offers": return <UnmissableOffersAnalysis data={filteredData} />;
+      case "venda_sugestiva": return <AdditionalItemsAnalysis data={filteredData} />;
+      case "acao_social": return <SocialActionPanel data={filteredData} />;
+      case "price_profile": return <PriceProfile data={filteredData} />;
+      case "elasticidade": return <ElasticityAnalysis data={filteredData} />;
+      case "copa": return <CopaAnalysis data={filteredData} />;
+      case "aging_campaign": return <AgingCampaignAnalysis data={filteredData} />;
+      case "oportunidades": return <LostOpportunities data={filteredData} vinculos={filteredVinculos} />;
+
+      // Clientes
+      case "customer_loyalty": return <CustomerLoyalty data={filteredData} vinculos={filteredVinculos} />;
+      case "geodesic": return <GeographicAnalysis data={filteredData} />;
+
+      // Operacional
+      case "realtime_impact": return <RealtimeImpactPanel data={filteredData} />;
+      case "ritmo_operacional": return <OperationalRhythm data={filteredData} />;
+      case "heatmap": return <HeatmapAnalysis data={filteredData} vinculos={filteredVinculos} />;
+      case "desempenho_turno": return <ShiftPerformance data={filteredData} />;
+      case "energy": return <SalesEnergy data={filteredData} />;
       case "pickup_dashboard": return <PickupDashboard data={filteredData} />;
       case "pickup_track": return <PickupPanel data={filteredData} />;
       case "delivery_track": return <DeliveryPanel data={filteredData} />;
-      case "raio_x_colaborador": return <CollaboratorXRay data={filteredData} vinculos={filteredVinculos} />;
-      case "weighted_performance": return <WeightedPerformanceReport data={filteredData} vinculos={filteredVinculos} />;
-      case "whatsapp": return <WhatsappReports data={filteredData} vinculos={filteredVinculos} />;
-      case "elasticidade": return <ElasticityAnalysis data={filteredData} />;
-      case "deep_dive": return null;
-      case "qualidade_avancada": return <QualityAnalysis data={filteredData} vinculos={filteredVinculos} />;
-      case "ritmo_operacional": return <OperationalRhythm data={filteredData} />;
-      case "desempenho_turno": return <ShiftPerformance data={filteredData} />;
-      case "produtividade_diag": return <ProductivityDiagnostic data={filteredData} />;
+      case "transacoes": return <TransactionList data={filteredData} />;
       case "payment_map": return <PaymentMap data={filteredData} />;
       case "cash_reconcile": return <CashReconciliation data={filteredData} />;
-      case "customer_loyalty": return <CustomerLoyalty data={filteredData} vinculos={filteredVinculos} />;
-      case "price_profile": return <PriceProfile data={filteredData} />;
-      case "item_ranking": return <ItemRanking data={filteredData} />;
-      case "product_coupon_analysis": return <ProductCouponAnalysis data={filteredData} />;
-      case "unmissable_offers": return <UnmissableOffersAnalysis data={filteredData} />;
-      case "pacing": return null;
-      case "market_basket": return <MatrizAfinidade data={filteredData} />;
-      case "sangria": return <RiscoTrocas data={filteredData} />;
-      case "what_if": return null;
-      case "geodesic": return <GeographicAnalysis data={filteredData} />;
-      case "oportunidades": return <LostOpportunities data={filteredData} vinculos={filteredVinculos} />;
-      case "pa": return <AdditionalItemsAnalysis data={filteredData} />;
-      case "acao_social": return <SocialActionPanel data={filteredData} />;
-      case "coupon_analysis": return <CouponAnalysis data={filteredData} />;
-      case "venda_sugestiva": return <AdditionalItemsAnalysis data={filteredData} />;
-      case "colab_ranking_prod": return <CollaboratorProductRanking data={filteredData} />;
-      case "sunday_analise": return <SundayAnalysis data={filteredData} />;
-      case "consecutive_cupons": return <ConsecutiveCouponAnalysis data={filteredData} />;
-      case "copa": return <CopaAnalysis data={filteredData} />;
-      case "aging_campaign": return <AgingCampaignAnalysis data={filteredData} />;
-      case "gamification": return null;
-      case "feedback": return null;
-      case "semanal": return <WeeklyAnalysis data={filteredData} />;
-      default: return null;
-    }
-  };
 
-  const formatCurrency = (val: number | string, isMobile = false) => {
-    const num = typeof val === 'string' ? parseFloat(val) : val;
-    if (isMobile && num >= 1000) {
-      return `R$ ${(num / 1000).toFixed(1)}k`;
+      // Auditoria
+      case "auditoria": return <DiscountAudit data={filteredData} />;
+      case "trocas": return <ExchangeManagement data={filteredData} vinculos={filteredVinculos} />;
+      case "pa": return <AdditionalItemsAnalysis data={filteredData} />;
+      case "coupon_analysis": return <CouponAnalysis data={filteredData} />;
+      case "consecutive_cupons": return <ConsecutiveCouponAnalysis data={filteredData} />;
+      case "risk_radar": return <RiskRadar data={filteredData} />;
+      case "sangria": return <RiscoTrocas data={filteredData} />;
+      case "product_risk": return <ProductRisk data={filteredData} />;
+      case "qualidade_avancada": return <QualityAnalysis data={filteredData} vinculos={filteredVinculos} />;
+
+      default: return <ExecutiveSummary data={filteredData} vinculos={filteredVinculos} onSwitchTab={handleTabChange} />;
     }
-    return num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   };
 
   return (
@@ -527,7 +382,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
             <SheetTrigger asChild>
               <Button variant="ghost" size="sm" className="bg-slate-900 hover:bg-slate-800 text-white font-black rounded-xl h-10 px-3.5 gap-2 shadow-md uppercase text-xs">
                 <Menu className="w-5 h-5 text-indigo-400" />
-                <span className="hidden sm:inline">Análises</span>
+                <span className="hidden sm:inline">Análises ({navItems.length})</span>
               </Button>
             </SheetTrigger>
             <SheetContent side="left" className="w-full sm:max-w-md bg-slate-900 border-r border-slate-800 text-white p-0 flex flex-col overflow-hidden">
@@ -538,7 +393,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
                   </div>
                   <div>
                     <SheetTitle className="text-lg font-black text-white uppercase tracking-tight">Análises Estratégicas</SheetTitle>
-                    <SheetDescription className="text-slate-400 font-bold text-[10px] uppercase tracking-wider">Catálogo de Painéis de Inteligência</SheetDescription>
+                    <SheetDescription className="text-slate-400 font-bold text-[10px] uppercase tracking-wider">{navItems.length} Painéis de Inteligência Ativos</SheetDescription>
                   </div>
                 </div>
                 {/* SEARCH INPUT IN HAMBURGER MENU */}
@@ -555,7 +410,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
               </SheetHeader>
 
               <div className="flex-1 overflow-y-auto p-4 space-y-5 scrollbar-thin">
-                {["Resultados", "Pessoas", "Produtos", "Clientes", "Auditoria", "Operacional"].map(cat => {
+                {["Resultados", "Pessoas", "Produtos", "Clientes", "Operacional", "Auditoria"].map(cat => {
                   const itemsInCat = navItems.filter(item => 
                     item.category === cat && 
                     (menuSearch.trim() === "" || item.label.toLowerCase().includes(menuSearch.toLowerCase()))
@@ -614,7 +469,6 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
       ) : null}
 
       <div className="flex-1 overflow-y-auto bg-slate-50 p-3 md:p-5 flex flex-col gap-4 scrollbar-hide print:p-0 print:bg-white w-full">
-        
         
         {/* Equipe Portal to Header */}
         {mounted && document.getElementById("header-actions") ? createPortal(
@@ -705,7 +559,6 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
           </div>,
           document.getElementById("header-actions")!
         ) : null}
-  
 
         <div className="flex-1 min-h-0 relative">
           <AnimatePresence mode="popLayout">
@@ -714,7 +567,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
               initial={{ opacity: 0, scale: 0.98, y: 5 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.98 }}
-              transition={{ duration: 0.3, ease: "easeInOut" }}
+              transition={{ duration: 0.25, ease: "easeInOut" }}
               className="h-full"
             >
               {renderActiveTab()}
@@ -723,76 +576,5 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
         </div>
       </div>
     </div>
-  );
-}
-
-function QuickMetric({ label, value, color, large, description }: any) {
-  return (
-    <div className="space-y-2 text-center flex flex-col items-center justify-center">
-      <div className="flex items-center gap-1.5 mb-1">
-        <p className={cn("font-bold text-slate-400 uppercase tracking-widest leading-none", large ? "text-[12px]" : "text-[10px]")}>
-          {label}
-        </p>
-        {description && (
-          <AnalysisHelp 
-            title={label} 
-            description={description} 
-            className="text-slate-300 hover:text-slate-500" 
-            iconClassName="w-3 h-3"
-          />
-        )}
-      </div>
-      <p className={cn(
-        "font-black leading-none transition-all duration-300", 
-        color || "text-slate-700",
-        large ? "text-2xl md:text-4xl" : "text-lg md:text-2xl"
-      )}>{value}</p>
-    </div>
-  );
-}
-
-function ChannelSelector({ label, icon: Icon, active, color, onToggle }: any) {
-  return (
-    <motion.div 
-      whileHover={{ scale: 1.02 }}
-      whileTap={{ scale: 0.95 }}
-      onClick={onToggle}
-      className={cn(
-        "flex flex-col items-center justify-center p-3 md:p-4 rounded-xl cursor-pointer transition-all border gap-2 h-full select-none text-center",
-        active ? "bg-white border-indigo-200 shadow-sm scale-[1.02]" : "bg-slate-50 border-transparent opacity-60 hover:opacity-100 hover:bg-white hover:border-slate-200"
-      )}
-    >
-      <Icon className={cn("w-5 h-5", active ? color : "text-slate-400")} />
-      <span className={cn("text-xs font-bold uppercase text-center leading-none", active ? "text-slate-800" : "text-slate-400")}>{label}</span>
-    </motion.div>
-  );
-}
-
-function FixedChannelCard({ title, metrics, color, large }: any) {
-  const formatCurrency = (val: number | string, isMobile = false) => {
-    const num = typeof val === 'string' ? parseFloat(val) : val;
-    if (isMobile && num >= 1000) {
-      return `R$ ${(num / 1000).toFixed(1)}k`;
-    }
-    return num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-  };
-
-  return (
-    <Card className={cn("ri-card border overflow-hidden bg-white shadow-sm flex flex-col h-full", color)}>
-      <div className="p-3 bg-slate-50 border-b border-slate-100 flex flex-col items-center justify-center text-center gap-1">
-        <h4 className={cn("font-bold uppercase tracking-widest text-slate-600 leading-none", large ? "text-[11px]" : "text-[10px]")}>{title}</h4>
-        <p className={cn("font-black text-slate-800 leading-none", large ? "text-xl" : "text-lg")}>{formatCurrency(metrics.venda, true)}</p>
-      </div>
-      <CardContent className="p-4 grid grid-cols-2 gap-3 text-center items-center justify-center flex-1">
-        <div className="space-y-1">
-          <p className={cn("font-bold text-slate-400 uppercase leading-none", large ? "text-[10px]" : "text-[9px]")}>TKM</p>
-          <p className={cn("font-bold text-indigo-600 leading-none", large ? "text-base" : "text-sm")}>{formatCurrency(metrics.tkm, true)}</p>
-        </div>
-        <div className="space-y-1">
-          <p className={cn("font-bold text-slate-400 uppercase leading-none", large ? "text-[10px]" : "text-[9px]")}>P.A.</p>
-          <p className={cn("font-bold text-sky-600 leading-none", large ? "text-base" : "text-sm")}>{metrics.pa.toFixed(2)}</p>
-        </div>
-      </CardContent>
-    </Card>
   );
 }

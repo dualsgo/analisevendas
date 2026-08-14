@@ -60,9 +60,13 @@ export const AgingCampaignAnalysis: React.FC<AgingCampaignAnalysisProps> = ({ da
       discountPerc: number;
       motivo: string;
       normalValue: number;
-      missingForTrigger: number;
-      discountIfTriggered: number;
-      netExtraRevenueIfTriggered: number;
+      regularTriggerValueNeeded: number;
+      agingDiscount: number;
+      agingPriceWithPromo: number;
+      projectedTotalWithCampaign: number;
+      netRevenueDiff: number;
+      customerSavingsOrUpsellMargin: number;
+      addedPieces: number;
     }> = [];
     const opportunitySales: Array<{ nf: string, dhEmi: string, vendedor: string, normalValue: number, opps: number, converted: number }> = [];
     
@@ -112,34 +116,52 @@ export const AgingCampaignAnalysis: React.FC<AgingCampaignAnalysisProps> = ({ da
       
       // Regras para Auditoria de Venda Avulsa (Preço Cheio):
       // - Não pode ter outro item da lista que recebeu desconto (promoQty === 0)
-      // - Os outros itens (normalValue) somados fazem menos de 50 reais
+      // - Os outros itens (normalValue) somados fazem menos de 50 reais por aging
       const isEligibleForExtraAging = promoQty === 0 && normalValue < TICKET_THRESHOLD;
       
-      let saleMissingTrigger = 0;
-      let saleDiscountIfTriggered = 0;
-      let saleNetExtraIfTriggered = 0;
+      let saleRegularValueAdded = 0;
+      let saleAgingDiscountGiven = 0;
+      let saleNetRevenueDiff = 0;
+      let saleCustomerSavings = 0;
+      let saleAddItems = 0;
 
       if (isEligibleForExtraAging) {
         const motivo = normalValue < 0.01 ? "Vendido Sozinho" : "Gatilho < R$50";
-        const missingForTrigger = Math.max(0, TICKET_THRESHOLD - normalValue);
         
         saleExtraItems.forEach(item => {
-          // Desconto de 50% que o cliente teria no item aging se atingisse o gatilho
-          const discountIfTriggered = (item.vProd * 0.50) - item.vDesc;
-          // Ganho líquido: entra o valor que faltava para o gatilho e concede o desconto de 50% no aging
-          const netExtraRevenueIfTriggered = missingForTrigger - discountIfTriggered;
+          // Cada item aging precisa de R$ 49,99 em item regular não-aging
+          const regularTriggerValueNeeded = item.qCom * TICKET_THRESHOLD;
+          const agingDiscount = (item.vProd * 0.50) - item.vDesc;
+          const agingPriceWithPromo = item.vProd - agingDiscount;
+          
+          // Compra com a campanha ativa: 1 item regular de R$ 49,99 + Aging com 50%
+          const projectedTotalWithCampaign = regularTriggerValueNeeded + agingPriceWithPromo;
+          
+          // Variação no faturamento desta operação (item regular de R$ 50 - desconto de 50% no aging)
+          const netRevenueDiff = regularTriggerValueNeeded - agingDiscount;
+          
+          // Se o cliente pagou preço cheio (ex: 229,99), com a campanha pagaria 165,00 (50 + 115).
+          // Ele economiza 64,99 e leva 2 itens. Esse valor é a margem de poder de compra p/ Up-Sell.
+          const customerSavingsOrUpsellMargin = item.vProd - projectedTotalWithCampaign;
+          const addedPieces = item.qCom; // +1 item regular por item aging
 
-          saleMissingTrigger += missingForTrigger;
-          saleDiscountIfTriggered += discountIfTriggered;
-          saleNetExtraIfTriggered += netExtraRevenueIfTriggered;
+          saleRegularValueAdded += regularTriggerValueNeeded;
+          saleAgingDiscountGiven += agingDiscount;
+          saleNetRevenueDiff += netRevenueDiff;
+          saleCustomerSavings += Math.max(0, customerSavingsOrUpsellMargin);
+          saleAddItems += addedPieces;
 
           extraAgingSales.push({
             ...item,
             motivo,
             normalValue,
-            missingForTrigger,
-            discountIfTriggered,
-            netExtraRevenueIfTriggered
+            regularTriggerValueNeeded,
+            agingDiscount,
+            agingPriceWithPromo,
+            projectedTotalWithCampaign,
+            netRevenueDiff,
+            customerSavingsOrUpsellMargin,
+            addedPieces
           });
         });
       }
@@ -201,8 +223,10 @@ export const AgingCampaignAnalysis: React.FC<AgingCampaignAnalysisProps> = ({ da
           extraAging: 0,
           extraAgingSalesCount: 0,
           extraAgingNetPotential: 0,
-          extraAgingMissingTriggerSum: 0,
-          extraAgingAddItems: 0
+          extraAgingRegularValueAdded: 0,
+          extraAgingDiscountGiven: 0,
+          extraAgingAddItems: 0,
+          extraAgingCustomerSavings: 0
         };
       }
 
@@ -221,10 +245,11 @@ export const AgingCampaignAnalysis: React.FC<AgingCampaignAnalysisProps> = ({ da
 
       if (isEligibleForExtraAging && saleExtraItems.length > 0) {
         collaboratorImpact[v].extraAgingSalesCount += 1;
-        collaboratorImpact[v].extraAgingNetPotential += saleNetExtraIfTriggered;
-        collaboratorImpact[v].extraAgingMissingTriggerSum += saleMissingTrigger;
-        // Se adicionasse 1 item no valor do gatilho por venda avulsa, ganharia +1 item por cupom
-        collaboratorImpact[v].extraAgingAddItems += 1;
+        collaboratorImpact[v].extraAgingNetPotential += saleNetRevenueDiff;
+        collaboratorImpact[v].extraAgingRegularValueAdded += saleRegularValueAdded;
+        collaboratorImpact[v].extraAgingDiscountGiven += saleAgingDiscountGiven;
+        collaboratorImpact[v].extraAgingAddItems += saleAddItems;
+        collaboratorImpact[v].extraAgingCustomerSavings += saleCustomerSavings;
       }
     });
 
@@ -236,8 +261,10 @@ export const AgingCampaignAnalysis: React.FC<AgingCampaignAnalysisProps> = ({ da
     const itensSemAging = totalItens - totalAgingQty;
 
     const totalExtraAgingNetPotential = Object.values(collaboratorImpact).reduce((acc: number, c: any) => acc + (c.extraAgingNetPotential || 0), 0);
-    const totalExtraAgingMissingTrigger = Object.values(collaboratorImpact).reduce((acc: number, c: any) => acc + (c.extraAgingMissingTriggerSum || 0), 0);
+    const totalExtraAgingRegularValueAdded = Object.values(collaboratorImpact).reduce((acc: number, c: any) => acc + (c.extraAgingRegularValueAdded || 0), 0);
+    const totalExtraAgingDiscountGiven = Object.values(collaboratorImpact).reduce((acc: number, c: any) => acc + (c.extraAgingDiscountGiven || 0), 0);
     const totalExtraAgingAddItems = Object.values(collaboratorImpact).reduce((acc: number, c: any) => acc + (c.extraAgingAddItems || 0), 0);
+    const totalExtraAgingCustomerSavings = Object.values(collaboratorImpact).reduce((acc: number, c: any) => acc + (c.extraAgingCustomerSavings || 0), 0);
 
     return {
       totalAgingValue,
@@ -251,8 +278,10 @@ export const AgingCampaignAnalysis: React.FC<AgingCampaignAnalysisProps> = ({ da
       totalConverted,
       totalExtraAging,
       totalExtraAgingNetPotential,
-      totalExtraAgingMissingTrigger,
+      totalExtraAgingRegularValueAdded,
+      totalExtraAgingDiscountGiven,
       totalExtraAgingAddItems,
+      totalExtraAgingCustomerSavings,
       extraAgingSales: extraAgingSales.sort((a, b) => new Date(b.dhEmi).getTime() - new Date(a.dhEmi).getTime()),
       opportunitySales: opportunitySales.sort((a, b) => (b.opps - b.converted) - (a.opps - a.converted)),
       conversionRate: totalOpportunities > 0 ? (totalConverted / totalOpportunities) * 100 : 0,
@@ -596,7 +625,7 @@ export const AgingCampaignAnalysis: React.FC<AgingCampaignAnalysisProps> = ({ da
                   Auditoria de Venda Avulsa (Preço Cheio) & Simulação de Gatilho
                 </CardTitle>
                 <CardDescription className="text-[10px] font-bold uppercase text-rose-600/70">
-                  Itens Aging vendidos sem desconto de 50%. Simulação detalhada do ganho se um item regular tivesse ativado o gatilho de R$ 49,99.
+                  Itens Aging vendidos sem desconto de 50%. Mostra em detalhes a adição do item regular de R$ 50,00 por aging e a economia gerada ao cliente.
                 </CardDescription>
               </div>
               <Badge className="bg-rose-100 text-rose-700 border-rose-200 font-black text-[10px] uppercase gap-1 w-fit">
@@ -606,16 +635,16 @@ export const AgingCampaignAnalysis: React.FC<AgingCampaignAnalysisProps> = ({ da
           </CardHeader>
 
           {/* Regra de Negócio Explicativa */}
-          <div className="bg-amber-50/80 border-b border-amber-200/80 p-3.5 px-4 flex items-start gap-2.5 text-amber-900 text-xs">
-            <div className="bg-amber-500 text-white rounded-md p-1 shrink-0 mt-0.5">
-              <Sparkles className="w-3.5 h-3.5" />
+          <div className="bg-amber-50/80 border-b border-amber-200/80 p-4 flex items-start gap-3 text-amber-900 text-xs">
+            <div className="bg-amber-500 text-white rounded-xl p-2 shrink-0 mt-0.5 shadow-sm">
+              <Sparkles className="w-4 h-4" />
             </div>
-            <div className="space-y-1">
-              <p className="font-extrabold uppercase text-[10px] tracking-wide text-amber-800">
-                Regra da Campanha Aging (Gatilho Exclusivo de Itens Regulares)
+            <div className="space-y-1.5 flex-1">
+              <p className="font-black uppercase text-[11px] tracking-wide text-amber-900 flex items-center gap-2">
+                <span>Regra da Campanha Aging: R$ 50,00 em Produtos Regulares para CADA 1 Item Aging</span>
               </p>
-              <p className="text-[11px] leading-relaxed text-amber-900/90 font-medium">
-                O produto Aging <strong>não pontua</strong> para o gatilho de R$ 49,99. O cliente precisa comprar ao menos <strong>R$ 49,99 em itens regulares (não-aging)</strong> para ter direito aos 50% de desconto no item Aging. Se o item Aging foi vendido sozinho ou com valor regular insuficiente, a adição de 1 item regular para atingir o gatilho gera <strong>+1 peça no P.A.</strong> e <strong>aumento líquido no faturamento da loja</strong>.
+              <p className="text-[11px] leading-relaxed text-amber-950/80 font-medium">
+                O produto Aging <strong>não pontua para o gatilho</strong>. Para cada 1 produto Aging com 50% de desconto, são necessários <strong>R$ 50,00 em compras de produtos regulares</strong> (não-aging). Se o cliente pagou preço cheio (ex: R$ 229,99), apresentando a promoção ele levaria <strong>+1 produto regular de R$ 50,00</strong> e o Aging sairia por <strong>R$ 115,00</strong>, pagando <strong>R$ 165,00 por 2 itens</strong>. O cliente <strong>economiza R$ 65,00</strong> (gerando poder de compra para adicionar ainda mais itens!), e o vendedor <strong>aumenta seu P.A.</strong>
               </p>
             </div>
           </div>
@@ -629,84 +658,96 @@ export const AgingCampaignAnalysis: React.FC<AgingCampaignAnalysisProps> = ({ da
             </div>
             <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Peças Não Adicionadas</p>
-              <p className="text-base font-black text-sky-600">+{stats.totalExtraAgingAddItems} itens</p>
-              <p className="text-[9px] font-bold text-slate-400 uppercase mt-0.5">+1 item regular / nota</p>
+              <p className="text-base font-black text-sky-600">+{stats.totalExtraAgingAddItems} itens regulares</p>
+              <p className="text-[9px] font-bold text-slate-400 uppercase mt-0.5">+1 peça regular por aging</p>
             </div>
             <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Entrada de Item Regular</p>
-              <p className="text-base font-black text-amber-600">+{formatBRL(stats.totalExtraAgingMissingTrigger)}</p>
-              <p className="text-[9px] font-bold text-slate-400 uppercase mt-0.5">Venda de produtos regulares</p>
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Entrada Itens Regulares</p>
+              <p className="text-base font-black text-indigo-600">+{formatBRL(stats.totalExtraAgingRegularValueAdded)}</p>
+              <p className="text-[9px] font-bold text-slate-400 uppercase mt-0.5">R$ 50,00 por item aging</p>
             </div>
             <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Ganho Líquido Projetado</p>
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Economia do Cliente (Up-Sell)</p>
               <p className="text-base font-black text-emerald-600">
-                {stats.totalExtraAgingNetPotential >= 0 ? "+" : ""}{formatBRL(stats.totalExtraAgingNetPotential)}
+                {formatBRL(stats.totalExtraAgingCustomerSavings)}
               </p>
-              <p className="text-[9px] font-bold text-slate-400 uppercase mt-0.5">Gatilho - 50% desc. aging</p>
+              <p className="text-[9px] font-bold text-slate-400 uppercase mt-0.5">Margem liberada p/ mais compras</p>
             </div>
           </div>
 
           <CardContent className="p-0 overflow-x-auto max-h-[450px] overflow-y-auto">
-            <table className="w-full text-left border-collapse min-w-[980px]">
+            <table className="w-full text-left border-collapse min-w-[1020px]">
               <thead className="sticky top-0 bg-white shadow-sm z-10">
                 <tr>
                   <th className="p-4 text-[10px] font-black text-slate-400 uppercase border-b">Data / Cupom</th>
                   <th className="p-4 text-[10px] font-black text-slate-400 uppercase border-b">Colaborador</th>
-                  <th className="p-4 text-[10px] font-black text-slate-400 uppercase border-b">Produto Aging (Cheio)</th>
-                  <th className="p-4 text-[10px] font-black text-slate-400 uppercase border-b text-center">Cenário Regular</th>
-                  <th className="p-4 text-[10px] font-black text-slate-400 uppercase border-b text-center">Item Regular Necessário</th>
-                  <th className="p-4 text-[10px] font-black text-slate-400 uppercase border-b text-center">Desconto 50% Aging</th>
+                  <th className="p-4 text-[10px] font-black text-slate-400 uppercase border-b">Produto Aging (Pago Cheio)</th>
+                  <th className="p-4 text-[10px] font-black text-slate-400 uppercase border-b text-center">Gatilho Regular (+R$ 50)</th>
+                  <th className="p-4 text-[10px] font-black text-slate-400 uppercase border-b text-center">Aging c/ 50% Desc.</th>
+                  <th className="p-4 text-[10px] font-black text-slate-400 uppercase border-b text-center bg-indigo-50/30">
+                    Total c/ Promoção (2 Itens)
+                  </th>
                   <th className="p-4 text-[10px] font-black text-slate-400 uppercase border-b text-right bg-emerald-50/40">
                     <div className="flex items-center justify-end gap-1 text-emerald-700">
                       <Sparkles className="w-3 h-3" />
-                      Projeção com Gatilho (+1 Item)
+                      Impacto no P.A. & Cliente
                     </div>
                   </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {stats.extraAgingSales.map((sale, idx) => (
-                  <tr key={idx} className="hover:bg-slate-50 transition-colors">
-                    <td className="p-4">
-                      <div className="text-[10px] font-black text-slate-700 uppercase">
-                        {format(parseISO(sale.dhEmi), "dd/MM/yyyy HH:mm")}
-                      </div>
-                      <div className="text-[9px] text-slate-400 font-bold uppercase">NF: {sale.nf}</div>
-                    </td>
-                    <td className="p-4">
-                      <span className="text-xs font-black text-slate-600 uppercase">{sale.vendedor}</span>
-                    </td>
-                    <td className="p-4">
-                      <div className="text-[10px] font-black text-slate-700 uppercase">{sale.itemDesc}</div>
-                      <div className="text-[9px] text-slate-500 font-bold uppercase">
-                        {formatBRL(sale.vProd)} ({sale.qCom} unid.)
-                      </div>
-                    </td>
-                    <td className="p-4 text-center">
-                      <Badge variant="outline" className={cn("font-black text-[9px] uppercase", sale.motivo === "Vendido Sozinho" ? "bg-amber-50 text-amber-600 border-amber-200" : "bg-orange-50 text-orange-600 border-orange-200")}>
-                        {sale.motivo === "Vendido Sozinho" ? "0,00 Regular (Sozinho)" : `R$ ${sale.normalValue.toFixed(2)} Regular (< R$50)`}
-                      </Badge>
-                    </td>
-                    <td className="p-4 text-center">
-                      <span className="text-xs font-black text-amber-600">+{formatBRL(sale.missingForTrigger)}</span>
-                      <p className="text-[9px] font-bold text-slate-400 uppercase">
-                        {sale.normalValue < 0.01 ? "1 item de R$ 49,99" : `falta ${formatBRL(sale.missingForTrigger)} em reg.`}
-                      </p>
-                    </td>
-                    <td className="p-4 text-center">
-                      <span className="text-xs font-black text-rose-500">-{formatBRL(sale.discountIfTriggered)}</span>
-                      <p className="text-[9px] font-bold text-slate-400 uppercase">de {formatBRL(sale.vProd)} por {formatBRL(sale.vProd - sale.discountIfTriggered)}</p>
-                    </td>
-                    <td className="p-4 text-right bg-emerald-50/20">
-                      <div className="text-xs font-black text-emerald-700">
-                        {sale.netExtraRevenueIfTriggered >= 0 ? "+" : ""}{formatBRL(sale.netExtraRevenueIfTriggered)} Líquido
-                      </div>
-                      <div className="text-[9px] font-bold text-emerald-600 uppercase">
-                        +1 Peça no P.A.
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {stats.extraAgingSales.map((sale, idx) => {
+                  const hasSavings = sale.customerSavingsOrUpsellMargin > 0;
+                  return (
+                    <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                      <td className="p-4">
+                        <div className="text-[10px] font-black text-slate-700 uppercase">
+                          {format(parseISO(sale.dhEmi), "dd/MM/yyyy HH:mm")}
+                        </div>
+                        <div className="text-[9px] text-slate-400 font-bold uppercase">NF: {sale.nf}</div>
+                      </td>
+                      <td className="p-4">
+                        <span className="text-xs font-black text-slate-600 uppercase">{sale.vendedor}</span>
+                      </td>
+                      <td className="p-4">
+                        <div className="text-[10px] font-black text-slate-700 uppercase">{sale.itemDesc}</div>
+                        <div className="text-[9px] text-rose-600 font-bold uppercase">
+                          Pago: {formatBRL(sale.vProd)} ({sale.qCom} unid. sem promo)
+                        </div>
+                      </td>
+                      <td className="p-4 text-center">
+                        <span className="text-xs font-black text-indigo-600">+{formatBRL(sale.regularTriggerValueNeeded)}</span>
+                        <p className="text-[9px] font-bold text-slate-400 uppercase">
+                          +{sale.addedPieces} item(ns) regular(es)
+                        </p>
+                      </td>
+                      <td className="p-4 text-center">
+                        <span className="text-xs font-black text-emerald-600">{formatBRL(sale.agingPriceWithPromo)}</span>
+                        <p className="text-[9px] font-bold text-slate-400 uppercase">50% de {formatBRL(sale.vProd)}</p>
+                      </td>
+                      <td className="p-4 text-center bg-indigo-50/20">
+                        <span className="text-xs font-black text-indigo-900">{formatBRL(sale.projectedTotalWithCampaign)}</span>
+                        <p className="text-[9px] font-bold text-indigo-500 uppercase">{sale.qCom + sale.addedPieces} peças ({sale.addedPieces} reg. + {sale.qCom} aging)</p>
+                      </td>
+                      <td className="p-4 text-right bg-emerald-50/20">
+                        <div className="text-xs font-black text-emerald-700">
+                          +{sale.addedPieces} Peça(s) no P.A.
+                        </div>
+                        <div className="text-[9px] font-bold uppercase mt-0.5">
+                          {hasSavings ? (
+                            <span className="text-emerald-600 font-bold">
+                              Cliente economiza {formatBRL(sale.customerSavingsOrUpsellMargin)} (Up-Sell)
+                            </span>
+                          ) : (
+                            <span className="text-slate-600 font-bold">
+                              {sale.netRevenueDiff >= 0 ? "+" : ""}{formatBRL(sale.netRevenueDiff)} faturado
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </CardContent>

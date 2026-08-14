@@ -421,20 +421,20 @@ export function DailyPerformance({ data }: DailyPerformanceProps) {
         <Table className="border border-slate-200">
           <TableHeader className="bg-slate-900">
             <TableRow className="hover:bg-slate-900 border-none h-11 divide-x divide-slate-700">
-              <TableHead className="text-white font-black uppercase text-[9px] text-center align-middle w-32 md:w-40 whitespace-nowrap">Período</TableHead>
-              <TableHead className="text-white font-black uppercase text-[9px] text-center align-middle">Venda</TableHead>
-              <TableHead className="text-white font-black uppercase text-[9px] text-center align-middle">Cupons</TableHead>
-              <TableHead className="text-white font-black uppercase text-[9px] text-center align-middle">Itens</TableHead>
-              <TableHead className="text-white font-black uppercase text-[9px] text-center align-middle">PA</TableHead>
-              <TableHead className="text-white font-black uppercase text-[9px] text-center align-middle">Ticket Méd.</TableHead>
-              <TableHead className="text-white font-black uppercase text-[9px] text-center align-middle">Preço Méd.</TableHead>
-              <TableHead className="text-white font-black uppercase text-[9px] text-center align-middle">CPF</TableHead>
-              <TableHead className="text-white font-black uppercase text-[9px] text-center align-middle">SLP</TableHead>
-              <TableHead className="text-white font-black uppercase text-[9px] text-center align-middle">BAR</TableHead>
-              <TableHead className="text-white font-black uppercase text-[9px] text-center align-middle">SAC</TableHead>
-              <TableHead className="text-white font-black uppercase text-[9px] text-center align-middle">Retiradas</TableHead>
-              <TableHead className="text-white font-black uppercase text-[9px] text-center align-middle">Adicionais</TableHead>
-              <TableHead className="text-white font-black uppercase text-[9px] text-center align-middle">Conversão</TableHead>
+              <TableHead className="text-white font-black uppercase text-[10px] text-center align-middle w-32 md:w-40 whitespace-nowrap">Período</TableHead>
+              <TableHead className="text-white font-black uppercase text-[10px] text-center align-middle">Venda</TableHead>
+              <TableHead className="text-white font-black uppercase text-[10px] text-center align-middle">Cupons</TableHead>
+              <TableHead className="text-white font-black uppercase text-[10px] text-center align-middle">Itens</TableHead>
+              <TableHead className="text-white font-black uppercase text-[10px] text-center align-middle">PA</TableHead>
+              <TableHead className="text-white font-black uppercase text-[10px] text-center align-middle">Ticket Méd.</TableHead>
+              <TableHead className="text-white font-black uppercase text-[10px] text-center align-middle">Preço Méd.</TableHead>
+              <TableHead className="text-white font-black uppercase text-[10px] text-center align-middle">CPF</TableHead>
+              <TableHead className="text-white font-black uppercase text-[10px] text-center align-middle">SLP</TableHead>
+              <TableHead className="text-white font-black uppercase text-[10px] text-center align-middle">BAR</TableHead>
+              <TableHead className="text-white font-black uppercase text-[10px] text-center align-middle">SAC</TableHead>
+              <TableHead className="text-white font-black uppercase text-[10px] text-center align-middle">Retiradas</TableHead>
+              <TableHead className="text-white font-black uppercase text-[10px] text-center align-middle">Adicionais</TableHead>
+              <TableHead className="text-white font-black uppercase text-[10px] text-center align-middle">Conversão</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -571,7 +571,7 @@ function QuickStat({ label, value, icon: Icon, color }: QuickStatProps) {
         <Icon className="w-5 h-5" />
       </div>
       <div className="min-w-0 space-y-1">
-        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none">
+        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">
           {label}
         </p>
         <p className="text-sm font-black text-slate-800 truncate leading-none">

@@ -102,47 +102,36 @@ function PanelLoading() {
   );
 }
 
-// Dynamic Imports de Todos os Painéis (Code-Splitting)
+// Dynamic Imports dos Painéis Ativos (Code-Splitting)
 const ExecutiveSummary = dynamic(() => import("./ExecutiveSummary").then(m => m.ExecutiveSummary), { loading: () => <PanelLoading /> });
-const ProductivityDiagnostic = dynamic(() => import("./ProductivityDiagnostic").then(m => m.ProductivityDiagnostic), { loading: () => <PanelLoading /> });
 const GapAnalysis = dynamic(() => import("./GapAnalysis").then(m => m.GapAnalysis), { loading: () => <PanelLoading /> });
-const ImpactProjection = dynamic(() => import("./ImpactProjection").then(m => m.ImpactProjection), { loading: () => <PanelLoading /> });
 const SimuladorCenarios = dynamic(() => import("./SimuladorCenarios").then(m => m.SimuladorCenarios), { loading: () => <PanelLoading /> });
 const ConsolidatedReport = dynamic(() => import("./ConsolidatedReport").then(m => m.ConsolidatedReport), { loading: () => <PanelLoading /> });
 const DailyPerformance = dynamic(() => import("./DailyPerformance").then(m => m.DailyPerformance), { loading: () => <PanelLoading /> });
 const WeeklyAnalysis = dynamic(() => import("./WeeklyAnalysis").then(m => m.WeeklyAnalysis), { loading: () => <PanelLoading /> });
-const SundayAnalysis = dynamic(() => import("./SundayAnalysis").then(m => m.SundayAnalysis), { loading: () => <PanelLoading /> });
 const ConversionAudit = dynamic(() => import("./ConversionAudit").then(m => m.ConversionAudit), { loading: () => <PanelLoading /> });
 
 const CollaboratorXRay = dynamic(() => import("./CollaboratorXRay").then(m => m.CollaboratorXRay), { loading: () => <PanelLoading /> });
-const ArenaDeTalentos = dynamic(() => import("./ArenaDeTalentos").then(m => m.ArenaDeTalentos), { loading: () => <PanelLoading /> });
 const WeightedPerformanceReport = dynamic(() => import("./WeightedPerformanceReport").then(m => m.WeightedPerformanceReport), { loading: () => <PanelLoading /> });
 const CollaboratorProductRanking = dynamic(() => import("./CollaboratorProductRanking").then(m => m.CollaboratorProductRanking), { loading: () => <PanelLoading /> });
 const WhatsappReports = dynamic(() => import("./WhatsappReports").then(m => m.WhatsappReports), { loading: () => <PanelLoading /> });
-const FeedbackPanel = dynamic(() => import("./FeedbackPanel").then(m => m.FeedbackPanel), { loading: () => <PanelLoading /> });
 
 const ItemRanking = dynamic(() => import("./ItemRanking").then(m => m.ItemRanking), { loading: () => <PanelLoading /> });
 const ProductCouponAnalysis = dynamic(() => import("./ProductCouponAnalysis").then(m => m.ProductCouponAnalysis), { loading: () => <PanelLoading /> });
 const UnmissableOffersAnalysis = dynamic(() => import("./UnmissableOffersAnalysis").then(m => m.UnmissableOffersAnalysis), { loading: () => <PanelLoading /> });
-const MatrizAfinidade = dynamic(() => import("./MatrizAfinidade").then(m => m.MatrizAfinidade), { loading: () => <PanelLoading /> });
-const BasketBehavior = dynamic(() => import("./BasketBehavior").then(m => m.BasketBehavior), { loading: () => <PanelLoading /> });
-const SalesComposition = dynamic(() => import("./SalesComposition").then(m => m.SalesComposition), { loading: () => <PanelLoading /> });
 const AdditionalItemsAnalysis = dynamic(() => import("./AdditionalItemsAnalysis").then(m => m.AdditionalItemsAnalysis), { loading: () => <PanelLoading /> });
 const SocialActionPanel = dynamic(() => import("./SocialActionPanel").then(m => m.SocialActionPanel), { loading: () => <PanelLoading /> });
 const PriceProfile = dynamic(() => import("./PriceProfile").then(m => m.PriceProfile), { loading: () => <PanelLoading /> });
-const ElasticityAnalysis = dynamic(() => import("./ElasticityAnalysis").then(m => m.ElasticityAnalysis), { loading: () => <PanelLoading /> });
 const CopaAnalysis = dynamic(() => import("./CopaAnalysis").then(m => m.CopaAnalysis), { loading: () => <PanelLoading /> });
 const AgingCampaignAnalysis = dynamic(() => import("./AgingCampaignAnalysis").then(m => m.AgingCampaignAnalysis), { loading: () => <PanelLoading /> });
 const LostOpportunities = dynamic(() => import("./LostOpportunities").then(m => m.LostOpportunities), { loading: () => <PanelLoading /> });
 
 const CustomerLoyalty = dynamic(() => import("./CustomerLoyalty").then(m => m.CustomerLoyalty), { loading: () => <PanelLoading /> });
-const GeographicAnalysis = dynamic(() => import("./GeographicAnalysis").then(m => m.GeographicAnalysis), { loading: () => <PanelLoading /> });
 
 const RealtimeImpactPanel = dynamic(() => import("./RealtimeImpactPanel").then(m => m.RealtimeImpactPanel), { loading: () => <PanelLoading /> });
 const OperationalRhythm = dynamic(() => import("./OperationalRhythm").then(m => m.OperationalRhythm), { loading: () => <PanelLoading /> });
 const HeatmapAnalysis = dynamic(() => import("./HeatmapAnalysis").then(m => m.HeatmapAnalysis), { loading: () => <PanelLoading /> });
 const ShiftPerformance = dynamic(() => import("./ShiftPerformance").then(m => m.ShiftPerformance), { loading: () => <PanelLoading /> });
-const SalesEnergy = dynamic(() => import("./SalesEnergy").then(m => m.SalesEnergy), { loading: () => <PanelLoading /> });
 const PickupDashboard = dynamic(() => import("./PickupDashboard").then(m => m.PickupDashboard), { loading: () => <PanelLoading /> });
 const PickupPanel = dynamic(() => import("./PickupPanel").then(m => m.PickupPanel), { loading: () => <PanelLoading /> });
 const DeliveryPanel = dynamic(() => import("./DeliveryPanel").then(m => m.DeliveryPanel), { loading: () => <PanelLoading /> });
@@ -154,10 +143,6 @@ const DiscountAudit = dynamic(() => import("./DiscountAudit").then(m => m.Discou
 const ExchangeManagement = dynamic(() => import("./ExchangeManagement").then(m => m.ExchangeManagement), { loading: () => <PanelLoading /> });
 const CouponAnalysis = dynamic(() => import("./CouponAnalysis").then(m => m.CouponAnalysis), { loading: () => <PanelLoading /> });
 const ConsecutiveCouponAnalysis = dynamic(() => import("./ConsecutiveCouponAnalysis").then(m => m.ConsecutiveCouponAnalysis), { loading: () => <PanelLoading /> });
-const RiskRadar = dynamic(() => import("./RiskRadar").then(m => m.RiskRadar), { loading: () => <PanelLoading /> });
-const RiscoTrocas = dynamic(() => import("./RiscoTrocas").then(m => m.RiscoTrocas), { loading: () => <PanelLoading /> });
-const ProductRisk = dynamic(() => import("./ProductRisk").then(m => m.ProductRisk), { loading: () => <PanelLoading /> });
-const QualityAnalysis = dynamic(() => import("./QualityAnalysis").then(m => m.QualityAnalysis), { loading: () => <PanelLoading /> });
 
 interface SalesSummaryProps {
   data: DetailedSaleRow[];
@@ -238,49 +223,38 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
   const navItems = [
     // --- RESULTADOS & PRODUTIVIDADE ---
     { id: "executivo", label: "Resumo Executivo", icon: Sparkles, category: "Resultados", color: "text-orange-500 font-black" },
-    { id: "produtividade_diag", label: "Diagnóstico de Produtividade", icon: Brain, category: "Resultados", color: "text-indigo-600 font-black" },
     { id: "gap_analise", label: "Laboratório de Produtividade (GAP)", icon: Activity, category: "Resultados", color: "text-rose-500 font-black" },
-    { id: "impacto", label: "Projeção de Impacto", icon: Target, category: "Resultados", color: "text-purple-500 font-bold" },
     { id: "simulador_cenarios", label: "Simulador de Cenários (What-If)", icon: Calculator, category: "Resultados", color: "text-emerald-600 font-black" },
     { id: "performance", label: "Performance Consolidada", icon: ClipboardList, category: "Resultados", color: "text-emerald-600 font-black" },
     { id: "diario", label: "Performance Diária", icon: CalendarIcon, category: "Resultados" },
     { id: "semanal", label: "Análise Semanal (Expurgo)", icon: CalendarIcon, category: "Resultados", color: "text-blue-500 font-black" },
-    { id: "sunday_analise", label: "Análise de Domingos e Feriados", icon: Store, category: "Resultados", color: "text-amber-500 font-black" },
     { id: "conversao", label: "Auditoria de Conversão", icon: UserCheck, category: "Resultados", color: "text-teal-600 font-bold" },
 
     // --- PESSOAS & TALENTOS ---
     { id: "raio_x_colaborador", label: "Raio-X do Colaborador", icon: UserCheck, category: "Pessoas", color: "text-indigo-600 font-black" },
-    { id: "arena_talentos", label: "Arena de Talentos", icon: Sword, category: "Pessoas", color: "text-amber-500 font-black" },
     { id: "weighted_performance", label: "Meta Ponderada (Por Escala)", icon: Scale, category: "Pessoas", color: "text-indigo-600 font-black" },
     { id: "colab_ranking_prod", label: "Ranking por Produto", icon: Trophy, category: "Pessoas", color: "text-violet-600 font-black" },
     { id: "whatsapp", label: "Relatórios via WhatsApp", icon: MessageCircle, category: "Pessoas", color: "text-emerald-500" },
-    { id: "feedback", label: "Painel de Feedbacks", icon: MessageCircle, category: "Pessoas", color: "text-blue-600 font-bold" },
 
     // --- PRODUTOS & VENDAS ---
     { id: "item_ranking", label: "Ranking de Itens (Curva ABC)", icon: ShoppingCart, category: "Produtos", color: "text-orange-600 font-black" },
     { id: "product_coupon_analysis", label: "Solo vs. Múltiplo (Por Item)", icon: Layers, category: "Produtos", color: "text-indigo-600 font-black" },
-    { id: "market_basket", label: "Matriz de Afinidade (Cross-Sell)", icon: Boxes, category: "Produtos", color: "text-indigo-600 font-black" },
-    { id: "basket", label: "Comportamento de Cesta", icon: ShoppingBag, category: "Produtos", color: "text-indigo-600 font-black" },
-    { id: "composicao", label: "Composição de Vendas", icon: PieChart, category: "Produtos", color: "text-purple-600 font-black" },
     { id: "unmissable_offers", label: "Ofertas Imperdíveis", icon: Flame, category: "Produtos", color: "text-rose-600 font-black" },
     { id: "venda_sugestiva", label: "Venda Sugestiva (SLP)", icon: ShoppingBag, category: "Produtos", color: "text-orange-600 font-black" },
     { id: "acao_social", label: "Ação Social & Sacolas", icon: Heart, category: "Produtos", color: "text-rose-500 font-black" },
     { id: "price_profile", label: "Perfil de Preço", icon: DollarSign, category: "Produtos", color: "text-rose-600 font-black" },
-    { id: "elasticidade", label: "Elasticidade de Desconto", icon: TrendingUp, category: "Produtos", color: "text-cyan-600 font-black" },
     { id: "copa", label: "Análise Copa (Figurinhas)", icon: Trophy, category: "Produtos", color: "text-amber-500 font-black" },
     { id: "aging_campaign", label: "Campanha Aging", icon: Timer, category: "Produtos", color: "text-rose-600 font-black" },
     { id: "oportunidades", label: "Oportunidades Perdidas", icon: Lightbulb, category: "Produtos", color: "text-amber-600 font-black" },
 
     // --- CLIENTES & FIDELIDADE ---
     { id: "customer_loyalty", label: "Fidelidade & Recorrência", icon: Users2, category: "Clientes", color: "text-emerald-600 font-black" },
-    { id: "geodesic", label: "Análise Geográfica (Por CEP)", icon: Map, category: "Clientes", color: "text-sky-600 font-black" },
 
     // --- OPERACIONAL & FLUXO ---
     { id: "realtime_impact", label: "Impacto em Tempo Real", icon: Zap, category: "Operacional", color: "text-indigo-600 font-black" },
     { id: "ritmo_operacional", label: "Ritmo de Atendimento", icon: Timer, category: "Operacional" },
     { id: "heatmap", label: "Mapa de Calor de Vendas", icon: Flame, category: "Operacional", color: "text-orange-500 font-black" },
     { id: "desempenho_turno", label: "Desempenho por Turno", icon: Timer, category: "Operacional", color: "text-indigo-600 font-black" },
-    { id: "energy", label: "Energia de Vendas", icon: Zap, category: "Operacional", color: "text-amber-500 font-black" },
     { id: "pickup_dashboard", label: "Dashboard Pickup", icon: Zap, category: "Operacional", color: "text-emerald-600 font-black" },
     { id: "pickup_track", label: "Monitor Pickup", icon: Smartphone, category: "Operacional", color: "text-sky-600 font-black" },
     { id: "delivery_track", label: "Monitor Delivery", icon: Truck, category: "Operacional", color: "text-rose-600 font-black" },
@@ -294,10 +268,6 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
     { id: "pa", label: "Análise de PA e Complementos", icon: Hash, category: "Auditoria" },
     { id: "coupon_analysis", label: "Análise de Cupons", icon: Layers, category: "Auditoria", color: "text-rose-500 font-black" },
     { id: "consecutive_cupons", label: "Vendas Divididas (Fragmentadas)", icon: Layers, category: "Auditoria", color: "text-rose-600 font-black" },
-    { id: "risk_radar", label: "Radar de Alertas e Riscos", icon: ShieldAlert, category: "Auditoria", color: "text-rose-600 font-black" },
-    { id: "sangria", label: "Risco de Trocas & Sangria", icon: ShieldAlert, category: "Auditoria", color: "text-rose-500 font-black" },
-    { id: "product_risk", label: "Risco de Produtos", icon: AlertTriangle, category: "Auditoria", color: "text-amber-600 font-black" },
-    { id: "qualidade_avancada", label: "Auditoria de Qualidade", icon: ShieldCheck, category: "Auditoria", color: "text-emerald-600 font-black" },
   ];
 
   const activeNavItem = useMemo(() => {
@@ -308,49 +278,38 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
     switch(activeTab) {
       // Resultados
       case "executivo": return <ExecutiveSummary data={filteredData} vinculos={filteredVinculos} onSwitchTab={handleTabChange} />;
-      case "produtividade_diag": return <ProductivityDiagnostic data={filteredData} />;
       case "gap_analise": return <GapAnalysis data={filteredData} />;
-      case "impacto": return <ImpactProjection data={filteredData} />;
       case "simulador_cenarios": return <SimuladorCenarios data={filteredData} />;
       case "performance": return <ConsolidatedReport data={filteredData} vinculos={filteredVinculos} />;
       case "diario": return <DailyPerformance data={filteredData} />;
       case "semanal": return <WeeklyAnalysis data={filteredData} />;
-      case "sunday_analise": return <SundayAnalysis data={filteredData} />;
       case "conversao": return <ConversionAudit data={filteredData} />;
 
       // Pessoas
       case "raio_x_colaborador": return <CollaboratorXRay data={filteredData} vinculos={filteredVinculos} />;
-      case "arena_talentos": return <ArenaDeTalentos data={filteredData} />;
       case "weighted_performance": return <WeightedPerformanceReport data={filteredData} vinculos={filteredVinculos} />;
       case "colab_ranking_prod": return <CollaboratorProductRanking data={filteredData} />;
       case "whatsapp": return <WhatsappReports data={filteredData} vinculos={filteredVinculos} />;
-      case "feedback": return <FeedbackPanel data={filteredData} vinculos={filteredVinculos} />;
 
       // Produtos
       case "item_ranking": return <ItemRanking data={filteredData} />;
       case "product_coupon_analysis": return <ProductCouponAnalysis data={filteredData} />;
-      case "market_basket": return <MatrizAfinidade data={filteredData} />;
-      case "basket": return <BasketBehavior data={filteredData} />;
-      case "composicao": return <SalesComposition data={filteredData} vinculos={filteredVinculos} />;
       case "unmissable_offers": return <UnmissableOffersAnalysis data={filteredData} />;
       case "venda_sugestiva": return <AdditionalItemsAnalysis data={filteredData} />;
       case "acao_social": return <SocialActionPanel data={filteredData} />;
       case "price_profile": return <PriceProfile data={filteredData} />;
-      case "elasticidade": return <ElasticityAnalysis data={filteredData} />;
       case "copa": return <CopaAnalysis data={filteredData} />;
       case "aging_campaign": return <AgingCampaignAnalysis data={filteredData} />;
       case "oportunidades": return <LostOpportunities data={filteredData} vinculos={filteredVinculos} />;
 
       // Clientes
       case "customer_loyalty": return <CustomerLoyalty data={filteredData} vinculos={filteredVinculos} />;
-      case "geodesic": return <GeographicAnalysis data={filteredData} />;
 
       // Operacional
       case "realtime_impact": return <RealtimeImpactPanel data={filteredData} />;
       case "ritmo_operacional": return <OperationalRhythm data={filteredData} />;
       case "heatmap": return <HeatmapAnalysis data={filteredData} vinculos={filteredVinculos} />;
       case "desempenho_turno": return <ShiftPerformance data={filteredData} />;
-      case "energy": return <SalesEnergy data={filteredData} />;
       case "pickup_dashboard": return <PickupDashboard data={filteredData} />;
       case "pickup_track": return <PickupPanel data={filteredData} />;
       case "delivery_track": return <DeliveryPanel data={filteredData} />;
@@ -364,10 +323,6 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
       case "pa": return <AdditionalItemsAnalysis data={filteredData} />;
       case "coupon_analysis": return <CouponAnalysis data={filteredData} />;
       case "consecutive_cupons": return <ConsecutiveCouponAnalysis data={filteredData} />;
-      case "risk_radar": return <RiskRadar data={filteredData} />;
-      case "sangria": return <RiscoTrocas data={filteredData} />;
-      case "product_risk": return <ProductRisk data={filteredData} />;
-      case "qualidade_avancada": return <QualityAnalysis data={filteredData} vinculos={filteredVinculos} />;
 
       default: return <ExecutiveSummary data={filteredData} vinculos={filteredVinculos} onSwitchTab={handleTabChange} />;
     }

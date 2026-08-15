@@ -269,9 +269,23 @@ export function WeightedPerformanceReport({ data = [], vinculos = [] }: Weighted
       const saldoPecas = v.totalItens - totalPecasEsperadas;
       const diffPA = paRealizado - metaPonderadaPA;
 
+      const sortedDailyDetails = [...v.dailyDetails].sort((a, b) => a.date.localeCompare(b.date)).map(d => {
+        const paDia = d.cupons > 0 ? d.itens / d.cupons : 0;
+        const metaDia = customMetas[d.posicao as keyof PositionGoalConfig] ?? customMetas.DEFAULT;
+        const isAtingiuDia = paDia >= metaDia;
+        return {
+          ...d,
+          posName: POSITION_NAMES[d.posicao] || d.posicao,
+          paDia,
+          metaDia,
+          isAtingiuDia
+        };
+      });
+
       return {
         ...v,
         positionsList,
+        sortedDailyDetails,
         bestPosition,
         worstPosition,
         paRealizado,
@@ -1034,6 +1048,97 @@ export function WeightedPerformanceReport({ data = [], vinculos = [] }: Weighted
                           )}
                         </div>
 
+                      </div>
+                    </div>
+
+                    {/* SECTION 4: HISTÓRICO DIÁRIO VINCULADO À ESCALA */}
+                    <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-2xs space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-xs font-black uppercase text-slate-800 flex items-center gap-1.5">
+                          <Calendar className="w-4 h-4 text-indigo-600" />
+                          <span>Histórico Diário: Posição Apontada na Escala vs. Vendas do Dia</span>
+                        </h4>
+                        <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full uppercase">
+                          {v.sortedDailyDetails.length} dias com vendas registradas
+                        </span>
+                      </div>
+
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs text-left">
+                          <thead className="bg-slate-100 text-slate-700 font-black uppercase text-[9px] tracking-wider">
+                            <tr>
+                              <th className="p-3 rounded-l-xl">Data da Venda</th>
+                              <th className="p-3">Posição Apontada na Escala</th>
+                              <th className="p-3 text-right">Atendimentos</th>
+                              <th className="p-3 text-right">Peças</th>
+                              <th className="p-3 text-right">Faturamento</th>
+                              <th className="p-3 text-right">PA Realizado</th>
+                              <th className="p-3 text-right">Meta da Posição</th>
+                              <th className="p-3 text-center rounded-r-xl">Status do Dia</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                            {v.sortedDailyDetails.map((dayItem: any) => {
+                              // Formatar Data: YYYY-MM-DD -> DD/MM/YYYY
+                              const dateParts = dayItem.date.split("-");
+                              const formattedDate = dateParts.length === 3 ? `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}` : dayItem.date;
+
+                              const isP3 = dayItem.posicao === "P3" || dayItem.posicao.startsWith("P3");
+                              const isP1 = dayItem.posicao === "P1" || dayItem.posicao.startsWith("P1");
+                              const isP2 = dayItem.posicao === "P2" || dayItem.posicao.startsWith("P2");
+                              const isDig = dayItem.posicao === "DIG" || dayItem.posicao.startsWith("DIG");
+
+                              const badgeColor = isP3 
+                                ? "bg-emerald-100 text-emerald-800 border-emerald-200" 
+                                : isP2 
+                                ? "bg-amber-100 text-amber-900 border-amber-200" 
+                                : isP1 
+                                ? "bg-rose-100 text-rose-800 border-rose-200" 
+                                : isDig 
+                                ? "bg-sky-100 text-sky-800 border-sky-200" 
+                                : "bg-slate-100 text-slate-700 border-slate-200";
+
+                              return (
+                                <tr key={dayItem.date} className="hover:bg-slate-50/80 transition-colors">
+                                  <td className="p-3 font-bold text-slate-900 flex items-center gap-1.5">
+                                    <Calendar className="w-3 h-3 text-slate-400" />
+                                    <span>{formattedDate}</span>
+                                  </td>
+                                  <td className="p-3">
+                                    <Badge className={cn("text-[9px] font-black uppercase px-2 py-0.5 border", badgeColor)}>
+                                      {dayItem.posName}
+                                    </Badge>
+                                  </td>
+                                  <td className="p-3 text-right font-bold text-slate-800">{dayItem.cupons}</td>
+                                  <td className="p-3 text-right font-bold text-slate-800">{dayItem.itens}</td>
+                                  <td className="p-3 text-right font-bold text-slate-800">{formatCurrency(dayItem.venda)}</td>
+                                  <td className={cn(
+                                    "p-3 text-right font-black",
+                                    dayItem.isAtingiuDia ? "text-emerald-700" : "text-rose-700"
+                                  )}>
+                                    {formatNum(dayItem.paDia)} PA
+                                  </td>
+                                  <td className="p-3 text-right font-bold text-slate-500">
+                                    {formatNum(dayItem.metaDia)} PA
+                                  </td>
+                                  <td className="p-3 text-center">
+                                    {dayItem.isAtingiuDia ? (
+                                      <span className="inline-flex items-center gap-1 text-[10px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                        <span>Na Meta</span>
+                                      </span>
+                                    ) : (
+                                      <span className="inline-flex items-center gap-1 text-[10px] font-black text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-full">
+                                        <AlertCircle className="w-3 h-3 text-rose-600" />
+                                        <span>Abaixo</span>
+                                      </span>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
                       </div>
                     </div>
 

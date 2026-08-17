@@ -15,12 +15,18 @@ import {
   Tooltip as RechartsTooltip, 
   Cell, 
   AreaChart, 
-  Area
+  Area,
+  RadarChart,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
+  Radar,
+  Legend
 } from "recharts";
 import { 
   UserCheck, 
   TrendingUp, 
-  TrendingDown,
+  TrendingDown, 
   Search, 
   Clock, 
   Calendar as CalendarIcon, 
@@ -66,6 +72,19 @@ import {
   POSITION_NAMES,
   loadSavedPositionMetas
 } from "@/lib/escalaProcessor";
+import { 
+  computeTeamDispersionAnalysis, 
+  TeamDispersionStats, 
+  CollaboratorExtendedStats,
+  SLP_CODES,
+  SOCIAL_CODES,
+  BARALHO_CODES,
+  SACOLA_CODES,
+  LANCHINHO_CODES,
+  AGING_CODES
+} from "@/lib/advanced-collaborator-analytics";
+import { CollaboratorTeamDispersion } from "./CollaboratorTeamDispersion";
+import { CollaboratorHeadToHead } from "./CollaboratorHeadToHead";
 
 interface CollaboratorXRayProps {
   data: DetailedSaleRow[];
@@ -75,33 +94,10 @@ interface CollaboratorXRayProps {
 const DAYS_NAME = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
 const DAYS_SHORT = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
-// CÓDIGOS OFICIAIS DE CAMPANHAS E PRODUTOS ESTRATÉGICOS
-const SLP_CODES = [
-  '5135238', '5135269', '5135270', '5135273', '5146458', '5146469', '5146470', '5146471', 
-  '5146472', '5146473', '5146474', '5146475', '5146476', '5146501', '5146504', '5146505', 
-  '5141894', '5141895', '5141896', '5141897', '5141898', '5141899', '5141900', '5141902', 
-  '5141903', '5141904', '5141905', '5141907', '5141909', '5141910', '5141911', '5141912', 
-  '5141913', '5141914', '5141915', '5141916', '5141917', '5141920', '5141949', '5141978', 
-  '5140469', '5140475', '5140476', '5140477', '5140478', '5140479', '5146477', '5146478', 
-  '5146502', '5146503'
-];
-
-const SOCIAL_CODES = [
-  '5057181', '5055875', '5135601', '5129270', '5129271', '5129247', '5129262', '5122642', 
-  '5122641', '5135612', '5122639', '5122638', '5133676', '5113644', '5113641', '5113642', 
-  '5113643', '5129267', '5129255', '5143422', '5139528', '5143423', '5145833', '5139527', 
-  '5147797', '5147796', '5145834', '5079753', '5079752', '5106673', '5106671', '5106674', 
-  '5106672', '5088519', '5097336', '5097335', '5011918', '5136558'
-];
-
-const BARALHO_CODES = ['5147797', '5147796', '5149977', '5149978'];
-const SACOLA_CODES = ['5133676', '5113644'];
-const LANCHINHO_CODES = ['5132632', '5135912', '5132608', '5135830', '5135839'];
-const AGING_CODES = new Set(agingDataRaw.map((item: { codigo: number | string }) => String(item.codigo)));
-
 export function CollaboratorXRay({ data = [], vinculos = [] }: CollaboratorXRayProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedVendor, setSelectedVendor] = useState<string>("");
+  const [activeTab, setActiveTab] = useState<"INDIVIDUAL" | "DISPERSION" | "HEAD_TO_HEAD">("INDIVIDUAL");
   const [copiedMarkdown, setCopiedMarkdown] = useState(false);
   const [copiedJSON, setCopiedJSON] = useState(false);
   const [escalaStore, setEscalaStore] = useState<EscalaStore | null>(null);
@@ -190,6 +186,29 @@ export function CollaboratorXRay({ data = [], vinculos = [] }: CollaboratorXRayP
       setSelectedVendor(vendorSummaryList[0].name);
     }
   }, [vendorSummaryList, selectedVendor]);
+
+  // Análise Estatística Avançada da Equipe (Dispersão, Z-Scores, J-Score)
+  const dispersionStats = useMemo(() => {
+    return computeTeamDispersionAnalysis(activeSales, vinculos, escalaStore, customMetas);
+  }, [activeSales, vinculos, escalaStore, customMetas]);
+
+  // Estatísticas Estendidas do Colaborador Selecionado
+  const currentExtendedStats = useMemo(() => {
+    return dispersionStats.collaborators.find(c => c.name === selectedVendor) || null;
+  }, [dispersionStats, selectedVendor]);
+
+  // Dados do Radar 6D Individual (Colaborador vs Média 50%)
+  const individualRadarData = useMemo(() => {
+    if (!currentExtendedStats) return [];
+    return [
+      { subject: "Produtividade / Dia", Colaborador: currentExtendedStats.radarDimensions.produtividade, fullMark: 100 },
+      { subject: "Profundidade (PA)", Colaborador: currentExtendedStats.radarDimensions.profundidadeCesta, fullMark: 100 },
+      { subject: "Ticket Médio", Colaborador: currentExtendedStats.radarDimensions.ticketMedio, fullMark: 100 },
+      { subject: "Campanhas (SLP/Soc)", Colaborador: currentExtendedStats.radarDimensions.campanhas, fullMark: 100 },
+      { subject: "Fidelidade (CPF)", Colaborador: currentExtendedStats.radarDimensions.fidelidade, fullMark: 100 },
+      { subject: "Margem & Trocas", Colaborador: currentExtendedStats.radarDimensions.preservacaoMargem, fullMark: 100 },
+    ];
+  }, [currentExtendedStats]);
 
   // Métricas Globais da Loja (Benchmarking)
   const storeMetrics = useMemo(() => {
@@ -1008,7 +1027,7 @@ export function CollaboratorXRay({ data = [], vinculos = [] }: CollaboratorXRayP
     };
   }, [vendorMetrics, storeMetrics, vendorTacticalMetrics, basketBreakdown]);
 
-  // Gerador de Prompt Formatado em Markdown para IA (ChatGPT / Gemini / Claude) com Meta Ponderada
+  // Gerador de Prompt Formatado em Markdown para IA (ChatGPT / Gemini / Claude) com Meta Ponderada e Dispersão
   const generateAIPromptText = () => {
     const { 
       metaPonderadaPA, 
@@ -1023,18 +1042,20 @@ export function CollaboratorXRay({ data = [], vinculos = [] }: CollaboratorXRayP
       hasEscalaData
     } = vendorTacticalMetrics;
 
-    return `PROMPT PARA GERAÇÃO DE FEEDBACK DE DESEMPENHO (IA) - AVALIAÇÃO JUSTA POR META PONDERADA
-========================================================================================
+    return `PROMPT PARA GERAÇÃO DE FEEDBACK DE DESEMPENHO (IA) - AVALIAÇÃO JUSTA POR META PONDERADA & DISPERSÃO
+=======================================================================================================
 Você é um Gestor de Vendas especialista em varejo focado em gestão humanizada e justa. 
-Utilize os dados empíricos de vendas e a **Meta Ponderada por Escala** apresentados abaixo para redigir um feedback individualizado, construtivo, motivador e focado em metas para o colaborador: **${selectedVendor}**.
+Utilize os dados empíricos de vendas, a **Meta Ponderada por Escala** e o **Mapeamento de Dispersão (J-Score)** apresentados abaixo para redigir um feedback individualizado, construtivo, motivador e focado em metas para o colaborador: **${selectedVendor}**.
 
 ---
-### 1. RESUMO GERAL DO COLABORADOR
+### 1. RESUMO GERAL & SCORE DE JUSTIÇA (J-SCORE)
 - **Colaborador:** ${selectedVendor}
-- **Faturamento Total:** ${vendorMetrics.vendaTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+- **J-Score de Justiça:** ${currentExtendedStats ? `${currentExtendedStats.jScore} / 100` : 'N/A'} (Média da Equipe: ${dispersionStats.teamMeans.jScore} pts)
+- **Quadrante de Dispersão:** ${currentExtendedStats ? `${currentExtendedStats.quadrantName} - "${currentExtendedStats.quadrantDesc}"` : 'N/A'}
+- **Faturamento Total:** ${vendorMetrics.vendaTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} (Média Diária: ${currentExtendedStats ? currentExtendedStats.vendaPorDia.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : 'N/A'}/dia)
 - **Participação na Loja (Share):** ${vendorMetrics.shareLoja.toFixed(1)}% (Média por Vendedor: ${storeMetrics.avgVendaPerVendor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})
-- **Total de Atendimentos (Cupons):** ${vendorMetrics.cuponsTotal} cupons
-- **Total de Peças Vendidas:** ${vendorMetrics.itensTotal} unidades
+- **Total de Atendimentos (Cupons):** ${vendorMetrics.cuponsTotal} cupons (${currentExtendedStats ? currentExtendedStats.cuponsPorDia.toFixed(1) : 'N/A'} cupons/dia)
+- **Total de Peças Vendidas:** ${vendorMetrics.itensTotal} unidades (${currentExtendedStats?.diasTrabalhados || 1} dias trabalhados)
 
 ---
 ### 2. AVALIAÇÃO JUSTA: META PONDERADA POR ESCALA (CRITÉRIO PRINCIPAL)
@@ -1059,14 +1080,18 @@ ${positionsList.map(p => `  * ${p.posName}: ${p.cupons} cupons (${vendorMetrics.
 ` : '- *Nota: Escala de trabalho não vinculada. Foi aplicada a meta padrão de 1.75 PA.*'}
 
 ---
-### 3. INDICADORES CHAVE COMPLEMENTARES (KPIs)
+### 3. ANÁLISE DE OUTLIERS E DESVIOS PADRÃO (Z-SCORE)
+${currentExtendedStats?.outliers && currentExtendedStats.outliers.length > 0 ? currentExtendedStats.outliers.map(o => `- **${o.type === 'positive' ? '⭐ DESTAQUE POSITIVO' : '⚠️ GARGALO CRÍTICO'}:** ${o.label} (Z = ${o.zScore > 0 ? `+${o.zScore}` : o.zScore}σ) - ${o.explanation}`).join('\n') : '- *Colaborador dentro do padrão médio da equipe em todas as dimensões avaliadas.*'}
+
+---
+### 4. INDICADORES CHAVE COMPLEMENTARES (KPIs)
 - **Ticket Médio (TKM):** ${vendorMetrics.tkm.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} (Média Loja: ${storeMetrics.tkmLoja.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})
 - **Taxa de Captura de CPF:** ${vendorMetrics.cpfRate.toFixed(1)}% (Média Loja: ${storeMetrics.cpfRateLoja.toFixed(1)}%)
 - **Concessão de Desconto:** R$ ${vendorMetrics.descontoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${vendorMetrics.descontoPercent.toFixed(1)}% das vendas | Média Loja: ${storeMetrics.descontoRateLoja.toFixed(1)}%)
 - **Preço Médio por Item:** ${vendorMetrics.precoMedioItem.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
 
 ---
-### 4. CAMPANHAS E PRODUTOS ESTRATÉGICOS
+### 5. CAMPANHAS E PRODUTOS ESTRATÉGICOS
 - **Venda Sugestiva (SLP):** ${vendorMetrics.slpQty} itens | ${vendorMetrics.slpValor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} (Penetração: ${vendorMetrics.slpPenetracaoRate.toFixed(1)}% dos cupons vs Loja: ${storeMetrics.storeSlpPenetracao.toFixed(1)}%)
 - **Ação Social (Total):** ${vendorMetrics.socialQty} itens | ${vendorMetrics.socialValor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} (Penetração: ${vendorMetrics.socialPenetracaoRate.toFixed(1)}% dos cupons vs Loja: ${storeMetrics.storeSocialPenetracao.toFixed(1)}%)
   * Detalhamento Ação Social: Sacolas: ${vendorMetrics.sacolaQty} un | Baralhos: ${vendorMetrics.baralhoQty} un | Lanchinho: ${vendorMetrics.lanchinhoQty} un
@@ -1074,43 +1099,55 @@ ${positionsList.map(p => `  * ${p.posName}: ${p.cupons} cupons (${vendorMetrics.
 - **Omnichannel:** ${vendorMetrics.retiradasCount} retiradas online atendidas | ${vendorMetrics.adicionaisCount} vendas adicionais geradas (R$ ${vendorMetrics.adicionaisValor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})
 
 ---
-### 5. TAMANHO E PROFUNDIDADE DA CESTA
+### 6. TAMANHO E PROFUNDIDADE DA CESTA
 ${basketBreakdown.map(b => `- **${b.name}:** ${b.count} cupons (${b.percent.toFixed(1)}%)`).join('\n')}
 
 ---
-### 6. QUALIDADE E UPSELL EM TROCAS
+### 7. QUALIDADE E UPSELL EM TROCAS
 - **Total de Trocas Atendidas:** ${vendorMetrics.trocasCount}
 - **Diferença de Valor Gerada:** R$ ${vendorMetrics.trocasValorDiferenca.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
 - **Trocas com Upsell (Positivas):** ${vendorMetrics.trocasPositivasCount} (${vendorMetrics.trocasCount > 0 ? ((vendorMetrics.trocasPositivasCount / vendorMetrics.trocasCount) * 100).toFixed(0) : 0}%)
 - **Score de Qualidade em Trocas:** ${vendorMetrics.trocasScoreMedio > 0 ? vendorMetrics.trocasScoreMedio.toFixed(1) + '/100' : 'N/A'}
 
 ---
-### 7. RITMIA E TOP PRODUTOS
+### 8. RITMIA E TOP PRODUTOS
 - **Hora de Ouro (Pico de Venda):** ${peakHoursInfo.goldHour} (R$ ${peakHoursInfo.goldHourFat.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})
 - **Hora de Maior PA:** ${peakHoursInfo.bestPaHour} (PA: ${peakHoursInfo.bestPaValue.toFixed(2)})
 - **Top 5 Produtos Vendidos:**
 ${topProducts.map((p, i) => `  ${i + 1}. [Cód ${p.code}] ${p.name} - ${p.qtd} un (R$ ${p.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})`).join('\n')}
 
 ---
-### 8. POTENCIAL FINANCEIRO DE CRESCIMENTO (GANHO ADICIONAL)
+### 9. POTENCIAL FINANCEIRO DE CRESCIMENTO (GANHO ADICIONAL)
 - **Potencial Total Combinado:** + R$ ${financialProjections.potencialTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
 - **Equiparação ao TKM Médio da Loja:** + R$ ${financialProjections.ganhoTkmLoja.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
 - **Atingimento da Meta Ponderada Justa:** ${financialProjections.ganhoMetaPonderada > 0 ? `+ R$ ${financialProjections.ganhoMetaPonderada.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (+ ${financialProjections.pecasNecessariasPonderada} peças)` : 'Meta já superada!'}
 - **Conversão de 30% dos Cupons Mono-item em 2 itens:** + R$ ${financialProjections.ganhoConversaoMono.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${financialProjections.monoConvertedCount} cupons)
 
 ---
-### 9. DIAGNÓSTICO E RECOMENDAÇÕES PRÁTICAS
+### 10. DIAGNÓSTICO E RECOMENDAÇÕES PRÁTICAS
 - **Perfil Calculado:** ${behavioralDiagnosis.perfilTitle} - "${behavioralDiagnosis.perfilDesc}"
 - **Plano de Ação Recomendado:**
 ${behavioralDiagnosis.recommendations.map(r => `- ${r}`).join('\n')}
 `;
   };
 
-  // Gerador de Payload JSON Estruturado com Meta Ponderada
+  // Gerador de Payload JSON Estruturado com Meta Ponderada e Dispersão
   const generateJSONPayload = () => {
     return JSON.stringify({
       colaborador: selectedVendor,
       dataExportacao: new Date().toISOString(),
+      scoreJustica: currentExtendedStats ? {
+        jScore: currentExtendedStats.jScore,
+        quadrante: currentExtendedStats.quadrantKey,
+        nomeQuadrante: currentExtendedStats.quadrantName,
+        descricaoQuadrante: currentExtendedStats.quadrantDesc,
+        vendaPorDia: currentExtendedStats.vendaPorDia,
+        cuponsPorDia: currentExtendedStats.cuponsPorDia,
+        diasTrabalhados: currentExtendedStats.diasTrabalhados,
+        zScores: currentExtendedStats.zScores,
+        outliers: currentExtendedStats.outliers,
+        radarDimensions: currentExtendedStats.radarDimensions
+      } : null,
       avaliacaoPonderadaPorEscala: {
         temEscalaVinculada: vendorTacticalMetrics.hasEscalaData,
         arquivoEscala: vendorTacticalMetrics.escalaFilename || null,
@@ -1340,853 +1377,1004 @@ ${behavioralDiagnosis.recommendations.map(r => `- ${r}`).join('\n')}
         </CardContent>
       </Card>
 
-      {/* HEADER DE INDICADORES DO COLABORADOR COM COMPARATIVO (BENCHMARKING) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* KPI 1: VENDA TOTAL & SHARE */}
-        <Card className="bg-white/90 backdrop-blur-md border border-slate-200/80 shadow-2xs hover:shadow-md transition-all">
-          <CardContent className="p-5 space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Faturamento Total</span>
-              <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
-                <DollarSign className="w-4 h-4" />
-              </div>
-            </div>
-            <div>
-              <h3 className="text-2xl font-headline font-extrabold text-slate-900">
-                {vendorMetrics.vendaTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-              </h3>
-              <p className="text-xs font-semibold text-slate-500 mt-1 flex items-center gap-1">
-                <span>Participação na Loja:</span>
-                <span className="font-bold text-indigo-600">{vendorMetrics.shareLoja.toFixed(1)}%</span>
-              </p>
-            </div>
-            <div className="pt-2 border-t border-slate-100 text-[11px] text-slate-500 font-medium flex items-center justify-between">
-              <span>Média da Loja:</span>
-              <span className="font-bold text-slate-700">{storeMetrics.avgVendaPerVendor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
-            </div>
-          </CardContent>
-        </Card>
+      {/* NAVEGAÇÃO DE ABAS DO RAIO-X */}
+      <div className="flex items-center gap-2 border-b border-slate-200/80 pb-3 overflow-x-auto">
+        <Button
+          onClick={() => setActiveTab("INDIVIDUAL")}
+          variant="ghost"
+          className={cn(
+            "text-xs md:text-sm font-extrabold rounded-2xl h-11 px-5 transition-all flex items-center gap-2 shrink-0",
+            activeTab === "INDIVIDUAL"
+              ? "bg-indigo-600 text-white shadow-md shadow-indigo-100"
+              : "bg-white/80 text-slate-600 hover:bg-slate-100 border border-slate-200/60"
+          )}
+        >
+          <UserCheck className="w-4 h-4" />
+          <span>Raio-X Individual 360° ({selectedVendor})</span>
+        </Button>
 
-        {/* KPI 2: TICKET MÉDIO (TKM) VS LOJA E LÍDER */}
-        <Card className="bg-white/90 backdrop-blur-md border border-slate-200/80 shadow-2xs hover:shadow-md transition-all">
-          <CardContent className="p-5 space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Ticket Médio (TKM)</span>
-              <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl">
-                <TrendingUp className="w-4 h-4" />
-              </div>
-            </div>
-            <div>
-              <div className="flex items-baseline gap-2">
-                <h3 className="text-2xl font-headline font-extrabold text-slate-900">
-                  {vendorMetrics.tkm.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                </h3>
-                {vendorMetrics.tkm >= storeMetrics.tkmLoja ? (
-                  <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] font-bold">
-                    + {(((vendorMetrics.tkm - storeMetrics.tkmLoja) / (storeMetrics.tkmLoja || 1)) * 100).toFixed(0)}% vs Média
-                  </Badge>
-                ) : (
-                  <Badge className="bg-rose-50 text-rose-700 border-rose-200 text-[10px] font-bold">
-                    {(((vendorMetrics.tkm - storeMetrics.tkmLoja) / (storeMetrics.tkmLoja || 1)) * 100).toFixed(0)}% vs Média
-                  </Badge>
-                )}
-              </div>
-              <p className="text-xs font-semibold text-slate-500 mt-1">
-                {vendorMetrics.cuponsTotal} atendimentos realizados
-              </p>
-            </div>
-            <div className="pt-2 border-t border-slate-100 text-[11px] text-slate-500 font-medium flex items-center justify-between">
-              <span>Líder da Loja:</span>
-              <span className="font-bold text-slate-700">{storeMetrics.topVendorTkm.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
-            </div>
-          </CardContent>
-        </Card>
+        <Button
+          onClick={() => setActiveTab("DISPERSION")}
+          variant="ghost"
+          className={cn(
+            "text-xs md:text-sm font-extrabold rounded-2xl h-11 px-5 transition-all flex items-center gap-2 shrink-0",
+            activeTab === "DISPERSION"
+              ? "bg-indigo-600 text-white shadow-md shadow-indigo-100"
+              : "bg-white/80 text-slate-600 hover:bg-slate-100 border border-slate-200/60"
+          )}
+        >
+          <Scale className="w-4 h-4" />
+          <span>Dispersão & Equipe (4 Quadrantes)</span>
+          <Badge className="ml-1 bg-indigo-500/20 text-indigo-700 font-extrabold text-[10px]">
+            {dispersionStats.collaborators.length}
+          </Badge>
+        </Button>
 
-        {/* KPI 3: PEÇAS POR ATENDIMENTO (PA) & META PONDERADA JUSTA */}
-        <Card className="bg-white/90 backdrop-blur-md border border-slate-200/80 shadow-2xs hover:shadow-md transition-all">
-          <CardContent className="p-5 space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">PA & Meta Ponderada</span>
-              <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
-                <Scale className="w-4 h-4" />
-              </div>
-            </div>
-            <div>
-              <div className="flex items-baseline gap-2">
-                <h3 className="text-2xl font-headline font-extrabold text-slate-900">
-                  {vendorMetrics.pa.toFixed(2)}
-                </h3>
-                <span className="text-xs font-bold text-slate-400">
-                  / Meta {vendorTacticalMetrics.metaPonderadaPA.toFixed(2)}
-                </span>
-                {vendorTacticalMetrics.justicaHighlight === "JUSTIÇA_POSITIVA" && (
-                  <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px] font-extrabold inline-flex items-center gap-0.5" title="Bateu a meta ponderada da escala!">
-                    <ShieldCheck className="w-3 h-3 text-emerald-600" />
-                    Meta Atingida!
-                  </Badge>
-                )}
-                {vendorTacticalMetrics.justicaHighlight === "SUPERAÇÃO_TOTAL" && (
-                  <Badge className="bg-indigo-100 text-indigo-800 border-indigo-300 text-[10px] font-extrabold inline-flex items-center gap-0.5">
-                    <Award className="w-3 h-3 text-indigo-600" />
-                    Superou Tudo
-                  </Badge>
-                )}
-                {vendorTacticalMetrics.justicaHighlight === "ALERTA_AJUSTE" && (
-                  <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[10px] font-extrabold inline-flex items-center gap-0.5" title="Abaixo do potencial esperado para os postos trabalhados">
-                    <AlertTriangle className="w-3 h-3 text-amber-600" />
-                    Abaixo Posto
-                  </Badge>
-                )}
-                {vendorTacticalMetrics.justicaHighlight === "ABAIXO" && (
-                  <Badge className="bg-rose-50 text-rose-700 border-rose-200 text-[10px] font-extrabold inline-flex items-center gap-0.5">
-                    <TrendingDown className="w-3 h-3 text-rose-600" />
-                    {vendorTacticalMetrics.atingimentoPonderadoPct.toFixed(0)}% Meta
-                  </Badge>
-                )}
-              </div>
-              <div className="flex items-center justify-between text-xs font-semibold text-slate-600 mt-1">
-                <span>Atingimento da Escala:</span>
-                <span className={cn("font-extrabold", vendorTacticalMetrics.isBateuPonderada ? "text-emerald-600" : "text-rose-600")}>
-                  {vendorTacticalMetrics.atingimentoPonderadoPct.toFixed(1)}% ({vendorTacticalMetrics.saldoPecas >= 0 ? `+${vendorTacticalMetrics.saldoPecas.toFixed(1)}` : vendorTacticalMetrics.saldoPecas.toFixed(1)} un)
-                </span>
-              </div>
-            </div>
-            <div className="pt-2 border-t border-slate-100 text-[11px] text-slate-500 font-medium flex items-center justify-between">
-              <span>Média Fixa Loja:</span>
-              <span className="font-bold text-slate-700">{storeMetrics.paLoja.toFixed(2)} PA</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* KPI 4: CAPTURA DE CPF & FIDELIDADE */}
-        <Card className="bg-white/90 backdrop-blur-md border border-slate-200/80 shadow-2xs hover:shadow-md transition-all">
-          <CardContent className="p-5 space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Captura de CPF</span>
-              <div className="p-2 bg-violet-50 text-violet-600 rounded-xl">
-                <Users className="w-4 h-4" />
-              </div>
-            </div>
-            <div>
-              <div className="flex items-baseline gap-2">
-                <h3 className="text-2xl font-headline font-extrabold text-slate-900">
-                  {vendorMetrics.cpfRate.toFixed(1)}%
-                </h3>
-                {vendorMetrics.cpfRate >= storeMetrics.cpfRateLoja ? (
-                  <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] font-bold inline-flex items-center gap-1">
-                    <TrendingUp className="w-3 h-3 text-emerald-600" />
-                    Acima Média
-                  </Badge>
-                ) : (
-                  <Badge className="bg-rose-50 text-rose-700 border-rose-200 text-[10px] font-bold inline-flex items-center gap-1">
-                    <TrendingDown className="w-3 h-3 text-rose-600" />
-                    Abaixo Média
-                  </Badge>
-                )}
-              </div>
-              <Progress value={vendorMetrics.cpfRate} className="h-2 mt-2 bg-slate-100" />
-            </div>
-            <div className="pt-2 border-t border-slate-100 text-[11px] text-slate-500 font-medium flex items-center justify-between">
-              <span>Média da Loja:</span>
-              <span className="font-bold text-slate-700">{storeMetrics.cpfRateLoja.toFixed(1)}%</span>
-            </div>
-          </CardContent>
-        </Card>
+        <Button
+          onClick={() => setActiveTab("HEAD_TO_HEAD")}
+          variant="ghost"
+          className={cn(
+            "text-xs md:text-sm font-extrabold rounded-2xl h-11 px-5 transition-all flex items-center gap-2 shrink-0",
+            activeTab === "HEAD_TO_HEAD"
+              ? "bg-indigo-600 text-white shadow-md shadow-indigo-100"
+              : "bg-white/80 text-slate-600 hover:bg-slate-100 border border-slate-200/60"
+          )}
+        >
+          <ArrowRightLeft className="w-4 h-4" />
+          <span>Comparativo Head-to-Head</span>
+        </Button>
       </div>
 
-      {/* SEÇÃO PRINCIPAL DE JUSTIÇA: DESEMPENHO TÁTICO POR POSTO / ESCALA */}
-      <Card className="bg-gradient-to-br from-indigo-950/90 via-slate-900 to-slate-950 text-white border-none shadow-xl overflow-hidden relative">
-        <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-500/10 blur-[90px] pointer-events-none" />
-        <CardHeader className="p-6 md:p-8 pb-4 relative z-10">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="space-y-1">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 text-xs font-bold uppercase tracking-wider border border-indigo-500/30">
-                <Scale className="w-3.5 h-3.5 text-indigo-400" />
-                Avaliação Ponderada por Posto Tático
-              </div>
-              <CardTitle className="text-xl md:text-2xl font-headline font-extrabold text-white flex items-center gap-2.5">
-                Desempenho Tático por Escala ({selectedVendor})
-              </CardTitle>
-              <CardDescription className="text-xs md:text-sm text-slate-300 font-medium max-w-2xl">
-                Avaliamos cada colaborador com base na sua rotina real nos postos de trabalho (Caixa, Porta, Salão e Retirada), garantindo justiça e mérito real.
-              </CardDescription>
-            </div>
+      {/* ABA 2: DISPERSÃO E MATRIZ DE EQUIPE */}
+      {activeTab === "DISPERSION" && (
+        <CollaboratorTeamDispersion
+          dispersionStats={dispersionStats}
+          selectedVendor={selectedVendor}
+          onSelectVendor={(vendor) => {
+            setSelectedVendor(vendor);
+            setActiveTab("INDIVIDUAL");
+          }}
+        />
+      )}
 
-            {/* STATUS DO ARQUIVO DE ESCALA */}
-            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10 flex items-center gap-3">
-              <div className="p-2.5 bg-indigo-500/20 text-indigo-300 rounded-xl">
-                <CalendarCheck className="w-5 h-5 text-indigo-400" />
-              </div>
-              <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Status da Escala</span>
-                <p className="text-xs font-bold text-white">
-                  {vendorTacticalMetrics.hasEscalaData 
-                    ? `${escalaStore?.escalas.length} escalas processadas` 
-                    : "Escala Padrão Aplicada"}
-                </p>
-                <span className="text-[10px] text-indigo-300 block">
-                  {vendorTacticalMetrics.totalDiasTrabalhados} dia(s) com vendas
-                </span>
-              </div>
-            </div>
-          </div>
-        </CardHeader>
+      {/* ABA 3: COMPARATIVO HEAD-TO-HEAD */}
+      {activeTab === "HEAD_TO_HEAD" && (
+        <CollaboratorHeadToHead
+          dispersionStats={dispersionStats}
+          selectedVendorA={selectedVendor}
+          onSelectVendorA={(vendor) => setSelectedVendor(vendor)}
+        />
+      )}
 
-        <CardContent className="p-6 md:p-8 pt-2 space-y-6 relative z-10">
-          {/* VEREDITO PEDAGÓGICO DE JUSTIÇA AVALIATIVA */}
-          <div className={cn(
-            "p-5 rounded-2xl border backdrop-blur-md transition-all",
-            vendorTacticalMetrics.justicaHighlight === "JUSTIÇA_POSITIVA" && "bg-emerald-950/40 border-emerald-500/40 text-emerald-200",
-            vendorTacticalMetrics.justicaHighlight === "SUPERAÇÃO_TOTAL" && "bg-indigo-950/40 border-indigo-500/40 text-indigo-200",
-            vendorTacticalMetrics.justicaHighlight === "ALERTA_AJUSTE" && "bg-amber-950/40 border-amber-500/40 text-amber-200",
-            vendorTacticalMetrics.justicaHighlight === "ABAIXO" && "bg-rose-950/40 border-rose-500/40 text-rose-200"
-          )}>
-            <div className="flex items-start gap-3.5">
-              <div className={cn(
-                "p-2 rounded-xl shrink-0 mt-0.5",
-                vendorTacticalMetrics.justicaHighlight === "JUSTIÇA_POSITIVA" && "bg-emerald-500/20 text-emerald-300",
-                vendorTacticalMetrics.justicaHighlight === "SUPERAÇÃO_TOTAL" && "bg-indigo-500/20 text-indigo-300",
-                vendorTacticalMetrics.justicaHighlight === "ALERTA_AJUSTE" && "bg-amber-500/20 text-amber-300",
-                vendorTacticalMetrics.justicaHighlight === "ABAIXO" && "bg-rose-500/20 text-rose-300"
-              )}>
-                {vendorTacticalMetrics.isBateuPonderada ? (
-                  <ShieldCheck className="w-5 h-5 text-emerald-400" />
-                ) : (
-                  <AlertCircle className="w-5 h-5 text-rose-400" />
-                )}
-              </div>
-              <div className="space-y-1">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h4 className="text-sm font-extrabold uppercase tracking-wide text-white">
-                    {vendorTacticalMetrics.justicaHighlight === "JUSTIÇA_POSITIVA" && "⚖️ Veredito Justo: Meta Atingida pela Escala"}
-                    {vendorTacticalMetrics.justicaHighlight === "SUPERAÇÃO_TOTAL" && "🏆 Superação Global: Acima de Todas as Metas"}
-                    {vendorTacticalMetrics.justicaHighlight === "ALERTA_AJUSTE" && "⚠️ Oportunidade de Salão: Abaixo do Potencial do Posto"}
-                    {vendorTacticalMetrics.justicaHighlight === "ABAIXO" && "📉 Abaixo da Meta Ponderada Justa"}
+      {/* ABA 1: RAIO-X INDIVIDUAL 360° */}
+      {activeTab === "INDIVIDUAL" && (
+        <div className="space-y-6">
+          {/* BANNER DE OUTLIERS E SCORE DE JUSTIÇA (SE HOUVER) */}
+          {currentExtendedStats && currentExtendedStats.outliers.length > 0 && (
+            <div className="p-4 rounded-2xl bg-indigo-50/70 border border-indigo-200/80 flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-indigo-100 text-indigo-700 rounded-xl">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-extrabold uppercase tracking-wide text-indigo-950 flex items-center gap-2">
+                    <span>Posicionamento Estatístico da Equipe:</span>
+                    <Badge className={cn("font-bold text-[10px] border", currentExtendedStats.quadrantBadgeClass)}>
+                      {currentExtendedStats.quadrantName}
+                    </Badge>
                   </h4>
-                  <Badge className="bg-white/20 text-white font-bold text-[10px] border-none px-2 py-0.5">
-                    Meta Justa: {vendorTacticalMetrics.metaPonderadaPA.toFixed(2)} PA • Realizado: {vendorMetrics.pa.toFixed(2)} PA
+                  <p className="text-xs text-indigo-800 mt-0.5">
+                    J-Score Justo: <strong className="font-black text-indigo-950">{currentExtendedStats.jScore}/100</strong> • 
+                    Média Diária: <strong className="font-bold">{currentExtendedStats.vendaPorDia.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}/dia</strong> ({currentExtendedStats.cuponsPorDia.toFixed(1)} cup./dia)
+                  </p>
+                </div>
+              </div>
+
+              {/* BADGES DE OUTLIERS DETECTADOS */}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {currentExtendedStats.outliers.map((o, idx) => (
+                  <Badge 
+                    key={idx} 
+                    className={cn(
+                      "font-bold text-[10px] flex items-center gap-1 py-1 px-2.5 shadow-2xs",
+                      o.type === "positive" 
+                        ? "bg-emerald-100 text-emerald-800 border-emerald-300" 
+                        : "bg-rose-100 text-rose-800 border-rose-300"
+                    )}
+                    title={o.explanation}
+                  >
+                    {o.type === "positive" ? "⭐" : "⚠️"} {o.label} ({o.zScore > 0 ? `+${o.zScore}` : o.zScore}σ)
                   </Badge>
-                </div>
-                <p className="text-xs md:text-sm text-slate-200 leading-relaxed font-normal">
-                  {vendorTacticalMetrics.justicaHighlight === "JUSTIÇA_POSITIVA" && (
-                    <>
-                      O colaborador atuou predominantemente em postos de conversão rápida e alto giro ({vendorTacticalMetrics.primaryPosition?.posName || "Caixa/Porta"}). 
-                      Seu PA de <strong className="text-white font-extrabold">{vendorMetrics.pa.toFixed(2)}</strong> superou a meta ponderada justa de <strong className="text-white font-extrabold">{vendorTacticalMetrics.metaPonderadaPA.toFixed(2)} PA</strong>, 
-                      gerando um saldo positivo de <strong className="text-emerald-300 font-extrabold">+{vendorTacticalMetrics.saldoPecas.toFixed(1)} peças</strong>. 
-                      Julgá-lo pela meta fixa genérica de 1.75 seria injusto e desmotivador!
-                    </>
-                  )}
-                  {vendorTacticalMetrics.justicaHighlight === "SUPERAÇÃO_TOTAL" && (
-                    <>
-                      Excelente desempenho global! O colaborador atingiu <strong className="text-white font-extrabold">{vendorMetrics.pa.toFixed(2)} PA</strong>, 
-                      superando tanto a meta ponderada da sua escala (<strong className="text-white font-extrabold">{vendorTacticalMetrics.metaPonderadaPA.toFixed(2)} PA</strong>) 
-                      quanto a média geral da loja, entregando um saldo de <strong className="text-emerald-300 font-extrabold">+{vendorTacticalMetrics.saldoPecas.toFixed(1)} peças</strong>.
-                    </>
-                  )}
-                  {vendorTacticalMetrics.justicaHighlight === "ALERTA_AJUSTE" && (
-                    <>
-                      O colaborador atuou em postos que exigem maior agregação e consultoria (ex: Salão), mas seu PA realizado de <strong className="text-white font-extrabold">{vendorMetrics.pa.toFixed(2)}</strong> ficou abaixo da meta ponderada esperada para suas posições (<strong className="text-white font-extrabold">{vendorTacticalMetrics.metaPonderadaPA.toFixed(2)} PA</strong>), 
-                      com déficit de <strong className="text-amber-300 font-extrabold">{vendorTacticalMetrics.saldoPecas.toFixed(1)} peças</strong>.
-                    </>
-                  )}
-                  {vendorTacticalMetrics.justicaHighlight === "ABAIXO" && (
-                    <>
-                      O colaborador realizou <strong className="text-white font-extrabold">{vendorMetrics.pa.toFixed(2)} PA</strong> frente à meta ponderada de <strong className="text-white font-extrabold">{vendorTacticalMetrics.metaPonderadaPA.toFixed(2)} PA</strong> ({vendorTacticalMetrics.atingimentoPonderadoPct.toFixed(1)}% de atingimento), 
-                      com déficit de <strong className="text-rose-300 font-extrabold">{vendorTacticalMetrics.saldoPecas.toFixed(1)} peças</strong> nos {vendorMetrics.cuponsTotal} atendimentos.
-                    </>
-                  )}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* GRID DE POSTOS TÁTICOS TRABALHADOS */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-extrabold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
-                <Layers className="w-4 h-4 text-indigo-400" />
-                Detalhamento dos Postos Escalados
-              </span>
-              <span className="text-[11px] font-semibold text-slate-400">
-                {vendorTacticalMetrics.positionsList.length} posto(s) registrado(s)
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {vendorTacticalMetrics.positionsList.map(pos => {
-                const isBest = vendorTacticalMetrics.bestPosition?.posKey === pos.posKey && pos.cupons >= 2;
-                const isWorst = vendorTacticalMetrics.worstPosition?.posKey === pos.posKey && pos.cupons >= 2 && pos.atingimentoPosPct < 100;
-                const shareCupons = vendorMetrics.cuponsTotal > 0 ? (pos.cupons / vendorMetrics.cuponsTotal) * 100 : 0;
-
-                return (
-                  <div key={pos.posKey} className="bg-white/5 hover:bg-white/10 rounded-2xl p-4 border border-white/10 space-y-3 transition-all flex flex-col justify-between">
-                    <div>
-                      <div className="flex items-center justify-between gap-1 mb-2">
-                        <Badge className="bg-indigo-500/30 text-indigo-200 border-indigo-400/30 font-bold text-xs">
-                          {pos.posName}
-                        </Badge>
-                        {isBest && (
-                          <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/30 text-[9px] font-extrabold flex items-center gap-0.5">
-                            ⭐ Onde Mais Rende
-                          </Badge>
-                        )}
-                        {isWorst && (
-                          <Badge className="bg-rose-500/20 text-rose-300 border-rose-500/30 text-[9px] font-extrabold flex items-center gap-0.5">
-                            ⚠️ Ponto Atenção
-                          </Badge>
-                        )}
-                      </div>
-
-                      <div className="space-y-1">
-                        <div className="flex items-baseline justify-between">
-                          <span className="text-[11px] font-semibold text-slate-400">PA Realizado:</span>
-                          <span className={cn("text-lg font-headline font-black", pos.paPos >= pos.metaPos ? "text-emerald-400" : "text-rose-400")}>
-                            {pos.paPos.toFixed(2)} <span className="text-xs text-slate-400 font-medium">/ {pos.metaPos.toFixed(2)}</span>
-                          </span>
-                        </div>
-                        <Progress value={Math.min(100, pos.atingimentoPosPct)} className="h-1.5 bg-white/10" />
-                        <div className="flex items-center justify-between text-[10px] text-slate-400 pt-0.5">
-                          <span>Atingimento:</span>
-                          <span className="font-bold text-slate-200">{pos.atingimentoPosPct.toFixed(0)}%</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="pt-2.5 border-t border-white/10 space-y-1 text-[11px]">
-                      <div className="flex items-center justify-between text-slate-300">
-                        <span>Cupons ({shareCupons.toFixed(0)}% da rotina):</span>
-                        <span className="font-bold text-white">{pos.cupons} un</span>
-                      </div>
-                      <div className="flex items-center justify-between text-slate-300">
-                        <span>Faturamento no Posto:</span>
-                        <span className="font-bold text-indigo-300">{pos.venda.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
-                      </div>
-                      <div className="flex items-center justify-between text-slate-400 text-[10px]">
-                        <span>Dias no Posto:</span>
-                        <span className="font-medium text-slate-200">{pos.daysWorked.size} dia(s)</span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* BLOCO DE GANHO DE OPORTUNIDADE FINANCEIRA PROJETADA */}
-      <Card className="bg-gradient-to-r from-emerald-900 via-teal-900 to-slate-900 text-white border-none shadow-lg overflow-hidden">
-        <CardContent className="p-6 md:p-8">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-            <div className="space-y-2 max-w-xl">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-[11px] font-bold uppercase tracking-wider border border-emerald-500/30">
-                <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-                Potencial Financeiro Destravável
-              </div>
-              <h3 className="text-xl md:text-2xl font-headline font-extrabold text-white">
-                Projeção de Faturamento Adicional
-              </h3>
-              <p className="text-xs md:text-sm text-slate-300 font-medium leading-relaxed">
-                Estimativa financeira calculada com base na meta ponderada justa da escala de {selectedVendor}, equiparação de TKM e conversão de mono-itens.
-              </p>
-            </div>
-
-            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-5 border border-white/20 text-right min-w-[280px]">
-              <span className="text-xs font-bold uppercase tracking-wider text-emerald-300 block mb-1">
-                Ganho Potencial Combinado
-              </span>
-              <div className="text-3xl md:text-4xl font-headline font-extrabold text-emerald-400">
-                + {financialProjections.potencialTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-              </div>
-              <span className="text-[11px] font-medium text-slate-300 block mt-1">
-                Com a mesma quantidade de clientes atendidos
-              </span>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6 pt-6 border-t border-white/10">
-            <div className="bg-white/5 rounded-xl p-4 border border-white/10">
-              <span className="text-[11px] font-bold uppercase text-slate-400 block mb-1">Se TKM atingisse a Média da Loja:</span>
-              <p className="text-lg font-bold text-white">
-                + {financialProjections.ganhoTkmLoja.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-              </p>
-              <span className="text-[10px] text-slate-400 block mt-0.5">
-                (Diferença de TKM: R$ {Math.max(0, storeMetrics.tkmLoja - vendorMetrics.tkm).toFixed(2)})
-              </span>
-            </div>
-
-            <div className="bg-white/5 rounded-xl p-4 border border-white/10">
-              <span className="text-[11px] font-bold uppercase text-slate-400 block mb-1">Meta Ponderada da Escala:</span>
-              <p className="text-lg font-bold text-white">
-                {financialProjections.ganhoMetaPonderada > 0 ? (
-                  `+ ${financialProjections.ganhoMetaPonderada.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`
-                ) : (
-                  "Meta Já Atingida! 🎉"
-                )}
-              </p>
-              <span className="text-[10px] text-slate-400 block mt-0.5">
-                {financialProjections.ganhoMetaPonderada > 0 
-                  ? `(+ ${financialProjections.pecasNecessariasPonderada} peças para a meta justa)`
-                  : `(Saldo positivo: +${vendorTacticalMetrics.saldoPecas.toFixed(1)} peças)`}
-              </span>
-            </div>
-
-            <div className="bg-white/5 rounded-xl p-4 border border-white/10">
-              <span className="text-[11px] font-bold uppercase text-slate-400 block mb-1">Convertendo 30% dos Cupons 1 Item:</span>
-              <p className="text-lg font-bold text-white">
-                + {financialProjections.ganhoConversaoMono.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-              </p>
-              <span className="text-[10px] text-slate-400 block mt-0.5">
-                ({financialProjections.monoConvertedCount} atendimentos de 1 item transformados em 2 itens)
-              </span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* SEÇÃO DE CAMPANHAS E PRODUTOS ESTRATÉGICOS */}
-      <Card className="bg-white/90 backdrop-blur-md border border-slate-200/80 shadow-2xs">
-        <CardHeader>
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
-            <div>
-              <CardTitle className="text-lg font-headline font-bold text-slate-900 flex items-center gap-2">
-                <Target className="w-5 h-5 text-orange-600" />
-                Engajamento em Campanhas & Produtos Estratégicos
-              </CardTitle>
-              <CardDescription className="text-xs text-slate-500">
-                Desempenho detalhado do colaborador ({selectedVendor}) na venda de produtos de incentivo, campanhas e checkout.
-              </CardDescription>
-            </div>
-            <Badge className="bg-orange-100 text-orange-800 border-orange-200 font-extrabold text-xs w-fit">
-              Auditoria de Ofertas & Venda Sugestiva
-            </Badge>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            
-            {/* CARD 1: SLP (VENDA SUGESTIVA) */}
-            <div className="p-4 rounded-2xl bg-orange-50/80 border border-orange-200/80 space-y-2.5 flex flex-col justify-between">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-orange-900 uppercase tracking-wider flex items-center gap-1.5">
-                  <ShoppingBag className="w-3.5 h-3.5 text-orange-600" />
-                  SLP (Sugestiva)
-                </span>
-                <Badge className={cn("text-[9px] font-black border-none px-1.5 h-5 flex items-center gap-0.5", vendorMetrics.slpPenetracaoRate >= storeMetrics.storeSlpPenetracao ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800")}>
-                  {vendorMetrics.slpPenetracaoRate >= storeMetrics.storeSlpPenetracao ? (
-                    <><TrendingUp className="w-2.5 h-2.5 text-emerald-700" /> Acima Média</>
-                  ) : (
-                    <><TrendingDown className="w-2.5 h-2.5 text-rose-700" /> Abaixo Média</>
-                  )}
-                </Badge>
-              </div>
-              <div>
-                <div className="text-2xl font-headline font-extrabold text-slate-900">
-                  {vendorMetrics.slpQty} <span className="text-xs font-semibold text-slate-500">itens</span>
-                </div>
-                <p className="text-xs font-bold text-orange-700 mt-0.5">
-                  {vendorMetrics.slpValor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                </p>
-              </div>
-              <div className="pt-2 border-t border-orange-200/60 space-y-1">
-                <div className="flex items-center justify-between text-[11px]">
-                  <span className="text-slate-600 font-semibold">Penetração Cupons:</span>
-                  <span className="font-extrabold text-slate-900">{vendorMetrics.slpPenetracaoRate.toFixed(1)}%</span>
-                </div>
-                <div className="flex items-center justify-between text-[10px] text-slate-500">
-                  <span>Média da Loja:</span>
-                  <span className="font-bold text-slate-700">{storeMetrics.storeSlpPenetracao.toFixed(1)}%</span>
-                </div>
-              </div>
-            </div>
-
-            {/* CARD 2: AÇÃO SOCIAL (SACOLAS, BARALHOS, LANCHINHO) */}
-            <div className="p-4 rounded-2xl bg-rose-50/80 border border-rose-200/80 space-y-2.5 flex flex-col justify-between">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-rose-900 uppercase tracking-wider flex items-center gap-1.5">
-                  <Heart className="w-3.5 h-3.5 text-rose-600" />
-                  Ação Social Total
-                </span>
-                <Badge className={cn("text-[9px] font-black border-none px-1.5 h-5 flex items-center gap-0.5", vendorMetrics.socialPenetracaoRate >= storeMetrics.storeSocialPenetracao ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800")}>
-                  {vendorMetrics.socialPenetracaoRate >= storeMetrics.storeSocialPenetracao ? (
-                    <><TrendingUp className="w-2.5 h-2.5 text-emerald-700" /> Acima Média</>
-                  ) : (
-                    <><TrendingDown className="w-2.5 h-2.5 text-rose-700" /> Abaixo Média</>
-                  )}
-                </Badge>
-              </div>
-              <div>
-                <div className="text-2xl font-headline font-extrabold text-slate-900">
-                  {vendorMetrics.socialQty} <span className="text-xs font-semibold text-slate-500">itens</span>
-                </div>
-                <p className="text-xs font-bold text-rose-700 mt-0.5">
-                  {vendorMetrics.socialValor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                </p>
-              </div>
-
-              {/* DETALHAMENTO DAS CATEGORIAS SOCIAL */}
-              <div className="space-y-1 py-1.5 border-t border-rose-200/60 text-[11px]">
-                <div className="flex items-center justify-between font-medium text-slate-700">
-                  <span className="text-slate-600">Sacolas:</span>
-                  <span className="font-bold text-slate-900">{vendorMetrics.sacolaQty} un ({vendorMetrics.sacolaValor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})</span>
-                </div>
-                <div className="flex items-center justify-between font-medium text-slate-700">
-                  <span className="text-slate-600">Baralhos:</span>
-                  <span className="font-bold text-slate-900">{vendorMetrics.baralhoQty} un ({vendorMetrics.baralhoValor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})</span>
-                </div>
-                <div className="flex items-center justify-between font-medium text-slate-700">
-                  <span className="text-slate-600">Lanchinho:</span>
-                  <span className="font-bold text-slate-900">{vendorMetrics.lanchinhoQty} un ({vendorMetrics.lanchinhoValor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})</span>
-                </div>
-              </div>
-
-              <div className="pt-2 border-t border-rose-200/60 space-y-1">
-                <div className="flex items-center justify-between text-[11px]">
-                  <span className="text-slate-600 font-semibold">Penetração Cupons:</span>
-                  <span className="font-extrabold text-slate-900">{vendorMetrics.socialPenetracaoRate.toFixed(1)}%</span>
-                </div>
-                <div className="flex items-center justify-between text-[10px] text-slate-500">
-                  <span>Média da Loja:</span>
-                  <span className="font-bold text-slate-700">{storeMetrics.storeSocialPenetracao.toFixed(1)}%</span>
-                </div>
-              </div>
-            </div>
-
-            {/* CARD 3: ITENS AGING */}
-            <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-200/80 space-y-2.5 flex flex-col justify-between">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
-                  <Boxes className="w-3.5 h-3.5 text-amber-600" />
-                  Itens Aging
-                </span>
-                <Badge className={cn("text-[9px] font-black border-none px-1.5 h-5 flex items-center gap-0.5", vendorMetrics.agingQty > 0 ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800")}>
-                  {vendorMetrics.agingQty > 0 ? (
-                    <><TrendingUp className="w-2.5 h-2.5 text-emerald-700" /> Desmobilizando</>
-                  ) : (
-                    <><TrendingDown className="w-2.5 h-2.5 text-rose-700" /> Sem Vendas</>
-                  )}
-                </Badge>
-              </div>
-              <div>
-                <div className="text-2xl font-headline font-extrabold text-slate-900">
-                  {vendorMetrics.agingQty} <span className="text-xs font-semibold text-slate-500">unidades</span>
-                </div>
-                <p className="text-xs font-bold text-amber-700 mt-0.5">
-                  {vendorMetrics.agingValor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                </p>
-              </div>
-              <div className="pt-2 border-t border-amber-200/60 space-y-1">
-                <div className="flex items-center justify-between text-[11px]">
-                  <span className="text-slate-600 font-semibold">Presença Cupons:</span>
-                  <span className="font-extrabold text-slate-900">{vendorMetrics.agingCuponsCount} cupons ({vendorMetrics.agingPenetracaoRate.toFixed(1)}%)</span>
-                </div>
-              </div>
-            </div>
-
-            {/* CARD 5: RETIRADAS & PEDIDOS ADICIONAIS */}
-            <div className="p-4 rounded-2xl bg-teal-50/80 border border-teal-200/80 space-y-2.5 flex flex-col justify-between">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-teal-900 uppercase tracking-wider flex items-center gap-1.5">
-                  <Tag className="w-3.5 h-3.5 text-teal-600" />
-                  Omnichannel
-                </span>
-                <Badge className={cn("text-[9px] font-black border-none px-1.5 h-5 flex items-center gap-0.5", vendorMetrics.adicionaisCount > 0 ? "bg-emerald-100 text-emerald-800" : vendorMetrics.retiradasCount > 0 ? "bg-rose-100 text-rose-800" : "bg-slate-100 text-slate-600")}>
-                  {vendorMetrics.adicionaisCount > 0 ? (
-                    <><TrendingUp className="w-2.5 h-2.5 text-emerald-700" /> Conversão Ativa</>
-                  ) : vendorMetrics.retiradasCount > 0 ? (
-                    <><TrendingDown className="w-2.5 h-2.5 text-rose-700" /> Sem Adicional</>
-                  ) : (
-                    "Sem Pickup"
-                  )}
-                </Badge>
-              </div>
-              <div className="space-y-1">
-                <div className="flex items-center justify-between text-xs font-bold text-slate-800">
-                  <span>Retiradas:</span>
-                  <span>{vendorMetrics.retiradasCount} cupons</span>
-                </div>
-                <div className="flex items-center justify-between text-xs font-bold text-slate-800">
-                  <span>Adicionais:</span>
-                  <span className="text-teal-700">{vendorMetrics.adicionaisCount} ({vendorMetrics.adicionaisValor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})</span>
-                </div>
-              </div>
-              <div className="pt-2 border-t border-teal-200/60 text-[10px] text-slate-500 font-semibold flex items-center justify-between">
-                <span>Taxa Adicional/Pickup:</span>
-                <span className="font-extrabold text-teal-800">
-                  {vendorMetrics.retiradasCount > 0 ? `${((vendorMetrics.adicionaisCount / vendorMetrics.retiradasCount) * 100).toFixed(0)}%` : "N/A"}
-                </span>
-              </div>
-            </div>
-
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* SEÇÃO 1: DISTRIBUIÇÃO DA CESTA DE COMPRAS & QUALIDADE DE TROCAS */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* DISTRIBUIÇÃO DE ITENS POR CUPOM (MONO-ITEM VS SUPER CESTAS) */}
-        <Card className="lg:col-span-7 bg-white/90 backdrop-blur-md border border-slate-200/80 shadow-2xs">
-          <CardHeader>
-            <CardTitle className="text-lg font-headline font-bold text-slate-900 flex items-center gap-2">
-              <Layers className="w-5 h-5 text-indigo-600" />
-              Distribuição do Tamanho de Cesta (Cupons por Qtd de Itens)
-            </CardTitle>
-            <CardDescription className="text-xs text-slate-500">
-              Análise de profundidade de atendimento do colaborador e penetração de vendas adicionais.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {basketBreakdown.map((item, idx) => (
-                <div key={idx} className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/70 space-y-1">
-                  <span className="text-[11px] font-bold text-slate-500 block truncate">{item.name}</span>
-                  <div className="text-xl font-headline font-extrabold text-slate-900">
-                    {item.count} <span className="text-xs font-semibold text-slate-400">({item.percent.toFixed(1)}%)</span>
-                  </div>
-                  <Progress value={item.percent} className="h-1.5 bg-slate-200" />
-                </div>
-              ))}
-            </div>
-
-            {/* GRÁFICO RECHARTS DE BARRA DE CESTA */}
-            <div className="h-56 w-full pt-2">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={basketBreakdown} layout="vertical" margin={{ left: 20, right: 30, top: 10, bottom: 10 }}>
-                  <XAxis type="number" tickFormatter={(v) => `${v}%`} />
-                  <YAxis type="category" dataKey="name" width={130} tick={{ fontSize: 11, fontWeight: 600 }} />
-                  <RechartsTooltip 
-                    formatter={(value: any) => [`${Number(value).toFixed(1)}%`, 'Proporção']}
-                    contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}
-                  />
-                  <Bar dataKey="percent" radius={[0, 8, 8, 0]} barSize={24}>
-                    {basketBreakdown.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* ANÁLISE DETALHADA E QUALIDADE DE TROCAS */}
-        <Card className="lg:col-span-5 bg-white/90 backdrop-blur-md border border-slate-200/80 shadow-2xs">
-          <CardHeader>
-            <CardTitle className="text-lg font-headline font-bold text-slate-900 flex items-center gap-2">
-              <ArrowRightLeft className="w-5 h-5 text-amber-600" />
-              Qualidade & Desempenho em Trocas
-            </CardTitle>
-            <CardDescription className="text-xs text-slate-500">
-              Métricas de conversão de trocas em vendas adicionais (Upsell).
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-5">
-            <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200/80 flex items-center justify-between">
-              <div>
-                <span className="text-xs font-bold uppercase text-amber-800 tracking-wider">Total de Trocas</span>
-                <h4 className="text-2xl font-headline font-extrabold text-amber-900 mt-0.5">
-                  {vendorMetrics.trocasCount} trocas
-                </h4>
-              </div>
-              <div className="text-right">
-                <span className="text-xs font-bold uppercase text-amber-800 tracking-wider">Diferença Gerada (R$)</span>
-                <h4 className={cn("text-xl font-headline font-extrabold mt-0.5", vendorMetrics.trocasValorDiferenca >= 0 ? "text-emerald-700" : "text-rose-700")}>
-                  {vendorMetrics.trocasValorDiferenca.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                </h4>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
-                <span className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                  Trocas com Diferença Positiva (Upsell):
-                </span>
-                <span className="font-extrabold text-slate-900">
-                  {vendorMetrics.trocasPositivasCount} ({vendorMetrics.trocasCount > 0 ? ((vendorMetrics.trocasPositivasCount / vendorMetrics.trocasCount) * 100).toFixed(0) : 0}%)
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
-                <span className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-slate-400" />
-                  Trocas Secas (Sem Ganho Adicional):
-                </span>
-                <span className="font-extrabold text-slate-900">
-                  {vendorMetrics.trocasSecasCount} ({vendorMetrics.trocasCount > 0 ? ((vendorMetrics.trocasSecasCount / vendorMetrics.trocasCount) * 100).toFixed(0) : 0}%)
-                </span>
-              </div>
-
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-                <span className="font-bold text-slate-600">Score de Qualidade das Trocas:</span>
-                <Badge className="bg-amber-100 text-amber-800 border-amber-300 font-bold">
-                  {vendorMetrics.trocasScoreMedio > 0 ? `${vendorMetrics.trocasScoreMedio.toFixed(1)} / 100` : "Sem trocas registradas"}
-                </Badge>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* SEÇÃO 2: RITMIA TEMPORAL (HORÁRIOS E DIAS MAIS PRODUTIVOS) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* GRÁFICO POR HORA DO DIA */}
-        <Card className="lg:col-span-8 bg-white/90 backdrop-blur-md border border-slate-200/80 shadow-2xs">
-          <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <CardTitle className="text-lg font-headline font-bold text-slate-900 flex items-center gap-2">
-                <Clock className="w-5 h-5 text-indigo-600" />
-                Vendas por Horário do Dia (08h às 21h)
-              </CardTitle>
-              <CardDescription className="text-xs text-slate-500">
-                Curva de produtividade horária do colaborador selecionado.
-              </CardDescription>
-            </div>
-
-            <div className="flex items-center gap-3 bg-slate-50 p-2.5 rounded-xl border border-slate-200/70 text-xs">
-              <div>
-                <span className="text-[10px] font-bold uppercase text-slate-400 block">Hora de Ouro (Maior Venda):</span>
-                <span className="font-extrabold text-indigo-700">{peakHoursInfo.goldHour} ({peakHoursInfo.goldHourFat.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})</span>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="h-64 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={hourlyData} margin={{ top: 10, right: 20, left: 10, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="colorFaturamento" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.4}/>
-                      <stop offset="95%" stopColor="#4f46e5" stopOpacity={0.0}/>
-                    </linearGradient>
-                  </defs>
-                  <XAxis dataKey="hour" tick={{ fontSize: 11, fontWeight: 600 }} />
-                  <YAxis tickFormatter={(v) => `R$${v}`} tick={{ fontSize: 11 }} />
-                  <RechartsTooltip 
-                    formatter={(val: any) => [`R$ ${Number(val).toFixed(2)}`, 'Faturamento']}
-                    contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}
-                  />
-                  <Area type="monotone" dataKey="faturamento" stroke="#4f46e5" strokeWidth={3} fillOpacity={1} fill="url(#colorFaturamento)" />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* VENDAS POR DIA DA SEMANA */}
-        <Card className="lg:col-span-4 bg-white/90 backdrop-blur-md border border-slate-200/80 shadow-2xs">
-          <CardHeader>
-            <CardTitle className="text-lg font-headline font-bold text-slate-900 flex items-center gap-2">
-              <CalendarIcon className="w-5 h-5 text-indigo-600" />
-              Desempenho por Dia da Semana
-            </CardTitle>
-            <CardDescription className="text-xs text-slate-500">
-              Distribuição semanal de faturamento.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-64 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={weeklyData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                  <XAxis dataKey="day" tick={{ fontSize: 11, fontWeight: 600 }} />
-                  <YAxis tickFormatter={(v) => `R$${v}`} tick={{ fontSize: 10 }} />
-                  <RechartsTooltip 
-                    formatter={(val: any) => [`R$ ${Number(val).toFixed(2)}`, 'Faturamento']}
-                    contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}
-                  />
-                  <Bar dataKey="faturamento" fill="#6366f1" radius={[6, 6, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* SEÇÃO 3: TOP PRODUTOS MAIS VENDIDOS & DIAGNÓSTICO COMPORTAMENTAL */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* TOP 5 PRODUTOS DO COLABORADOR */}
-        <Card className="lg:col-span-6 bg-white/90 backdrop-blur-md border border-slate-200/80 shadow-2xs">
-          <CardHeader>
-            <CardTitle className="text-lg font-headline font-bold text-slate-900 flex items-center gap-2">
-              <Package className="w-5 h-5 text-violet-600" />
-              Top 5 Produtos Mais Vendidos pelo Colaborador
-            </CardTitle>
-            <CardDescription className="text-xs text-slate-500">
-              Itens com maior representatividade nas vendas individuais de {selectedVendor}.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {topProducts.map((p, idx) => (
-                <div key={p.code} className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/70 flex items-center justify-between hover:bg-slate-100/80 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-violet-100 text-violet-700 font-headline font-extrabold flex items-center justify-center text-xs">
-                      #{idx + 1}
-                    </div>
-                    <div>
-                      <h5 className="text-xs font-bold text-slate-800 line-clamp-1">{p.name}</h5>
-                      <span className="text-[11px] font-semibold text-slate-400">Cód: {p.code} • {p.qtd} unidades</span>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-xs font-extrabold text-slate-900 block">
-                      {p.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                    </span>
-                  </div>
-                </div>
-              ))}
-              {topProducts.length === 0 && (
-                <p className="text-xs font-semibold text-slate-400 text-center py-6">
-                  Nenhum produto registrado no período.
-                </p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* DIAGNÓSTICO COMPORTAMENTAL & RECOMENDAÇÕES DE TREINAMENTO */}
-        <Card className="lg:col-span-6 bg-white/90 backdrop-blur-md border border-slate-200/80 shadow-2xs">
-          <CardHeader>
-            <CardTitle className="text-lg font-headline font-bold text-slate-900 flex items-center gap-2">
-              <Lightbulb className="w-5 h-5 text-indigo-600" />
-              Diagnóstico Comportamental & Plano de Treinamento
-            </CardTitle>
-            <CardDescription className="text-xs text-slate-500">
-              Análise inteligente de perfil e ações direcionadas para o desenvolvimento do colaborador.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-5">
-            {/* BADGE DE PERFIL CALCULADO */}
-            <div className="p-4 rounded-2xl bg-indigo-50/70 border border-indigo-200/80 space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold uppercase text-indigo-800 tracking-wider">Perfil Calculado:</span>
-                <Badge className={cn("font-bold text-xs px-3 py-0.5", behavioralDiagnosis.badgeColor)}>
-                  {behavioralDiagnosis.perfilTitle}
-                </Badge>
-              </div>
-              <p className="text-xs font-semibold text-indigo-900 leading-relaxed pt-1">
-                {behavioralDiagnosis.perfilDesc}
-              </p>
-            </div>
-
-            {/* RECOMENDAÇÕES PRÁTICAS */}
-            <div className="space-y-3">
-              <h5 className="text-xs font-bold uppercase text-slate-500 tracking-wider flex items-center gap-1.5">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                Recomendações Práticas de Ação:
-              </h5>
-              <div className="space-y-2">
-                {behavioralDiagnosis.recommendations.map((rec, i) => (
-                  <div key={i} className="p-3 rounded-xl bg-slate-50 border border-slate-200/70 text-xs font-medium text-slate-700 flex items-start gap-2.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 mt-1.5 shrink-0" />
-                    <span>{rec}</span>
-                  </div>
                 ))}
               </div>
             </div>
-          </CardContent>
-        </Card>
-      </div>
+          )}
+
+          {/* HEADER DE INDICADORES DO COLABORADOR COM COMPARATIVO (BENCHMARKING) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* KPI 1: VENDA TOTAL & SHARE */}
+            <Card className="bg-white/90 backdrop-blur-md border border-slate-200/80 shadow-2xs hover:shadow-md transition-all">
+              <CardContent className="p-5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Faturamento Total</span>
+                  <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
+                    <DollarSign className="w-4 h-4" />
+                  </div>
+                </div>
+                <div>
+                  <h3 className="text-2xl font-headline font-extrabold text-slate-900">
+                    {vendorMetrics.vendaTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                  </h3>
+                  <p className="text-xs font-semibold text-slate-500 mt-1 flex items-center gap-1">
+                    <span>Participação na Loja:</span>
+                    <span className="font-bold text-indigo-600">{vendorMetrics.shareLoja.toFixed(1)}%</span>
+                  </p>
+                </div>
+                <div className="pt-2 border-t border-slate-100 text-[11px] text-slate-500 font-medium flex items-center justify-between">
+                  <span>Média da Loja:</span>
+                  <span className="font-bold text-slate-700">{storeMetrics.avgVendaPerVendor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* KPI 2: TICKET MÉDIO (TKM) VS LOJA E LÍDER */}
+            <Card className="bg-white/90 backdrop-blur-md border border-slate-200/80 shadow-2xs hover:shadow-md transition-all">
+              <CardContent className="p-5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Ticket Médio (TKM)</span>
+                  <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl">
+                    <TrendingUp className="w-4 h-4" />
+                  </div>
+                </div>
+                <div>
+                  <div className="flex items-baseline gap-2">
+                    <h3 className="text-2xl font-headline font-extrabold text-slate-900">
+                      {vendorMetrics.tkm.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </h3>
+                    {vendorMetrics.tkm >= storeMetrics.tkmLoja ? (
+                      <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] font-bold">
+                        + {(((vendorMetrics.tkm - storeMetrics.tkmLoja) / (storeMetrics.tkmLoja || 1)) * 100).toFixed(0)}% vs Média
+                      </Badge>
+                    ) : (
+                      <Badge className="bg-rose-50 text-rose-700 border-rose-200 text-[10px] font-bold">
+                        {(((vendorMetrics.tkm - storeMetrics.tkmLoja) / (storeMetrics.tkmLoja || 1)) * 100).toFixed(0)}% vs Média
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-xs font-semibold text-slate-500 mt-1">
+                    {vendorMetrics.cuponsTotal} atendimentos realizados
+                  </p>
+                </div>
+                <div className="pt-2 border-t border-slate-100 text-[11px] text-slate-500 font-medium flex items-center justify-between">
+                  <span>Líder da Loja:</span>
+                  <span className="font-bold text-slate-700">{storeMetrics.topVendorTkm.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* KPI 3: PEÇAS POR ATENDIMENTO (PA) & META PONDERADA JUSTA */}
+            <Card className="bg-white/90 backdrop-blur-md border border-slate-200/80 shadow-2xs hover:shadow-md transition-all">
+              <CardContent className="p-5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">PA & Meta Ponderada</span>
+                  <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
+                    <Scale className="w-4 h-4" />
+                  </div>
+                </div>
+                <div>
+                  <div className="flex items-baseline gap-2">
+                    <h3 className="text-2xl font-headline font-extrabold text-slate-900">
+                      {vendorMetrics.pa.toFixed(2)}
+                    </h3>
+                    <span className="text-xs font-bold text-slate-400">
+                      / Meta {vendorTacticalMetrics.metaPonderadaPA.toFixed(2)}
+                    </span>
+                    {vendorTacticalMetrics.justicaHighlight === "JUSTIÇA_POSITIVA" && (
+                      <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px] font-extrabold inline-flex items-center gap-0.5" title="Bateu a meta ponderada da escala!">
+                        <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                        Meta Atingida!
+                      </Badge>
+                    )}
+                    {vendorTacticalMetrics.justicaHighlight === "SUPERAÇÃO_TOTAL" && (
+                      <Badge className="bg-indigo-100 text-indigo-800 border-indigo-300 text-[10px] font-extrabold inline-flex items-center gap-0.5">
+                        <Award className="w-3 h-3 text-indigo-600" />
+                        Superou Tudo
+                      </Badge>
+                    )}
+                    {vendorTacticalMetrics.justicaHighlight === "ALERTA_AJUSTE" && (
+                      <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[10px] font-extrabold inline-flex items-center gap-0.5" title="Abaixo do potencial esperado para os postos trabalhados">
+                        <AlertTriangle className="w-3 h-3 text-amber-600" />
+                        Abaixo Posto
+                      </Badge>
+                    )}
+                    {vendorTacticalMetrics.justicaHighlight === "ABAIXO" && (
+                      <Badge className="bg-rose-50 text-rose-700 border-rose-200 text-[10px] font-extrabold inline-flex items-center gap-0.5">
+                        <TrendingDown className="w-3 h-3 text-rose-600" />
+                        {vendorTacticalMetrics.atingimentoPonderadoPct.toFixed(0)}% Meta
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between text-xs font-semibold text-slate-600 mt-1">
+                    <span>Atingimento da Escala:</span>
+                    <span className={cn("font-extrabold", vendorTacticalMetrics.isBateuPonderada ? "text-emerald-600" : "text-rose-600")}>
+                      {vendorTacticalMetrics.atingimentoPonderadoPct.toFixed(1)}% ({vendorTacticalMetrics.saldoPecas >= 0 ? `+${vendorTacticalMetrics.saldoPecas.toFixed(1)}` : vendorTacticalMetrics.saldoPecas.toFixed(1)} un)
+                    </span>
+                  </div>
+                </div>
+                <div className="pt-2 border-t border-slate-100 text-[11px] text-slate-500 font-medium flex items-center justify-between">
+                  <span>Média Fixa Loja:</span>
+                  <span className="font-bold text-slate-700">{storeMetrics.paLoja.toFixed(2)} PA</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* KPI 4: CAPTURA DE CPF & FIDELIDADE */}
+            <Card className="bg-white/90 backdrop-blur-md border border-slate-200/80 shadow-2xs hover:shadow-md transition-all">
+              <CardContent className="p-5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Captura de CPF</span>
+                  <div className="p-2 bg-violet-50 text-violet-600 rounded-xl">
+                    <Users className="w-4 h-4" />
+                  </div>
+                </div>
+                <div>
+                  <div className="flex items-baseline gap-2">
+                    <h3 className="text-2xl font-headline font-extrabold text-slate-900">
+                      {vendorMetrics.cpfRate.toFixed(1)}%
+                    </h3>
+                    {vendorMetrics.cpfRate >= storeMetrics.cpfRateLoja ? (
+                      <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] font-bold inline-flex items-center gap-1">
+                        <TrendingUp className="w-3 h-3 text-emerald-600" />
+                        Acima Média
+                      </Badge>
+                    ) : (
+                      <Badge className="bg-rose-50 text-rose-700 border-rose-200 text-[10px] font-bold inline-flex items-center gap-1">
+                        <TrendingDown className="w-3 h-3 text-rose-600" />
+                        Abaixo Média
+                      </Badge>
+                    )}
+                  </div>
+                  <Progress value={vendorMetrics.cpfRate} className="h-2 mt-2 bg-slate-100" />
+                </div>
+                <div className="pt-2 border-t border-slate-100 text-[11px] text-slate-500 font-medium flex items-center justify-between">
+                  <span>Média da Loja:</span>
+                  <span className="font-bold text-slate-700">{storeMetrics.cpfRateLoja.toFixed(1)}%</span>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* SEÇÃO PRINCIPAL DE JUSTIÇA: DESEMPENHO TÁTICO POR POSTO / ESCALA */}
+          <Card className="bg-gradient-to-br from-indigo-950/90 via-slate-900 to-slate-950 text-white border-none shadow-xl overflow-hidden relative">
+            <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-500/10 blur-[90px] pointer-events-none" />
+            <CardHeader className="p-6 md:p-8 pb-4 relative z-10">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 text-xs font-bold uppercase tracking-wider border border-indigo-500/30">
+                    <Scale className="w-3.5 h-3.5 text-indigo-400" />
+                    Avaliação Ponderada por Posto Tático
+                  </div>
+                  <CardTitle className="text-xl md:text-2xl font-headline font-extrabold text-white flex items-center gap-2.5">
+                    Desempenho Tático por Escala ({selectedVendor})
+                  </CardTitle>
+                  <CardDescription className="text-xs md:text-sm text-slate-300 font-medium max-w-2xl">
+                    Avaliamos cada colaborador com base na sua rotina real nos postos de trabalho (Caixa, Porta, Salão e Retirada), garantindo justiça e mérito real.
+                  </CardDescription>
+                </div>
+
+                {/* STATUS DO ARQUIVO DE ESCALA */}
+                <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10 flex items-center gap-3">
+                  <div className="p-2.5 bg-indigo-500/20 text-indigo-300 rounded-xl">
+                    <CalendarCheck className="w-5 h-5 text-indigo-400" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Status da Escala</span>
+                    <p className="text-xs font-bold text-white">
+                      {vendorTacticalMetrics.hasEscalaData 
+                        ? `${escalaStore?.escalas.length} escalas processadas` 
+                        : "Escala Padrão Aplicada"}
+                    </p>
+                    <span className="text-[10px] text-indigo-300 block">
+                      {vendorTacticalMetrics.totalDiasTrabalhados} dia(s) com vendas
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </CardHeader>
+
+            <CardContent className="p-6 md:p-8 pt-2 space-y-6 relative z-10">
+              {/* VEREDITO PEDAGÓGICO DE JUSTIÇA AVALIATIVA */}
+              <div className={cn(
+                "p-5 rounded-2xl border backdrop-blur-md transition-all",
+                vendorTacticalMetrics.justicaHighlight === "JUSTIÇA_POSITIVA" && "bg-emerald-950/40 border-emerald-500/40 text-emerald-200",
+                vendorTacticalMetrics.justicaHighlight === "SUPERAÇÃO_TOTAL" && "bg-indigo-950/40 border-indigo-500/40 text-indigo-200",
+                vendorTacticalMetrics.justicaHighlight === "ALERTA_AJUSTE" && "bg-amber-950/40 border-amber-500/40 text-amber-200",
+                vendorTacticalMetrics.justicaHighlight === "ABAIXO" && "bg-rose-950/40 border-rose-500/40 text-rose-200"
+              )}>
+                <div className="flex items-start gap-3.5">
+                  <div className={cn(
+                    "p-2 rounded-xl shrink-0 mt-0.5",
+                    vendorTacticalMetrics.justicaHighlight === "JUSTIÇA_POSITIVA" && "bg-emerald-500/20 text-emerald-300",
+                    vendorTacticalMetrics.justicaHighlight === "SUPERAÇÃO_TOTAL" && "bg-indigo-500/20 text-indigo-300",
+                    vendorTacticalMetrics.justicaHighlight === "ALERTA_AJUSTE" && "bg-amber-500/20 text-amber-300",
+                    vendorTacticalMetrics.justicaHighlight === "ABAIXO" && "bg-rose-500/20 text-rose-300"
+                  )}>
+                    {vendorTacticalMetrics.isBateuPonderada ? (
+                      <ShieldCheck className="w-5 h-5 text-emerald-400" />
+                    ) : (
+                      <AlertCircle className="w-5 h-5 text-rose-400" />
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h4 className="text-sm font-extrabold uppercase tracking-wide text-white">
+                        {vendorTacticalMetrics.justicaHighlight === "JUSTIÇA_POSITIVA" && "⚖️ Veredito Justo: Meta Atingida pela Escala"}
+                        {vendorTacticalMetrics.justicaHighlight === "SUPERAÇÃO_TOTAL" && "🏆 Superação Global: Acima de Todas as Metas"}
+                        {vendorTacticalMetrics.justicaHighlight === "ALERTA_AJUSTE" && "⚠️ Oportunidade de Salão: Abaixo do Potencial do Posto"}
+                        {vendorTacticalMetrics.justicaHighlight === "ABAIXO" && "📉 Abaixo da Meta Ponderada Justa"}
+                      </h4>
+                      <Badge className="bg-white/20 text-white font-bold text-[10px] border-none px-2 py-0.5">
+                        Meta Justa: {vendorTacticalMetrics.metaPonderadaPA.toFixed(2)} PA • Realizado: {vendorMetrics.pa.toFixed(2)} PA
+                      </Badge>
+                    </div>
+                    <p className="text-xs md:text-sm text-slate-200 leading-relaxed font-normal">
+                      {vendorTacticalMetrics.justicaHighlight === "JUSTIÇA_POSITIVA" && (
+                        <>
+                          O colaborador atuou predominantemente em postos de conversão rápida e alto giro ({vendorTacticalMetrics.primaryPosition?.posName || "Caixa/Porta"}). 
+                          Seu PA de <strong className="text-white font-extrabold">{vendorMetrics.pa.toFixed(2)}</strong> superou a meta ponderada justa de <strong className="text-white font-extrabold">{vendorTacticalMetrics.metaPonderadaPA.toFixed(2)} PA</strong>, 
+                          gerando um saldo positivo de <strong className="text-emerald-300 font-extrabold">+{vendorTacticalMetrics.saldoPecas.toFixed(1)} peças</strong>. 
+                          Julgá-lo pela meta fixa genérica de 1.75 seria injusto e desmotivador!
+                        </>
+                      )}
+                      {vendorTacticalMetrics.justicaHighlight === "SUPERAÇÃO_TOTAL" && (
+                        <>
+                          Excelente desempenho global! O colaborador atingiu <strong className="text-white font-extrabold">{vendorMetrics.pa.toFixed(2)} PA</strong>, 
+                          superando tanto a meta ponderada da sua escala (<strong className="text-white font-extrabold">{vendorTacticalMetrics.metaPonderadaPA.toFixed(2)} PA</strong>) 
+                          quanto a média geral da loja, entregando um saldo de <strong className="text-emerald-300 font-extrabold">+{vendorTacticalMetrics.saldoPecas.toFixed(1)} peças</strong>.
+                        </>
+                      )}
+                      {vendorTacticalMetrics.justicaHighlight === "ALERTA_AJUSTE" && (
+                        <>
+                          O colaborador atuou em postos que exigem maior agregação e consultoria (ex: Salão), mas seu PA realizado de <strong className="text-white font-extrabold">{vendorMetrics.pa.toFixed(2)}</strong> ficou abaixo da meta ponderada esperada para suas posições (<strong className="text-white font-extrabold">{vendorTacticalMetrics.metaPonderadaPA.toFixed(2)} PA</strong>), 
+                          com déficit de <strong className="text-amber-300 font-extrabold">{vendorTacticalMetrics.saldoPecas.toFixed(1)} peças</strong>.
+                        </>
+                      )}
+                      {vendorTacticalMetrics.justicaHighlight === "ABAIXO" && (
+                        <>
+                          O colaborador realizou <strong className="text-white font-extrabold">{vendorMetrics.pa.toFixed(2)} PA</strong> frente à meta ponderada de <strong className="text-white font-extrabold">{vendorTacticalMetrics.metaPonderadaPA.toFixed(2)} PA</strong> ({vendorTacticalMetrics.atingimentoPonderadoPct.toFixed(1)}% de atingimento), 
+                          com déficit de <strong className="text-rose-300 font-extrabold">{vendorTacticalMetrics.saldoPecas.toFixed(1)} peças</strong> nos {vendorMetrics.cuponsTotal} atendimentos.
+                        </>
+                      )}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* GRID DE POSTOS TÁTICOS TRABALHADOS */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-extrabold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                    <Layers className="w-4 h-4 text-indigo-400" />
+                    Detalhamento dos Postos Escalados
+                  </span>
+                  <span className="text-[11px] font-semibold text-slate-400">
+                    {vendorTacticalMetrics.positionsList.length} posto(s) registrado(s)
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {vendorTacticalMetrics.positionsList.map(pos => {
+                    const isBest = vendorTacticalMetrics.bestPosition?.posKey === pos.posKey && pos.cupons >= 2;
+                    const isWorst = vendorTacticalMetrics.worstPosition?.posKey === pos.posKey && pos.cupons >= 2 && pos.atingimentoPosPct < 100;
+                    const shareCupons = vendorMetrics.cuponsTotal > 0 ? (pos.cupons / vendorMetrics.cuponsTotal) * 100 : 0;
+
+                    return (
+                      <div key={pos.posKey} className="bg-white/5 hover:bg-white/10 rounded-2xl p-4 border border-white/10 space-y-3 transition-all flex flex-col justify-between">
+                        <div>
+                          <div className="flex items-center justify-between gap-1 mb-2">
+                            <Badge className="bg-indigo-500/30 text-indigo-200 border-indigo-400/30 font-bold text-xs">
+                              {pos.posName}
+                            </Badge>
+                            {isBest && (
+                              <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/30 text-[9px] font-extrabold flex items-center gap-0.5">
+                                ⭐ Onde Mais Rende
+                              </Badge>
+                            )}
+                            {isWorst && (
+                              <Badge className="bg-rose-500/20 text-rose-300 border-rose-500/30 text-[9px] font-extrabold flex items-center gap-0.5">
+                                ⚠️ Ponto Atenção
+                              </Badge>
+                            )}
+                          </div>
+
+                          <div className="space-y-1">
+                            <div className="flex items-baseline justify-between">
+                              <span className="text-[11px] font-semibold text-slate-400">PA Realizado:</span>
+                              <span className={cn("text-lg font-headline font-black", pos.paPos >= pos.metaPos ? "text-emerald-400" : "text-rose-400")}>
+                                {pos.paPos.toFixed(2)} <span className="text-xs text-slate-400 font-medium">/ {pos.metaPos.toFixed(2)}</span>
+                              </span>
+                            </div>
+                            <Progress value={Math.min(100, pos.atingimentoPosPct)} className="h-1.5 bg-white/10" />
+                            <div className="flex items-center justify-between text-[10px] text-slate-400 pt-0.5">
+                              <span>Atingimento:</span>
+                              <span className="font-bold text-slate-200">{pos.atingimentoPosPct.toFixed(0)}%</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="pt-2.5 border-t border-white/10 space-y-1 text-[11px]">
+                          <div className="flex items-center justify-between text-slate-300">
+                            <span>Cupons ({shareCupons.toFixed(0)}% da rotina):</span>
+                            <span className="font-bold text-white">{pos.cupons} un</span>
+                          </div>
+                          <div className="flex items-center justify-between text-slate-300">
+                            <span>Faturamento no Posto:</span>
+                            <span className="font-bold text-indigo-300">{pos.venda.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                          </div>
+                          <div className="flex items-center justify-between text-slate-400 text-[10px]">
+                            <span>Dias no Posto:</span>
+                            <span className="font-medium text-slate-200">{pos.daysWorked.size} dia(s)</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* RADAR 6D DE HABILIDADES MULTIDIMENSIONAIS DO COLABORADOR */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <Card className="lg:col-span-6 bg-white/90 backdrop-blur-md border border-slate-200/80 shadow-2xs">
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-lg font-headline font-bold text-slate-900 flex items-center gap-2">
+                      <Scale className="w-5 h-5 text-indigo-600" />
+                      Radar de Habilidades 6D ({selectedVendor})
+                    </CardTitle>
+                    <CardDescription className="text-xs text-slate-500">
+                      Mapeamento das 6 dimensões normalizadas de desempenho.
+                    </CardDescription>
+                  </div>
+                  {currentExtendedStats && (
+                    <Badge className={cn("text-[10px] font-bold border", currentExtendedStats.quadrantBadgeClass)}>
+                      {currentExtendedStats.quadrantName}
+                    </Badge>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[300px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RadarChart cx="50%" cy="50%" outerRadius="75%" data={individualRadarData}>
+                      <PolarGrid stroke="#e2e8f0" />
+                      <PolarAngleAxis dataKey="subject" tick={{ fontSize: 10, fontWeight: 700, fill: "#475569" }} />
+                      <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fontSize: 9 }} />
+                      <Radar name={selectedVendor} dataKey="Colaborador" stroke="#6366f1" fill="#6366f1" fillOpacity={0.45} strokeWidth={2} />
+                      <RechartsTooltip />
+                    </RadarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* DIAGNÓSTICO COMPORTAMENTAL & RECOMENDAÇÕES */}
+            <Card className="lg:col-span-6 bg-white/90 backdrop-blur-md border border-slate-200/80 shadow-2xs">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg font-headline font-bold text-slate-900 flex items-center gap-2">
+                  <Lightbulb className="w-5 h-5 text-indigo-600" />
+                  Diagnóstico & Recomendações
+                </CardTitle>
+                <CardDescription className="text-xs text-slate-500">
+                  Plano direcionado com base na rotina e no J-Score.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="p-3.5 rounded-2xl bg-indigo-50/70 border border-indigo-200/80 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase text-indigo-800 tracking-wider">Perfil Calculado:</span>
+                    <Badge className={cn("font-bold text-xs px-2.5 py-0.5", behavioralDiagnosis.badgeColor)}>
+                      {behavioralDiagnosis.perfilTitle}
+                    </Badge>
+                  </div>
+                  <p className="text-xs font-semibold text-indigo-900 leading-relaxed pt-1">
+                    {behavioralDiagnosis.perfilDesc}
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <h5 className="text-xs font-bold uppercase text-slate-500 tracking-wider flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    Plano de Ação Recomendado:
+                  </h5>
+                  <div className="space-y-1.5 max-h-[160px] overflow-y-auto pr-1">
+                    {behavioralDiagnosis.recommendations.map((rec, i) => (
+                      <div key={i} className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/70 text-xs font-medium text-slate-700 flex items-start gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 mt-1.5 shrink-0" />
+                        <span>{rec}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* BLOCO DE GANHO DE OPORTUNIDADE FINANCEIRA PROJETADA */}
+          <Card className="bg-gradient-to-r from-emerald-900 via-teal-900 to-slate-900 text-white border-none shadow-lg overflow-hidden">
+            <CardContent className="p-6 md:p-8">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                <div className="space-y-2 max-w-xl">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-[11px] font-bold uppercase tracking-wider border border-emerald-500/30">
+                    <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                    Potencial Financeiro Destravável
+                  </div>
+                  <h3 className="text-xl md:text-2xl font-headline font-extrabold text-white">
+                    Projeção de Faturamento Adicional
+                  </h3>
+                  <p className="text-xs md:text-sm text-slate-300 font-medium leading-relaxed">
+                    Estimativa financeira calculada com base na meta ponderada justa da escala de {selectedVendor}, equiparação de TKM e conversão de mono-itens.
+                  </p>
+                </div>
+
+                <div className="bg-white/10 backdrop-blur-md rounded-2xl p-5 border border-white/20 text-right min-w-[280px]">
+                  <span className="text-xs font-bold uppercase tracking-wider text-emerald-300 block mb-1">
+                    Ganho Potencial Combinado
+                  </span>
+                  <div className="text-3xl md:text-4xl font-headline font-extrabold text-emerald-400">
+                    + {financialProjections.potencialTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                  </div>
+                  <span className="text-[11px] font-medium text-slate-300 block mt-1">
+                    Com a mesma quantidade de clientes atendidos
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6 pt-6 border-t border-white/10">
+                <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                  <span className="text-[11px] font-bold uppercase text-slate-400 block mb-1">Se TKM atingisse a Média da Loja:</span>
+                  <p className="text-lg font-bold text-white">
+                    + {financialProjections.ganhoTkmLoja.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                  </p>
+                  <span className="text-[10px] text-slate-400 block mt-0.5">
+                    (Diferença de TKM: R$ {Math.max(0, storeMetrics.tkmLoja - vendorMetrics.tkm).toFixed(2)})
+                  </span>
+                </div>
+
+                <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                  <span className="text-[11px] font-bold uppercase text-slate-400 block mb-1">Meta Ponderada da Escala:</span>
+                  <p className="text-lg font-bold text-white">
+                    {financialProjections.ganhoMetaPonderada > 0 ? (
+                      `+ ${financialProjections.ganhoMetaPonderada.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`
+                    ) : (
+                      "Meta Já Atingida! 🎉"
+                    )}
+                  </p>
+                  <span className="text-[10px] text-slate-400 block mt-0.5">
+                    {financialProjections.ganhoMetaPonderada > 0 
+                      ? `(+ ${financialProjections.pecasNecessariasPonderada} peças para a meta justa)`
+                      : `(Saldo positivo: +${vendorTacticalMetrics.saldoPecas.toFixed(1)} peças)`}
+                  </span>
+                </div>
+
+                <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                  <span className="text-[11px] font-bold uppercase text-slate-400 block mb-1">Convertendo 30% dos Cupons 1 Item:</span>
+                  <p className="text-lg font-bold text-white">
+                    + {financialProjections.ganhoConversaoMono.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                  </p>
+                  <span className="text-[10px] text-slate-400 block mt-0.5">
+                    ({financialProjections.monoConvertedCount} atendimentos de 1 item transformados em 2 itens)
+                  </span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* SEÇÃO DE CAMPANHAS E PRODUTOS ESTRATÉGICOS */}
+          <Card className="bg-white/90 backdrop-blur-md border border-slate-200/80 shadow-2xs">
+            <CardHeader>
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
+                <div>
+                  <CardTitle className="text-lg font-headline font-bold text-slate-900 flex items-center gap-2">
+                    <Target className="w-5 h-5 text-orange-600" />
+                    Engajamento em Campanhas & Produtos Estratégicos
+                  </CardTitle>
+                  <CardDescription className="text-xs text-slate-500">
+                    Desempenho detalhado do colaborador ({selectedVendor}) na venda de produtos de incentivo, campanhas e checkout.
+                  </CardDescription>
+                </div>
+                <Badge className="bg-orange-100 text-orange-800 border-orange-200 font-extrabold text-xs w-fit">
+                  Auditoria de Ofertas & Venda Sugestiva
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                
+                {/* CARD 1: SLP (VENDA SUGESTIVA) */}
+                <div className="p-4 rounded-2xl bg-orange-50/80 border border-orange-200/80 space-y-2.5 flex flex-col justify-between">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-orange-900 uppercase tracking-wider flex items-center gap-1.5">
+                      <ShoppingBag className="w-3.5 h-3.5 text-orange-600" />
+                      SLP (Sugestiva)
+                    </span>
+                    <Badge className={cn("text-[9px] font-black border-none px-1.5 h-5 flex items-center gap-0.5", vendorMetrics.slpPenetracaoRate >= storeMetrics.storeSlpPenetracao ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800")}>
+                      {vendorMetrics.slpPenetracaoRate >= storeMetrics.storeSlpPenetracao ? (
+                        <><TrendingUp className="w-2.5 h-2.5 text-emerald-700" /> Acima Média</>
+                      ) : (
+                        <><TrendingDown className="w-2.5 h-2.5 text-rose-700" /> Abaixo Média</>
+                      )}
+                    </Badge>
+                  </div>
+                  <div>
+                    <div className="text-2xl font-headline font-extrabold text-slate-900">
+                      {vendorMetrics.slpQty} <span className="text-xs font-semibold text-slate-500">itens</span>
+                    </div>
+                    <p className="text-xs font-bold text-orange-700 mt-0.5">
+                      {vendorMetrics.slpValor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </p>
+                  </div>
+                  <div className="pt-2 border-t border-orange-200/60 space-y-1">
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="text-slate-600 font-semibold">Penetração Cupons:</span>
+                      <span className="font-extrabold text-slate-900">{vendorMetrics.slpPenetracaoRate.toFixed(1)}%</span>
+                    </div>
+                    <div className="flex items-center justify-between text-[10px] text-slate-500">
+                      <span>Média da Loja:</span>
+                      <span className="font-bold text-slate-700">{storeMetrics.storeSlpPenetracao.toFixed(1)}%</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* CARD 2: AÇÃO SOCIAL (SACOLAS, BARALHOS, LANCHINHO) */}
+                <div className="p-4 rounded-2xl bg-rose-50/80 border border-rose-200/80 space-y-2.5 flex flex-col justify-between">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-rose-900 uppercase tracking-wider flex items-center gap-1.5">
+                      <Heart className="w-3.5 h-3.5 text-rose-600" />
+                      Ação Social Total
+                    </span>
+                    <Badge className={cn("text-[9px] font-black border-none px-1.5 h-5 flex items-center gap-0.5", vendorMetrics.socialPenetracaoRate >= storeMetrics.storeSocialPenetracao ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800")}>
+                      {vendorMetrics.socialPenetracaoRate >= storeMetrics.storeSocialPenetracao ? (
+                        <><TrendingUp className="w-2.5 h-2.5 text-emerald-700" /> Acima Média</>
+                      ) : (
+                        <><TrendingDown className="w-2.5 h-2.5 text-rose-700" /> Abaixo Média</>
+                      )}
+                    </Badge>
+                  </div>
+                  <div>
+                    <div className="text-2xl font-headline font-extrabold text-slate-900">
+                      {vendorMetrics.socialQty} <span className="text-xs font-semibold text-slate-500">itens</span>
+                    </div>
+                    <p className="text-xs font-bold text-rose-700 mt-0.5">
+                      {vendorMetrics.socialValor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </p>
+                  </div>
+
+                  {/* DETALHAMENTO DAS CATEGORIAS SOCIAL */}
+                  <div className="space-y-1 py-1.5 border-t border-rose-200/60 text-[11px]">
+                    <div className="flex items-center justify-between font-medium text-slate-700">
+                      <span className="text-slate-600">Sacolas:</span>
+                      <span className="font-bold text-slate-900">{vendorMetrics.sacolaQty} un ({vendorMetrics.sacolaValor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})</span>
+                    </div>
+                    <div className="flex items-center justify-between font-medium text-slate-700">
+                      <span className="text-slate-600">Baralhos:</span>
+                      <span className="font-bold text-slate-900">{vendorMetrics.baralhoQty} un ({vendorMetrics.baralhoValor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})</span>
+                    </div>
+                    <div className="flex items-center justify-between font-medium text-slate-700">
+                      <span className="text-slate-600">Lanchinho:</span>
+                      <span className="font-bold text-slate-900">{vendorMetrics.lanchinhoQty} un ({vendorMetrics.lanchinhoValor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})</span>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-rose-200/60 space-y-1">
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="text-slate-600 font-semibold">Penetração Cupons:</span>
+                      <span className="font-extrabold text-slate-900">{vendorMetrics.socialPenetracaoRate.toFixed(1)}%</span>
+                    </div>
+                    <div className="flex items-center justify-between text-[10px] text-slate-500">
+                      <span>Média da Loja:</span>
+                      <span className="font-bold text-slate-700">{storeMetrics.storeSocialPenetracao.toFixed(1)}%</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* CARD 3: ITENS AGING */}
+                <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-200/80 space-y-2.5 flex flex-col justify-between">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
+                      <Boxes className="w-3.5 h-3.5 text-amber-600" />
+                      Itens Aging
+                    </span>
+                    <Badge className={cn("text-[9px] font-black border-none px-1.5 h-5 flex items-center gap-0.5", vendorMetrics.agingQty > 0 ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800")}>
+                      {vendorMetrics.agingQty > 0 ? (
+                        <><TrendingUp className="w-2.5 h-2.5 text-emerald-700" /> Desmobilizando</>
+                      ) : (
+                        <><TrendingDown className="w-2.5 h-2.5 text-rose-700" /> Sem Vendas</>
+                      )}
+                    </Badge>
+                  </div>
+                  <div>
+                    <div className="text-2xl font-headline font-extrabold text-slate-900">
+                      {vendorMetrics.agingQty} <span className="text-xs font-semibold text-slate-500">unidades</span>
+                    </div>
+                    <p className="text-xs font-bold text-amber-700 mt-0.5">
+                      {vendorMetrics.agingValor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </p>
+                  </div>
+                  <div className="pt-2 border-t border-amber-200/60 space-y-1">
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="text-slate-600 font-semibold">Presença Cupons:</span>
+                      <span className="font-extrabold text-slate-900">{vendorMetrics.agingCuponsCount} cupons ({vendorMetrics.agingPenetracaoRate.toFixed(1)}%)</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* CARD 4: RETIRADAS & PEDIDOS ADICIONAIS */}
+                <div className="p-4 rounded-2xl bg-teal-50/80 border border-teal-200/80 space-y-2.5 flex flex-col justify-between">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-teal-900 uppercase tracking-wider flex items-center gap-1.5">
+                      <Tag className="w-3.5 h-3.5 text-teal-600" />
+                      Omnichannel
+                    </span>
+                    <Badge className={cn("text-[9px] font-black border-none px-1.5 h-5 flex items-center gap-0.5", vendorMetrics.adicionaisCount > 0 ? "bg-emerald-100 text-emerald-800" : vendorMetrics.retiradasCount > 0 ? "bg-rose-100 text-rose-800" : "bg-slate-100 text-slate-600")}>
+                      {vendorMetrics.adicionaisCount > 0 ? (
+                        <><TrendingUp className="w-2.5 h-2.5 text-emerald-700" /> Conversão Ativa</>
+                      ) : vendorMetrics.retiradasCount > 0 ? (
+                        <><TrendingDown className="w-2.5 h-2.5 text-rose-700" /> Sem Adicional</>
+                      ) : (
+                        "Sem Pickup"
+                      )}
+                    </Badge>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-xs font-bold text-slate-800">
+                      <span>Retiradas:</span>
+                      <span>{vendorMetrics.retiradasCount} cupons</span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs font-bold text-slate-800">
+                      <span>Adicionais:</span>
+                      <span className="text-teal-700">{vendorMetrics.adicionaisCount} ({vendorMetrics.adicionaisValor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})</span>
+                    </div>
+                  </div>
+                  <div className="pt-2 border-t border-teal-200/60 text-[10px] text-slate-500 font-semibold flex items-center justify-between">
+                    <span>Taxa Adicional/Pickup:</span>
+                    <span className="font-extrabold text-teal-800">
+                      {vendorMetrics.retiradasCount > 0 ? `${((vendorMetrics.adicionaisCount / vendorMetrics.retiradasCount) * 100).toFixed(0)}%` : "N/A"}
+                    </span>
+                  </div>
+                </div>
+
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* SEÇÃO 1: DISTRIBUIÇÃO DA CESTA DE COMPRAS & QUALIDADE DE TROCAS */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* DISTRIBUIÇÃO DE ITENS POR CUPOM (MONO-ITEM VS SUPER CESTAS) */}
+            <Card className="lg:col-span-7 bg-white/90 backdrop-blur-md border border-slate-200/80 shadow-2xs">
+              <CardHeader>
+                <CardTitle className="text-lg font-headline font-bold text-slate-900 flex items-center gap-2">
+                  <Layers className="w-5 h-5 text-indigo-600" />
+                  Distribuição do Tamanho de Cesta (Cupons por Qtd de Itens)
+                </CardTitle>
+                <CardDescription className="text-xs text-slate-500">
+                  Análise de profundidade de atendimento do colaborador e penetração de vendas adicionais.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {basketBreakdown.map((item, idx) => (
+                    <div key={idx} className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/70 space-y-1">
+                      <span className="text-[11px] font-bold text-slate-500 block truncate">{item.name}</span>
+                      <div className="text-xl font-headline font-extrabold text-slate-900">
+                        {item.count} <span className="text-xs font-semibold text-slate-400">({item.percent.toFixed(1)}%)</span>
+                      </div>
+                      <Progress value={item.percent} className="h-1.5 bg-slate-200" />
+                    </div>
+                  ))}
+                </div>
+
+                {/* GRÁFICO RECHARTS DE BARRA DE CESTA */}
+                <div className="h-56 w-full pt-2">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={basketBreakdown} layout="vertical" margin={{ left: 20, right: 30, top: 10, bottom: 10 }}>
+                      <XAxis type="number" tickFormatter={(v) => `${v}%`} />
+                      <YAxis type="category" dataKey="name" width={130} tick={{ fontSize: 11, fontWeight: 600 }} />
+                      <RechartsTooltip 
+                        formatter={(value: any) => [`${Number(value).toFixed(1)}%`, 'Proporção']}
+                        contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}
+                      />
+                      <Bar dataKey="percent" radius={[0, 8, 8, 0]} barSize={24}>
+                        {basketBreakdown.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* ANÁLISE DETALHADA E QUALIDADE DE TROCAS */}
+            <Card className="lg:col-span-5 bg-white/90 backdrop-blur-md border border-slate-200/80 shadow-2xs">
+              <CardHeader>
+                <CardTitle className="text-lg font-headline font-bold text-slate-900 flex items-center gap-2">
+                  <ArrowRightLeft className="w-5 h-5 text-amber-600" />
+                  Qualidade & Desempenho em Trocas
+                </CardTitle>
+                <CardDescription className="text-xs text-slate-500">
+                  Métricas de conversão de trocas em vendas adicionais (Upsell).
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200/80 flex items-center justify-between">
+                  <div>
+                    <span className="text-xs font-bold uppercase text-amber-800 tracking-wider">Total de Trocas</span>
+                    <h4 className="text-2xl font-headline font-extrabold text-amber-900 mt-0.5">
+                      {vendorMetrics.trocasCount} trocas
+                    </h4>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-xs font-bold uppercase text-amber-800 tracking-wider">Diferença Gerada (R$)</span>
+                    <h4 className={cn("text-xl font-headline font-extrabold mt-0.5", vendorMetrics.trocasValorDiferenca >= 0 ? "text-emerald-700" : "text-rose-700")}>
+                      {vendorMetrics.trocasValorDiferenca.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </h4>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                      Trocas com Diferença Positiva (Upsell):
+                    </span>
+                    <span className="font-extrabold text-slate-900">
+                      {vendorMetrics.trocasPositivasCount} ({vendorMetrics.trocasCount > 0 ? ((vendorMetrics.trocasPositivasCount / vendorMetrics.trocasCount) * 100).toFixed(0) : 0}%)
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full bg-slate-400" />
+                      Trocas Secas (Sem Ganho Adicional):
+                    </span>
+                    <span className="font-extrabold text-slate-900">
+                      {vendorMetrics.trocasSecasCount} ({vendorMetrics.trocasCount > 0 ? ((vendorMetrics.trocasSecasCount / vendorMetrics.trocasCount) * 100).toFixed(0) : 0}%)
+                    </span>
+                  </div>
+
+                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+                    <span className="font-bold text-slate-600">Score de Qualidade das Trocas:</span>
+                    <Badge className="bg-amber-100 text-amber-800 border-amber-300 font-bold">
+                      {vendorMetrics.trocasScoreMedio > 0 ? `${vendorMetrics.trocasScoreMedio.toFixed(1)} / 100` : "Sem trocas registradas"}
+                    </Badge>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* SEÇÃO 2: RITMIA TEMPORAL (HORÁRIOS E DIAS MAIS PRODUTIVOS) */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* GRÁFICO POR HORA DO DIA */}
+            <Card className="lg:col-span-8 bg-white/90 backdrop-blur-md border border-slate-200/80 shadow-2xs">
+              <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <CardTitle className="text-lg font-headline font-bold text-slate-900 flex items-center gap-2">
+                    <Clock className="w-5 h-5 text-indigo-600" />
+                    Vendas por Horário do Dia (08h às 21h)
+                  </CardTitle>
+                  <CardDescription className="text-xs text-slate-500">
+                    Curva de produtividade horária do colaborador selecionado.
+                  </CardDescription>
+                </div>
+
+                <div className="flex items-center gap-3 bg-slate-50 p-2.5 rounded-xl border border-slate-200/70 text-xs">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase text-slate-400 block">Hora de Ouro (Maior Venda):</span>
+                    <span className="font-extrabold text-indigo-700">{peakHoursInfo.goldHour} ({peakHoursInfo.goldHourFat.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})</span>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="h-64 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={hourlyData} margin={{ top: 10, right: 20, left: 10, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="colorFaturamento" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.4}/>
+                          <stop offset="95%" stopColor="#4f46e5" stopOpacity={0.0}/>
+                        </linearGradient>
+                      </defs>
+                      <XAxis dataKey="hour" tick={{ fontSize: 11, fontWeight: 600 }} />
+                      <YAxis tickFormatter={(v) => `R$${v}`} tick={{ fontSize: 11 }} />
+                      <RechartsTooltip 
+                        formatter={(val: any) => [`R$ ${Number(val).toFixed(2)}`, 'Faturamento']}
+                        contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}
+                      />
+                      <Area type="monotone" dataKey="faturamento" stroke="#4f46e5" strokeWidth={3} fillOpacity={1} fill="url(#colorFaturamento)" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* VENDAS POR DIA DA SEMANA */}
+            <Card className="lg:col-span-4 bg-white/90 backdrop-blur-md border border-slate-200/80 shadow-2xs">
+              <CardHeader>
+                <CardTitle className="text-lg font-headline font-bold text-slate-900 flex items-center gap-2">
+                  <CalendarIcon className="w-5 h-5 text-indigo-600" />
+                  Desempenho por Dia da Semana
+                </CardTitle>
+                <CardDescription className="text-xs text-slate-500">
+                  Distribuição semanal de faturamento.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="h-64 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={weeklyData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                      <XAxis dataKey="day" tick={{ fontSize: 11, fontWeight: 600 }} />
+                      <YAxis tickFormatter={(v) => `R$${v}`} tick={{ fontSize: 10 }} />
+                      <RechartsTooltip 
+                        formatter={(val: any) => [`R$ ${Number(val).toFixed(2)}`, 'Faturamento']}
+                        contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}
+                      />
+                      <Bar dataKey="faturamento" fill="#6366f1" radius={[6, 6, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* SEÇÃO 3: TOP PRODUTOS MAIS VENDIDOS */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* TOP 5 PRODUTOS DO COLABORADOR */}
+            <Card className="lg:col-span-12 bg-white/90 backdrop-blur-md border border-slate-200/80 shadow-2xs">
+              <CardHeader>
+                <CardTitle className="text-lg font-headline font-bold text-slate-900 flex items-center gap-2">
+                  <Package className="w-5 h-5 text-violet-600" />
+                  Top 5 Produtos Mais Vendidos pelo Colaborador
+                </CardTitle>
+                <CardDescription className="text-xs text-slate-500">
+                  Itens com maior representatividade nas vendas individuais de {selectedVendor}.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                  {topProducts.map((p, idx) => (
+                    <div key={p.code} className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/70 space-y-2 hover:bg-slate-100/80 transition-colors">
+                      <div className="flex items-center justify-between">
+                        <div className="w-6 h-6 rounded-md bg-violet-100 text-violet-700 font-headline font-extrabold flex items-center justify-center text-xs">
+                          #{idx + 1}
+                        </div>
+                        <span className="text-[10px] text-slate-400 font-bold">Cód: {p.code}</span>
+                      </div>
+                      <div>
+                        <h5 className="text-xs font-bold text-slate-800 line-clamp-2 min-h-[32px]">{p.name}</h5>
+                        <span className="text-[11px] font-semibold text-slate-500">{p.qtd} unidades</span>
+                      </div>
+                      <div className="pt-1.5 border-t border-slate-200/60 text-right">
+                        <span className="text-xs font-extrabold text-slate-900">
+                          {p.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                  {topProducts.length === 0 && (
+                    <p className="text-xs font-semibold text-slate-400 text-center py-6 col-span-full">
+                      Nenhum produto registrado no período.
+                    </p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

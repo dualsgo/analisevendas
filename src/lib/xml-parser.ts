@@ -308,25 +308,22 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     let canalFinal = isTroca ? "TROCA" : "LOJA_FISICA";
     let isRetiradaOnlineFinal = false;
 
-    if (!isTroca && isPotencialDigital) {
-      // Se é digital, verificamos se é Retirada (Pickup) ou Entrega (Delivery/iFood)
-      // Critério de Pickup: Endereço da loja + CEP oficial do site (ou CEP físico da loja em vendas digitais)
-      if (isEnderecoLoja) {
+        if (!isTroca && isPotencialDigital) {
+      // Regra Universal: Retirada Online (OMNI) exige nome em minúsculas/TitleCase vindo da integração web.
+      // Nomes em MAIÚSCULAS PURAS ou cadastros manuais do PDV não são tratados como retirada online.
+      const hasLowercaseLetters = Boolean(nome_dest && /[a-z]/.test(nome_dest.trim()));
+      const isNomeAbreviado = Boolean(nome_dest && (/^[A-Za-z]+ [A-Za-z]\.?$/.test(nome_dest.trim()) || /^[A-Z][a-z]+ [A-Z]$/.test(nome_dest.trim())));
+
+      if (hasLowercaseLetters && !isNomeAbreviado) {
         canalFinal = "RETIRADA_ONLINE";
         isRetiradaOnlineFinal = true;
+      } else if (!enderDest && (isNomeAbreviado || !nome_dest)) {
+        canalFinal = "DELIVERY";
+        isRetiradaOnlineFinal = false;
       } else {
-        // Se tem indicação digital mas não é Pickup, deveria ser DELIVERY (iFood/Rappi)
-        // EXCEÇÃO: Se possui metadados de cartão físico (Bandeira, CNPJ), NÃO pode ser Delivery genuíno. 
-        // Representa uma venda presencial lançada manualmente com erro operacional, caindo de volta pro Balcão.
-        const temErrosPOS = pagamentosDet.some(p => !!p.tBand || !!p.cNPJCard || !!p.nAut);
-        
-        if (temErrosPOS) {
-          canalFinal = "LOJA_FISICA";
-          isRetiradaOnlineFinal = false;
-        } else {
-          canalFinal = "DELIVERY";
-          isRetiradaOnlineFinal = false;
-        }
+        canalFinal = "LOJA_FISICA";
+        isRetiradaOnlineFinal = false;
+        statusAuditoriaFinal = "POSSÍVEL INTEGRAÇÃO MANUAL (tpIntegra 2 em Loja Física)";
       }
     }
 

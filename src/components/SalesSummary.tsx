@@ -109,6 +109,7 @@ const SimuladorCenarios = dynamic(() => import("./SimuladorCenarios").then(m => 
 const ConsolidatedReport = dynamic(() => import("./ConsolidatedReport").then(m => m.ConsolidatedReport), { loading: () => <PanelLoading /> });
 const DailyPerformance = dynamic(() => import("./DailyPerformance").then(m => m.DailyPerformance), { loading: () => <PanelLoading /> });
 const WeeklyAnalysis = dynamic(() => import("./WeeklyAnalysis").then(m => m.WeeklyAnalysis), { loading: () => <PanelLoading /> });
+const BasketQualityAnalysis = dynamic(() => import("./BasketQualityAnalysis").then(m => m.BasketQualityAnalysis), { loading: () => <PanelLoading /> });
 const ConversionAudit = dynamic(() => import("./ConversionAudit").then(m => m.ConversionAudit), { loading: () => <PanelLoading /> });
 
 const CollaboratorXRay = dynamic(() => import("./CollaboratorXRay").then(m => m.CollaboratorXRay), { loading: () => <PanelLoading /> });
@@ -228,6 +229,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
     { id: "performance", label: "Performance Consolidada", icon: ClipboardList, category: "Resultados", color: "text-emerald-600 font-black" },
     { id: "diario", label: "Performance Diária", icon: CalendarIcon, category: "Resultados" },
     { id: "semanal", label: "Análise Semanal (Expurgo)", icon: CalendarIcon, category: "Resultados", color: "text-blue-500 font-black" },
+    { id: "qualidade_pa", label: "Qualidade & Sustentação do PA", icon: Target, category: "Resultados", color: "text-indigo-600 font-black" },
     { id: "conversao", label: "Auditoria de Conversão", icon: UserCheck, category: "Resultados", color: "text-teal-600 font-bold" },
 
     // --- PESSOAS & TALENTOS ---
@@ -283,6 +285,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
       case "performance": return <ConsolidatedReport data={filteredData} vinculos={filteredVinculos} />;
       case "diario": return <DailyPerformance data={filteredData} />;
       case "semanal": return <WeeklyAnalysis data={filteredData} />;
+      case "qualidade_pa": return <BasketQualityAnalysis data={filteredData} />;
       case "conversao": return <ConversionAudit data={filteredData} />;
 
       // Pessoas

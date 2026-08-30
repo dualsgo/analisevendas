@@ -39,6 +39,17 @@ export function Header({ status, fileStats, onReset }: HeaderProps) {
         <div className="flex items-center gap-3">
           <div id="header-actions" className="flex items-center gap-2"></div>
           <Button 
+            variant="outline" 
+            size="sm" 
+            asChild
+            className="bg-indigo-50/80 hover:bg-indigo-100 text-indigo-700 border-indigo-200 gap-1.5 font-bold rounded-xl text-xs h-9 px-3.5 shadow-xs hidden sm:flex"
+          >
+            <a href="/auditoria-cestas">
+              <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+              <span>🧪 Auditoria Jan–Ago</span>
+            </a>
+          </Button>
+          <Button 
             variant="default" 
             size="sm" 
             asChild

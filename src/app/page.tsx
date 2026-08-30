@@ -6,7 +6,7 @@ import { UploadZone } from "@/components/UploadZone";
 import { SalesSummary } from "@/components/SalesSummary";
 import { UploadDiagnosis } from "@/components/UploadDiagnosis";
 import { cn } from "@/lib/utils";
-import { Loader2, LayoutDashboard, ArrowRight } from "lucide-react";
+import { Loader2, LayoutDashboard, ArrowRight, Sparkles } from "lucide-react";
 import { Header } from "@/components/Header";
 import { UploadHistory } from "@/components/UploadHistory";
 import { useSalesProcessor } from "@/hooks/useSalesProcessor";
@@ -75,6 +75,16 @@ export default function Home() {
                       </p>
 
                       <UploadZone onDataParsed={processData} isProcessing={processorStatus === "processing"} />
+
+                      <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-center">
+                        <a 
+                          href="/auditoria-cestas" 
+                          className="inline-flex items-center gap-2 text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-4 py-2 rounded-xl border border-indigo-200/80 transition-all shadow-xs"
+                        >
+                          <Sparkles className="w-4 h-4 text-indigo-600" />
+                          <span>🧪 Abrir Auditoria Histórica de Cestas (Jan a Ago)</span>
+                        </a>
+                      </div>
 
                       {parsedRows.length > 0 && (
                         <motion.div 

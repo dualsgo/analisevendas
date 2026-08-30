@@ -15,6 +15,9 @@ import {
   PurgeConfig,
   BUCKET_DEFINITIONS
 } from "@/lib/basket-quality-analytics";
+import { TemporalComparisonSuite } from "./TemporalComparisonSuite";
+import { CollaboratorDetailModal } from "./CollaboratorDetailModal";
+import { CouponInspectionModal } from "./CouponInspectionModal";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -92,10 +95,10 @@ type TabType =
   | "PURGE_LAB"
   | "COLLABORATORS" 
   | "OUTLIERS"
+  | "TEMPORAL_COMPARISONS"
   | "DAILY" 
   | "WEEKDAYS" 
   | "WEEKEND_VS_WEEKDAY" 
-  | "WEEKLY" 
   | "SIMULATOR";
 
 const BUCKET_COLORS = [
@@ -142,6 +145,8 @@ export function BasketQualityAnalysis({ data }: BasketQualityAnalysisProps) {
   const [colabSearch, setColabSearch] = useState("");
   const [colabProfileFilter, setColabProfileFilter] = useState<string>("ALL");
   const [selectedColab, setSelectedColab] = useState<string | null>(null);
+  const [selectedColabForModal, setSelectedColabForModal] = useState<CollaboratorBasketMetric | null>(null);
+  const [selectedCouponForInspection, setSelectedCouponForInspection] = useState<OutlierCoupon | null>(null);
 
   // Estados do Laboratório de Expurgo Interativo
   const [excludedBuckets, setExcludedBuckets] = useState<string[]>([]);
@@ -178,6 +183,8 @@ export function BasketQualityAnalysis({ data }: BasketQualityAnalysisProps) {
     daysOfWeek, 
     weekdayVsWeekend, 
     weeklyComparison, 
+    monthlyComparison,
+    dayOfWeekEvolution,
     collaborators, 
     topOutliers, 
     daysWithOutlierImpact 
@@ -646,12 +653,14 @@ export function BasketQualityAnalysis({ data }: BasketQualityAnalysisProps) {
             label="Úteis vs Fim de Semana" 
           />
         )}
-        {weeklyComparison.length > 1 && (
+        {(weeklyComparison.length > 1 || monthlyComparison.length > 1 || dayOfWeekEvolution.length > 0) && (
           <TabButton 
-            active={activeTab === "WEEKLY"} 
-            onClick={() => setActiveTab("WEEKLY")} 
+            active={activeTab === "TEMPORAL_COMPARISONS"} 
+            onClick={() => setActiveTab("TEMPORAL_COMPARISONS")} 
             icon={CalendarRange} 
-            label={`Semana a Semana (${weeklyComparison.length} sem)`} 
+            label="Comparativos & Variação (Δ)" 
+            badge="WoW / MoM / Dia"
+            badgeColor="bg-indigo-600"
           />
         )}
         <TabButton 
@@ -1238,13 +1247,12 @@ export function BasketQualityAnalysis({ data }: BasketQualityAnalysisProps) {
                       key={c.name} 
                       className={cn(
                         "h-12 hover:bg-slate-50/80 cursor-pointer transition-colors",
-                        selectedColab === c.name && "bg-indigo-50/50"
+                        selectedColabForModal?.name === c.name && "bg-indigo-50/50"
                       )} 
-                      onClick={() => setSelectedColab(selectedColab === c.name ? null : c.name)}
+                      onClick={() => setSelectedColabForModal(c)}
                     >
                       <TableCell className="font-black text-slate-900 uppercase text-xs">
                         <div className="flex items-center gap-1.5">
-                          {selectedColab === c.name && <ChevronDown className="w-3.5 h-3.5 text-indigo-600 shrink-0" />}
                           <span>{c.name}</span>
                         </div>
                       </TableCell>
@@ -1262,20 +1270,35 @@ export function BasketQualityAnalysis({ data }: BasketQualityAnalysisProps) {
                           <span className="text-slate-400 text-xs font-bold">+{c.deltaSorte.toFixed(2)}</span>
                         )}
                       </TableCell>
-                      <TableCell className={cn("text-center font-bold text-xs", c.unitRate <= 50 ? "text-emerald-700 font-black" : "text-rose-600")}>
+                      <TableCell className={cn("text-center font-bold text-xs", c.unitRate <= 55 ? "text-emerald-700 font-black" : "text-rose-600")}>
                         {c.unitRate.toFixed(1)}%
                       </TableCell>
-                      <TableCell className={cn("text-center font-bold text-xs", c.twoItemsRate >= 30 ? "text-emerald-700 font-black" : "text-amber-600")}>
+                      <TableCell className={cn("text-center font-bold text-xs", c.twoItemsRate >= 28 ? "text-emerald-700 font-black" : "text-amber-600")}>
                         {c.twoItemsRate.toFixed(1)}%
                       </TableCell>
                       <TableCell className="text-center font-bold text-indigo-600 text-xs">
                         {c.threePlusRate.toFixed(1)}%
                       </TableCell>
                       <TableCell className="text-center font-bold text-slate-700">
-                        {c.topSaleItemCount > 0 ? (
-                          <span className={cn(c.topSaleItemCount >= 10 ? "font-black text-purple-600" : "font-medium text-slate-600")}>
-                            {c.topSaleItemCount} pçs
-                          </span>
+                        {c.topSaleItemCount > 0 && c.topCouponDetails ? (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedCouponForInspection(c.topCouponDetails!);
+                            }}
+                            className={cn(
+                              "h-7 px-2.5 text-xs rounded-lg font-bold gap-1 transition-all hover:scale-105",
+                              c.topSaleItemCount >= 10 
+                                ? "text-purple-700 bg-purple-100 hover:bg-purple-200" 
+                                : "text-indigo-700 bg-indigo-50 hover:bg-indigo-100"
+                            )}
+                            title="Clique para ver os cupons e itens comprados"
+                          >
+                            <Eye className="w-3 h-3" />
+                            <span>{c.topSaleItemCount} pçs</span>
+                          </Button>
                         ) : "-"}
                       </TableCell>
                       <TableCell className="text-center">
@@ -1398,17 +1421,28 @@ export function BasketQualityAnalysis({ data }: BasketQualityAnalysisProps) {
                             </span>
                             <span className="text-xs font-black text-slate-900">{formatBRL(outlier.vNF)}</span>
                           </div>
-                          <Button
-                            size="sm"
-                            variant={isIndividuallyExcluded ? "default" : "outline"}
-                            onClick={() => toggleChaveExclusion(outlier.chave)}
-                            className={cn(
-                              "h-7 text-[10px] font-bold px-2 rounded-lg",
-                              isIndividuallyExcluded ? "bg-rose-600 hover:bg-rose-700 text-white" : "text-slate-600 hover:text-rose-600"
-                            )}
-                          >
-                            {isIndividuallyExcluded ? "Expurgado" : "Expurgar Cupom"}
-                          </Button>
+                          <div className="flex items-center gap-1.5">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setSelectedCouponForInspection(outlier)}
+                              className="h-7 text-[10px] font-bold px-2 rounded-lg gap-1 text-purple-700 border-purple-200 hover:bg-purple-50"
+                            >
+                              <Eye className="w-3 h-3" />
+                              Itens
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant={isIndividuallyExcluded ? "default" : "outline"}
+                              onClick={() => toggleChaveExclusion(outlier.chave)}
+                              className={cn(
+                                "h-7 text-[10px] font-bold px-2 rounded-lg",
+                                isIndividuallyExcluded ? "bg-rose-600 hover:bg-rose-700 text-white" : "text-slate-600 hover:text-rose-600"
+                              )}
+                            >
+                              {isIndividuallyExcluded ? "Expurgado" : "Expurgar"}
+                            </Button>
+                          </div>
                         </div>
 
                         <div className="space-y-1 text-xs">
@@ -1539,7 +1573,12 @@ export function BasketQualityAnalysis({ data }: BasketQualityAnalysisProps) {
                         {d.hasIsolatedOutlierImpact ? (
                           <div className="space-y-1 py-1">
                             <div className="flex items-center gap-1.5">
-                              <Badge className="bg-purple-600 text-white text-[9px] font-black uppercase">
+                              <Badge 
+                                onClick={() => d.isolatedOutliersList.length > 0 && setSelectedCouponForInspection(d.isolatedOutliersList[0])}
+                                className="bg-purple-600 hover:bg-purple-700 cursor-pointer text-white text-[9px] font-black uppercase transition-all hover:scale-105"
+                                title="Clique para inspecionar os itens deste cupom"
+                              >
+                                <Eye className="w-3 h-3 mr-1" />
                                 +{d.isolatedSalesPaDelta.toFixed(2)} PA ({d.isolatedOutliersCount} venda{d.isolatedOutliersCount > 1 ? "s" : ""})
                               </Badge>
                             </div>
@@ -1750,55 +1789,9 @@ export function BasketQualityAnalysis({ data }: BasketQualityAnalysisProps) {
         </div>
       )}
 
-      {/* --- ABA 8: SEMANA A SEMANA (WEEKLY) --- */}
-      {activeTab === "WEEKLY" && (
-        <div className="space-y-6">
-          <Card className="ri-card p-6 space-y-6">
-            <div className="border-b border-slate-100 pb-4">
-              <h3 className="text-base font-black text-slate-900 uppercase tracking-tight flex items-center gap-2">
-                <CalendarRange className="w-5 h-5 text-indigo-600" />
-                Comparativo Semana a Semana (Week-over-Week)
-              </h3>
-              <p className="text-xs text-slate-500 font-medium">
-                Evolução da conversão de cesta e sustentação ao longo das semanas do período.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {weeklyComparison.map(w => (
-                <Card key={w.weekKey} className="p-5 border border-slate-200 shadow-sm space-y-4">
-                  <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                    <span className="text-sm font-black uppercase text-slate-800">{w.weekKey}</span>
-                    <span className="text-[10px] text-slate-400 font-bold">{w.dateRangeLabel}</span>
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-baseline">
-                      <span className="text-xs text-slate-500 font-bold">PA Real:</span>
-                      <span className="text-xl font-black text-slate-900">{w.metrics.paReal.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between items-baseline">
-                      <span className="text-xs text-slate-500 font-bold">PA Sustentado:</span>
-                      <span className="text-sm font-black text-emerald-600">{w.metrics.paOperacional1to5.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between items-baseline">
-                      <span className="text-xs text-slate-500 font-bold">% 1 Item:</span>
-                      <span className="text-sm font-black text-rose-600">{w.metrics.unitRate.toFixed(1)}%</span>
-                    </div>
-                    <div className="flex justify-between items-baseline">
-                      <span className="text-xs text-slate-500 font-bold">% 2+ Itens:</span>
-                      <span className="text-sm font-black text-emerald-600">{w.metrics.multiCouponsRate.toFixed(1)}%</span>
-                    </div>
-                  </div>
-
-                  <Badge className={cn("text-[9px] font-bold uppercase w-full justify-center py-1", DIAGNOSTIC_BADGES[w.metrics.diagnostic.type])}>
-                    {w.metrics.diagnostic.badgeLabel}
-                  </Badge>
-                </Card>
-              ))}
-            </div>
-          </Card>
-        </div>
+      {/* --- ABA: COMPARATIVOS TEMPORAIS & VARIAÇÕES DELTA (TEMPORAL_COMPARISONS) --- */}
+      {activeTab === "TEMPORAL_COMPARISONS" && (
+        <TemporalComparisonSuite report={report} />
       )}
 
       {/* --- ABA 9: SIMULADOR TÁTICO WHAT-IF (SIMULATOR) --- */}
@@ -1911,6 +1904,25 @@ export function BasketQualityAnalysis({ data }: BasketQualityAnalysisProps) {
           </div>
         </div>
       )}
+      {/* MODAL DE DETALHES DO COLABORADOR COM SIMULAÇÃO DE DUPLO GAP */}
+      <CollaboratorDetailModal
+        collaborator={selectedColabForModal}
+        storeOverall={overall}
+        open={!!selectedColabForModal}
+        onClose={() => setSelectedColabForModal(null)}
+        onInspectCoupon={(coupon) => {
+          setSelectedCouponForInspection(coupon);
+        }}
+      />
+
+      {/* MODAL DE INSPEÇÃO DETALHADA DO CUPOM E PRODUTOS */}
+      <CouponInspectionModal
+        coupon={selectedCouponForInspection}
+        open={!!selectedCouponForInspection}
+        onClose={() => setSelectedCouponForInspection(null)}
+        isExcluded={selectedCouponForInspection ? excludedChaves.includes(selectedCouponForInspection.chave) : false}
+        onToggleExclusion={(chave) => toggleChaveExclusion(chave)}
+      />
     </div>
   );
 }

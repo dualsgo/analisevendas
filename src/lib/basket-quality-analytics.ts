@@ -1,5 +1,6 @@
 import { DetailedSaleRow } from "./types";
-import { parseISO, format, getDay, startOfWeek, endOfWeek, isWeekend } from "date-fns";
+import { parseISO, format, getDay, startOfWeek, endOfWeek, isWeekend, isValid } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 export type BasketDiagnosticType = 
   | "AMOSTRA_INSUFICIENTE"
@@ -54,7 +55,14 @@ export interface OutlierCoupon {
   avgPrice: number;
   paImpactOnTotal: number; // Quanto este cupom isolado adicionou ao PA total da loja
   dailyPaImpact?: number; // Impacto isolado no PA daquele dia específico
-  itensSample: Array<{ cProd: string; xProd: string; qCom: number; vProd: number }>;
+  itensSample: Array<{ 
+    cProd: string; 
+    xProd: string; 
+    qCom: number; 
+    vProd: number;
+    vUnCom?: number;
+    vDesc?: number;
+  }>;
   classification: "MEGA_ANOMALIA" | "SUPER_CESTA" | "VOLUME_COMERCIAL";
 }
 
@@ -166,9 +174,35 @@ export interface DayOfWeekMetric {
   metrics: BasketQualityMetrics;
 }
 
+export interface DayOfWeekOccurrence {
+  date: string; // "2026-01-05"
+  dateFormatted: string; // "05/01/2026"
+  dayLabel: string;
+  metrics: BasketQualityMetrics;
+}
+
+export interface DayOfWeekDetailedEvolution {
+  dayIndex: number;
+  dayName: string;
+  dayShort: string;
+  totalDays: number;
+  aggregateMetrics: BasketQualityMetrics;
+  occurrences: DayOfWeekOccurrence[];
+}
+
 export interface WeekComparisonMetric {
   weekKey: string; // "Semana 1", "Semana 2"
   dateRangeLabel: string; // "01/08 - 07/08"
+  startDate: string;
+  endDate: string;
+  metrics: BasketQualityMetrics;
+}
+
+export interface MonthComparisonMetric {
+  monthKey: string; // "2026-01"
+  monthLabel: string; // "Janeiro 2026"
+  monthShort: string; // "Jan/26"
+  totalDays: number;
   metrics: BasketQualityMetrics;
 }
 
@@ -202,6 +236,7 @@ export interface CollaboratorBasketMetric extends BasketQualityMetrics {
   profileLabel: string;
   profileBadgeColor: string;
   topSaleItemCount: number;
+  topCouponDetails?: OutlierCoupon;
 }
 
 export interface FullBasketQualityReport {
@@ -216,8 +251,10 @@ export interface FullBasketQualityReport {
   };
   dailyTrend: TemporalDailyMetric[];
   daysOfWeek: DayOfWeekMetric[];
+  dayOfWeekEvolution: DayOfWeekDetailedEvolution[];
   weekdayVsWeekend: WeekdayVsWeekendComparison;
   weeklyComparison: WeekComparisonMetric[];
+  monthlyComparison: MonthComparisonMetric[];
   collaborators: CollaboratorBasketMetric[];
   topOutliers: OutlierCoupon[];
   daysWithOutlierImpact: Array<{
@@ -535,7 +572,9 @@ export function computeBasketMetrics(rows: DetailedSaleRow[], minCoupons = 10): 
         cProd: it.cProd || "",
         xProd: it.xProd || "",
         qCom: it.qCom || 1,
-        vProd: (it.vProd || 0) - (it.vDesc || 0)
+        vProd: (it.vProd || 0) - (it.vDesc || 0),
+        vUnCom: (it as any).vUnCom || (it.qCom && it.vProd ? it.vProd / it.qCom : 0),
+        vDesc: it.vDesc || 0
       }));
 
       rawOutliers.push({
@@ -1025,10 +1064,78 @@ export function computeFullBasketQualityReport(rows: DetailedSaleRow[]): FullBas
   });
 
   const sortedWeeks = Array.from(salesByWeekMap.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-  const weeklyComparison: WeekComparisonMetric[] = sortedWeeks.map(([_, data], idx) => {
+  const weeklyComparison: WeekComparisonMetric[] = sortedWeeks.map(([weekStartKey, data], idx) => {
+    const d = parseISO(weekStartKey);
+    const weekEnd = endOfWeek(d, { weekStartsOn: 1 });
     return {
       weekKey: `Semana ${idx + 1}`,
       dateRangeLabel: data.label,
+      startDate: weekStartKey,
+      endDate: format(weekEnd, "yyyy-MM-dd"),
+      metrics: computeBasketMetrics(data.sales, 5)
+    };
+  });
+
+  // 5.1 Evolução Detalhada por Dia da Semana (Ocorrências de cada dia)
+  const dayOfWeekEvolution: DayOfWeekDetailedEvolution[] = dowOrder.map(dow => {
+    const datesForDow = Array.from(dayOfWeekDatesMap.get(dow) || []).sort();
+    const dowSales = dayOfWeekSalesMap.get(dow) || [];
+    const aggregateMetrics = computeBasketMetrics(dowSales, 5);
+
+    const occurrences: DayOfWeekOccurrence[] = datesForDow.map(dateStr => {
+      const daySales = dowSales.filter(s => s.dhEmi && s.dhEmi.startsWith(dateStr));
+      const parsedDate = parseISO(dateStr);
+      return {
+        date: dateStr,
+        dateFormatted: format(parsedDate, "dd/MM/yyyy"),
+        dayLabel: format(parsedDate, "dd/MM"),
+        metrics: computeBasketMetrics(daySales, 1)
+      };
+    });
+
+    return {
+      dayIndex: dow,
+      dayName: DAYS_FULL[dow],
+      dayShort: DAYS_SHORT[dow],
+      totalDays: datesForDow.length,
+      aggregateMetrics,
+      occurrences
+    };
+  });
+
+  // 5.2 Mês a Mês (MoM)
+  const salesByMonthMap = new Map<string, { monthKey: string; dates: Set<string>; sales: DetailedSaleRow[] }>();
+  activeSales.forEach(s => {
+    if (s.dhEmi && s.dhEmi.length >= 7) {
+      const mKey = s.dhEmi.substring(0, 7);
+      const dayStr = s.dhEmi.substring(0, 10);
+      if (!salesByMonthMap.has(mKey)) {
+        salesByMonthMap.set(mKey, { monthKey: mKey, dates: new Set(), sales: [] });
+      }
+      const m = salesByMonthMap.get(mKey)!;
+      m.dates.add(dayStr);
+      m.sales.push(s);
+    }
+  });
+
+  const sortedMonths = Array.from(salesByMonthMap.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  const monthlyComparison: MonthComparisonMetric[] = sortedMonths.map(([mKey, data]) => {
+    let monthLabel = mKey;
+    let monthShort = mKey;
+    try {
+      const parsed = parseISO(`${mKey}-01`);
+      if (isValid(parsed)) {
+        const full = format(parsed, "MMMM yyyy", { locale: ptBR });
+        monthLabel = full.charAt(0).toUpperCase() + full.slice(1);
+        monthShort = format(parsed, "MMM/yy", { locale: ptBR });
+      }
+    } catch {}
+
+    return {
+      monthKey: mKey,
+      monthLabel,
+      monthShort,
+      totalDays: data.dates.size,
       metrics: computeBasketMetrics(data.sales, 5)
     };
   });
@@ -1083,7 +1190,49 @@ export function computeFullBasketQualityReport(rows: DetailedSaleRow[]): FullBas
         profileBadgeColor = "bg-emerald-500 text-white";
       }
 
-      const topSaleItemCount = metrics.outliers.length > 0 ? metrics.outliers[0].itens_qtd : 0;
+      let topCouponDetails: OutlierCoupon | undefined = metrics.outliers.length > 0 ? metrics.outliers[0] : undefined;
+      
+      if (!topCouponDetails && sales.length > 0) {
+        let maxSale = sales[0];
+        let maxQ = Math.max(1, parseInt(maxSale.itens_qtd || "1"));
+        for (let i = 1; i < sales.length; i++) {
+          const q = Math.max(1, parseInt(sales[i].itens_qtd || "1"));
+          if (q > maxQ) {
+            maxQ = q;
+            maxSale = sales[i];
+          }
+        }
+
+        const parsedDate = maxSale.dhEmi ? parseISO(maxSale.dhEmi) : new Date();
+        const dateLabel = format(parsedDate, "dd/MM/yyyy");
+        const timeLabel = format(parsedDate, "HH:mm");
+        const vNF = parseFloat(maxSale.vNF || "0");
+        const itensSample = (maxSale.itens || []).map(it => ({
+          cProd: it.cProd || "",
+          xProd: it.xProd || "",
+          qCom: it.qCom || 1,
+          vProd: (it.vProd || 0) - (it.vDesc || 0),
+          vUnCom: (it as any).vUnCom || (it.qCom && it.vProd ? it.vProd / it.qCom : 0),
+          vDesc: it.vDesc || 0
+        }));
+
+        topCouponDetails = {
+          chave: maxSale.chave || `${maxSale.nf}_${maxSale.vendedor}_${maxSale.dhEmi}`,
+          nf: maxSale.nf || "N/A",
+          vendedor: maxSale.vendedor?.trim() || name,
+          dhEmi: maxSale.dhEmi || "",
+          dateLabel,
+          timeLabel,
+          itens_qtd: maxQ,
+          vNF,
+          avgPrice: maxQ > 0 ? vNF / maxQ : 0,
+          paImpactOnTotal: overall.totalCupons > 0 ? maxQ / overall.totalCupons : 0,
+          itensSample,
+          classification: maxQ >= 10 ? "MEGA_ANOMALIA" : maxQ >= 6 ? "SUPER_CESTA" : "VOLUME_COMERCIAL"
+        };
+      }
+
+      const topSaleItemCount = topCouponDetails ? topCouponDetails.itens_qtd : (metrics.outliers.length > 0 ? metrics.outliers[0].itens_qtd : 0);
 
       return {
         name,
@@ -1095,7 +1244,8 @@ export function computeFullBasketQualityReport(rows: DetailedSaleRow[]): FullBas
         profile,
         profileLabel,
         profileBadgeColor,
-        topSaleItemCount
+        topSaleItemCount,
+        topCouponDetails
       };
     })
     .sort((a, b) => b.totalCupons - a.totalCupons);
@@ -1118,6 +1268,8 @@ export function computeFullBasketQualityReport(rows: DetailedSaleRow[]): FullBas
     daysOfWeek,
     weekdayVsWeekend,
     weeklyComparison,
+    monthlyComparison,
+    dayOfWeekEvolution,
     collaborators,
     topOutliers: overall.outliers,
     daysWithOutlierImpact: daysWithOutlierImpactList,

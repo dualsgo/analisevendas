@@ -1080,6 +1080,15 @@ ${positionsList.map(p => `  * ${p.posName}: ${p.cupons} cupons (${vendorMetrics.
 ` : '- *Nota: Escala de trabalho não vinculada. Foi aplicada a meta padrão de 1.75 PA.*'}
 
 ---
+### 2.1 CRITÉRIO DE JUSTIÇA PARA COLABORADORES MULTITAREFA (CAIXA / APOIO / RETIRADA)
+- **Diretriz Avaliativa de Gestão:** Se o colaborador atuou em funções de Caixa, Apoio, Pacote ou Retiradas Online, **NÃO exigir montagem de looks de 3 a 5 peças**.
+- **Metas Justas para Multitarefa:**
+  * **Monopeça (1 Item):** Tolerância justa de até 60.0% (Realizado: ${basketBreakdown.find(b => b.name === "1 Item")?.percent.toFixed(1) || '0'}%).
+  * **Venda Casada (2 Itens no Caixa/P1):** Meta principal de ≥ 25.0% (Realizado: ${basketBreakdown.find(b => b.name === "2 Itens")?.percent.toFixed(1) || '0'}%).
+  * **Retiradas Omni:** ${vendorMetrics.retiradasCount} retiradas atendidas com ${vendorMetrics.adicionaisCount} vendas adicionais geradas.
+- **Foco do Feedback Construtivo:** Treinar a abordagem de 2º item no momento do pagamento (produtos de impulso, meias, acessórios e P1).
+
+---
 ### 3. ANÁLISE DE OUTLIERS E DESVIOS PADRÃO (Z-SCORE)
 ${currentExtendedStats?.outliers && currentExtendedStats.outliers.length > 0 ? currentExtendedStats.outliers.map(o => `- **${o.type === 'positive' ? '⭐ DESTAQUE POSITIVO' : '⚠️ GARGALO CRÍTICO'}:** ${o.label} (Z = ${o.zScore > 0 ? `+${o.zScore}` : o.zScore}σ) - ${o.explanation}`).join('\n') : '- *Colaborador dentro do padrão médio da equipe em todas as dimensões avaliadas.*'}
 

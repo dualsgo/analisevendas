@@ -61,6 +61,9 @@ export function CollaboratorDetailModal({
 }: CollaboratorDetailModalProps) {
   if (!collaborator) return null;
 
+  const [roleType, setRoleType] = React.useState<"SALAO" | "MULTITAREFA">("SALAO");
+  const [copiedFeedback, setCopiedFeedback] = React.useState(false);
+
   const formatBRL = (val: number) =>
     val.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -71,12 +74,15 @@ export function CollaboratorDetailModal({
     ? storeOverall.totalVenda / storeOverall.totalItens 
     : 45;
 
-  // 1. SIMULAÇÃO 1: BASE NA META OFICIAL (≤ 55% Monopeça)
+  // Metas Calibradas por Perfil de Função
+  const targetUnitRate = roleType === "MULTITAREFA" ? 60.0 : 55.0;
+  const targetTwoItemsRate = roleType === "MULTITAREFA" ? 25.0 : 28.0;
+
+  // 1. SIMULAÇÃO 1: BASE NA META (Ajustada pelo Perfil: 55% Salão vs 60% Multitarefa)
   const metaSimulation = useMemo(() => {
-    const targetUnitRate = 55.0;
     const isAboveTarget = c.unitRate > targetUnitRate;
     const excessRate = Math.max(0, c.unitRate - targetUnitRate);
-    const maxAllowed1ItemCoupons = Math.floor(c.totalCupons * 0.55);
+    const maxAllowed1ItemCoupons = Math.floor(c.totalCupons * (targetUnitRate / 100));
     const couponsToConvert = Math.max(0, c.unitCount - maxAllowed1ItemCoupons);
     const missingPieces = couponsToConvert * 1;
     const projectedTotalPieces = c.totalItens + missingPieces;
@@ -94,7 +100,7 @@ export function CollaboratorDetailModal({
       deltaPA,
       extraRevenue
     };
-  }, [c, avgPrice]);
+  }, [c, targetUnitRate, avgPrice]);
 
   // 2. SIMULAÇÃO 2: BASE NA MÉDIA CONSOLIDADA DA EQUIPE DA LOJA
   const teamSimulation = useMemo(() => {
@@ -121,6 +127,42 @@ export function CollaboratorDetailModal({
     };
   }, [c, storeOverall, avgPrice]);
 
+  // Gerador de Roteiro de Feedback 1-on-1 Humanizado e Justo
+  const handleCopyFeedbackScript = () => {
+    const text = roleType === "MULTITAREFA" 
+      ? `ROTEIRO DE FEEDBACK 1-ON-1 - COLABORADOR MULTITAREFA (CAIXA / APOIO / RETIRADA)
+Colaborador(a): ${c.name}
+Data: ${new Date().toLocaleDateString("pt-BR")}
+
+🎯 CRITÉRIOS DE JUSTIÇA AVALIATIVA:
+Por atuar em operações de caixa, pacote, reposição e atendimento rápido, sua meta é ajustada para a rotina de checkout:
+- Meta Justa de 1 Item (Monopeça): até 60.0% (Realizado: ${c.unitRate.toFixed(1)}%)
+- Meta Justa de 2 Itens (2º Item de Impulso / P1 no Caixa): a partir de 25.0% (Realizado: ${c.twoItemsRate.toFixed(1)}%)
+- Cestas 3+ Itens: Bônus de oportunidade (Realizado: ${c.threePlusRate.toFixed(1)}%)
+
+📋 PONTOS PARA A CONVERSA COM O GESTOR:
+1. Volume e Atendimentos: Você atendeu ${c.totalCupons} clientes e movimentou ${c.totalItens} peças (R$ ${c.totalVenda.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}).
+2. Conversão de Caixa (2º Item): ${c.twoItemsRate >= 25 ? `✓ Parabéns! Excelente disciplina ao oferecer itens de impulso no checkout (${c.twoItemsRate.toFixed(1)}% ≥ 25%).` : `⚠️ Oportunidade: Sua taxa de 2 itens está em ${c.twoItemsRate.toFixed(1)}%. Vamos reforçar a oferta de produtos de balcão (meias, acessórios, P1) para o cliente não sair com 1 peça só.`}
+3. PA Real: ${c.paReal.toFixed(2)} peças/cupom.`
+      : `ROTEIRO DE FEEDBACK 1-ON-1 - VENDEDOR DE SALÃO (VENDA ASSISTIDA)
+Colaborador(a): ${c.name}
+Data: ${new Date().toLocaleDateString("pt-BR")}
+
+🎯 CRITÉRIOS DE SALÃO (VENDA CONSULTIVA):
+- Meta de 1 Item (Monopeça): até 55.0% (Realizado: ${c.unitRate.toFixed(1)}%)
+- Meta de 2 Itens (Venda Casada): a partir de 28.0% (Realizado: ${c.twoItemsRate.toFixed(1)}%)
+- Meta de Cestas Profundas (3+ Itens): a partir de 17.0% (Realizado: ${c.threePlusRate.toFixed(1)}%)
+
+📋 PONTOS PARA A CONVERSA COM O GESTOR:
+1. Desempenho Geral: ${c.totalCupons} cupons | ${c.totalItens} peças | PA: ${c.paReal.toFixed(2)}.
+2. Controle de Monopeça: ${c.unitRate <= 55 ? `✓ Ótimo controle de monopeça (${c.unitRate.toFixed(1)}% ≤ 55%).` : `⚠️ Atenção à monopeça (${c.unitRate.toFixed(1)}% > 55%). Levar sempre 2 a 3 peças ao provador.`}
+3. Cestas Profundas (3+): ${c.threePlusRate >= 17 ? `✓ Excelente atuação em looks completos (${c.threePlusRate.toFixed(1)}%).` : `⚠️ Oportunidade em cross-selling de calçados e acessórios para fechar compras com 3+ peças.`}`;
+
+    navigator.clipboard.writeText(text);
+    setCopiedFeedback(true);
+    setTimeout(() => setCopiedFeedback(false), 2500);
+  };
+
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
       <DialogContent className="max-w-4xl max-h-[92vh] overflow-y-auto p-6 rounded-3xl border border-slate-200">
@@ -138,14 +180,55 @@ export function CollaboratorDetailModal({
                   </Badge>
                 </DialogTitle>
                 <DialogDescription className="text-xs text-slate-500 font-medium">
-                  Diagnóstico completo de produtividade, sustentação de cesta e simulação de gaps de conversão.
+                  Diagnóstico completo de produtividade, sustentação de cesta e verificação justa por perfil de função.
                 </DialogDescription>
               </div>
+            </div>
+
+            {/* SELETOR DE PERFIL DE ATUAÇÃO (JUSTIÇA AVALIATIVA) */}
+            <div className="bg-slate-100 p-1 rounded-2xl flex items-center gap-1 border border-slate-200">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setRoleType("SALAO")}
+                className={cn(
+                  "h-7 text-[11px] font-black rounded-xl px-2.5 transition-all",
+                  roleType === "SALAO" ? "bg-indigo-600 text-white shadow-xs" : "text-slate-600 hover:text-slate-900"
+                )}
+              >
+                🛍️ Vendedor de Salão
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setRoleType("MULTITAREFA")}
+                className={cn(
+                  "h-7 text-[11px] font-black rounded-xl px-2.5 transition-all",
+                  roleType === "MULTITAREFA" ? "bg-purple-600 text-white shadow-xs" : "text-slate-600 hover:text-slate-900"
+                )}
+              >
+                ⚡ Multitarefa / Caixa
+              </Button>
             </div>
           </div>
         </DialogHeader>
 
         <div className="space-y-6 pt-2">
+          {/* BANNER INFORMATIVO DE JUSTIÇA QUANDO MULTITAREFA */}
+          {roleType === "MULTITAREFA" && (
+            <div className="bg-purple-50 p-3.5 rounded-2xl border border-purple-200 flex items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2 text-purple-900">
+                <ShieldCheck className="w-5 h-5 text-purple-600 shrink-0" />
+                <div>
+                  <strong className="font-black uppercase text-[11px]">Avaliação Ponderada para Multitarefa / Caixa:</strong>
+                  <p className="text-[11px] text-purple-800">
+                    Metas ajustadas para giro rápido de balcão: <strong>Monopeça tolerante até 60.0%</strong> e foco na <strong>conversão do 2º item no checkout (≥ 25.0%)</strong>. Cestas 3+ são tratadas como bônus.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* 1. CARDS DE KPIS DO COLABORADOR */}
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
             <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 text-center space-y-1">
@@ -168,24 +251,24 @@ export function CollaboratorDetailModal({
 
             <div className={cn(
               "p-3.5 rounded-2xl border text-center space-y-1",
-              c.unitRate <= 55 ? "bg-emerald-50/70 border-emerald-200" : "bg-rose-50/70 border-rose-200"
+              c.unitRate <= targetUnitRate ? "bg-emerald-50/70 border-emerald-200" : "bg-rose-50/70 border-rose-200"
             )}>
               <span className="text-[10px] font-black uppercase text-slate-500">% 1 Item (Monopeça)</span>
-              <p className={cn("text-2xl font-black", c.unitRate <= 55 ? "text-emerald-700" : "text-rose-700")}>
+              <p className={cn("text-2xl font-black", c.unitRate <= targetUnitRate ? "text-emerald-700" : "text-rose-700")}>
                 {c.unitRate.toFixed(1)}%
               </p>
-              <span className="text-[10px] font-bold text-slate-600">Meta: ≤ 55%</span>
+              <span className="text-[10px] font-bold text-slate-600">Meta: ≤ {targetUnitRate.toFixed(0)}%</span>
             </div>
 
             <div className={cn(
               "p-3.5 rounded-2xl border text-center space-y-1",
-              c.twoItemsRate >= 28 ? "bg-emerald-50/70 border-emerald-200" : "bg-amber-50/70 border-amber-200"
+              c.twoItemsRate >= targetTwoItemsRate ? "bg-emerald-50/70 border-emerald-200" : "bg-amber-50/70 border-amber-200"
             )}>
               <span className="text-[10px] font-black uppercase text-slate-500">% 2 Itens (Casada)</span>
-              <p className={cn("text-2xl font-black", c.twoItemsRate >= 28 ? "text-emerald-700" : "text-amber-700")}>
+              <p className={cn("text-2xl font-black", c.twoItemsRate >= targetTwoItemsRate ? "text-emerald-700" : "text-amber-700")}>
                 {c.twoItemsRate.toFixed(1)}%
               </p>
-              <span className="text-[10px] font-bold text-slate-600">Meta: ≥ 28%</span>
+              <span className="text-[10px] font-bold text-slate-600">Meta: ≥ {targetTwoItemsRate.toFixed(0)}%</span>
             </div>
           </div>
 
@@ -197,12 +280,12 @@ export function CollaboratorDetailModal({
                 Simulador de Conversão & Potencial de Alavancagem (GAP Analysis)
               </h4>
               <Badge variant="outline" className="text-[9px] font-bold uppercase border-indigo-200 text-indigo-700">
-                Oportunidade de Balcão
+                {roleType === "MULTITAREFA" ? "Meta Ajustada Multitarefa" : "Meta Padrão Salão"}
               </Badge>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* CENÁRIO 1: ALINHAMENTO À META OFICIAL */}
+              {/* CENÁRIO 1: ALINHAMENTO À META */}
               <div className={cn(
                 "p-5 rounded-3xl border space-y-4 shadow-xs",
                 metaSimulation.isAboveTarget ? "bg-amber-50/70 border-amber-200" : "bg-emerald-50/70 border-emerald-200"
@@ -211,7 +294,7 @@ export function CollaboratorDetailModal({
                   <div className="flex items-center gap-2">
                     <Target className="w-4 h-4 text-indigo-600 shrink-0" />
                     <span className="text-xs font-black uppercase text-slate-900">
-                      1. Cenário: Atingimento da Meta (≤ 55%)
+                      1. Cenário: Atingimento da Meta (≤ {targetUnitRate.toFixed(0)}%)
                     </span>
                   </div>
                   <Badge className={metaSimulation.isAboveTarget ? "bg-amber-600 text-white text-[9px]" : "bg-emerald-600 text-white text-[9px]"}>
@@ -222,7 +305,7 @@ export function CollaboratorDetailModal({
                 {metaSimulation.isAboveTarget ? (
                   <div className="space-y-3">
                     <p className="text-xs text-slate-700 font-medium leading-relaxed">
-                      O vendedor operou com <strong>{c.unitRate.toFixed(1)}% de atendimentos unitários</strong> (acima do teto de 55.0%).
+                      O colaborador operou com <strong>{c.unitRate.toFixed(1)}% de atendimentos unitários</strong> (acima do teto de {targetUnitRate.toFixed(0)}%).
                     </p>
 
                     <div className="grid grid-cols-2 gap-2 text-center">
@@ -248,7 +331,7 @@ export function CollaboratorDetailModal({
                     <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
                     <p className="text-xs font-black text-emerald-900 uppercase">Excelente Disciplina de Balcão</p>
                     <p className="text-[11px] text-slate-600">
-                      O colaborador já opera rigorosamente dentro da meta de monopeça ({c.unitRate.toFixed(1)}% ≤ 55%).
+                      O colaborador já opera rigorosamente dentro da meta de monopeça ({c.unitRate.toFixed(1)}% ≤ {targetUnitRate.toFixed(0)}%).
                     </p>
                   </div>
                 )}
@@ -274,7 +357,7 @@ export function CollaboratorDetailModal({
                 {teamSimulation.isAboveTeam ? (
                   <div className="space-y-3">
                     <p className="text-xs text-slate-700 font-medium leading-relaxed">
-                      Se o vendedor tivesse performado na <strong>média da equipe da loja ({teamSimulation.teamUnitRate.toFixed(1)}%)</strong>:
+                      Se o colaborador tivesse performado na <strong>média da equipe da loja ({teamSimulation.teamUnitRate.toFixed(1)}%)</strong>:
                     </p>
 
                     <div className="grid grid-cols-2 gap-2 text-center">
@@ -305,6 +388,47 @@ export function CollaboratorDetailModal({
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+
+          {/* 3. QUADRO DE ROTEIRO DE FEEDBACK 1-ON-1 HUMANIZADO */}
+          <div className="bg-gradient-to-r from-slate-900 to-indigo-950 text-white p-5 rounded-3xl border border-indigo-900 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-indigo-800 pb-3">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-5 h-5 text-indigo-400" />
+                <div>
+                  <h4 className="text-xs font-black uppercase text-white">
+                    Roteiro de Feedback 1-on-1 ({roleType === "MULTITAREFA" ? "Perfil Multitarefa" : "Vendedor de Salão"})
+                  </h4>
+                  <p className="text-[11px] text-indigo-300 font-medium">
+                    Guia de alinhamento com critérios justos para o gestor conversar diretamente com o colaborador.
+                  </p>
+                </div>
+              </div>
+
+              <Button
+                size="sm"
+                onClick={handleCopyFeedbackScript}
+                className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow-sm h-8 gap-1.5 shrink-0"
+              >
+                {copiedFeedback ? (
+                  <>
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300" />
+                    <span>Roteiro Copiado!</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-3.5 h-3.5 text-indigo-200" />
+                    <span>Copiar Roteiro 1-on-1</span>
+                  </>
+                )}
+              </Button>
+            </div>
+
+            <div className="bg-white/10 p-3.5 rounded-2xl border border-white/10 text-xs leading-relaxed space-y-1.5 font-mono text-slate-200">
+              <p>• <strong>Critério:</strong> {roleType === "MULTITAREFA" ? "Foco em 2º item no caixa (P1/meias/acessórios), monopeça tolerante até 60%." : "Construção de look completo no salão (cross-selling), monopeça até 55%."}</p>
+              <p>• <strong>Conversão de 2 Itens:</strong> {c.twoItemsRate.toFixed(1)}% (Meta: ≥ {targetTwoItemsRate.toFixed(0)}%) → {c.twoItemsRate >= targetTwoItemsRate ? "✓ Parabéns pelo resultado!" : "⚠️ Oportunidade de alinhamento na abordagem."}</p>
+              <p>• <strong>Monopeça Real:</strong> {c.unitRate.toFixed(1)}% (Teto Justo: ≤ {targetUnitRate.toFixed(0)}%).</p>
             </div>
           </div>
 

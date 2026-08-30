@@ -474,7 +474,7 @@ export function BasketQualityAnalysis({ data }: BasketQualityAnalysisProps) {
           </p>
         </Card>
 
-        {/* % 1 ITEM (MONOPEÇA - META <= 50%) */}
+        {/* % 1 ITEM (MONOPEÇA - META <= 55%, OURO <= 50%) */}
         <Card className="ri-card bg-white p-4 flex flex-col justify-between border-slate-200">
           <div className="space-y-1">
             <div className="flex items-center justify-between">
@@ -484,28 +484,38 @@ export function BasketQualityAnalysis({ data }: BasketQualityAnalysisProps) {
                 className={cn(
                   "text-[8px] font-black uppercase",
                   overall.unitRate <= 50 
-                    ? "border-emerald-300 text-emerald-700 bg-emerald-50" 
+                    ? "border-emerald-400 text-emerald-800 bg-emerald-100 font-black" 
+                    : overall.unitRate <= 55
+                    ? "border-emerald-300 text-emerald-700 bg-emerald-50 font-bold"
+                    : overall.unitRate <= 58
+                    ? "border-amber-300 text-amber-700 bg-amber-50"
                     : "border-rose-300 text-rose-700 bg-rose-50"
                 )}
               >
-                Meta ≤ 50%
+                {overall.unitRate <= 50 ? "★ Ouro ≤ 50%" : "Meta ≤ 55%"}
               </Badge>
             </div>
             <div className="flex items-baseline gap-1.5">
-              <p className={cn("text-3xl font-black tracking-tight", overall.unitRate <= 50 ? "text-emerald-600" : "text-rose-600")}>
+              <p className={cn(
+                "text-3xl font-black tracking-tight", 
+                overall.unitRate <= 55 ? "text-emerald-600" : overall.unitRate <= 58 ? "text-amber-600" : "text-rose-600"
+              )}>
                 {overall.unitRate.toFixed(1)}%
               </p>
             </div>
           </div>
           <p className="text-[10px] text-slate-500 font-medium pt-2 border-t border-slate-100 flex items-center justify-between">
             <span>{overall.unitCount} cupons</span>
-            <span className={overall.unitRate <= 50 ? "text-emerald-600 font-bold" : "text-rose-600 font-bold"}>
-              {overall.unitRate <= 50 ? "✓ No padrão" : "⚠ Acima do teto"}
+            <span className={cn(
+              "font-bold",
+              overall.unitRate <= 55 ? "text-emerald-600" : overall.unitRate <= 58 ? "text-amber-600" : "text-rose-600"
+            )}>
+              {overall.unitRate <= 50 ? "★ Padrão Ouro" : overall.unitRate <= 55 ? "✓ Na Meta" : overall.unitRate <= 58 ? "Tolerância" : "⚠ Acima do teto"}
             </span>
           </p>
         </Card>
 
-        {/* % 2 ITENS (VENDA CASADA - META >= 30%) */}
+        {/* % 2 ITENS (VENDA CASADA - META >= 28%, OURO >= 30%) */}
         <Card className="ri-card bg-white p-4 flex flex-col justify-between border-slate-200">
           <div className="space-y-1">
             <div className="flex items-center justify-between">
@@ -515,34 +525,44 @@ export function BasketQualityAnalysis({ data }: BasketQualityAnalysisProps) {
                 className={cn(
                   "text-[8px] font-black uppercase",
                   overall.twoItemsRate >= 30 
-                    ? "border-emerald-300 text-emerald-700 bg-emerald-50" 
-                    : "border-amber-300 text-amber-700 bg-amber-50"
+                    ? "border-emerald-400 text-emerald-800 bg-emerald-100 font-black" 
+                    : overall.twoItemsRate >= 28
+                    ? "border-emerald-300 text-emerald-700 bg-emerald-50 font-bold"
+                    : overall.twoItemsRate >= 25.5
+                    ? "border-amber-300 text-amber-700 bg-amber-50"
+                    : "border-rose-300 text-rose-700 bg-rose-50"
                 )}
               >
-                Meta ≥ 30%
+                {overall.twoItemsRate >= 30 ? "★ Ouro ≥ 30%" : "Meta ≥ 28%"}
               </Badge>
             </div>
             <div className="flex items-baseline gap-1.5">
-              <p className={cn("text-3xl font-black tracking-tight", overall.twoItemsRate >= 30 ? "text-emerald-600" : "text-amber-600")}>
+              <p className={cn(
+                "text-3xl font-black tracking-tight", 
+                overall.twoItemsRate >= 28 ? "text-emerald-600" : overall.twoItemsRate >= 25.5 ? "text-amber-600" : "text-rose-600"
+              )}>
                 {overall.twoItemsRate.toFixed(1)}%
               </p>
             </div>
           </div>
           <p className="text-[10px] text-slate-500 font-medium pt-2 border-t border-slate-100 flex items-center justify-between">
             <span>{overall.twoItemsCount} cupons</span>
-            <span className={overall.twoItemsRate >= 30 ? "text-emerald-600 font-bold" : "text-amber-600 font-bold"}>
-              {overall.twoItemsRate >= 30 ? "✓ No padrão" : "Abaixo do piso"}
+            <span className={cn(
+              "font-bold",
+              overall.twoItemsRate >= 28 ? "text-emerald-600" : overall.twoItemsRate >= 25.5 ? "text-amber-600" : "text-rose-600"
+            )}>
+              {overall.twoItemsRate >= 30 ? "★ Padrão Ouro" : overall.twoItemsRate >= 28 ? "✓ Na Meta" : overall.twoItemsRate >= 25.5 ? "Estável" : "Abaixo do piso"}
             </span>
           </p>
         </Card>
 
-        {/* % 3+ ITENS (SALDO PROFUNDIDADE) */}
+        {/* % 3+ ITENS (SALDO PROFUNDIDADE - META >= 17%) */}
         <Card className="ri-card bg-white p-4 flex flex-col justify-between border-slate-200">
           <div className="space-y-1">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">% 3+ Itens</span>
               <Badge variant="outline" className="text-[8px] font-black uppercase border-indigo-200 text-indigo-700 bg-indigo-50">
-                Restante
+                Meta ≥ 17%
               </Badge>
             </div>
             <div className="flex items-baseline gap-1.5">

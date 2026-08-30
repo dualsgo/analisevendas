@@ -144,7 +144,6 @@ const DiscountAudit = dynamic(() => import("./DiscountAudit").then(m => m.Discou
 const ExchangeManagement = dynamic(() => import("./ExchangeManagement").then(m => m.ExchangeManagement), { loading: () => <PanelLoading /> });
 const CouponAnalysis = dynamic(() => import("./CouponAnalysis").then(m => m.CouponAnalysis), { loading: () => <PanelLoading /> });
 const ConsecutiveCouponAnalysis = dynamic(() => import("./ConsecutiveCouponAnalysis").then(m => m.ConsecutiveCouponAnalysis), { loading: () => <PanelLoading /> });
-const HistoricalBasketAudit = dynamic(() => import("./HistoricalBasketAudit").then(m => m.HistoricalBasketAudit), { loading: () => <PanelLoading /> });
 
 interface SalesSummaryProps {
   data: DetailedSaleRow[];
@@ -266,7 +265,6 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
     { id: "cash_reconcile", label: "Conciliação de Caixa (Dinheiro)", icon: Calculator, category: "Operacional", color: "text-emerald-600 font-black" },
 
     // --- AUDITORIA, RISCO & COMPLIANCE ---
-    { id: "auditoria_cestas", label: "🧪 Auditoria Histórica (Jan–Ago)", icon: Target, category: "Auditoria", color: "text-purple-600 font-black" },
     { id: "auditoria", label: "Auditoria de Descontos", icon: Percent, category: "Auditoria" },
     { id: "trocas", label: "Gestão de Trocas", icon: ArrowRightLeft, category: "Auditoria" },
     { id: "pa", label: "Análise de PA e Complementos", icon: Hash, category: "Auditoria" },
@@ -323,7 +321,6 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
       case "cash_reconcile": return <CashReconciliation data={filteredData} />;
 
       // Auditoria
-      case "auditoria_cestas": return <HistoricalBasketAudit initialData={filteredData} />;
       case "auditoria": return <DiscountAudit data={filteredData} />;
       case "trocas": return <ExchangeManagement data={filteredData} vinculos={filteredVinculos} />;
       case "pa": return <AdditionalItemsAnalysis data={filteredData} />;

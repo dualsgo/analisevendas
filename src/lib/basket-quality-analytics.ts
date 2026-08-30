@@ -256,27 +256,27 @@ export const BUCKET_DEFINITIONS = [
     id: "1",
     label: "1 Item",
     rangeDescription: "1 Peça (Monopeça)",
-    benchmarkLabel: "Meta Ideal: ≤ 50%",
+    benchmarkLabel: "Meta: ≤ 55% (Ouro: ≤ 50%)",
     minItems: 1,
     maxItems: 1,
     riskLevel: "ANOMALY" as BasketBucketRiskLevel,
-    diagnostic: "Atendimento unitário sem venda adicional agregada. Faixa ideal de controle: ≤ 50% dos atendimentos da loja."
+    diagnostic: "Atendimento unitário sem venda adicional agregada. Meta operacional de controle: ≤ 55% dos atendimentos (Meta de Excelência: ≤ 50%)."
   },
   {
     id: "2",
     label: "2 Itens",
     rangeDescription: "2 Peças (Venda Casada)",
-    benchmarkLabel: "Meta Ideal: ≥ 30%",
+    benchmarkLabel: "Meta: ≥ 28% (Ouro: ≥ 30%)",
     minItems: 2,
     maxItems: 2,
     riskLevel: "HEALTHY" as BasketBucketRiskLevel,
-    diagnostic: "Primeiro degrau de conversão ativa (item principal + complemento/acessório). Faixa ideal: ≥ 30% dos atendimentos."
+    diagnostic: "Primeiro degrau de conversão ativa (item principal + complemento). Meta operacional: ≥ 28% dos atendimentos (Meta de Excelência: ≥ 30%)."
   },
   {
     id: "3",
     label: "3 Itens",
     rangeDescription: "3 Peças (Cesta Profunda)",
-    benchmarkLabel: "Saldo Consultivo (3 Peças)",
+    benchmarkLabel: "Saldo Consultivo: ≥ 9%",
     minItems: 3,
     maxItems: 3,
     riskLevel: "CONSULTIVE" as BasketBucketRiskLevel,
@@ -286,7 +286,7 @@ export const BUCKET_DEFINITIONS = [
     id: "4-5",
     label: "4 a 5 Itens",
     rangeDescription: "4 a 5 Peças (Alto Volume)",
-    benchmarkLabel: "Saldo Volume (4-5 Peças)",
+    benchmarkLabel: "Saldo Volume: ≥ 5.5%",
     minItems: 4,
     maxItems: 5,
     riskLevel: "VOLUME" as BasketBucketRiskLevel,
@@ -328,10 +328,10 @@ export function getBucketIdForQuantity(qty: number): string {
 
 /**
  * Diagnostica a qualidade e sustentação da distribuição de atendimentos
- * Regras de benchmark:
- * - 1 Item: ideal <= 50%
- * - 2 Itens: ideal >= 30%
- * - Restante 3+ Itens: saldo consultivo/profundo
+ * Regras calibradas com o histórico de 8 meses:
+ * - 1 Item: meta operacional <= 55% (excelência <= 50%)
+ * - 2 Itens: meta operacional >= 28% (excelência >= 30%)
+ * - Restante 3+ Itens: saldo consultivo/profundo (>= 16%)
  */
 export function getBasketDiagnostic(
   totalCupons: number,
@@ -367,49 +367,50 @@ export function getBasketDiagnostic(
     };
   }
 
-  // 2. Caso de PA Inflado por Concentração na Cauda (4+ ou 6+ itens com 1 item acima de 50%)
-  if (unitRate > 50 && tailPiecesRate >= 22 && concentrationIndex >= 2.5) {
+  // 2. Caso de PA Inflado por Concentração na Cauda (4+ ou 6+ itens com 1 item acima de 55%)
+  if (unitRate > 55 && tailPiecesRate >= 22 && concentrationIndex >= 2.5) {
     return {
       type: "PA_INFLADO_CONCENTRACAO",
       title: "PA Alavancado por Concentração em Vendas Isoladas",
       badgeLabel: "Inflado por Vendas Isoladas",
       badgeVariant: "amber",
-      description: `O PA de ${paReal.toFixed(2)} foi sustentado por vendas atípicas de alto volume (${tailPiecesRate.toFixed(1)}% das peças em 4+ itens), enquanto ${unitRate.toFixed(1)}% dos atendimentos saíram com apenas 1 peça (acima do teto ideal de 50%).`,
-      recommendation: "Acompanhar a abordagem no balcão e no checkout para evitar que a equipe relaxe na venda casada após garantir meta com poucos clientes volumosos."
+      description: `O PA de ${paReal.toFixed(2)} foi sustentado por vendas atípicas de alto volume (${tailPiecesRate.toFixed(1)}% das peças em 4+ itens), enquanto ${unitRate.toFixed(1)}% dos atendimentos saíram com apenas 1 peça (acima da meta operacional de 55%).`,
+      recommendation: "Acompanhar a abordagem no balcão e no checkout para evitar que a equipe relaxe na venda casada após garantir faturamento com poucos clientes volumosos."
     };
   }
 
-  // 3. Caso de Produtividade Sustentada e Equilibrada (1 item <= 50%, 2 itens >= 30%, 3+ consistente)
-  if (unitRate <= 50 && twoItemsRate >= 30 && threePlusRate >= 12) {
+  // 3. Caso de Produtividade Sustentada e Equilibrada (1 item <= 55%, 2 itens >= 28%, 3+ consistente)
+  if (unitRate <= 55 && twoItemsRate >= 28 && threePlusRate >= 14) {
+    const isGold = unitRate <= 50 && twoItemsRate >= 30;
     return {
       type: "PRODUTIVIDADE_SUSTENTADA",
-      title: "Produtividade de Cesta Sustentada e Equilibrada",
-      badgeLabel: "Sustentado & Equilibrado",
+      title: isGold ? "Padrão Ouro de Produtividade Sustentada" : "Produtividade de Cesta Sustentada e Equilibrada",
+      badgeLabel: isGold ? "Padrão Ouro de Sustentação" : "Sustentado & Equilibrado",
       badgeVariant: "emerald",
-      description: `Atendimento em padrão ideal: Monopeça de 1 item sob controle (${unitRate.toFixed(1)}% ≤ 50%), venda casada em 2 itens atingindo a meta (${twoItemsRate.toFixed(1)}% ≥ 30%) e saldo consistente de ${threePlusRate.toFixed(1)}% em 3+ itens sem dependência de outliers.`,
+      description: `Atendimento em padrão de alta produtividade: Monopeça sob controle (${unitRate.toFixed(1)}% ≤ 55%), venda casada em 2 itens atingindo a meta (${twoItemsRate.toFixed(1)}% ≥ 28%) e saldo consistente de ${threePlusRate.toFixed(1)}% em 3+ itens sem distorção por outliers.`,
       recommendation: "Reconhecer a equipe pela disciplina de abordagem e manter a cadência de venda consultiva agregada."
     };
   }
 
   // 4. Caso de Boa Conversão em 2 Itens com Oportunidade de Profundidade em 3+
-  if (unitRate <= 50 && twoItemsRate >= 30 && threePlusRate < 12) {
+  if (unitRate <= 55 && twoItemsRate >= 28 && threePlusRate < 14) {
     return {
       type: "BOA_CONVERSAO_BAIXA_PROFUNDIDADE",
       title: "Boa Conversão no 2º Item com Potencial em 3+",
       badgeLabel: "Conversão Sólida em 2 Itens",
       badgeVariant: "blue",
-      description: `Excelente controle de monopeça (${unitRate.toFixed(1)}% ≤ 50%) e forte conversão no 2º item (${twoItemsRate.toFixed(1)}% ≥ 30%), porém a maior parte das cestas adicionais para no 2º item (apenas ${threePlusRate.toFixed(1)}% em 3+ itens).`,
+      description: `Bom controle de monopeça (${unitRate.toFixed(1)}% ≤ 55%) e forte conversão no 2º item (${twoItemsRate.toFixed(1)}% ≥ 28%), porém a maior parte das cestas adicionais para no 2º item (apenas ${threePlusRate.toFixed(1)}% em 3+ itens).`,
       recommendation: "Incentivar técnicas de 3º nível: oferta de acessórios, produtos de impulso, SLP e combos completos de look."
     };
   }
 
-  // 5. Caso de Baixa Conversão (Monopeça > 50% ou 2 Itens < 30%)
+  // 5. Caso de Baixa Conversão (Monopeça > 58% ou 2 Itens < 25.5%)
   return {
     type: "BAIXA_CONVERSAO",
     title: "Baixa Conversão de Venda Casada",
     badgeLabel: "Monopeça Excessiva",
     badgeVariant: "rose",
-    description: `Predomínio de cupons monopeça (${unitRate.toFixed(1)}% > 50% ideal) e/ou agregação no 2º item abaixo do esperado (${twoItemsRate.toFixed(1)}% < 30% ideal). Dificuldade em transformar atendimentos unitários em vendas casadas.`,
+    description: `Predomínio de cupons monopeça (${unitRate.toFixed(1)}% > 55% meta) e/ou agregação no 2º item abaixo do padrão da loja (${twoItemsRate.toFixed(1)}% < 28% meta). Dificuldade em transformar atendimentos unitários em vendas casadas.`,
     recommendation: "Reforçar abordagem proativa na entrada da loja, organização visual dos expositores de checkout (P1) e ofertas de impulso de 2º item."
   };
 }
@@ -636,11 +637,11 @@ export function computeBasketMetrics(rows: DetailedSaleRow[], minCoupons = 10): 
 
     let benchmarkStatus: "SUCCESS" | "WARNING" | "CRITICAL" | "NEUTRAL" = "NEUTRAL";
     if (def.id === "1") {
-      benchmarkStatus = rate <= 50 ? "SUCCESS" : rate <= 60 ? "WARNING" : "CRITICAL";
+      benchmarkStatus = rate <= 55 ? "SUCCESS" : rate <= 58 ? "WARNING" : "CRITICAL";
     } else if (def.id === "2") {
-      benchmarkStatus = rate >= 30 ? "SUCCESS" : rate >= 25 ? "WARNING" : "CRITICAL";
+      benchmarkStatus = rate >= 28 ? "SUCCESS" : rate >= 25.5 ? "WARNING" : "CRITICAL";
     } else if (def.id === "3") {
-      benchmarkStatus = rate >= 10 ? "SUCCESS" : "NEUTRAL";
+      benchmarkStatus = rate >= 9 ? "SUCCESS" : "NEUTRAL";
     } else if (def.id === "10+" || def.id === "6-9") {
       benchmarkStatus = piecesRate >= 18 ? "WARNING" : "NEUTRAL";
     }
@@ -1068,14 +1069,18 @@ export function computeFullBasketQualityReport(rows: DetailedSaleRow[]): FullBas
         profile = "DEPENDENTE_MEGA_VENDA";
         profileLabel = "Alavancado por Vendas Isoladas";
         profileBadgeColor = "bg-purple-600 text-white";
-      } else if (metrics.unitRate > 50) {
+      } else if (metrics.unitRate > 58) {
         profile = "MONOPECA_BALCAO";
-        profileLabel = `Monopeça Excessiva (${metrics.unitRate.toFixed(0)}% > 50%)`;
+        profileLabel = `Monopeça Excessiva (${metrics.unitRate.toFixed(0)}% > 55%)`;
         profileBadgeColor = "bg-rose-500 text-white";
-      } else if (metrics.twoItemsRate >= 30) {
+      } else if (metrics.twoItemsRate >= 28) {
         profile = "ESPECIALISTA_CONVERSAO";
-        profileLabel = `Especialista Venda Casada (${metrics.twoItemsRate.toFixed(0)}% ≥ 30%)`;
+        profileLabel = `Especialista Venda Casada (${metrics.twoItemsRate.toFixed(0)}% ≥ 28%)`;
         profileBadgeColor = "bg-blue-600 text-white";
+      } else if (metrics.unitRate <= 55) {
+        profile = "CONSISTENTE";
+        profileLabel = "Produtor Sustentado (≤ 55%)";
+        profileBadgeColor = "bg-emerald-500 text-white";
       }
 
       const topSaleItemCount = metrics.outliers.length > 0 ? metrics.outliers[0].itens_qtd : 0;

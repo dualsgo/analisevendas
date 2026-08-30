@@ -88,10 +88,81 @@ export interface PurgeSimulationResult {
   diagnostic: string;
 }
 
+export interface MacroBasketSplit {
+  upTo2Items: {
+    cupons: number;
+    cuponsRate: number; // % dos cupons totais
+    pieces: number;
+    piecesRate: number; // % das peças totais
+    revenue: number;
+    revenueRate: number; // % do faturamento total
+    pa: number; // pieces / cupons
+    tkm: number;
+    pmMedio: number;
+    oneItem: {
+      cupons: number;
+      cuponsRate: number;
+      pieces: number;
+      piecesRate: number;
+      revenue: number;
+      revenueRate: number;
+    };
+    twoItems: {
+      cupons: number;
+      cuponsRate: number;
+      pieces: number;
+      piecesRate: number;
+      revenue: number;
+      revenueRate: number;
+    };
+  };
+  threePlusItems: {
+    cupons: number;
+    cuponsRate: number; // % dos cupons totais
+    pieces: number;
+    piecesRate: number; // % das peças totais
+    revenue: number;
+    revenueRate: number; // % do faturamento total
+    pa: number; // pieces / cupons
+    tkm: number;
+    pmMedio: number;
+    threeItems: {
+      cupons: number;
+      cuponsRate: number;
+      pieces: number;
+      piecesRate: number;
+      revenue: number;
+      revenueRate: number;
+    };
+    fourToFive: {
+      cupons: number;
+      cuponsRate: number;
+      pieces: number;
+      piecesRate: number;
+      revenue: number;
+      revenueRate: number;
+    };
+    sixPlus: {
+      cupons: number;
+      cuponsRate: number;
+      pieces: number;
+      piecesRate: number;
+      revenue: number;
+      revenueRate: number;
+    };
+  };
+  paLeverageFrom3Plus: number; // paReal - upTo2Items.pa
+  revenueRatioUpTo2Vs3Plus: number;
+  diagnostic: string;
+}
+
 export interface BasketQualityMetrics {
   totalCupons: number;
   totalItens: number;
   totalVenda: number;
+  
+  // Macro Divisão: Até 2 Itens vs 3+ Itens
+  macroSplit: MacroBasketSplit;
   
   // Núcleo e Médias
   paReal: number;
@@ -482,10 +553,44 @@ export function computeBasketMetrics(rows: DetailedSaleRow[], minCoupons = 10): 
       diagnostic: b.diagnostic
     }));
 
+    const emptyMacroSplit: MacroBasketSplit = {
+      upTo2Items: {
+        cupons: 0,
+        cuponsRate: 0,
+        pieces: 0,
+        piecesRate: 0,
+        revenue: 0,
+        revenueRate: 0,
+        pa: 0,
+        tkm: 0,
+        pmMedio: 0,
+        oneItem: { cupons: 0, cuponsRate: 0, pieces: 0, piecesRate: 0, revenue: 0, revenueRate: 0 },
+        twoItems: { cupons: 0, cuponsRate: 0, pieces: 0, piecesRate: 0, revenue: 0, revenueRate: 0 }
+      },
+      threePlusItems: {
+        cupons: 0,
+        cuponsRate: 0,
+        pieces: 0,
+        piecesRate: 0,
+        revenue: 0,
+        revenueRate: 0,
+        pa: 0,
+        tkm: 0,
+        pmMedio: 0,
+        threeItems: { cupons: 0, cuponsRate: 0, pieces: 0, piecesRate: 0, revenue: 0, revenueRate: 0 },
+        fourToFive: { cupons: 0, cuponsRate: 0, pieces: 0, piecesRate: 0, revenue: 0, revenueRate: 0 },
+        sixPlus: { cupons: 0, cuponsRate: 0, pieces: 0, piecesRate: 0, revenue: 0, revenueRate: 0 }
+      },
+      paLeverageFrom3Plus: 0,
+      revenueRatioUpTo2Vs3Plus: 1,
+      diagnostic: "Sem atendimentos no período."
+    };
+
     return {
       totalCupons: 0,
       totalItens: 0,
       totalVenda: 0,
+      macroSplit: emptyMacroSplit,
       paReal: 0,
       deltaPA: 0,
       paOperacional1to3: 0,
@@ -749,10 +854,101 @@ export function computeBasketMetrics(rows: DetailedSaleRow[], minCoupons = 10): 
     minCoupons
   );
 
+  // MACRO DIVISÃO: ATÉ 2 ITENS (1 e 2 peças) VS DE 3 PARA CIMA (3+ peças)
+  const upTo2Cupons = unitCount + twoItemsCount;
+  const upTo2CuponsRate = totalCupons > 0 ? (upTo2Cupons / totalCupons) * 100 : 0;
+  const upTo2Pieces = rawBucketsMap["1"].pieces + rawBucketsMap["2"].pieces;
+  const upTo2PiecesRate = totalItens > 0 ? (upTo2Pieces / totalItens) * 100 : 0;
+  const upTo2Revenue = rawBucketsMap["1"].revenue + rawBucketsMap["2"].revenue;
+  const upTo2RevenueRate = totalVenda > 0 ? (upTo2Revenue / totalVenda) * 100 : 0;
+  const upTo2PA = upTo2Cupons > 0 ? upTo2Pieces / upTo2Cupons : 0;
+  const upTo2TKM = upTo2Cupons > 0 ? upTo2Revenue / upTo2Cupons : 0;
+  const upTo2PMMedio = upTo2Pieces > 0 ? upTo2Revenue / upTo2Pieces : 0;
+
+  const threePlusRevenue = rawBucketsMap["3"].revenue + rawBucketsMap["4-5"].revenue + rawBucketsMap["6-9"].revenue + rawBucketsMap["10+"].revenue;
+  const threePlusRevenueRate = totalVenda > 0 ? (threePlusRevenue / totalVenda) * 100 : 0;
+  const threePlusPieces = piecesIn4Plus + rawBucketsMap["3"].pieces;
+  const threePlusPiecesRate = totalItens > 0 ? (threePlusPieces / totalItens) * 100 : 0;
+  const threePlusPA = threePlusCount > 0 ? threePlusPieces / threePlusCount : 0;
+  const threePlusTKM = threePlusCount > 0 ? threePlusRevenue / threePlusCount : 0;
+  const threePlusPMMedio = threePlusPieces > 0 ? threePlusRevenue / threePlusPieces : 0;
+
+  const paLeverageFrom3Plus = Math.max(0, paReal - upTo2PA);
+  const revenueRatioUpTo2Vs3Plus = threePlusRevenue > 0 ? upTo2Revenue / threePlusRevenue : 1;
+
+  const macroSplit: MacroBasketSplit = {
+    upTo2Items: {
+      cupons: upTo2Cupons,
+      cuponsRate: upTo2CuponsRate,
+      pieces: upTo2Pieces,
+      piecesRate: upTo2PiecesRate,
+      revenue: upTo2Revenue,
+      revenueRate: upTo2RevenueRate,
+      pa: upTo2PA,
+      tkm: upTo2TKM,
+      pmMedio: upTo2PMMedio,
+      oneItem: {
+        cupons: unitCount,
+        cuponsRate: unitRate,
+        pieces: rawBucketsMap["1"].pieces,
+        piecesRate: totalItens > 0 ? (rawBucketsMap["1"].pieces / totalItens) * 100 : 0,
+        revenue: rawBucketsMap["1"].revenue,
+        revenueRate: totalVenda > 0 ? (rawBucketsMap["1"].revenue / totalVenda) * 100 : 0
+      },
+      twoItems: {
+        cupons: twoItemsCount,
+        cuponsRate: twoItemsRate,
+        pieces: rawBucketsMap["2"].pieces,
+        piecesRate: totalItens > 0 ? (rawBucketsMap["2"].pieces / totalItens) * 100 : 0,
+        revenue: rawBucketsMap["2"].revenue,
+        revenueRate: totalVenda > 0 ? (rawBucketsMap["2"].revenue / totalVenda) * 100 : 0
+      }
+    },
+    threePlusItems: {
+      cupons: threePlusCount,
+      cuponsRate: threePlusRate,
+      pieces: threePlusPieces,
+      piecesRate: threePlusPiecesRate,
+      revenue: threePlusRevenue,
+      revenueRate: threePlusRevenueRate,
+      pa: threePlusPA,
+      tkm: threePlusTKM,
+      pmMedio: threePlusPMMedio,
+      threeItems: {
+        cupons: threeItemsCount,
+        cuponsRate: threeItemsRate,
+        pieces: rawBucketsMap["3"].pieces,
+        piecesRate: totalItens > 0 ? (rawBucketsMap["3"].pieces / totalItens) * 100 : 0,
+        revenue: rawBucketsMap["3"].revenue,
+        revenueRate: totalVenda > 0 ? (rawBucketsMap["3"].revenue / totalVenda) * 100 : 0
+      },
+      fourToFive: {
+        cupons: fourToFiveCount,
+        cuponsRate: fourToFiveRate,
+        pieces: rawBucketsMap["4-5"].pieces,
+        piecesRate: totalItens > 0 ? (rawBucketsMap["4-5"].pieces / totalItens) * 100 : 0,
+        revenue: rawBucketsMap["4-5"].revenue,
+        revenueRate: totalVenda > 0 ? (rawBucketsMap["4-5"].revenue / totalVenda) * 100 : 0
+      },
+      sixPlus: {
+        cupons: outlierCouponsCount,
+        cuponsRate: outlierCouponsRate,
+        pieces: piecesIn6Plus,
+        piecesRate: totalItens > 0 ? (piecesIn6Plus / totalItens) * 100 : 0,
+        revenue: rawBucketsMap["6-9"].revenue + rawBucketsMap["10+"].revenue,
+        revenueRate: totalVenda > 0 ? ((rawBucketsMap["6-9"].revenue + rawBucketsMap["10+"].revenue) / totalVenda) * 100 : 0
+      }
+    },
+    paLeverageFrom3Plus,
+    revenueRatioUpTo2Vs3Plus,
+    diagnostic: `As vendas até 2 itens respondem por ${upTo2RevenueRate.toFixed(1)}% da receita e ${upTo2CuponsRate.toFixed(1)}% do fluxo com PA de ${upTo2PA.toFixed(2)}. O bloco de 3+ peças representa ${threePlusRevenueRate.toFixed(1)}% da receita (${threePlusRate.toFixed(1)}% do fluxo) e alavanca o PA total em +${paLeverageFrom3Plus.toFixed(2)} pontos.`
+  };
+
   return {
     totalCupons,
     totalItens,
     totalVenda,
+    macroSplit,
     paReal,
     deltaPA,
     paOperacional1to3,

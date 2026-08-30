@@ -18,6 +18,7 @@ import {
 import { TemporalComparisonSuite } from "./TemporalComparisonSuite";
 import { CollaboratorDetailModal } from "./CollaboratorDetailModal";
 import { CouponInspectionModal } from "./CouponInspectionModal";
+import { MacroBasketSplitAnalysis } from "./MacroBasketSplitAnalysis";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -82,7 +83,8 @@ import {
   Eye,
   Sliders,
   Check,
-  X
+  X,
+  Split
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -92,6 +94,7 @@ interface BasketQualityAnalysisProps {
 
 type TabType = 
   | "OVERVIEW" 
+  | "MACRO_SPLIT"
   | "PURGE_LAB"
   | "COLLABORATORS" 
   | "OUTLIERS"
@@ -608,6 +611,14 @@ export function BasketQualityAnalysis({ data }: BasketQualityAnalysisProps) {
           label="Diagnóstico por Faixas" 
         />
         <TabButton 
+          active={activeTab === "MACRO_SPLIT"} 
+          onClick={() => setActiveTab("MACRO_SPLIT")} 
+          icon={Split} 
+          label="Divisão: Até 2 vs 3+ Itens" 
+          badge="Regional"
+          badgeColor="bg-blue-600"
+        />
+        <TabButton 
           active={activeTab === "PURGE_LAB"} 
           onClick={() => setActiveTab("PURGE_LAB")} 
           icon={SlidersHorizontal} 
@@ -854,6 +865,14 @@ export function BasketQualityAnalysis({ data }: BasketQualityAnalysisProps) {
             </Card>
           </div>
         </div>
+      )}
+
+      {/* --- ABA: MACRO-CISÃO ATÉ 2 ITENS VS DE 3 PARA CIMA (MACRO_SPLIT) --- */}
+      {activeTab === "MACRO_SPLIT" && (
+        <MacroBasketSplitAnalysis 
+          report={report} 
+          onSelectCollaborator={(c) => setSelectedColabForModal(c)}
+        />
       )}
 
       {/* --- ABA 2: LABORATÓRIO DE EXPURGO & SIMULAÇÃO SEM ANOMALIAS (PURGE_LAB) --- */}

@@ -24,6 +24,8 @@ export interface BasketBucket {
   id: string; // "1", "2", "3", "4-5", "6-9", "10+"
   label: string;
   rangeDescription: string;
+  benchmarkLabel: string; // "Meta: ≤ 50%", "Meta: ≥ 30%", etc.
+  benchmarkStatus: "SUCCESS" | "WARNING" | "CRITICAL" | "NEUTRAL";
   minItems: number;
   maxItems: number;
   count: number;
@@ -51,6 +53,7 @@ export interface OutlierCoupon {
   vNF: number;
   avgPrice: number;
   paImpactOnTotal: number; // Quanto este cupom isolado adicionou ao PA total da loja
+  dailyPaImpact?: number; // Impacto isolado no PA daquele dia específico
   itensSample: Array<{ cProd: string; xProd: string; qCom: number; vProd: number }>;
   classification: "MEGA_ANOMALIA" | "SUPER_CESTA" | "VOLUME_COMERCIAL";
 }
@@ -84,7 +87,6 @@ export interface BasketQualityMetrics {
   
   // Núcleo e Médias
   paReal: number;
-  paMediano: number;
   deltaPA: number;
   paOperacional1to3: number;
   paOperacional1to5: number;
@@ -94,12 +96,12 @@ export interface BasketQualityMetrics {
   // Distribuição Granular de Faixas
   buckets: BasketBucket[];
   unitCount: number; // 1 item
-  unitRate: number; // % 1 item
+  unitRate: number; // % 1 item (Meta: ≤ 50%)
   twoItemsCount: number; // 2 itens
-  twoItemsRate: number; // % 2 itens
+  twoItemsRate: number; // % 2 itens (Meta: ≥ 30%)
   threeItemsCount: number; // 3 itens
   threeItemsRate: number; // % 3 itens
-  threePlusCount: number; // 3+ itens
+  threePlusCount: number; // 3+ itens (Restante da cesta)
   threePlusRate: number; // % 3+ itens
   fourToFiveCount: number; // 4 a 5 itens
   fourToFiveRate: number;
@@ -127,7 +129,7 @@ export interface BasketQualityMetrics {
   concentrationIndex: number; // Razão: % Peças 4+ / % Cupons 4+
   avgDeepBasketPieces: number; // Profundidade média quando há venda adicional (2+)
   
-  // Métricas Avançadas de Sustentação vs Efeito Sorte
+  // Métricas Avançadas de Sustentação vs Impacto de Vendas Isoladas
   sustainabilityIndex: number; // Índice de Sustentação do PA (0 a 100)
   luckyRatio: number; // % do PA oriundo de cupons >= 6 itens
   luckyRatio10Plus: number; // % do PA oriundo de mega cupons >= 10 itens
@@ -145,9 +147,15 @@ export interface TemporalDailyMetric extends BasketQualityMetrics {
   weekdayName: string; // "Segunda-feira"
   weekdayShort: string; // "Seg"
   isWeekendDay: boolean;
-  savedByLuck?: boolean;
-  paWithoutOutliers?: number;
+  hasIsolatedOutlierImpact: boolean;
+  isolatedOutliersCount: number;
+  isolatedPiecesCount: number;
+  isolatedSalesPaDelta: number;
+  isolatedOutliersList: OutlierCoupon[];
+  technicalExplanation: string;
+  paWithoutOutliers: number;
   topOutlierCoupon?: OutlierCoupon;
+  savedByLuck?: boolean; // Compatibilidade retroativa
 }
 
 export interface DayOfWeekMetric {
@@ -169,8 +177,9 @@ export interface WeekdayVsWeekendComparison {
   weekends: BasketQualityMetrics; // Sáb e Dom
   deltas: {
     paRealDiff: number;
-    paMedianoDiff: number;
     unitRateDiff: number;
+    twoItemsRateDiff: number;
+    threePlusRateDiff: number;
     multiRateDiff: number;
     concentrationDiff: number;
   };
@@ -187,8 +196,8 @@ export interface CollaboratorBasketMetric extends BasketQualityMetrics {
   name: string;
   paSustentadoSemAnomalias: number; // PA expurgando 6+ itens
   paSustentadoBase1to3: number;
-  deltaSorte: number; // paReal - paSustentadoSemAnomalias
-  luckySharePercent: number; // % do PA do colaborador que veio de compras 6+
+  deltaSorte: number; // paReal - paSustentadoSemAnomalias (Impacto das vendas atípicas 6+)
+  luckySharePercent: number; // % das peças do colaborador que vieram de compras 6+
   profile: CollaboratorProfileType;
   profileLabel: string;
   profileBadgeColor: string;
@@ -211,6 +220,19 @@ export interface FullBasketQualityReport {
   weeklyComparison: WeekComparisonMetric[];
   collaborators: CollaboratorBasketMetric[];
   topOutliers: OutlierCoupon[];
+  daysWithOutlierImpact: Array<{
+    date: string;
+    dayLabel: string;
+    weekdayShort: string;
+    paReal: number;
+    paWithoutOutliers: number;
+    deltaDrop: number;
+    isolatedSalesCount: number;
+    totalOutlierPieces: number;
+    mainOutlierVendedor: string;
+    outliersSummary: string;
+    outliersList: OutlierCoupon[];
+  }>;
   daysSavedByLuck: Array<{
     date: string;
     dayLabel: string;
@@ -220,69 +242,75 @@ export interface FullBasketQualityReport {
     deltaDrop: number;
     mainOutlierVendedor: string;
     outlierPieces: number;
-  }>;
+  }>; // Compatibilidade retroativa
 }
 
 const DAYS_SHORT = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 const DAYS_FULL = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
 
 /**
- * Definições das 6 faixas estruturais de itens por cupom
+ * Definições das 6 faixas estruturais de itens por cupom com metas explícitas
  */
 export const BUCKET_DEFINITIONS = [
   {
     id: "1",
     label: "1 Item",
     rangeDescription: "1 Peça (Monopeça)",
+    benchmarkLabel: "Meta Ideal: ≤ 50%",
     minItems: 1,
     maxItems: 1,
     riskLevel: "ANOMALY" as BasketBucketRiskLevel,
-    diagnostic: "Atendimento transacional sem venda adicional agregada. Ponto de atenção para abordagem e checkout."
+    diagnostic: "Atendimento unitário sem venda adicional agregada. Faixa ideal de controle: ≤ 50% dos atendimentos da loja."
   },
   {
     id: "2",
     label: "2 Itens",
     rangeDescription: "2 Peças (Venda Casada)",
+    benchmarkLabel: "Meta Ideal: ≥ 30%",
     minItems: 2,
     maxItems: 2,
     riskLevel: "HEALTHY" as BasketBucketRiskLevel,
-    diagnostic: "Primeiro degrau de conversão ativa (item principal + complemento/acessório). Núcleo saudável de loja."
+    diagnostic: "Primeiro degrau de conversão ativa (item principal + complemento/acessório). Faixa ideal: ≥ 30% dos atendimentos."
   },
   {
     id: "3",
     label: "3 Itens",
     rangeDescription: "3 Peças (Cesta Profunda)",
+    benchmarkLabel: "Saldo Consultivo (3 Peças)",
     minItems: 3,
     maxItems: 3,
     riskLevel: "CONSULTIVE" as BasketBucketRiskLevel,
-    diagnostic: "Padrão de venda consultiva e cross-selling profundo (look completo ou compra planejada)."
+    diagnostic: "Padrão de venda consultiva e cross-selling profundo (look completo, conjunto ou compra planejada)."
   },
   {
     id: "4-5",
     label: "4 a 5 Itens",
     rangeDescription: "4 a 5 Peças (Alto Volume)",
+    benchmarkLabel: "Saldo Volume (4-5 Peças)",
     minItems: 4,
     maxItems: 5,
     riskLevel: "VOLUME" as BasketBucketRiskLevel,
-    diagnostic: "Compras familiares ou clientes com alta intenção de gasto. Alavanca natural de faturamento."
+    diagnostic: "Compras familiares ou clientes com alta intenção de gasto. Alavanca expressiva de faturamento."
   },
   {
     id: "6-9",
     label: "6 a 9 Itens",
     rangeDescription: "6 a 9 Peças (Super Cestas)",
+    benchmarkLabel: "Vendas Atípicas (6-9 Peças)",
     minItems: 6,
     maxItems: 9,
     riskLevel: "ATYPICAL" as BasketBucketRiskLevel,
-    diagnostic: "Grandes compras e eventos. Começa a gerar dispersão estatística relevante sobre a média da equipe."
+    diagnostic: "Grandes compras e eventos. Ponto de atenção para dispersão estatística e auditoria de sustentação."
   },
   {
     id: "10+",
     label: "10+ Itens",
-    rangeDescription: "10+ Peças (Mega Cupons / Efeito Sorte)",
+    rangeDescription: "10+ Peças (Mega Vendas / Outliers)",
+    benchmarkLabel: "Mega Outliers (10+ Peças)",
     minItems: 10,
     maxItems: 99999,
     riskLevel: "ANOMALY" as BasketBucketRiskLevel,
-    diagnostic: "Compras de atacado, fardamento, presentes corporativos ou outliers. Inflam brutalmente o PA e exigem auditoria de sustentação."
+    diagnostic: "Compras corporativas, atacado ou fardamentos. Inflam pontualmente o PA e exigem isolamento analítico."
   }
 ];
 
@@ -300,13 +328,16 @@ export function getBucketIdForQuantity(qty: number): string {
 
 /**
  * Diagnostica a qualidade e sustentação da distribuição de atendimentos
+ * Regras de benchmark:
+ * - 1 Item: ideal <= 50%
+ * - 2 Itens: ideal >= 30%
+ * - Restante 3+ Itens: saldo consultivo/profundo
  */
 export function getBasketDiagnostic(
   totalCupons: number,
   paReal: number,
-  paMediano: number,
   unitRate: number,
-  multiRate: number,
+  twoItemsRate: number,
   threePlusRate: number,
   tailPiecesRate: number,
   tenPlusPiecesRate: number,
@@ -325,61 +356,61 @@ export function getBasketDiagnostic(
   }
 
   // 1. Caso de Alta Dependência de Mega Cupons (10+ itens)
-  if (tenPlusPiecesRate >= 18 && (paReal - paMediano >= 0.40)) {
+  if (tenPlusPiecesRate >= 18) {
     return {
       type: "ALTA_DEPENDENCIA_MEGA_CUPONS",
-      title: "PA Inflado por Mega Cupons (Efeito Sorte)",
-      badgeLabel: "Efeito Sorte Crítico",
+      title: "PA Alavancado por Mega Vendas Isoladas (10+ Itens)",
+      badgeLabel: "Alta Dependência de Outliers",
       badgeVariant: "purple",
-      description: `O PA de ${paReal.toFixed(2)} foi fortemente sustentado por mega compras (${tenPlusPiecesRate.toFixed(1)}% das peças vieram de cupons com 10+ itens). O PA Mediano da equipe é de apenas ${paMediano.toFixed(1)} peças.`,
-      recommendation: "Auditar a rotina diária para garantir que a equipe mantenha a venda agregada mesmo sem contar com mega vendas pontuais."
+      description: `O PA de ${paReal.toFixed(2)} foi fortemente alavancado por mega compras (${tenPlusPiecesRate.toFixed(1)}% das peças vieram de cupons com 10+ itens). O PA da rotina diária é inferior ao oficial.`,
+      recommendation: "Auditar a rotina de atendimento para garantir que a equipe mantenha a venda agregada sem depender de mega vendas atípicas."
     };
   }
 
-  // 2. Caso de PA Inflado por Concentração na Cauda (4+ ou 6+ itens)
-  if (paReal >= 1.70 && (unitRate >= 50 || paMediano <= 1) && tailPiecesRate >= 22 && concentrationIndex >= 2.8) {
+  // 2. Caso de PA Inflado por Concentração na Cauda (4+ ou 6+ itens com 1 item acima de 50%)
+  if (unitRate > 50 && tailPiecesRate >= 22 && concentrationIndex >= 2.5) {
     return {
       type: "PA_INFLADO_CONCENTRACAO",
-      title: "PA Inflado por Concentração da Cauda",
-      badgeLabel: "Inflado por Cauda",
+      title: "PA Alavancado por Concentração em Vendas Isoladas",
+      badgeLabel: "Inflado por Vendas Isoladas",
       badgeVariant: "amber",
-      description: `O PA de ${paReal.toFixed(2)} foi fortemente sustentado por compras grandes (${tailPiecesRate.toFixed(1)}% das peças em 4+ itens), enquanto ${unitRate.toFixed(1)}% dos atendimentos saíram com apenas 1 peça.`,
-      recommendation: "Investigar se o balcão relaxou na venda casada após garantir meta com poucos clientes volumosos."
+      description: `O PA de ${paReal.toFixed(2)} foi sustentado por vendas atípicas de alto volume (${tailPiecesRate.toFixed(1)}% das peças em 4+ itens), enquanto ${unitRate.toFixed(1)}% dos atendimentos saíram com apenas 1 peça (acima do teto ideal de 50%).`,
+      recommendation: "Acompanhar a abordagem no balcão e no checkout para evitar que a equipe relaxe na venda casada após garantir meta com poucos clientes volumosos."
     };
   }
 
-  // 3. Caso de Boa Conversão com Baixa Profundidade
-  if (unitRate <= 48 && multiRate >= 50 && threePlusRate <= 18) {
-    return {
-      type: "BOA_CONVERSAO_BAIXA_PROFUNDIDADE",
-      title: "Boa Conversão com Baixa Profundidade",
-      badgeLabel: "Boa Conversão / 2 Itens",
-      badgeVariant: "blue",
-      description: `Ótima evolução na eliminação de cupons de 1 item (${multiRate.toFixed(1)}% com venda adicional), porém a maior parte das cestas estacionou no 2º item (apenas ${threePlusRate.toFixed(1)}% em 3+ itens).`,
-      recommendation: "Incentivar campanhas de 3º nível (acessórios, brinquedos de impulso, SLP e cross-selling complementar)."
-    };
-  }
-
-  // 4. Caso de Produtividade Sustentada
-  if (paReal >= 1.65 && unitRate <= 48 && threePlusRate >= 15 && tailPiecesRate <= 28) {
+  // 3. Caso de Produtividade Sustentada e Equilibrada (1 item <= 50%, 2 itens >= 30%, 3+ consistente)
+  if (unitRate <= 50 && twoItemsRate >= 30 && threePlusRate >= 12) {
     return {
       type: "PRODUTIVIDADE_SUSTENTADA",
-      title: "Produtividade de Cesta Sustentada",
+      title: "Produtividade de Cesta Sustentada e Equilibrada",
       badgeLabel: "Sustentado & Equilibrado",
       badgeVariant: "emerald",
-      description: `Atendimento regular e consistente: PA Real (${paReal.toFixed(2)}) e Mediano (${paMediano.toFixed(1)}) alinhados, com ${multiRate.toFixed(1)}% de vendas adicionais distribuídas por toda a equipe.`,
-      recommendation: "Reconhecer a equipe pela disciplina de abordagem e manter a cadência de venda consultiva."
+      description: `Atendimento em padrão ideal: Monopeça de 1 item sob controle (${unitRate.toFixed(1)}% ≤ 50%), venda casada em 2 itens atingindo a meta (${twoItemsRate.toFixed(1)}% ≥ 30%) e saldo consistente de ${threePlusRate.toFixed(1)}% em 3+ itens sem dependência de outliers.`,
+      recommendation: "Reconhecer a equipe pela disciplina de abordagem e manter a cadência de venda consultiva agregada."
     };
   }
 
-  // 5. Caso de Baixa Conversão (Balcão Raso)
+  // 4. Caso de Boa Conversão em 2 Itens com Oportunidade de Profundidade em 3+
+  if (unitRate <= 50 && twoItemsRate >= 30 && threePlusRate < 12) {
+    return {
+      type: "BOA_CONVERSAO_BAIXA_PROFUNDIDADE",
+      title: "Boa Conversão no 2º Item com Potencial em 3+",
+      badgeLabel: "Conversão Sólida em 2 Itens",
+      badgeVariant: "blue",
+      description: `Excelente controle de monopeça (${unitRate.toFixed(1)}% ≤ 50%) e forte conversão no 2º item (${twoItemsRate.toFixed(1)}% ≥ 30%), porém a maior parte das cestas adicionais para no 2º item (apenas ${threePlusRate.toFixed(1)}% em 3+ itens).`,
+      recommendation: "Incentivar técnicas de 3º nível: oferta de acessórios, produtos de impulso, SLP e combos completos de look."
+    };
+  }
+
+  // 5. Caso de Baixa Conversão (Monopeça > 50% ou 2 Itens < 30%)
   return {
     type: "BAIXA_CONVERSAO",
-    title: "Baixa Conversão de Atendimento",
-    badgeLabel: "Baixa Conversão",
+    title: "Baixa Conversão de Venda Casada",
+    badgeLabel: "Monopeça Excessiva",
     badgeVariant: "rose",
-    description: `Predomínio de cupons monopeça (${unitRate.toFixed(1)}% com 1 item). Pouca capacidade de agregação de itens adicionais na rotina da loja.`,
-    recommendation: "Reforçar abordagem proativa na entrada da loja, organização visual do caixa (P1) e ofertas de checkout."
+    description: `Predomínio de cupons monopeça (${unitRate.toFixed(1)}% > 50% ideal) e/ou agregação no 2º item abaixo do esperado (${twoItemsRate.toFixed(1)}% < 30% ideal). Dificuldade em transformar atendimentos unitários em vendas casadas.`,
+    recommendation: "Reforçar abordagem proativa na entrada da loja, organização visual dos expositores de checkout (P1) e ofertas de impulso de 2º item."
   };
 }
 
@@ -395,6 +426,8 @@ export function computeBasketMetrics(rows: DetailedSaleRow[], minCoupons = 10): 
       id: b.id,
       label: b.label,
       rangeDescription: b.rangeDescription,
+      benchmarkLabel: b.benchmarkLabel,
+      benchmarkStatus: "NEUTRAL",
       minItems: b.minItems,
       maxItems: b.maxItems,
       count: 0,
@@ -416,7 +449,6 @@ export function computeBasketMetrics(rows: DetailedSaleRow[], minCoupons = 10): 
       totalItens: 0,
       totalVenda: 0,
       paReal: 0,
-      paMediano: 0,
       deltaPA: 0,
       paOperacional1to3: 0,
       paOperacional1to5: 0,
@@ -458,7 +490,7 @@ export function computeBasketMetrics(rows: DetailedSaleRow[], minCoupons = 10): 
       luckyRatio: 0,
       luckyRatio10Plus: 0,
       outliers: [],
-      diagnostic: getBasketDiagnostic(0, 0, 0, 0, 0, 0, 0, 0, 0, minCoupons)
+      diagnostic: getBasketDiagnostic(0, 0, 0, 0, 0, 0, 0, 0, minCoupons)
     };
   }
 
@@ -525,49 +557,9 @@ export function computeBasketMetrics(rows: DetailedSaleRow[], minCoupons = 10): 
   // Ordenar Outliers por quantidade de peças decrescente
   rawOutliers.sort((a, b) => b.itens_qtd - a.itens_qtd);
 
-  // Cálculo de Mediana
-  itemCountsList.sort((a, b) => a - b);
-  const mid = Math.floor(itemCountsList.length / 2);
-  const paMediano = itemCountsList.length % 2 !== 0 
-    ? itemCountsList[mid] 
-    : (itemCountsList[mid - 1] + itemCountsList[mid]) / 2;
-
   const paReal = totalCupons > 0 ? totalItens / totalCupons : 0;
-  const deltaPA = paReal - paMediano;
   const tkm = totalCupons > 0 ? totalVenda / totalCupons : 0;
   const pmMedio = totalItens > 0 ? totalVenda / totalItens : 0;
-
-  // Buckets formatados com métricas ricas
-  const buckets: BasketBucket[] = BUCKET_DEFINITIONS.map(def => {
-    const raw = rawBucketsMap[def.id] || { count: 0, pieces: 0, revenue: 0 };
-    const rate = totalCupons > 0 ? (raw.count / totalCupons) * 100 : 0;
-    const piecesRate = totalItens > 0 ? (raw.pieces / totalItens) * 100 : 0;
-    const revenueRate = totalVenda > 0 ? (raw.revenue / totalVenda) * 100 : 0;
-    const avgTicket = raw.count > 0 ? raw.revenue / raw.count : 0;
-    const avgPricePerPiece = raw.pieces > 0 ? raw.revenue / raw.pieces : 0;
-    const paContribution = totalCupons > 0 ? raw.pieces / totalCupons : 0;
-    const leverageRatio = rate > 0 ? piecesRate / rate : 0;
-
-    return {
-      id: def.id,
-      label: def.label,
-      rangeDescription: def.rangeDescription,
-      minItems: def.minItems,
-      maxItems: def.maxItems,
-      count: raw.count,
-      rate,
-      pieces: raw.pieces,
-      piecesRate,
-      revenue: raw.revenue,
-      revenueRate,
-      avgTicket,
-      avgPricePerPiece,
-      paContribution,
-      leverageRatio,
-      riskLevel: def.riskLevel,
-      diagnostic: def.diagnostic
-    };
-  });
 
   const unitCount = rawBucketsMap["1"].count;
   const unitRate = totalCupons > 0 ? (unitCount / totalCupons) * 100 : 0;
@@ -624,26 +616,92 @@ export function computeBasketMetrics(rows: DetailedSaleRow[], minCoupons = 10): 
   const piecesIn2Plus = totalItens - rawBucketsMap["1"].pieces;
   const avgDeepBasketPieces = multiCouponsCount > 0 ? piecesIn2Plus / multiCouponsCount : 0;
 
-  // Lucky Ratios
+  // Distorção gerada por anomalias 6+
+  const deltaPA = Math.max(0, paReal - paOperacional1to5);
+
+  // Ratios de Vendas Isoladas
   const luckyRatio = totalItens > 0 ? (piecesIn6Plus / totalItens) * 100 : 0;
   const luckyRatio10Plus = tenPlusPiecesRate;
 
+  // Buckets formatados com metas e métricas ricas
+  const buckets: BasketBucket[] = BUCKET_DEFINITIONS.map(def => {
+    const raw = rawBucketsMap[def.id] || { count: 0, pieces: 0, revenue: 0 };
+    const rate = totalCupons > 0 ? (raw.count / totalCupons) * 100 : 0;
+    const piecesRate = totalItens > 0 ? (raw.pieces / totalItens) * 100 : 0;
+    const revenueRate = totalVenda > 0 ? (raw.revenue / totalVenda) * 100 : 0;
+    const avgTicket = raw.count > 0 ? raw.revenue / raw.count : 0;
+    const avgPricePerPiece = raw.pieces > 0 ? raw.revenue / raw.pieces : 0;
+    const paContribution = totalCupons > 0 ? raw.pieces / totalCupons : 0;
+    const leverageRatio = rate > 0 ? piecesRate / rate : 0;
+
+    let benchmarkStatus: "SUCCESS" | "WARNING" | "CRITICAL" | "NEUTRAL" = "NEUTRAL";
+    if (def.id === "1") {
+      benchmarkStatus = rate <= 50 ? "SUCCESS" : rate <= 60 ? "WARNING" : "CRITICAL";
+    } else if (def.id === "2") {
+      benchmarkStatus = rate >= 30 ? "SUCCESS" : rate >= 25 ? "WARNING" : "CRITICAL";
+    } else if (def.id === "3") {
+      benchmarkStatus = rate >= 10 ? "SUCCESS" : "NEUTRAL";
+    } else if (def.id === "10+" || def.id === "6-9") {
+      benchmarkStatus = piecesRate >= 18 ? "WARNING" : "NEUTRAL";
+    }
+
+    return {
+      id: def.id,
+      label: def.label,
+      rangeDescription: def.rangeDescription,
+      benchmarkLabel: def.benchmarkLabel,
+      benchmarkStatus,
+      minItems: def.minItems,
+      maxItems: def.maxItems,
+      count: raw.count,
+      rate,
+      pieces: raw.pieces,
+      piecesRate,
+      revenue: raw.revenue,
+      revenueRate,
+      avgTicket,
+      avgPricePerPiece,
+      paContribution,
+      leverageRatio,
+      riskLevel: def.riskLevel,
+      diagnostic: def.diagnostic
+    };
+  });
+
   // Índice de Sustentação de Cesta (Health Score 0 a 100)
-  // Penaliza alta taxa de 1 item, alta concentração de cauda e grande dispersão média-mediana
+  // Regras de benchmark: 1 item <= 50%, 2 itens >= 30%, saldo saudável em 3+ itens
   let sustainabilityScore = 100;
-  sustainabilityScore -= Math.min(35, unitRate * 0.7); // até -35 por monopeça
-  if (deltaPA > 0.40) sustainabilityScore -= Math.min(25, (deltaPA - 0.40) * 35); // dispersão média-mediana
-  if (luckyRatio > 20) sustainabilityScore -= Math.min(20, (luckyRatio - 20) * 1.0); // dependência de anomalias
-  if (concentrationIndex > 3.0) sustainabilityScore -= Math.min(15, (concentrationIndex - 3.0) * 8); // concentração
-  if (threePlusRate >= 15) sustainabilityScore += 5; // bônus de profundidade
+  if (unitRate > 50) {
+    sustainabilityScore -= Math.min(35, (unitRate - 50) * 1.5); // penalização por monopeça acima de 50%
+  } else {
+    sustainabilityScore += 5; // bônus de conformidade (<= 50%)
+  }
+
+  if (twoItemsRate >= 30) {
+    sustainabilityScore += 5; // bônus por atingir meta de 2 itens (>= 30%)
+  } else {
+    sustainabilityScore -= Math.min(20, (30 - twoItemsRate) * 1.2); // penalização se < 30%
+  }
+
+  if (threePlusRate >= 15) {
+    sustainabilityScore += 5; // bônus de profundidade no saldo restante
+  }
+
+  if (luckyRatio > 15) {
+    sustainabilityScore -= Math.min(25, (luckyRatio - 15) * 1.2); // penalização por concentração em vendas atípicas (6+)
+  }
+
+  if (concentrationIndex > 3.0) {
+    sustainabilityScore -= Math.min(15, (concentrationIndex - 3.0) * 8); // penalização por cauda excessivamente concentrada
+  }
+
   const sustainabilityIndex = Math.max(10, Math.min(100, Math.round(sustainabilityScore)));
 
   const diagnostic = getBasketDiagnostic(
     totalCupons,
     paReal,
-    paMediano,
     unitRate,
-    multiCouponsRate,
+    twoItemsRate,
     threePlusRate,
     tailPiecesRate,
     tenPlusPiecesRate,
@@ -656,7 +714,6 @@ export function computeBasketMetrics(rows: DetailedSaleRow[], minCoupons = 10): 
     totalItens,
     totalVenda,
     paReal,
-    paMediano,
     deltaPA,
     paOperacional1to3,
     paOperacional1to5,
@@ -757,13 +814,13 @@ export function computePurgedBasketMetrics(
   if (purgedCouponsCount === 0) {
     diagnostic = "Nenhuma faixa ou cupom expurgado. Exibindo métricas integrais da loja.";
   } else if (luckyDependencyLevel === "CRÍTICA") {
-    diagnostic = `Alerta Crítico: O PA oficial cai de ${originalMetrics.paReal.toFixed(2)} para ${purgedMetrics.paReal.toFixed(2)} (${pctPADiff.toFixed(1)}%). O resultado do período dependia massivamente das vendas expurgadas.`;
+    diagnostic = `Alerta Crítico: O PA oficial recua de ${originalMetrics.paReal.toFixed(2)} para ${purgedMetrics.paReal.toFixed(2)} (${pctPADiff.toFixed(1)}%). O resultado dependia massivamente de poucas vendas atípicas de alto volume.`;
   } else if (luckyDependencyLevel === "ALTA") {
-    diagnostic = `Dependência Alta: O PA sustentado é de ${purgedMetrics.paReal.toFixed(2)} (variação de ${deltaPA.toFixed(2)}). As faixas expurgadas respondiam por ${purgedPiecesRate.toFixed(1)}% das peças.`;
+    diagnostic = `Dependência Alta: O PA sustentado da rotina é de ${purgedMetrics.paReal.toFixed(2)} (distorção de ${Math.abs(deltaPA).toFixed(2)} pontos). As vendas expurgadas respondiam por ${purgedPiecesRate.toFixed(1)}% das peças.`;
   } else if (luckyDependencyLevel === "MODERADA") {
-    diagnostic = `Impacto Moderado: O PA recuou ${Math.abs(deltaPA).toFixed(2)} pontos (${purgedMetrics.paReal.toFixed(2)}). A equipe possui base razoável de sustentação.`;
+    diagnostic = `Impacto Moderado: O PA recuou ${Math.abs(deltaPA).toFixed(2)} pontos (${purgedMetrics.paReal.toFixed(2)}). A equipe possui sustentação intermediária.`;
   } else {
-    diagnostic = `Alta Sustentação: Variação residual no PA (${deltaPA >= 0 ? `+${deltaPA.toFixed(2)}` : deltaPA.toFixed(2)}). A produtividade de cesta é sólida e não depende de anomalias pontuais.`;
+    diagnostic = `Alta Sustentação: Variação residual no PA (${deltaPA >= 0 ? `+${deltaPA.toFixed(2)}` : deltaPA.toFixed(2)}). A produtividade de cesta é sólida e independe de anomalias pontuais.`;
   }
 
   return {
@@ -784,7 +841,7 @@ export function computePurgedBasketMetrics(
 }
 
 /**
- * Gera o relatório completo multi-temporal e por colaborador com análises de sorte vs sustentação
+ * Gera o relatório completo multi-temporal e por colaborador com análises técnicas de vendas isoladas vs sustentação
  */
 export function computeFullBasketQualityReport(rows: DetailedSaleRow[]): FullBasketQualityReport {
   const activeSales = rows.filter(r => !r.is_cancelada && r.tpNF === 1);
@@ -808,7 +865,8 @@ export function computeFullBasketQualityReport(rows: DetailedSaleRow[]): FullBas
   const startDate = sortedDates[0] || "";
   const endDate = sortedDates[sortedDates.length - 1] || "";
 
-  // 2. Evolução Diária com Detecção de Dias Salvos por Sorte
+  // 2. Evolução Diária com Análise Técnica de Impacto de Vendas Isoladas
+  const daysWithOutlierImpactList: FullBasketQualityReport["daysWithOutlierImpact"] = [];
   const daysSavedByLuckList: FullBasketQualityReport["daysSavedByLuck"] = [];
 
   const dailyTrend: TemporalDailyMetric[] = sortedDates.map(dateStr => {
@@ -826,13 +884,43 @@ export function computeFullBasketQualityReport(rows: DetailedSaleRow[]): FullBas
     const metricsWithoutOutliers = computeBasketMetrics(salesWithoutOutliers, 3);
     const paWithoutOutliers = metricsWithoutOutliers.paReal;
 
-    const deltaDrop = metrics.paReal - paWithoutOutliers;
-    const topOutlier = metrics.outliers[0] || undefined;
+    const deltaDrop = Math.max(0, metrics.paReal - paWithoutOutliers);
+    
+    // Vendas isoladas no dia (>= 6 itens)
+    const dayOutlierSales = metrics.outliers.map(o => ({
+      ...o,
+      dailyPaImpact: daySales.length > 0 ? o.itens_qtd / daySales.length : 0
+    }));
 
-    // Critério: Dia com PA inflado em mais de 0.35 por cupons de 6+ ou 10+
-    const savedByLuck = deltaDrop >= 0.35 && (metrics.luckyRatio >= 20 || metrics.tenPlusCount >= 1);
+    const isolatedOutliersCount = dayOutlierSales.length;
+    const isolatedPiecesCount = dayOutlierSales.reduce((sum, o) => sum + o.itens_qtd, 0);
+    const topOutlier = dayOutlierSales[0] || undefined;
 
-    if (savedByLuck && topOutlier) {
+    // Critério Técnico: dia em que o PA foi inflado em >= 0.20 pontos por 1 ou mais vendas isoladas (6+ itens)
+    const hasIsolatedOutlierImpact = deltaDrop >= 0.20 && isolatedOutliersCount >= 1;
+
+    let technicalExplanation = "Produção 100% orgânica e contínua no dia.";
+    if (hasIsolatedOutlierImpact && topOutlier) {
+      if (isolatedOutliersCount === 1) {
+        technicalExplanation = `1 venda isolada de ${topOutlier.itens_qtd} peças (${topOutlier.vendedor} às ${topOutlier.timeLabel}) inflou o PA do dia em +${deltaDrop.toFixed(2)} (PA Base: ${paWithoutOutliers.toFixed(2)} → Real: ${metrics.paReal.toFixed(2)}).`;
+      } else {
+        technicalExplanation = `${isolatedOutliersCount} vendas isoladas (totalizando ${isolatedPiecesCount} peças) inflaram o PA do dia em +${deltaDrop.toFixed(2)} (PA Base: ${paWithoutOutliers.toFixed(2)} → Real: ${metrics.paReal.toFixed(2)}). Maior venda: ${topOutlier.itens_qtd} pçs (${topOutlier.vendedor}).`;
+      }
+
+      daysWithOutlierImpactList.push({
+        date: dateStr,
+        dayLabel: format(parsedDate, "dd/MM"),
+        weekdayShort: DAYS_SHORT[dayOfWeekIdx],
+        paReal: metrics.paReal,
+        paWithoutOutliers,
+        deltaDrop,
+        isolatedSalesCount: isolatedOutliersCount,
+        totalOutlierPieces: isolatedPiecesCount,
+        mainOutlierVendedor: topOutlier.vendedor,
+        outliersSummary: technicalExplanation,
+        outliersList: dayOutlierSales
+      });
+
       daysSavedByLuckList.push({
         date: dateStr,
         dayLabel: format(parsedDate, "dd/MM"),
@@ -852,9 +940,15 @@ export function computeFullBasketQualityReport(rows: DetailedSaleRow[]): FullBas
       weekdayName: DAYS_FULL[dayOfWeekIdx],
       weekdayShort: DAYS_SHORT[dayOfWeekIdx],
       isWeekendDay: weekend,
-      savedByLuck,
+      hasIsolatedOutlierImpact,
+      isolatedOutliersCount,
+      isolatedPiecesCount,
+      isolatedSalesPaDelta: deltaDrop,
+      isolatedOutliersList: dayOutlierSales,
+      technicalExplanation,
       paWithoutOutliers,
-      topOutlierCoupon: topOutlier
+      topOutlierCoupon: topOutlier,
+      savedByLuck: hasIsolatedOutlierImpact
     };
   });
 
@@ -904,8 +998,9 @@ export function computeFullBasketQualityReport(rows: DetailedSaleRow[]): FullBas
     weekends: weekendMetrics,
     deltas: {
       paRealDiff: weekendMetrics.paReal - weekdayMetrics.paReal,
-      paMedianoDiff: weekendMetrics.paMediano - weekdayMetrics.paMediano,
       unitRateDiff: weekendMetrics.unitRate - weekdayMetrics.unitRate,
+      twoItemsRateDiff: weekendMetrics.twoItemsRate - weekdayMetrics.twoItemsRate,
+      threePlusRateDiff: weekendMetrics.threePlusRate - weekdayMetrics.threePlusRate,
       multiRateDiff: weekendMetrics.multiCouponsRate - weekdayMetrics.multiCouponsRate,
       concentrationDiff: weekendMetrics.tailPiecesRate - weekdayMetrics.tailPiecesRate
     }
@@ -937,7 +1032,7 @@ export function computeFullBasketQualityReport(rows: DetailedSaleRow[]): FullBas
     };
   });
 
-  // 6. Colaboradores com Análise de Efeito Sorte vs Sustentação
+  // 6. Colaboradores com Análise de Vendas Isoladas vs Sustentação
   const salesByVendorMap = new Map<string, DetailedSaleRow[]>();
   activeSales.forEach(s => {
     const v = s.vendedor?.trim() || "NÃO IDENTIFICADO";
@@ -960,7 +1055,7 @@ export function computeFullBasketQualityReport(rows: DetailedSaleRow[]): FullBas
       const deltaSorte = Math.max(0, metrics.paReal - paSustentadoSemAnomalias);
       const luckySharePercent = metrics.totalItens > 0 ? (metrics.piecesIn6Plus / metrics.totalItens) * 100 : 0;
 
-      // Classificação do Perfil
+      // Classificação Técnica do Perfil
       let profile: CollaboratorProfileType = "CONSISTENTE";
       let profileLabel = "Produtor Consistente";
       let profileBadgeColor = "bg-emerald-500 text-white";
@@ -969,17 +1064,17 @@ export function computeFullBasketQualityReport(rows: DetailedSaleRow[]): FullBas
         profile = "AMOSTRA_BAIXA";
         profileLabel = "Amostra Reduzida";
         profileBadgeColor = "bg-slate-400 text-white";
-      } else if (deltaSorte >= 0.35 && luckySharePercent >= 20) {
+      } else if (deltaSorte >= 0.30 && luckySharePercent >= 18) {
         profile = "DEPENDENTE_MEGA_VENDA";
-        profileLabel = "Inflado por Mega Venda";
+        profileLabel = "Alavancado por Vendas Isoladas";
         profileBadgeColor = "bg-purple-600 text-white";
-      } else if (metrics.unitRate >= 52) {
+      } else if (metrics.unitRate > 50) {
         profile = "MONOPECA_BALCAO";
-        profileLabel = "Balcão Monopeça";
+        profileLabel = `Monopeça Excessiva (${metrics.unitRate.toFixed(0)}% > 50%)`;
         profileBadgeColor = "bg-rose-500 text-white";
-      } else if (metrics.twoItemsRate + metrics.threeItemsRate >= 50) {
+      } else if (metrics.twoItemsRate >= 30) {
         profile = "ESPECIALISTA_CONVERSAO";
-        profileLabel = "Especialista em Venda Casada";
+        profileLabel = `Especialista Venda Casada (${metrics.twoItemsRate.toFixed(0)}% ≥ 30%)`;
         profileBadgeColor = "bg-blue-600 text-white";
       }
 
@@ -1020,6 +1115,7 @@ export function computeFullBasketQualityReport(rows: DetailedSaleRow[]): FullBas
     weeklyComparison,
     collaborators,
     topOutliers: overall.outliers,
+    daysWithOutlierImpact: daysWithOutlierImpactList,
     daysSavedByLuck: daysSavedByLuckList
   };
 }

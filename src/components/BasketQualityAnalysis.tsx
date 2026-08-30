@@ -159,7 +159,17 @@ export function BasketQualityAnalysis({ data }: BasketQualityAnalysisProps) {
     return computeFullBasketQualityReport(data);
   }, [data]);
 
-  const { overall, temporalScope, dailyTrend, daysOfWeek, weekdayVsWeekend, weeklyComparison, collaborators, topOutliers, daysSavedByLuck } = report;
+  const { 
+    overall, 
+    temporalScope, 
+    dailyTrend, 
+    daysOfWeek, 
+    weekdayVsWeekend, 
+    weeklyComparison, 
+    collaborators, 
+    topOutliers, 
+    daysWithOutlierImpact 
+  } = report;
 
   // Configuração atual de Expurgo
   const purgeConfig: PurgeConfig = useMemo(() => ({
@@ -307,7 +317,7 @@ export function BasketQualityAnalysis({ data }: BasketQualityAnalysisProps) {
               </span>
               <span className="text-xs font-bold text-slate-600 bg-white/80 backdrop-blur-md px-3 py-1 rounded-full border border-slate-200 flex items-center gap-1.5">
                 <Dices className="w-3.5 h-3.5 text-purple-600" />
-                Efeito Sorte (6+): <strong className={cn(overall.luckyRatio >= 20 ? "text-purple-700" : "text-slate-800")}>{overall.luckyRatio.toFixed(1)}% das peças</strong>
+                Vendas Atípicas (6+): <strong className={cn(overall.luckyRatio >= 18 ? "text-purple-700" : "text-slate-800")}>{overall.luckyRatio.toFixed(1)}% das peças</strong>
               </span>
             </div>
 
@@ -387,7 +397,7 @@ export function BasketQualityAnalysis({ data }: BasketQualityAnalysisProps) {
           <div className="space-y-1">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">PA Sustentado</span>
-              <Badge variant="outline" className="text-[8px] font-black uppercase border-emerald-300 text-emerald-700 bg-emerald-50">Sem Anomalias</Badge>
+              <Badge variant="outline" className="text-[8px] font-black uppercase border-emerald-300 text-emerald-700 bg-emerald-50">Sem 6+</Badge>
             </div>
             <div className="flex items-baseline gap-1.5">
               <p className="text-3xl font-black text-emerald-600 tracking-tight">{overall.paOperacional1to5.toFixed(2)}</p>
@@ -395,70 +405,98 @@ export function BasketQualityAnalysis({ data }: BasketQualityAnalysisProps) {
             </div>
           </div>
           <p className="text-[10px] text-slate-500 font-medium pt-2 border-t border-slate-100 flex items-center justify-between">
-            <span>Δ Efeito Sorte:</span>
-            <span className={cn("font-bold", (overall.paReal - overall.paOperacional1to5) >= 0.25 ? "text-purple-600" : "text-slate-600")}>
+            <span>Δ Vendas Isoladas:</span>
+            <span className={cn("font-bold", (overall.paReal - overall.paOperacional1to5) >= 0.20 ? "text-purple-600" : "text-slate-600")}>
               +{(overall.paReal - overall.paOperacional1to5).toFixed(2)}
             </span>
           </p>
         </Card>
 
-        {/* PA MEDIANO */}
+        {/* % 1 ITEM (MONOPEÇA - META <= 50%) */}
         <Card className="ri-card bg-white p-4 flex flex-col justify-between border-slate-200">
           <div className="space-y-1">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">PA Mediano</span>
-              <Badge variant="outline" className="text-[9px] font-black uppercase border-slate-200">Atend. Típico</Badge>
+              <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">% 1 Item</span>
+              <Badge 
+                variant="outline" 
+                className={cn(
+                  "text-[8px] font-black uppercase",
+                  overall.unitRate <= 50 
+                    ? "border-emerald-300 text-emerald-700 bg-emerald-50" 
+                    : "border-rose-300 text-rose-700 bg-rose-50"
+                )}
+              >
+                Meta ≤ 50%
+              </Badge>
             </div>
             <div className="flex items-baseline gap-1.5">
-              <p className="text-3xl font-black text-indigo-600 tracking-tight">{overall.paMediano.toFixed(1)}</p>
-              <span className="text-xs font-bold text-slate-400">peças</span>
+              <p className={cn("text-3xl font-black tracking-tight", overall.unitRate <= 50 ? "text-emerald-600" : "text-rose-600")}>
+                {overall.unitRate.toFixed(1)}%
+              </p>
             </div>
           </div>
           <p className="text-[10px] text-slate-500 font-medium pt-2 border-t border-slate-100 flex items-center justify-between">
-            <span>Δ Dispersão:</span>
-            <span className={cn("font-bold", overall.deltaPA > 0.35 ? "text-amber-600" : "text-emerald-600")}>
-              +{overall.deltaPA.toFixed(2)}
+            <span>{overall.unitCount} cupons</span>
+            <span className={overall.unitRate <= 50 ? "text-emerald-600 font-bold" : "text-rose-600 font-bold"}>
+              {overall.unitRate <= 50 ? "✓ No padrão" : "⚠ Acima do teto"}
             </span>
           </p>
         </Card>
 
-        {/* % 1 ITEM (UNITÁRIO) */}
+        {/* % 2 ITENS (VENDA CASADA - META >= 30%) */}
         <Card className="ri-card bg-white p-4 flex flex-col justify-between border-slate-200">
           <div className="space-y-1">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">% Cupons 1 Item</span>
-              <span className="text-[10px] font-black text-rose-500">Monopeça</span>
+              <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">% 2 Itens</span>
+              <Badge 
+                variant="outline" 
+                className={cn(
+                  "text-[8px] font-black uppercase",
+                  overall.twoItemsRate >= 30 
+                    ? "border-emerald-300 text-emerald-700 bg-emerald-50" 
+                    : "border-amber-300 text-amber-700 bg-amber-50"
+                )}
+              >
+                Meta ≥ 30%
+              </Badge>
             </div>
             <div className="flex items-baseline gap-1.5">
-              <p className="text-3xl font-black text-rose-600 tracking-tight">{overall.unitRate.toFixed(1)}%</p>
+              <p className={cn("text-3xl font-black tracking-tight", overall.twoItemsRate >= 30 ? "text-emerald-600" : "text-amber-600")}>
+                {overall.twoItemsRate.toFixed(1)}%
+              </p>
             </div>
           </div>
-          <p className="text-[10px] text-slate-500 font-medium pt-2 border-t border-slate-100">
-            {overall.unitCount} cupons monopeça
+          <p className="text-[10px] text-slate-500 font-medium pt-2 border-t border-slate-100 flex items-center justify-between">
+            <span>{overall.twoItemsCount} cupons</span>
+            <span className={overall.twoItemsRate >= 30 ? "text-emerald-600 font-bold" : "text-amber-600 font-bold"}>
+              {overall.twoItemsRate >= 30 ? "✓ No padrão" : "Abaixo do piso"}
+            </span>
           </p>
         </Card>
 
-        {/* % 2+ ITENS (VENDA ADICIONAL) */}
+        {/* % 3+ ITENS (SALDO PROFUNDIDADE) */}
         <Card className="ri-card bg-white p-4 flex flex-col justify-between border-slate-200">
           <div className="space-y-1">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">% Venda Adic. (2+)</span>
-              <span className="text-[10px] font-black text-emerald-500">Conversão</span>
+              <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">% 3+ Itens</span>
+              <Badge variant="outline" className="text-[8px] font-black uppercase border-indigo-200 text-indigo-700 bg-indigo-50">
+                Restante
+              </Badge>
             </div>
             <div className="flex items-baseline gap-1.5">
-              <p className="text-3xl font-black text-emerald-600 tracking-tight">{overall.multiCouponsRate.toFixed(1)}%</p>
+              <p className="text-3xl font-black text-indigo-600 tracking-tight">{overall.threePlusRate.toFixed(1)}%</p>
             </div>
           </div>
           <p className="text-[10px] text-slate-500 font-medium pt-2 border-t border-slate-100">
-            {overall.multiCouponsCount} cupons com 2+ itens
+            3 pçs: {overall.threeItemsRate.toFixed(1)}% | 4+ pçs: {overall.deepCouponsRate.toFixed(1)}%
           </p>
         </Card>
 
-        {/* MEGA CUPONS (10+ ITENS) */}
+        {/* MEGA VENDAS ISOLADAS (10+ ITENS) */}
         <Card className="ri-card bg-white p-4 flex flex-col justify-between border-slate-200">
           <div className="space-y-1">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Mega Cupons (10+)</span>
+              <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Mega Vendas (10+)</span>
               <Badge variant="outline" className="text-[8px] font-black uppercase border-purple-300 text-purple-700 bg-purple-50">Outliers</Badge>
             </div>
             <div className="flex items-baseline gap-1.5">
@@ -506,7 +544,7 @@ export function BasketQualityAnalysis({ data }: BasketQualityAnalysisProps) {
             onClick={() => setActiveTab("DAILY")} 
             icon={CalendarDays} 
             label={`Evolução Diária (${dailyTrend.length}d)`} 
-            badge={daysSavedByLuck.length > 0 ? `${daysSavedByLuck.length}d salvos` : undefined}
+            badge={daysWithOutlierImpact.length > 0 ? `${daysWithOutlierImpact.length}d c/ vendas isoladas` : undefined}
             badgeColor="bg-purple-600"
           />
         )}
@@ -557,7 +595,7 @@ export function BasketQualityAnalysis({ data }: BasketQualityAnalysisProps) {
                     Distribuição das 6 Faixas de Atendimento
                   </h3>
                   <p className="text-xs text-slate-500 font-medium">
-                    Comparação entre a participação nos cupons vs participação no total de peças e receita.
+                    Meta ideal: 1 item ≤ 50%, 2 itens ≥ 30%, restante em 3 e 4+ itens com volume saudável.
                   </p>
                 </div>
                 <Badge variant="outline" className="text-xs font-bold text-slate-700 w-fit">
@@ -601,8 +639,17 @@ export function BasketQualityAnalysis({ data }: BasketQualityAnalysisProps) {
                         <div className="w-3 h-3 rounded-full" style={{ backgroundColor: BUCKET_COLOR_MAP[b.id] }} />
                         <p className="text-xs font-black text-slate-800 uppercase">{b.label}</p>
                       </div>
-                      <Badge variant="outline" className="text-[9px] font-bold">
-                        Impacto: +{b.paContribution.toFixed(2)} PA
+                      <Badge 
+                        variant="outline" 
+                        className={cn(
+                          "text-[9px] font-black uppercase",
+                          b.benchmarkStatus === "SUCCESS" ? "border-emerald-300 text-emerald-700 bg-emerald-50" :
+                          b.benchmarkStatus === "WARNING" ? "border-amber-300 text-amber-700 bg-amber-50" :
+                          b.benchmarkStatus === "CRITICAL" ? "border-rose-300 text-rose-700 bg-rose-50" :
+                          "border-slate-200 text-slate-600 bg-white"
+                        )}
+                      >
+                        {b.benchmarkLabel}
                       </Badge>
                     </div>
 
@@ -632,15 +679,15 @@ export function BasketQualityAnalysis({ data }: BasketQualityAnalysisProps) {
               </div>
             </Card>
 
-            {/* Painel de Sustentação & Efeito Sorte */}
+            {/* Painel de Sustentação & Vendas Isoladas */}
             <Card className="ri-card p-6 space-y-5 flex flex-col justify-between">
               <div className="space-y-2 border-b border-slate-100 pb-4">
                 <h3 className="text-base font-black text-slate-900 uppercase tracking-tight flex items-center gap-2">
-                  <Flame className="w-5 h-5 text-amber-500" />
-                  Efeito Sorte vs Produtividade Real
+                  <Flame className="w-5 h-5 text-indigo-600" />
+                  Impacto de Vendas Isoladas vs Sustentação
                 </h3>
                 <p className="text-xs text-slate-500 font-medium">
-                  Audite o quanto os números da loja são sustentados pelo atendimento rotineiro vs grandes compras pontuais.
+                  Audite o quanto os números da loja são sustentados pelo atendimento rotineiro vs vendas volumosas isoladas.
                 </p>
               </div>
 
@@ -650,7 +697,7 @@ export function BasketQualityAnalysis({ data }: BasketQualityAnalysisProps) {
                   <div className="flex justify-between items-center">
                     <span className="text-xs font-black text-purple-900 uppercase flex items-center gap-1.5">
                       <Dices className="w-4 h-4 text-purple-600" />
-                      Mega Cupons (10+ Itens)
+                      Mega Vendas Isoladas (10+ Itens)
                     </span>
                     <Badge className="bg-purple-600 text-white text-[10px]">{overall.tenPlusCount} atendimentos</Badge>
                   </div>
@@ -760,7 +807,7 @@ export function BasketQualityAnalysis({ data }: BasketQualityAnalysisProps) {
                     className={cn("text-xs font-bold justify-start", excludedBuckets.includes("10+") && "bg-purple-600 text-white")}
                   >
                     <Dices className="w-3.5 h-3.5 mr-1.5 shrink-0" />
-                    Expurgar 10+ (Mega)
+                    Expurgar 10+ (Outliers)
                   </Button>
                   <Button
                     size="sm"
@@ -769,7 +816,7 @@ export function BasketQualityAnalysis({ data }: BasketQualityAnalysisProps) {
                     className={cn("text-xs font-bold justify-start", excludedBuckets.includes("6-9") && "bg-amber-600 text-white")}
                   >
                     <Flame className="w-3.5 h-3.5 mr-1.5 shrink-0" />
-                    Expurgar 6+ (Cauda)
+                    Expurgar 6+ (Atípicas)
                   </Button>
                   <Button
                     size="sm"
@@ -882,7 +929,7 @@ export function BasketQualityAnalysis({ data }: BasketQualityAnalysisProps) {
                     purgeSimulation.luckyDependencyLevel === "MODERADA" ? "bg-blue-600 text-white" :
                     "bg-emerald-600 text-white"
                   )}>
-                    Dependência de Sorte: {purgeSimulation.luckyDependencyLevel}
+                    Dependência de Vendas Isoladas: {purgeSimulation.luckyDependencyLevel}
                   </Badge>
                 </div>
 
@@ -953,7 +1000,7 @@ export function BasketQualityAnalysis({ data }: BasketQualityAnalysisProps) {
                   </div>
                 </div>
 
-                {/* Tabela Resumo do Cenário Simulado */}
+                {/* Tabela Resumo do Cenário Simulado sem Mediana */}
                 <div className="rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
                   <Table>
                     <TableHeader className="bg-slate-50">
@@ -974,15 +1021,7 @@ export function BasketQualityAnalysis({ data }: BasketQualityAnalysisProps) {
                         </TableCell>
                       </TableRow>
                       <TableRow className="h-10 hover:bg-slate-50">
-                        <TableCell className="font-bold text-xs text-slate-800">PA Mediano (Atendimento Central)</TableCell>
-                        <TableCell className="text-center font-bold text-slate-700">{purgeSimulation.originalMetrics.paMediano.toFixed(1)}</TableCell>
-                        <TableCell className="text-center font-black text-slate-900">{purgeSimulation.purgedMetrics.paMediano.toFixed(1)}</TableCell>
-                        <TableCell className="text-center font-bold text-xs text-slate-600">
-                          {(purgeSimulation.purgedMetrics.paMediano - purgeSimulation.originalMetrics.paMediano).toFixed(1)}
-                        </TableCell>
-                      </TableRow>
-                      <TableRow className="h-10 hover:bg-slate-50">
-                        <TableCell className="font-bold text-xs text-slate-800">% Cupons 1 Item (Monopeça)</TableCell>
+                        <TableCell className="font-bold text-xs text-slate-800">% Cupons 1 Item (Monopeça - Meta ≤50%)</TableCell>
                         <TableCell className="text-center font-bold text-rose-600">{purgeSimulation.originalMetrics.unitRate.toFixed(1)}%</TableCell>
                         <TableCell className="text-center font-black text-rose-600">{purgeSimulation.purgedMetrics.unitRate.toFixed(1)}%</TableCell>
                         <TableCell className="text-center font-bold text-xs text-slate-600">
@@ -990,11 +1029,19 @@ export function BasketQualityAnalysis({ data }: BasketQualityAnalysisProps) {
                         </TableCell>
                       </TableRow>
                       <TableRow className="h-10 hover:bg-slate-50">
-                        <TableCell className="font-bold text-xs text-slate-800">% Venda Adicional (2+ Itens)</TableCell>
-                        <TableCell className="text-center font-bold text-emerald-600">{purgeSimulation.originalMetrics.multiCouponsRate.toFixed(1)}%</TableCell>
-                        <TableCell className="text-center font-black text-emerald-600">{purgeSimulation.purgedMetrics.multiCouponsRate.toFixed(1)}%</TableCell>
+                        <TableCell className="font-bold text-xs text-slate-800">% Cupons 2 Itens (Venda Casada - Meta ≥30%)</TableCell>
+                        <TableCell className="text-center font-bold text-emerald-600">{purgeSimulation.originalMetrics.twoItemsRate.toFixed(1)}%</TableCell>
+                        <TableCell className="text-center font-black text-emerald-600">{purgeSimulation.purgedMetrics.twoItemsRate.toFixed(1)}%</TableCell>
                         <TableCell className="text-center font-bold text-xs text-slate-600">
-                          {(purgeSimulation.purgedMetrics.multiCouponsRate - purgeSimulation.originalMetrics.multiCouponsRate).toFixed(1)}%
+                          {(purgeSimulation.purgedMetrics.twoItemsRate - purgeSimulation.originalMetrics.twoItemsRate).toFixed(1)}%
+                        </TableCell>
+                      </TableRow>
+                      <TableRow className="h-10 hover:bg-slate-50">
+                        <TableCell className="font-bold text-xs text-slate-800">% Cupons 3+ Itens (Cesta Profunda)</TableCell>
+                        <TableCell className="text-center font-bold text-indigo-600">{purgeSimulation.originalMetrics.threePlusRate.toFixed(1)}%</TableCell>
+                        <TableCell className="text-center font-black text-indigo-600">{purgeSimulation.purgedMetrics.threePlusRate.toFixed(1)}%</TableCell>
+                        <TableCell className="text-center font-bold text-xs text-slate-600">
+                          {(purgeSimulation.purgedMetrics.threePlusRate - purgeSimulation.originalMetrics.threePlusRate).toFixed(1)}%
                         </TableCell>
                       </TableRow>
                       <TableRow className="h-10 hover:bg-slate-50">
@@ -1030,10 +1077,10 @@ export function BasketQualityAnalysis({ data }: BasketQualityAnalysisProps) {
               <div>
                 <h3 className="text-base font-black text-slate-900 uppercase tracking-tight flex items-center gap-2">
                   <Users className="w-5 h-5 text-indigo-600" />
-                  Raio-X de Sustentação & Efeito Sorte por Colaborador
+                  Raio-X de Sustentação & Vendas Isoladas por Colaborador
                 </h3>
                 <p className="text-xs text-slate-500 font-medium">
-                  Compare o PA Real oficial vs o PA Sustentado (sem mega vendas 6+) para identificar quem produz de forma consistente vs quem é inflado por compras pontuais.
+                  Compare o PA Real oficial vs o PA Sustentado (sem mega vendas 6+) e acompanhe a conformidade das metas de 1 item (≤ 50%) e 2 itens (≥ 30%).
                 </p>
               </div>
 
@@ -1072,7 +1119,7 @@ export function BasketQualityAnalysis({ data }: BasketQualityAnalysisProps) {
                     onClick={() => setColabProfileFilter("DEPENDENTE_MEGA_VENDA")}
                     className="h-8 text-[11px] font-bold rounded-lg text-purple-700"
                   >
-                    Efeito Sorte
+                    Vendas Atípicas
                   </Button>
                   <Button 
                     size="sm" 
@@ -1086,7 +1133,7 @@ export function BasketQualityAnalysis({ data }: BasketQualityAnalysisProps) {
               </div>
             </div>
 
-            {/* Tabela de Colaboradores com Comparativo de Sorte */}
+            {/* Tabela de Colaboradores com Metas e Vendas Isoladas */}
             <div className="rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
               <Table>
                 <TableHeader className="bg-slate-50">
@@ -1095,10 +1142,10 @@ export function BasketQualityAnalysis({ data }: BasketQualityAnalysisProps) {
                     <TableHead className="text-[10px] font-black uppercase text-slate-600 text-center">Cupons</TableHead>
                     <TableHead className="text-[10px] font-black uppercase text-slate-600 text-center">PA Real (Oficial)</TableHead>
                     <TableHead className="text-[10px] font-black uppercase text-emerald-700 text-center">PA Sustentado (Sem 6+)</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase text-purple-700 text-center">Δ Efeito Sorte</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase text-slate-600 text-center">PA Mediano</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase text-slate-600 text-center">% 1 Item</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase text-slate-600 text-center">% 2+ Itens</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase text-purple-700 text-center">Δ Vendas Isoladas</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase text-slate-600 text-center">% 1 Item (≤50%)</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase text-slate-600 text-center">% 2 Itens (≥30%)</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase text-slate-600 text-center">% 3+ Itens</TableHead>
                     <TableHead className="text-[10px] font-black uppercase text-slate-600 text-center">Maior Cupom</TableHead>
                     <TableHead className="text-[10px] font-black uppercase text-slate-600 text-center">Perfil Comportamental</TableHead>
                   </TableRow>
@@ -1125,17 +1172,23 @@ export function BasketQualityAnalysis({ data }: BasketQualityAnalysisProps) {
                         {c.paSustentadoSemAnomalias.toFixed(2)}
                       </TableCell>
                       <TableCell className="text-center font-black text-purple-700">
-                        {c.deltaSorte >= 0.25 ? (
+                        {c.deltaSorte >= 0.20 ? (
                           <Badge className="bg-purple-600 text-white text-[9px] font-black">
-                            +{c.deltaSorte.toFixed(2)} ({c.luckySharePercent.toFixed(0)}%)
+                            +{c.deltaSorte.toFixed(2)} ({c.luckySharePercent.toFixed(0)}% pçs)
                           </Badge>
                         ) : (
                           <span className="text-slate-400 text-xs font-bold">+{c.deltaSorte.toFixed(2)}</span>
                         )}
                       </TableCell>
-                      <TableCell className="text-center font-bold text-indigo-600">{c.paMediano.toFixed(1)}</TableCell>
-                      <TableCell className="text-center font-bold text-rose-600">{c.unitRate.toFixed(1)}%</TableCell>
-                      <TableCell className="text-center font-bold text-emerald-600">{c.multiCouponsRate.toFixed(1)}%</TableCell>
+                      <TableCell className={cn("text-center font-bold text-xs", c.unitRate <= 50 ? "text-emerald-700 font-black" : "text-rose-600")}>
+                        {c.unitRate.toFixed(1)}%
+                      </TableCell>
+                      <TableCell className={cn("text-center font-bold text-xs", c.twoItemsRate >= 30 ? "text-emerald-700 font-black" : "text-amber-600")}>
+                        {c.twoItemsRate.toFixed(1)}%
+                      </TableCell>
+                      <TableCell className="text-center font-bold text-indigo-600 text-xs">
+                        {c.threePlusRate.toFixed(1)}%
+                      </TableCell>
                       <TableCell className="text-center font-bold text-slate-700">
                         {c.topSaleItemCount > 0 ? (
                           <span className={cn(c.topSaleItemCount >= 10 ? "font-black text-purple-600" : "font-medium text-slate-600")}>
@@ -1315,7 +1368,7 @@ export function BasketQualityAnalysis({ data }: BasketQualityAnalysisProps) {
         </div>
       )}
 
-      {/* --- ABA 5: EVOLUÇÃO DIÁRIA & DIAS SALVOS (DAILY) --- */}
+      {/* --- ABA 5: EVOLUÇÃO DIÁRIA & IMPACTO DE VENDAS ISOLADAS (DAILY) --- */}
       {activeTab === "DAILY" && (
         <div className="space-y-6">
           <Card className="ri-card p-6 space-y-6">
@@ -1326,12 +1379,12 @@ export function BasketQualityAnalysis({ data }: BasketQualityAnalysisProps) {
                   Evolução Temporal do PA: Real vs Sustentado (Dia a Dia)
                 </h3>
                 <p className="text-xs text-slate-500 font-medium">
-                  Acompanhe os dias em que o PA foi sustentado pela disciplina da equipe vs dias que foram &quot;salvos&quot; por 1 cupom de sorte.
+                  Acompanhe a consistência diária da equipe e audite o impacto exato de vendas isoladas que inflaram o PA de cada dia.
                 </p>
               </div>
             </div>
 
-            {/* Gráfico de Linhas Temporal Comparativo */}
+            {/* Gráfico de Linhas Temporal Comparativo sem Mediana */}
             <div className="h-72 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={dailyTrend} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
@@ -1349,13 +1402,13 @@ export function BasketQualityAnalysis({ data }: BasketQualityAnalysisProps) {
                   <Legend wrapperStyle={{ fontSize: "11px", fontWeight: 700, paddingTop: "10px" }} />
                   <Line yAxisId="left" type="monotone" dataKey="paReal" name="PA Real Oficial" stroke="#6366f1" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
                   <Line yAxisId="left" type="monotone" dataKey="paWithoutOutliers" name="PA Sustentado (Sem 6+)" stroke="#10b981" strokeWidth={2.5} strokeDasharray="4 4" dot={{ r: 3 }} />
-                  <Line yAxisId="left" type="monotone" dataKey="paMediano" name="PA Mediano" stroke="#94a3b8" strokeWidth={1.5} dot={{ r: 2 }} />
-                  <Line yAxisId="right" type="monotone" dataKey="unitRate" name="% Cupons 1 Item" stroke="#ef4444" strokeWidth={2} strokeDasharray="3 3" dot={{ r: 3 }} />
+                  <Line yAxisId="right" type="monotone" dataKey="unitRate" name="% Cupons 1 Item (Meta ≤50%)" stroke="#ef4444" strokeWidth={2} strokeDasharray="3 3" dot={{ r: 3 }} />
+                  <Line yAxisId="right" type="monotone" dataKey="twoItemsRate" name="% Cupons 2 Itens (Meta ≥30%)" stroke="#10b981" strokeWidth={2} dot={{ r: 3 }} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
 
-            {/* Tabela Dia a Dia com Alerta de Dias Salvos */}
+            {/* Tabela Dia a Dia com Detalhamento Técnico das Vendas Isoladas */}
             <div className="rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
               <Table>
                 <TableHeader className="bg-slate-50">
@@ -1364,27 +1417,26 @@ export function BasketQualityAnalysis({ data }: BasketQualityAnalysisProps) {
                     <TableHead className="text-[10px] font-black uppercase text-slate-600 text-center">Cupons</TableHead>
                     <TableHead className="text-[10px] font-black uppercase text-slate-600 text-center">PA Real</TableHead>
                     <TableHead className="text-[10px] font-black uppercase text-emerald-700 text-center">PA Sustentado</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase text-slate-600 text-center">PA Mediano</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase text-slate-600 text-center">% 1 Item</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase text-slate-600 text-center">% 2+ Itens</TableHead>
-                    <TableHead className="text-[10px] font-black uppercase text-purple-700 text-center">Efeito Sorte</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase text-slate-600 text-center">% 1 Item (≤50%)</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase text-slate-600 text-center">% 2 Itens (≥30%)</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase text-slate-600 text-center">% 3+ Itens</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase text-purple-700">Distorção por Vendas Isoladas</TableHead>
                     <TableHead className="text-[10px] font-black uppercase text-slate-600 text-center">Diagnóstico do Dia</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {dailyTrend.map(d => (
-                    <TableRow key={d.date} className={cn("h-12 hover:bg-slate-50/80", d.savedByLuck && "bg-purple-50/40")}>
+                    <TableRow key={d.date} className={cn("h-14 hover:bg-slate-50/80", d.hasIsolatedOutlierImpact && "bg-purple-50/40")}>
                       <TableCell className="font-bold text-slate-800">
                         <div className="flex items-center gap-2">
                           <span className={cn(
-                            "w-2 h-2 rounded-full",
-                            d.savedByLuck ? "bg-purple-600 animate-pulse" : d.isWeekendDay ? "bg-amber-500" : "bg-indigo-500"
+                            "w-2.5 h-2.5 rounded-full",
+                            d.hasIsolatedOutlierImpact ? "bg-purple-600 animate-pulse" : d.isWeekendDay ? "bg-amber-500" : "bg-indigo-500"
                           )} />
-                          <span>{d.dayLabel}</span>
-                          <span className="text-xs text-slate-400 font-normal">({d.weekdayShort})</span>
-                          {d.savedByLuck && (
-                            <Badge className="bg-purple-600 text-white text-[8px] font-black uppercase ml-1">Salvo por Sorte</Badge>
-                          )}
+                          <div>
+                            <span className="font-black text-xs text-slate-900">{d.dayLabel}</span>
+                            <span className="text-[10px] text-slate-400 font-normal ml-1">({d.weekdayShort})</span>
+                          </div>
                         </div>
                       </TableCell>
                       <TableCell className="text-center font-bold text-slate-700">{d.totalCupons}</TableCell>
@@ -1392,11 +1444,30 @@ export function BasketQualityAnalysis({ data }: BasketQualityAnalysisProps) {
                       <TableCell className="text-center font-black text-emerald-700 text-sm">
                         {(d.paWithoutOutliers || d.paReal).toFixed(2)}
                       </TableCell>
-                      <TableCell className="text-center font-bold text-indigo-600">{d.paMediano.toFixed(1)}</TableCell>
-                      <TableCell className="text-center font-bold text-rose-600">{d.unitRate.toFixed(1)}%</TableCell>
-                      <TableCell className="text-center font-bold text-emerald-600">{d.multiCouponsRate.toFixed(1)}%</TableCell>
-                      <TableCell className="text-center font-bold text-purple-700">
-                        {d.luckyRatio >= 15 ? `${d.luckyRatio.toFixed(0)}% pçs` : "-"}
+                      <TableCell className={cn("text-center font-bold text-xs", d.unitRate <= 50 ? "text-emerald-700 font-black" : "text-rose-600")}>
+                        {d.unitRate.toFixed(1)}%
+                      </TableCell>
+                      <TableCell className={cn("text-center font-bold text-xs", d.twoItemsRate >= 30 ? "text-emerald-700 font-black" : "text-amber-600")}>
+                        {d.twoItemsRate.toFixed(1)}%
+                      </TableCell>
+                      <TableCell className="text-center font-bold text-indigo-600 text-xs">
+                        {d.threePlusRate.toFixed(1)}%
+                      </TableCell>
+                      <TableCell className="max-w-xs">
+                        {d.hasIsolatedOutlierImpact ? (
+                          <div className="space-y-1 py-1">
+                            <div className="flex items-center gap-1.5">
+                              <Badge className="bg-purple-600 text-white text-[9px] font-black uppercase">
+                                +{d.isolatedSalesPaDelta.toFixed(2)} PA ({d.isolatedOutliersCount} venda{d.isolatedOutliersCount > 1 ? "s" : ""})
+                              </Badge>
+                            </div>
+                            <p className="text-[10px] text-purple-950 font-medium leading-snug">
+                              {d.technicalExplanation}
+                            </p>
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 text-xs font-semibold">Produção Orgânica</span>
+                        )}
                       </TableCell>
                       <TableCell className="text-center">
                         <Badge className={cn("text-[9px] font-bold uppercase", DIAGNOSTIC_BADGES[d.diagnostic.type])}>
@@ -1453,11 +1524,15 @@ export function BasketQualityAnalysis({ data }: BasketQualityAnalysisProps) {
                         </div>
                         <div className="flex justify-between text-[10px] text-slate-600 font-bold">
                           <span>% 1 Item:</span>
-                          <span className="text-rose-600">{dow.metrics.unitRate.toFixed(1)}%</span>
+                          <span className={cn(dow.metrics.unitRate <= 50 ? "text-emerald-600" : "text-rose-600")}>
+                            {dow.metrics.unitRate.toFixed(1)}%
+                          </span>
                         </div>
                         <div className="flex justify-between text-[10px] text-slate-600 font-bold">
-                          <span>% 2+:</span>
-                          <span className="text-emerald-600">{dow.metrics.multiCouponsRate.toFixed(1)}%</span>
+                          <span>% 2 Itens:</span>
+                          <span className={cn(dow.metrics.twoItemsRate >= 30 ? "text-emerald-600 font-black" : "text-amber-600")}>
+                            {dow.metrics.twoItemsRate.toFixed(1)}%
+                          </span>
                         </div>
                         <div className="pt-2">
                           <Badge className={cn("text-[8px] font-bold uppercase w-full justify-center py-0.5", DIAGNOSTIC_BADGES[dow.metrics.diagnostic.type])}>
@@ -1501,32 +1576,36 @@ export function BasketQualityAnalysis({ data }: BasketQualityAnalysisProps) {
                   <Badge variant="outline" className="font-bold">{weekdayVsWeekend.weekdays.totalCupons} cupons</Badge>
                 </div>
 
-                <div className="grid grid-cols-3 gap-3 text-center">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-center">
                   <div className="bg-white p-3 rounded-xl border border-slate-200">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase">PA Real</span>
-                    <p className="text-2xl font-black text-slate-900">{weekdayVsWeekend.weekdays.paReal.toFixed(2)}</p>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase">PA Real</span>
+                    <p className="text-xl font-black text-slate-900">{weekdayVsWeekend.weekdays.paReal.toFixed(2)}</p>
                   </div>
                   <div className="bg-white p-3 rounded-xl border border-slate-200">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase">PA Sustentado</span>
-                    <p className="text-2xl font-black text-emerald-600">{weekdayVsWeekend.weekdays.paOperacional1to5.toFixed(2)}</p>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase">PA Sustentado</span>
+                    <p className="text-xl font-black text-emerald-600">{weekdayVsWeekend.weekdays.paOperacional1to5.toFixed(2)}</p>
                   </div>
                   <div className="bg-white p-3 rounded-xl border border-slate-200">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase">PA Mediano</span>
-                    <p className="text-2xl font-black text-indigo-600">{weekdayVsWeekend.weekdays.paMediano.toFixed(1)}</p>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase">% 1 Item</span>
+                    <p className={cn("text-xl font-black", weekdayVsWeekend.weekdays.unitRate <= 50 ? "text-emerald-600" : "text-rose-600")}>
+                      {weekdayVsWeekend.weekdays.unitRate.toFixed(1)}%
+                    </p>
+                  </div>
+                  <div className="bg-white p-3 rounded-xl border border-slate-200">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase">% 2 Itens</span>
+                    <p className={cn("text-xl font-black", weekdayVsWeekend.weekdays.twoItemsRate >= 30 ? "text-emerald-600" : "text-amber-600")}>
+                      {weekdayVsWeekend.weekdays.twoItemsRate.toFixed(1)}%
+                    </p>
                   </div>
                 </div>
 
                 <div className="space-y-2 pt-2 text-xs font-bold text-slate-700">
                   <div className="flex justify-between">
-                    <span>Taxa de Cupons 1 Item:</span>
-                    <span className="text-rose-600 font-black">{weekdayVsWeekend.weekdays.unitRate.toFixed(1)}%</span>
+                    <span>Taxa de Cesta Profunda (3+ Itens):</span>
+                    <span className="text-indigo-600 font-black">{weekdayVsWeekend.weekdays.threePlusRate.toFixed(1)}%</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Taxa de Venda Adicional (2+):</span>
-                    <span className="text-emerald-600 font-black">{weekdayVsWeekend.weekdays.multiCouponsRate.toFixed(1)}%</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Efeito Sorte (6+ Itens):</span>
+                    <span>Vendas Atípicas (6+ Itens):</span>
                     <span className="text-purple-600 font-black">{weekdayVsWeekend.weekdays.luckyRatio.toFixed(1)}% das peças</span>
                   </div>
                 </div>
@@ -1546,32 +1625,36 @@ export function BasketQualityAnalysis({ data }: BasketQualityAnalysisProps) {
                   <Badge variant="outline" className="font-bold border-amber-200">{weekdayVsWeekend.weekends.totalCupons} cupons</Badge>
                 </div>
 
-                <div className="grid grid-cols-3 gap-3 text-center">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-center">
                   <div className="bg-white p-3 rounded-xl border border-amber-100 shadow-sm">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase">PA Real</span>
-                    <p className="text-2xl font-black text-amber-950">{weekdayVsWeekend.weekends.paReal.toFixed(2)}</p>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase">PA Real</span>
+                    <p className="text-xl font-black text-amber-950">{weekdayVsWeekend.weekends.paReal.toFixed(2)}</p>
                   </div>
                   <div className="bg-white p-3 rounded-xl border border-amber-100 shadow-sm">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase">PA Sustentado</span>
-                    <p className="text-2xl font-black text-emerald-600">{weekdayVsWeekend.weekends.paOperacional1to5.toFixed(2)}</p>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase">PA Sustentado</span>
+                    <p className="text-xl font-black text-emerald-600">{weekdayVsWeekend.weekends.paOperacional1to5.toFixed(2)}</p>
                   </div>
                   <div className="bg-white p-3 rounded-xl border border-amber-100 shadow-sm">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase">PA Mediano</span>
-                    <p className="text-2xl font-black text-indigo-600">{weekdayVsWeekend.weekends.paMediano.toFixed(1)}</p>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase">% 1 Item</span>
+                    <p className={cn("text-xl font-black", weekdayVsWeekend.weekends.unitRate <= 50 ? "text-emerald-600" : "text-rose-600")}>
+                      {weekdayVsWeekend.weekends.unitRate.toFixed(1)}%
+                    </p>
+                  </div>
+                  <div className="bg-white p-3 rounded-xl border border-amber-100 shadow-sm">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase">% 2 Itens</span>
+                    <p className={cn("text-xl font-black", weekdayVsWeekend.weekends.twoItemsRate >= 30 ? "text-emerald-600" : "text-amber-600")}>
+                      {weekdayVsWeekend.weekends.twoItemsRate.toFixed(1)}%
+                    </p>
                   </div>
                 </div>
 
                 <div className="space-y-2 pt-2 text-xs font-bold text-slate-700">
                   <div className="flex justify-between">
-                    <span>Taxa de Cupons 1 Item:</span>
-                    <span className="text-rose-600 font-black">{weekdayVsWeekend.weekends.unitRate.toFixed(1)}%</span>
+                    <span>Taxa de Cesta Profunda (3+ Itens):</span>
+                    <span className="text-indigo-600 font-black">{weekdayVsWeekend.weekends.threePlusRate.toFixed(1)}%</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Taxa de Venda Adicional (2+):</span>
-                    <span className="text-emerald-600 font-black">{weekdayVsWeekend.weekends.multiCouponsRate.toFixed(1)}%</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Efeito Sorte (6+ Itens):</span>
+                    <span>Vendas Atípicas (6+ Itens):</span>
                     <span className="text-purple-600 font-black">{weekdayVsWeekend.weekends.luckyRatio.toFixed(1)}% das peças</span>
                   </div>
                 </div>

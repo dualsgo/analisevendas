@@ -136,6 +136,7 @@ const DIAGNOSTIC_BADGES = {
 
 export function BasketQualityAnalysis({ data }: BasketQualityAnalysisProps) {
   const [activeTab, setActiveTab] = useState<TabType>("OVERVIEW");
+  const [selectedCanal, setSelectedCanal] = useState<string>("ALL");
   
   // Filtros de Colaboradores
   const [colabSearch, setColabSearch] = useState("");
@@ -154,10 +155,21 @@ export function BasketQualityAnalysis({ data }: BasketQualityAnalysisProps) {
   const [simConvert1to2, setSimConvert1to2] = useState(20); // % de cupons 1 item para converter em 2
   const [simConvert2to3, setSimConvert2to3] = useState(15); // % de cupons 2 itens para converter em 3
 
+  // Filtragem dos dados pelo Canal Selecionado
+  const filteredByCanalData = useMemo(() => {
+    if (!selectedCanal || selectedCanal === "ALL") return data;
+    return data.filter(s => {
+      let c = s.canal || "LOJA_FISICA";
+      if (s.is_adicional || s.canal === "RETIRADA_ADICIONAL") c = "RETIRADA_ADICIONAL";
+      else if (s.canal === "RETIRADA_ONLINE" || s.is_retirada_online) c = "RETIRADA_ONLINE";
+      return c === selectedCanal;
+    });
+  }, [data, selectedCanal]);
+
   // Processamento do Relatório Completo Oficial
   const report = useMemo(() => {
-    return computeFullBasketQualityReport(data);
-  }, [data]);
+    return computeFullBasketQualityReport(filteredByCanalData);
+  }, [filteredByCanalData]);
 
   const { 
     overall, 
@@ -290,6 +302,56 @@ export function BasketQualityAnalysis({ data }: BasketQualityAnalysisProps) {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-20">
+      {/* 0. SELETOR DE CANAL DE VENDA */}
+      <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 bg-white rounded-2xl border border-slate-200 shadow-xs">
+        <div className="flex items-center gap-2">
+          <Filter className="w-4 h-4 text-indigo-600" />
+          <span className="text-xs font-black uppercase text-slate-800 tracking-tight">Canal de Venda:</span>
+          <Badge className="bg-indigo-600 text-white font-black text-xs px-3 py-0.5">
+            {selectedCanal === "ALL" ? "Todos os Canais Consolidados" :
+             selectedCanal === "LOJA_FISICA" ? "Loja Física (Balcão Presencial)" :
+             selectedCanal === "RETIRADA_ONLINE" ? "Retirada Online (Omni)" :
+             selectedCanal === "RETIRADA_ADICIONAL" ? "Venda Adicional na Retirada" :
+             selectedCanal === "DELIVERY" ? "Delivery" : selectedCanal}
+          </Badge>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Button
+            size="sm"
+            variant={selectedCanal === "ALL" ? "default" : "outline"}
+            onClick={() => setSelectedCanal("ALL")}
+            className={cn("h-8 text-xs font-bold rounded-xl", selectedCanal === "ALL" && "bg-indigo-600 text-white")}
+          >
+            Todos os Canais
+          </Button>
+          <Button
+            size="sm"
+            variant={selectedCanal === "LOJA_FISICA" ? "default" : "outline"}
+            onClick={() => setSelectedCanal("LOJA_FISICA")}
+            className={cn("h-8 text-xs font-bold rounded-xl", selectedCanal === "LOJA_FISICA" && "bg-indigo-600 text-white")}
+          >
+            🏪 Loja Física (Presencial)
+          </Button>
+          <Button
+            size="sm"
+            variant={selectedCanal === "RETIRADA_ONLINE" ? "default" : "outline"}
+            onClick={() => setSelectedCanal("RETIRADA_ONLINE")}
+            className={cn("h-8 text-xs font-bold rounded-xl", selectedCanal === "RETIRADA_ONLINE" && "bg-indigo-600 text-white")}
+          >
+            📦 Retirada Online
+          </Button>
+          <Button
+            size="sm"
+            variant={selectedCanal === "RETIRADA_ADICIONAL" ? "default" : "outline"}
+            onClick={() => setSelectedCanal("RETIRADA_ADICIONAL")}
+            className={cn("h-8 text-xs font-bold rounded-xl", selectedCanal === "RETIRADA_ADICIONAL" && "bg-indigo-600 text-white")}
+          >
+            ⚡ Venda Adicional
+          </Button>
+        </div>
+      </div>
+
       {/* 1. CABEÇALHO PEDAGÓGICO & DIAGNÓSTICO INTELIGENTE COM HEALTH SCORE */}
       <div className={cn(
         "rounded-3xl p-6 md:p-8 border-2 shadow-sm relative overflow-hidden transition-all",

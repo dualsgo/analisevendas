@@ -5,8 +5,6 @@ import JSZip from "jszip";
 import { 
   Upload, 
   Loader2, 
-  FileCheck, 
-  FileX, 
   Copy, 
   Download, 
   Check, 
@@ -14,22 +12,24 @@ import {
   Calendar, 
   Sparkles, 
   Target, 
-  TrendingUp, 
   Layers, 
-  Scale, 
-  Flame, 
   ShieldCheck, 
-  AlertCircle,
   HelpCircle,
   RotateCcw,
-  ExternalLink
+  Store,
+  Smartphone,
+  Zap,
+  Truck,
+  ArrowRightLeft,
+  Filter
 } from "lucide-react";
 import { DetailedSaleRow } from "@/lib/types";
 import { parseXml } from "@/lib/xml-parser";
 import { 
   computeHistoricalBasketAudit, 
   generateMarkdownReportForAI, 
-  HistoricalAuditReport 
+  HistoricalAuditReport,
+  CANAL_LABELS
 } from "@/lib/historical-basket-audit";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -52,7 +52,6 @@ import {
   Tooltip, 
   Legend, 
   CartesianGrid, 
-  Cell, 
   LineChart, 
   Line 
 } from "recharts";
@@ -64,16 +63,17 @@ interface HistoricalBasketAuditProps {
 
 export function HistoricalBasketAudit({ initialData }: HistoricalBasketAuditProps) {
   const [salesData, setSalesData] = useState<DetailedSaleRow[]>(initialData || []);
+  const [selectedCanal, setSelectedCanal] = useState<string>("ALL");
   const [isReading, setIsReading] = useState(false);
   const [progressPercent, setProgressPercent] = useState(0);
   const [progressStatus, setProgressStatus] = useState<string>("");
-  const [errorCount, setErrorCount] = useState(0);
+  const [, setErrorCount] = useState(0);
   const [copied, setCopied] = useState(false);
 
-  // Computa o relatório analítico
+  // Computa o relatório analítico baseado no canal selecionado
   const auditReport: HistoricalAuditReport = useMemo(() => {
-    return computeHistoricalBasketAudit(salesData);
-  }, [salesData]);
+    return computeHistoricalBasketAudit(salesData, selectedCanal);
+  }, [salesData, selectedCanal]);
 
   // Texto em Markdown para exportação
   const markdownReport = useMemo(() => {
@@ -173,7 +173,7 @@ export function HistoricalBasketAudit({ initialData }: HistoricalBasketAuditProp
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `relatorio-auditoria-cestas-${new Date().toISOString().slice(0, 10)}.md`;
+    link.download = `relatorio-auditoria-cestas-canal-${selectedCanal}-${new Date().toISOString().slice(0, 10)}.md`;
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -183,12 +183,12 @@ export function HistoricalBasketAudit({ initialData }: HistoricalBasketAuditProp
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `dados-auditoria-cestas-${new Date().toISOString().slice(0, 10)}.json`;
+    link.download = `dados-auditoria-cestas-canal-${selectedCanal}-${new Date().toISOString().slice(0, 10)}.json`;
     link.click();
     URL.revokeObjectURL(url);
   };
 
-  const hasData = auditReport.activeSalesCount > 0;
+  const hasData = auditReport.channelStats.length > 0;
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-24">
@@ -204,7 +204,7 @@ export function HistoricalBasketAudit({ initialData }: HistoricalBasketAuditProp
             </Badge>
             <span className="text-xs font-bold text-indigo-200 bg-white/10 backdrop-blur-md px-3 py-1 rounded-full border border-white/10 flex items-center gap-1.5">
               <Calendar className="w-3.5 h-3.5 text-indigo-400" />
-              Benchmark Histórico (Jan a Ago)
+              Benchmark Histórico por Canal (Jan a Ago)
             </span>
             <span className="text-xs font-bold text-emerald-300 bg-emerald-950/50 backdrop-blur-md px-3 py-1 rounded-full border border-emerald-500/30 flex items-center gap-1.5">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
@@ -216,10 +216,10 @@ export function HistoricalBasketAudit({ initialData }: HistoricalBasketAuditProp
             <div className="space-y-2 max-w-3xl">
               <h1 className="text-2xl md:text-3xl font-black tracking-tight flex items-center gap-2.5 text-white">
                 <Target className="w-7 h-7 text-indigo-400 shrink-0" />
-                Auditoria de Proporções de Cestas & Validação de Metas
+                Auditoria de Proporções de Cestas & Metas por Canal
               </h1>
               <p className="text-sm text-slate-300 leading-relaxed font-medium">
-                Carregue os arquivos de vendas de <strong>Janeiro a Agosto</strong> (ou meses avulsos) para checar se as proporções de <strong>1 item (≤ 50%)</strong>, <strong>2 itens (≥ 30%)</strong> e <strong>3+ itens</strong> condizem com a realidade histórica da loja. Em seguida, copie o relatório pronto para o Antigravity avaliar.
+                Compare as proporções de <strong>Loja Física (Presencial)</strong> vs <strong>Retiradas Online</strong> vs <strong>Delivery</strong> de Janeiro a Agosto para definir metas realistas e personalizadas por canal.
               </p>
             </div>
 
@@ -302,7 +302,7 @@ export function HistoricalBasketAudit({ initialData }: HistoricalBasketAuditProp
               </Button>
             </label>
 
-            {hasData && (
+            {salesData.length > 0 && (
               <Button 
                 variant="outline" 
                 size="sm" 
@@ -333,13 +333,140 @@ export function HistoricalBasketAudit({ initialData }: HistoricalBasketAuditProp
           <div className="space-y-1 max-w-md mx-auto">
             <h3 className="text-base font-black text-slate-800 uppercase tracking-tight">Nenhum dado carregado ainda</h3>
             <p className="text-xs text-slate-500 font-medium">
-              Selecione os arquivos ZIP de vendas dos meses desejados acima para iniciar o raio-x estatístico das cestas.
+              Selecione os arquivos ZIP de vendas dos meses desejados acima para iniciar o raio-x estatístico das cestas por canal.
             </p>
           </div>
         </Card>
       ) : (
         <>
-          {/* 3. GRID DE KPIS CONSOLIDADOS */}
+          {/* 3. COMPARATIVO GERAL ENTRE CANAIS DE VENDA */}
+          <Card className="ri-card p-6 space-y-6 bg-white border-slate-200">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+              <div>
+                <h3 className="text-base font-black text-slate-900 uppercase tracking-tight flex items-center gap-2">
+                  <Layers className="w-5 h-5 text-indigo-600" />
+                  Comparativo de PA e Proporções Entre Canais de Venda
+                </h3>
+                <p className="text-xs text-slate-500 font-medium">
+                  Veja como a dinâmica de cestas varia entre o atendimento presencial de balcão vs pedidos de retirada online e delivery.
+                </p>
+              </div>
+            </div>
+
+            {/* Tabela Comparativa de Canais */}
+            <div className="rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+              <Table>
+                <TableHeader className="bg-slate-50">
+                  <TableRow className="h-10">
+                    <TableHead className="text-[10px] font-black uppercase text-slate-600">Canal de Venda</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase text-slate-600 text-center">Cupons</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase text-slate-600 text-center">% Mix</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase text-slate-600 text-center">PA Real</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase text-emerald-700 text-center">PA Sustentado (1-5)</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase text-rose-700 text-center">% 1 Item</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase text-cyan-700 text-center">% 2 Itens</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase text-indigo-700 text-center">% 3+ Itens</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase text-slate-600 text-center">Ticket Médio</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase text-slate-600 text-center">Ação</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {auditReport.channelStats.map(c => {
+                    const isSelected = selectedCanal === c.canal;
+                    return (
+                      <TableRow 
+                        key={c.canal} 
+                        className={cn(
+                          "h-12 hover:bg-slate-50/80 transition-colors cursor-pointer",
+                          isSelected && "bg-indigo-50/60 font-bold"
+                        )}
+                        onClick={() => setSelectedCanal(c.canal)}
+                      >
+                        <TableCell className="font-black text-slate-900 text-xs">
+                          <div className="flex items-center gap-2">
+                            {c.canal === "LOJA_FISICA" ? <Store className="w-4 h-4 text-indigo-600" /> :
+                             c.canal === "RETIRADA_ONLINE" ? <Smartphone className="w-4 h-4 text-emerald-600" /> :
+                             c.canal === "RETIRADA_ADICIONAL" ? <Zap className="w-4 h-4 text-amber-500" /> :
+                             c.canal === "DELIVERY" ? <Truck className="w-4 h-4 text-rose-500" /> :
+                             <ArrowRightLeft className="w-4 h-4 text-slate-500" />}
+                            <span>{c.canalLabel}</span>
+                            {isSelected && <Badge className="bg-indigo-600 text-white text-[8px] font-black uppercase">Ativo</Badge>}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-center font-bold text-slate-700">{c.totalCupons.toLocaleString("pt-BR")}</TableCell>
+                        <TableCell className="text-center font-bold text-slate-500 text-xs">{c.cuponsRate.toFixed(1)}%</TableCell>
+                        <TableCell className="text-center font-black text-slate-900 text-sm">{c.paReal.toFixed(2)}</TableCell>
+                        <TableCell className="text-center font-black text-emerald-700 text-sm">{c.paSustentado1to5.toFixed(2)}</TableCell>
+                        <TableCell className={cn("text-center font-black text-xs", c.unitRate <= 50 ? "text-emerald-700" : "text-rose-600")}>
+                          {c.unitRate.toFixed(1)}%
+                        </TableCell>
+                        <TableCell className={cn("text-center font-black text-xs", c.twoItemsRate >= 30 ? "text-emerald-700" : "text-amber-600")}>
+                          {c.twoItemsRate.toFixed(1)}%
+                        </TableCell>
+                        <TableCell className="text-center font-black text-indigo-600 text-xs">
+                          {c.threePlusRate.toFixed(1)}%
+                        </TableCell>
+                        <TableCell className="text-center font-bold text-slate-700 text-xs">
+                          R$ {c.avgTicket.toFixed(2)}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Button
+                            size="sm"
+                            variant={isSelected ? "default" : "outline"}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedCanal(isSelected ? "ALL" : c.canal);
+                            }}
+                            className={cn("h-7 text-[10px] font-bold rounded-lg", isSelected ? "bg-indigo-600 text-white" : "text-slate-700")}
+                          >
+                            {isSelected ? "Ver Todos" : "Isolar Canal"}
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </Card>
+
+          {/* 4. BARRA DE SELEÇÃO DE CANAL ATIVO */}
+          <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-indigo-50/80 rounded-2xl border border-indigo-100">
+            <div className="flex items-center gap-2">
+              <Filter className="w-4 h-4 text-indigo-600" />
+              <span className="text-xs font-black uppercase text-indigo-950">Visualização Atual:</span>
+              <Badge className="bg-indigo-600 text-white font-black text-xs px-3 py-0.5">
+                {CANAL_LABELS[selectedCanal] || selectedCanal}
+              </Badge>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Button
+                size="sm"
+                variant={selectedCanal === "ALL" ? "default" : "outline"}
+                onClick={() => setSelectedCanal("ALL")}
+                className={cn("h-8 text-xs font-bold rounded-xl", selectedCanal === "ALL" && "bg-indigo-600 text-white")}
+              >
+                Todos Consolidados
+              </Button>
+              {auditReport.channelStats.map(c => (
+                <Button
+                  key={c.canal}
+                  size="sm"
+                  variant={selectedCanal === c.canal ? "default" : "outline"}
+                  onClick={() => setSelectedCanal(c.canal)}
+                  className={cn("h-8 text-xs font-bold rounded-xl", selectedCanal === c.canal && "bg-indigo-600 text-white")}
+                >
+                  {c.canal === "LOJA_FISICA" ? "🏪 Loja Física" :
+                   c.canal === "RETIRADA_ONLINE" ? "📦 Retirada Online" :
+                   c.canal === "RETIRADA_ADICIONAL" ? "⚡ Venda Adicional" :
+                   c.canal === "DELIVERY" ? "🛵 Delivery" : c.canalLabel}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          {/* 5. GRID DE KPIS DO CANAL SELECIONADO */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             <Card className="ri-card bg-white p-4 space-y-1 border-slate-200">
               <span className="text-[10px] font-black uppercase text-slate-400">Total Cupons</span>
@@ -352,7 +479,7 @@ export function HistoricalBasketAudit({ initialData }: HistoricalBasketAuditProp
             </Card>
 
             <Card className="ri-card bg-white p-4 space-y-1 border-slate-200">
-              <span className="text-[10px] font-black uppercase text-slate-400">PA Real Médio</span>
+              <span className="text-[10px] font-black uppercase text-slate-400">PA Real</span>
               <div className="flex items-baseline gap-1.5">
                 <p className="text-2xl font-black text-indigo-600 tracking-tight">{auditReport.overallPaReal.toFixed(2)}</p>
                 <span className="text-xs font-bold text-slate-400">pçs/cup</span>
@@ -414,13 +541,13 @@ export function HistoricalBasketAudit({ initialData }: HistoricalBasketAuditProp
             </Card>
           </div>
 
-          {/* 4. VEREDITO ESTATÍSTICO DE ADERÊNCIA À REALIDADE */}
+          {/* 6. VEREDITO ESTATÍSTICO DE ADERÊNCIA À REALIDADE */}
           <Card className="ri-card p-6 bg-gradient-to-r from-indigo-50/80 via-white to-purple-50/80 border-indigo-200 space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-indigo-100 pb-3">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-5 h-5 text-indigo-600" />
                 <h3 className="text-base font-black uppercase tracking-tight text-slate-900">
-                  Diagnóstico Estatístico: As metas estão dentro da realidade?
+                  Diagnóstico Estatístico: {CANAL_LABELS[selectedCanal] || selectedCanal}
                 </h3>
               </div>
               <div className="flex items-center gap-2">
@@ -472,13 +599,13 @@ export function HistoricalBasketAudit({ initialData }: HistoricalBasketAuditProp
             </div>
           </Card>
 
-          {/* 5. TABELA DE DISTRIBUIÇÃO GRANULAR (1 A 15+ ITENS) */}
+          {/* 7. TABELA DE DISTRIBUIÇÃO GRANULAR (1 A 15+ ITENS) */}
           <Card className="ri-card p-6 space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-4">
               <div>
                 <h3 className="text-base font-black text-slate-900 uppercase tracking-tight flex items-center gap-2">
                   <BarChart3 className="w-5 h-5 text-indigo-600" />
-                  Distribuição Granular de Peças por Cupom (1 a 15+ Itens)
+                  Distribuição Granular de Peças por Cupom — [{CANAL_LABELS[selectedCanal] || selectedCanal}]
                 </h3>
                 <p className="text-xs text-slate-500 font-medium">
                   Análise detalhada da participação exata de cada tamanho de cesta no fluxo e no faturamento.
@@ -557,13 +684,13 @@ export function HistoricalBasketAudit({ initialData }: HistoricalBasketAuditProp
             </div>
           </Card>
 
-          {/* 6. MATRIZ MÊS A MÊS (JANEIRO A AGOSTO) */}
+          {/* 8. MATRIZ MÊS A MÊS (JANEIRO A AGOSTO) */}
           <Card className="ri-card p-6 space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-4">
               <div>
                 <h3 className="text-base font-black text-slate-900 uppercase tracking-tight flex items-center gap-2">
                   <Calendar className="w-5 h-5 text-indigo-600" />
-                  Evolução Mensal das Cestas (Janeiro a Agosto)
+                  Evolução Mensal das Cestas — [{CANAL_LABELS[selectedCanal] || selectedCanal}]
                 </h3>
                 <p className="text-xs text-slate-500 font-medium">
                   Audite o comportamento de cada mês e veja em quais períodos a meta de 1 item (≤ 50%) e 2 itens (≥ 30%) foi atingida.
@@ -648,7 +775,7 @@ export function HistoricalBasketAudit({ initialData }: HistoricalBasketAuditProp
             </div>
           </Card>
 
-          {/* 7. PREVIEW DO RELATÓRIO PRONTO PARA A IA */}
+          {/* 9. PREVIEW DO RELATÓRIO PRONTO PARA A IA */}
           <Card className="ri-card p-6 space-y-4 bg-slate-900 text-slate-100 border-slate-800">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
               <div className="flex items-center gap-2">

@@ -38,6 +38,26 @@ export interface MonthlyBasketStat {
   outlierPiecesCount: number;
 }
 
+export interface ChannelBasketStat {
+  canal: string;
+  canalLabel: string;
+  totalCupons: number;
+  cuponsRate: number;
+  couponsRate: number;
+  totalItens: number;
+  piecesRate: number;
+  totalVenda: number;
+  revenueRate: number;
+  paReal: number;
+  paSustentado1to5: number;
+  deltaOutliers: number;
+  unitRate: number; // % 1 item
+  twoItemsRate: number; // % 2 itens
+  threePlusRate: number; // % 3+ itens
+  avgTicket: number;
+  outlierCouponsCount: number;
+}
+
 export interface RealityCheckBenchmark {
   rule1ItemTarget: number; // 50%
   rule2ItemsTarget: number; // 30%
@@ -73,12 +93,14 @@ export interface HistoricalAuditReport {
   totalRevenue: number;
   overallPaReal: number;
   overallPaSustentado: number;
+  selectedCanal: string;
   dateRange: {
     startDate: string;
     endDate: string;
     totalDays: number;
     monthsCount: number;
   };
+  channelStats: ChannelBasketStat[];
   granularBuckets: GranularBucketStat[];
   monthlyStats: MonthlyBasketStat[];
   benchmark: RealityCheckBenchmark;
@@ -87,17 +109,106 @@ export interface HistoricalAuditReport {
     date: string;
     time: string;
     vendedor: string;
+    canal: string;
     itens_qtd: number;
     vNF: number;
   }>;
 }
 
+export const CANAL_LABELS: Record<string, string> = {
+  ALL: "Todos os Canais Consolidados",
+  LOJA_FISICA: "Loja Física (Balcão Presencial)",
+  RETIRADA_ONLINE: "Retirada Online (Omni / Site)",
+  RETIRADA_ADICIONAL: "Venda Adicional (Na Retirada)",
+  DELIVERY: "Delivery / iFood",
+  TROCA: "Trocas"
+};
+
 /**
  * Processa a base de vendas completa (ex: Jan a Ago) e gera auditoria profunda da proporção de itens
  */
-export function computeHistoricalBasketAudit(rows: DetailedSaleRow[]): HistoricalAuditReport {
-  const activeSales = rows.filter(r => !r.is_cancelada && r.tpNF === 1);
+export function computeHistoricalBasketAudit(
+  rows: DetailedSaleRow[], 
+  selectedCanal = "ALL"
+): HistoricalAuditReport {
+  const allActiveSales = rows.filter(r => !r.is_cancelada && r.tpNF === 1);
   const canceledCount = rows.filter(r => r.is_cancelada || r.tpNF !== 1).length;
+
+  // 1. Estatísticas Comparativas por Canal (com base em todas as vendas ativas)
+  const channelGroupMap: Record<string, DetailedSaleRow[]> = {};
+  allActiveSales.forEach(s => {
+    let c = s.canal || "LOJA_FISICA";
+    if (s.is_adicional || s.canal === "RETIRADA_ADICIONAL") c = "RETIRADA_ADICIONAL";
+    else if (s.canal === "RETIRADA_ONLINE" || s.is_retirada_online) c = "RETIRADA_ONLINE";
+    
+    if (!channelGroupMap[c]) channelGroupMap[c] = [];
+    channelGroupMap[c].push(s);
+  });
+
+  const totalAllCupons = allActiveSales.length;
+  const totalAllPieces = allActiveSales.reduce((acc, s) => acc + Math.max(1, parseInt(s.itens_qtd || "1")), 0);
+  const totalAllRevenue = allActiveSales.reduce((acc, s) => acc + parseFloat(s.vNF || "0"), 0);
+
+  const channelStats: ChannelBasketStat[] = Object.entries(channelGroupMap).map(([cKey, cSales]) => {
+    const cCupons = cSales.length;
+    let cPieces = 0;
+    let cRevenue = 0;
+    let cPieces1to5 = 0;
+    let cCupons1to5 = 0;
+    let cUnitCount = 0;
+    let cTwoItemsCount = 0;
+    let cThreePlusCount = 0;
+    let cOutliersCount = 0;
+
+    cSales.forEach(s => {
+      const qtd = Math.max(1, parseInt(s.itens_qtd || "1"));
+      const vNF = parseFloat(s.vNF || "0");
+      cPieces += qtd;
+      cRevenue += vNF;
+
+      if (qtd <= 5) {
+        cPieces1to5 += qtd;
+        cCupons1to5 += 1;
+      }
+      if (qtd === 1) cUnitCount++;
+      else if (qtd === 2) cTwoItemsCount++;
+      else cThreePlusCount++;
+
+      if (qtd >= 6) cOutliersCount++;
+    });
+
+    const paReal = cCupons > 0 ? cPieces / cCupons : 0;
+    const paSustentado1to5 = cCupons1to5 > 0 ? cPieces1to5 / cCupons1to5 : paReal;
+
+    return {
+      canal: cKey,
+      canalLabel: CANAL_LABELS[cKey] || cKey,
+      totalCupons: cCupons,
+      cuponsRate: totalAllCupons > 0 ? (cCupons / totalAllCupons) * 100 : 0,
+      couponsRate: totalAllCupons > 0 ? (cCupons / totalAllCupons) * 100 : 0,
+      totalItens: cPieces,
+      piecesRate: totalAllPieces > 0 ? (cPieces / totalAllPieces) * 100 : 0,
+      totalVenda: cRevenue,
+      revenueRate: totalAllRevenue > 0 ? (cRevenue / totalAllRevenue) * 100 : 0,
+      paReal,
+      paSustentado1to5,
+      deltaOutliers: Math.max(0, paReal - paSustentado1to5),
+      unitRate: cCupons > 0 ? (cUnitCount / cCupons) * 100 : 0,
+      twoItemsRate: cCupons > 0 ? (cTwoItemsCount / cCupons) * 100 : 0,
+      threePlusRate: cCupons > 0 ? (cThreePlusCount / cCupons) * 100 : 0,
+      avgTicket: cCupons > 0 ? cRevenue / cCupons : 0,
+      outlierCouponsCount: cOutliersCount
+    };
+  }).sort((a, b) => b.totalCupons - a.totalCupons);
+
+  // 2. Filtra vendas de acordo com o canal selecionado (ou todas)
+  const activeSales = allActiveSales.filter(s => {
+    if (!selectedCanal || selectedCanal === "ALL") return true;
+    let c = s.canal || "LOJA_FISICA";
+    if (s.is_adicional || s.canal === "RETIRADA_ADICIONAL") c = "RETIRADA_ADICIONAL";
+    else if (s.canal === "RETIRADA_ONLINE" || s.is_retirada_online) c = "RETIRADA_ONLINE";
+    return c === selectedCanal;
+  });
 
   if (activeSales.length === 0) {
     return {
@@ -108,7 +219,9 @@ export function computeHistoricalBasketAudit(rows: DetailedSaleRow[]): Historica
       totalRevenue: 0,
       overallPaReal: 0,
       overallPaSustentado: 0,
+      selectedCanal,
       dateRange: { startDate: "", endDate: "", totalDays: 0, monthsCount: 0 },
+      channelStats,
       granularBuckets: [],
       monthlyStats: [],
       benchmark: {
@@ -132,7 +245,7 @@ export function computeHistoricalBasketAudit(rows: DetailedSaleRow[]): Historica
         realityVerdict2Items: "REALISTA",
         recommendedUnitTarget: 50,
         recommendedTwoItemsTarget: 30,
-        summaryText: "Nenhuma venda ativa encontrada para análise."
+        summaryText: "Nenhuma venda encontrada para o canal selecionado."
       },
       topOutlierSales: []
     };
@@ -175,6 +288,7 @@ export function computeHistoricalBasketAudit(rows: DetailedSaleRow[]): Historica
     date: string;
     time: string;
     vendedor: string;
+    canal: string;
     itens_qtd: number;
     vNF: number;
   }> = [];
@@ -246,6 +360,7 @@ export function computeHistoricalBasketAudit(rows: DetailedSaleRow[]): Historica
         date: dEmi,
         time: hEmi,
         vendedor: sale.vendedor || "Não informado",
+        canal: sale.canal || "LOJA_FISICA",
         itens_qtd: qtd,
         vNF
       });
@@ -341,8 +456,8 @@ export function computeHistoricalBasketAudit(rows: DetailedSaleRow[]): Historica
     };
   });
 
-  // Calculate Reality Check Benchmark across all months
-  const validMonths = monthlyStats.filter(m => m.totalCupons >= 30);
+  // Reality Check Benchmark across valid months
+  const validMonths = monthlyStats.filter(m => m.totalCupons >= 20);
   const monthsAnalyzed = validMonths.length > 0 ? validMonths : monthlyStats;
 
   const unitRates = monthsAnalyzed.map(m => m.unitRate);
@@ -386,16 +501,18 @@ export function computeHistoricalBasketAudit(rows: DetailedSaleRow[]): Historica
   else if (pctMonthsHitting2ItemsRule >= 25 || avgTwoItemsRate >= 25) realityVerdict2Items = "DESAFIADOR";
   else realityVerdict2Items = "MUITO_ALTO";
 
-  const recommendedUnitTarget = Math.min(55, Math.max(45, Math.round(avgUnitRate * 0.95)));
+  const recommendedUnitTarget = Math.min(56, Math.max(45, Math.round(avgUnitRate * 0.96)));
   const recommendedTwoItemsTarget = Math.max(25, Math.min(32, Math.round(avgTwoItemsRate * 1.05)));
 
   let summaryText = "";
+  const canalName = CANAL_LABELS[selectedCanal] || selectedCanal;
+
   if (realityVerdict1Item === "REALISTA" && realityVerdict2Items === "REALISTA") {
-    summaryText = `As metas estipuladas (1 item ≤ 50% e 2 itens ≥ 30%) são 100% aderentes à realidade operacional da sua loja, correspondendo ao padrão atingido nos meses de maior produtividade.`;
+    summaryText = `Para o canal ${canalName}, as metas (1 item ≤ 50% e 2 itens ≥ 30%) são 100% aderentes à realidade operacional da sua loja.`;
   } else if (realityVerdict2Items === "MUITO_ALTO") {
-    summaryText = `A meta de 1 item (≤ 50%) é alcançável (média histórica: ${avgUnitRate.toFixed(1)}%), porém a meta de 2 itens (≥ 30%) está muito acima da média histórica real (${avgTwoItemsRate.toFixed(1)}%). Recomenda-se um piso gradual de ${recommendedTwoItemsTarget}%.`;
+    summaryText = `No canal ${canalName}, a média histórica de 1 item é de ${avgUnitRate.toFixed(1)}% (Meta: ≤ 50%), enquanto a de 2 itens é de ${avgTwoItemsRate.toFixed(1)}% (Meta: ≥ 30%). O padrão empírico sugere teto de ${recommendedUnitTarget}% para 1 item e piso de ${recommendedTwoItemsTarget}% para 2 itens.`;
   } else {
-    summaryText = `A média histórica de 1 item é de ${avgUnitRate.toFixed(1)}% (Meta: ≤50%) e a de 2 itens é de ${avgTwoItemsRate.toFixed(1)}% (Meta: ≥30%). A proporção de 3+ itens responde por ${avgThreePlusRate.toFixed(1)}% dos cupons.`;
+    summaryText = `No canal ${canalName}, a média de 1 item é ${avgUnitRate.toFixed(1)}% e a de 2 itens é ${avgTwoItemsRate.toFixed(1)}%. A profundidade de 3+ itens responde por ${avgThreePlusRate.toFixed(1)}% dos cupons.`;
   }
 
   // Date range
@@ -411,12 +528,14 @@ export function computeHistoricalBasketAudit(rows: DetailedSaleRow[]): Historica
     totalRevenue,
     overallPaReal,
     overallPaSustentado,
+    selectedCanal,
     dateRange: {
       startDate,
       endDate,
       totalDays: sortedDates.length,
       monthsCount: sortedMonthKeys.length
     },
+    channelStats,
     granularBuckets,
     monthlyStats,
     benchmark: {
@@ -450,25 +569,40 @@ export function computeHistoricalBasketAudit(rows: DetailedSaleRow[]): Historica
  * Gera o texto do relatório completo em Markdown estruturado para o Antigravity / Gemini analisar
  */
 export function generateMarkdownReportForAI(audit: HistoricalAuditReport): string {
-  const { dateRange, benchmark, granularBuckets, monthlyStats } = audit;
+  const { dateRange, benchmark, granularBuckets, monthlyStats, channelStats, selectedCanal } = audit;
+  const canalName = CANAL_LABELS[selectedCanal] || selectedCanal;
 
-  let md = `# RELATÓRIO DE AUDITORIA HISTÓRICA DE CESTAS (JAN A AGO)
+  let md = `# RELATÓRIO DE AUDITORIA HISTÓRICA DE CESTAS POR CANAL (JAN A AGO)
 **Data de Emissão:** ${new Date().toLocaleDateString("pt-BR")} às ${new Date().toLocaleTimeString("pt-BR")}
+**Canal em Análise:** ${canalName}
 **Período Analisado:** ${dateRange.startDate ? dateRange.startDate.split("-").reverse().join("/") : "-"} até ${dateRange.endDate ? dateRange.endDate.split("-").reverse().join("/") : "-"} (${dateRange.monthsCount} meses / ${dateRange.totalDays} dias de venda)
 
 ---
 
-## 1. RESUMO EXECUTIVO CONSOLIDADO
-- **Total de Cupons Ativos (Atendimentos):** ${audit.activeSalesCount.toLocaleString("pt-BR")}
+## 1. RESUMO EXECUTIVO DO CANAL SELECIONADO
+- **Total de Cupons Ativos:** ${audit.activeSalesCount.toLocaleString("pt-BR")}
 - **Total de Peças Vendidas:** ${audit.totalPieces.toLocaleString("pt-BR")}
 - **Faturamento Total Líquido:** R$ ${audit.totalRevenue.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-- **PA Real Geral da Loja:** ${audit.overallPaReal.toFixed(2)} peças/cupom
+- **PA Real Oficial:** ${audit.overallPaReal.toFixed(2)} peças/cupom
 - **PA Sustentado (Base 1 a 5 peças):** ${audit.overallPaSustentado.toFixed(2)} peças/cupom
-- **Distorção Global por Vendas Atípicas (6+ peças):** +${(audit.overallPaReal - audit.overallPaSustentado).toFixed(2)} PA
+- **Distorção por Vendas Atípicas (6+ peças):** +${(audit.overallPaReal - audit.overallPaSustentado).toFixed(2)} PA
 
 ---
 
-## 2. DISTRIBUIÇÃO GRANULAR DE ITENS POR CUPOM (1 A 15+ ITENS)
+## 2. COMPARATIVO GERAL ENTRE CANAIS DE VENDA
+
+| Canal de Venda | Cupons | % Cupons | PA Real | PA Sustentado (1-5) | % 1 Item | % 2 Itens | % 3+ Itens | Faturamento (R$) | Ticket Médio |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+`;
+
+  channelStats.forEach(c => {
+    md += `| **${c.canalLabel}** | ${c.totalCupons.toLocaleString("pt-BR")} | ${c.cuponsRate.toFixed(1)}% | **${c.paReal.toFixed(2)}** | ${c.paSustentado1to5.toFixed(2)} | **${c.unitRate.toFixed(1)}%** | **${c.twoItemsRate.toFixed(1)}%** | ${c.threePlusRate.toFixed(1)}% | R$ ${c.totalVenda.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} | R$ ${c.avgTicket.toFixed(2)} |\n`;
+  });
+
+  md += `
+---
+
+## 3. DISTRIBUIÇÃO GRANULAR DE ITENS POR CUPOM (1 A 15+ ITENS) — [${canalName}]
 
 | Faixa de Peças | Cupons | % Cupons | Peças | % Peças | Faturamento (R$) | % Receita | Ticket Médio | Contribuição no PA |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -481,7 +615,7 @@ export function generateMarkdownReportForAI(audit: HistoricalAuditReport): strin
   md += `
 ---
 
-## 3. MATRIZ HISTÓRICA MÊS A MÊS (JANEIRO A AGOSTO)
+## 4. MATRIZ HISTÓRICA MÊS A MÊS (JANEIRO A AGOSTO) — [${canalName}]
 
 | Mês | Cupons | PA Real | PA Sustentado (1-5) | % 1 Item (Meta ≤50%) | % 2 Itens (Meta ≥30%) | % 3 Itens | % 4-5 Itens | % 6+ Itens | Vendas Atípicas (6+) |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -496,7 +630,7 @@ export function generateMarkdownReportForAI(audit: HistoricalAuditReport): strin
   md += `
 ---
 
-## 4. AUDITORIA ESTATÍSTICA DAS REGRAS (REALITY CHECK)
+## 5. AUDITORIA ESTATÍSTICA DAS REGRAS (REALITY CHECK) — [${canalName}]
 
 ### Regra de 1 Item (Monopeça) — Meta Definida: ≤ 50.0%
 - **Média Histórica Real:** ${benchmark.avgUnitRate.toFixed(2)}%
@@ -517,10 +651,10 @@ export function generateMarkdownReportForAI(audit: HistoricalAuditReport): strin
 
 ---
 
-## 5. CONCLUSÃO TÉCNICA E RECOMENDAÇÕES PARA O ANTIGRAVITY
+## 6. CONCLUSÃO TÉCNICA E RECOMENDAÇÕES PARA O ANTIGRAVITY
 ${benchmark.summaryText}
 
-**Sugestão de Parametrização Baseada no Histórico Real:**
+**Sugestão de Parametrização Baseada no Histórico Real do Canal:**
 - Meta Teto de 1 Item: **≤ ${benchmark.recommendedUnitTarget}%**
 - Meta Piso de 2 Itens: **≥ ${benchmark.recommendedTwoItemsTarget}%**
 - Saldo Mínimo de 3+ Itens: **≥ ${(100 - benchmark.recommendedUnitTarget - benchmark.recommendedTwoItemsTarget)}%**

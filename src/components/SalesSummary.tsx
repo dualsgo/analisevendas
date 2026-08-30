@@ -229,7 +229,7 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
     { id: "performance", label: "Performance Consolidada", icon: ClipboardList, category: "Resultados", color: "text-emerald-600 font-black" },
     { id: "diario", label: "Performance Diária", icon: CalendarIcon, category: "Resultados" },
     { id: "semanal", label: "Análise Semanal (Expurgo)", icon: CalendarIcon, category: "Resultados", color: "text-blue-500 font-black" },
-    { id: "qualidade_pa", label: "Qualidade & Sustentação do PA", icon: Target, category: "Resultados", color: "text-indigo-600 font-black" },
+    { id: "qualidade_pa", label: "PA Sustentação & Produtividade", icon: Target, category: "Resultados", color: "text-indigo-600 font-black" },
     { id: "conversao", label: "Auditoria de Conversão", icon: UserCheck, category: "Resultados", color: "text-teal-600 font-bold" },
 
     // --- PESSOAS & TALENTOS ---

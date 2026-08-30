@@ -308,7 +308,14 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
     let canalFinal = isTroca ? "TROCA" : "LOJA_FISICA";
     let isRetiradaOnlineFinal = false;
 
-        if (!isTroca && isPotencialDigital) {
+    const valorTotalProds = itemsList.reduce((acc, it) => acc + it.vProd, 0);
+    const descontoTotal = itemsList.reduce((acc, it) => acc + it.vDesc, 0);
+    const percentualDesconto = valorTotalProds > 0 ? (descontoTotal / valorTotalProds) : 0;
+
+    let tipoDescontoFinal = "PADRÃO";
+    let statusAuditoriaFinal = temSuspeitaPrecoErrado ? "SUSPEITA DE AJUSTE MANUAL" : (descontoTotal > 0 ? "DESCONTO APLICADO" : "SEM DESCONTO");
+
+    if (!isTroca && isPotencialDigital) {
       // Regra Universal: Retirada Online (OMNI) exige nome em minúsculas/TitleCase vindo da integração web.
       // Nomes em MAIÚSCULAS PURAS ou cadastros manuais do PDV não são tratados como retirada online.
       const hasLowercaseLetters = Boolean(nome_dest && /[a-z]/.test(nome_dest.trim()));
@@ -327,16 +334,9 @@ export function parseXml(xmlString: string): DetailedSaleRow | null {
       }
     }
 
-    const valorTotalProds = itemsList.reduce((acc, it) => acc + it.vProd, 0);
-    const descontoTotal = itemsList.reduce((acc, it) => acc + it.vDesc, 0);
-    const percentualDesconto = valorTotalProds > 0 ? (descontoTotal / valorTotalProds) : 0;
-
     // --- LÓGICA DE CAMPANHA SLP (9,99) ---
     const hasSlpDiscount = itemsList.some(it => SLP_CODES.includes(it.cProd) && it.vDesc > 0);
     const hasNonSlpDiscount = itemsList.some(it => !SLP_CODES.includes(it.cProd) && it.vDesc > 0);
-
-    let tipoDescontoFinal = "PADRÃO";
-    let statusAuditoriaFinal = temSuspeitaPrecoErrado ? "SUSPEITA DE AJUSTE MANUAL" : (descontoTotal > 0 ? "DESCONTO APLICADO" : "SEM DESCONTO");
 
     let isDescontoEstrategico = false;
     if (hasSlpDiscount) {

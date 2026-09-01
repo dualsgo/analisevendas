@@ -2,7 +2,8 @@ import { DetailedSaleRow, VinculoTroca } from "@/lib/types";
 import { EscalaStore, getPosicaoForColaboradorAndDate, PositionGoalConfig, DEFAULT_POSITION_METAS } from "@/lib/escalaProcessor";
 import agingDataRaw from "@/data/aging-campaign.json";
 
-export const SLP_CODES = [
+export const SLP_DDC_CODES = ['5149138']; // Campanha Atual (SLP DDC)
+export const SLP_OUTROS_CODES = [
   '5135238', '5135269', '5135270', '5135273', '5146458', '5146469', '5146470', '5146471', 
   '5146472', '5146473', '5146474', '5146475', '5146476', '5146501', '5146504', '5146505', 
   '5141894', '5141895', '5141896', '5141897', '5141898', '5141899', '5141900', '5141902', 
@@ -11,6 +12,7 @@ export const SLP_CODES = [
   '5140469', '5140475', '5140476', '5140477', '5140478', '5140479', '5146477', '5146478', 
   '5146502', '5146503'
 ];
+export const SLP_CODES = [...SLP_DDC_CODES, ...SLP_OUTROS_CODES];
 
 export const SOCIAL_CODES = [
   '5057181', '5055875', '5135601', '5129270', '5129271', '5129247', '5129262', '5122642', 
@@ -47,10 +49,15 @@ export interface CollaboratorExtendedStats {
   atingimentoPonderadoPct: number;
   saldoPecas: number;
   
-  // Campanhas
+  // Campanhas Segregadas: SLP DDC (Campanha Atual) e SLP (Demais)
+  slpDdcQty: number;
+  slpDdcValor: number;
+  slpDdcPenetracaoRate: number;
   slpQty: number;
   slpValor: number;
   slpPenetracaoRate: number;
+  slpTotalQty: number;
+  slpTotalValor: number;
   socialQty: number;
   socialValor: number;
   socialPenetracaoRate: number;
@@ -242,7 +249,11 @@ export function computeTeamDispersionAnalysis(
     const atingimentoPonderadoPct = metaPonderadaPA > 0 ? (pa / metaPonderadaPA) * 100 : 0;
     const saldoPecas = itensTotal - totalPecasEsperadas;
 
-    // Campanhas
+    // Campanhas Segregadas
+    let slpDdcQty = 0;
+    let slpDdcValor = 0;
+    let slpDdcCupons = 0;
+
     let slpQty = 0;
     let slpValor = 0;
     let slpCupons = 0;
@@ -259,6 +270,7 @@ export function computeTeamDispersionAnalysis(
     let adicionaisCount = 0;
 
     sales.forEach(s => {
+      let hasSlpDdc = false;
       let hasSlp = false;
       let hasSocial = false;
       let hasAging = false;
@@ -271,7 +283,11 @@ export function computeTeamDispersionAnalysis(
         const q = item.qCom || 0;
         const v = (item.vProd || 0) - (item.vDesc || 0);
 
-        if (SLP_CODES.includes(c)) {
+        if (SLP_DDC_CODES.includes(c)) {
+          slpDdcQty += q;
+          slpDdcValor += v;
+          hasSlpDdc = true;
+        } else if (SLP_OUTROS_CODES.includes(c)) {
           slpQty += q;
           slpValor += v;
           hasSlp = true;
@@ -288,11 +304,13 @@ export function computeTeamDispersionAnalysis(
         }
       });
 
+      if (hasSlpDdc) slpDdcCupons++;
       if (hasSlp) slpCupons++;
       if (hasSocial) socialCupons++;
       if (hasAging) agingCupons++;
     });
 
+    const slpDdcPenetracaoRate = cuponsTotal > 0 ? (slpDdcCupons / cuponsTotal) * 100 : 0;
     const slpPenetracaoRate = cuponsTotal > 0 ? (slpCupons / cuponsTotal) * 100 : 0;
     const socialPenetracaoRate = cuponsTotal > 0 ? (socialCupons / cuponsTotal) * 100 : 0;
     const agingPenetracaoRate = cuponsTotal > 0 ? (agingCupons / cuponsTotal) * 100 : 0;
@@ -325,9 +343,14 @@ export function computeTeamDispersionAnalysis(
       metaPonderadaPA,
       atingimentoPonderadoPct,
       saldoPecas,
+      slpDdcQty,
+      slpDdcValor,
+      slpDdcPenetracaoRate,
       slpQty,
       slpValor,
       slpPenetracaoRate,
+      slpTotalQty: slpDdcQty + slpQty,
+      slpTotalValor: slpDdcValor + slpValor,
       socialQty,
       socialValor,
       socialPenetracaoRate,

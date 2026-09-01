@@ -211,7 +211,17 @@ function getAutoPositionKey(v: any) {
 
 
 
-const SLP_CODES = ['5135238', '5135269', '5135270', '5135273', '5146458', '5146469', '5146470', '5146471', '5146472', '5146473', '5146474', '5146475', '5146476', '5146501', '5146504', '5146505', '5141894', '5141895', '5141896', '5141897', '5141898', '5141899', '5141900', '5141902', '5141903', '5141904', '5141905', '5141907', '5141909', '5141910', '5141911', '5141912', '5141913', '5141914', '5141915', '5141916', '5141917', '5141920', '5141949', '5141978', '5140469', '5140475', '5140476', '5140477', '5140478', '5140479', '5146477', '5146478', '5146502', '5146503'];
+const SLP_DDC_CODES = ['5149138']; // Campanha Atual (SLP DDC)
+const SLP_OUTROS_CODES = [
+  '5135238', '5135269', '5135270', '5135273', '5146458', '5146469', '5146470', '5146471', 
+  '5146472', '5146473', '5146474', '5146475', '5146476', '5146501', '5146504', '5146505', 
+  '5141894', '5141895', '5141896', '5141897', '5141898', '5141899', '5141900', '5141902', 
+  '5141903', '5141904', '5141905', '5141907', '5141909', '5141910', '5141911', '5141912', 
+  '5141913', '5141914', '5141915', '5141916', '5141917', '5141920', '5141949', '5141978', 
+  '5140469', '5140475', '5140476', '5140477', '5140478', '5140479', '5146477', '5146478', 
+  '5146502', '5146503'
+];
+const SLP_CODES = [...SLP_DDC_CODES, ...SLP_OUTROS_CODES];
 const SOCIAL_CODES = ['5057181', '5055875', '5135601', '5129270', '5129271', '5129247', '5129262', '5122642', '5122641', '5135612', '5122639', '5122638', '5133676', '5113644', '5113641', '5113642', '5113643', '5129267', '5129255', '5143422', '5139528', '5143423', '5145833', '5139527', '5147797', '5147796', '5145834', '5079753', '5079752', '5106673', '5106671', '5106674', '5106672', '5088519', '5097336', '5097335', '5011918', '5136558'];
 const BARALHO_CODES = ['5147797', '5147796', '5149977', '5149978'];
 const SACOLA_CODES = ['5133676', '5113644'];
@@ -316,6 +326,7 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
         filtered: { venda: 0, cupons: 0, itens: 0, ident: 0 },
         pickupsAtendidas: 0,
         adicionaisFeitos: 0,
+        slpDdcQty: 0,
         slpQty: 0,
         baralhoQty: 0,
         sacolaQty: 0
@@ -350,7 +361,9 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
       }
 
       s.itens.forEach(it => {
-        if (SLP_CODES.includes(it.cProd)) vendors[v].slpQty += it.qCom;
+        if (SLP_DDC_CODES.includes(it.cProd)) vendors[v].slpDdcQty += it.qCom;
+        else if (SLP_OUTROS_CODES.includes(it.cProd)) vendors[v].slpQty += it.qCom;
+
         if (SOCIAL_CODES.includes(it.cProd) || isBaralho(it) || isSacola(it)) {
           if (isBaralho(it)) vendors[v].baralhoQty += it.qCom;
           else if (isSacola(it)) vendors[v].sacolaQty += it.qCom;
@@ -553,6 +566,8 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
           case 'cupons': aVal = a.current.cupons; bVal = b.current.cupons; break;
           case 'itens': aVal = a.current.itens; bVal = b.current.itens; break;
           case 'conv': aVal = a.metrics.conv; bVal = b.metrics.conv; break;
+          case 'slpDdc': aVal = a.slpDdcQty; bVal = b.slpDdcQty; break;
+          case 'slp': aVal = a.slpQty; bVal = b.slpQty; break;
           case 'pickups': aVal = a.pickupsAtendidas; bVal = b.pickupsAtendidas; break;
           case 'adicionais': aVal = a.adicionaisFeitos; bVal = b.adicionaisFeitos; break;
           default: aVal = a.current.venda; bVal = b.current.venda;
@@ -572,10 +587,11 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
       pickups: acc.pickups + v.pickupsAtendidas,
       adicionais: acc.adicionais + v.adicionaisFeitos,
       ident: acc.ident + v.filtered.ident,
+      slpDdc: acc.slpDdc + v.slpDdcQty,
       slp: acc.slp + v.slpQty,
       baralhos: acc.baralhos + v.baralhoQty,
       sacolas: acc.sacolas + v.sacolaQty
-    }), { venda: 0, cupons: 0, itens: 0, pickups: 0, adicionais: 0, ident: 0, slp: 0, baralhos: 0, sacolas: 0 });
+    }), { venda: 0, cupons: 0, itens: 0, pickups: 0, adicionais: 0, ident: 0, slpDdc: 0, slp: 0, baralhos: 0, sacolas: 0 });
 
     return {
       ...sum,
@@ -875,7 +891,8 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
                   <SortableHead label="Ticket Méd. (Meta)" sortKey="tkm" currentSort={sortConfig} onSort={setSortConfig} className="text-center align-middle print:w-[9%] bg-slate-900" />
                   <SortableHead label="Preço Méd. (Meta)" sortKey="pm" currentSort={sortConfig} onSort={setSortConfig} className="text-center align-middle print:w-[8%] bg-slate-900" />
                   <SortableHead label="CPF / Cadastros (Meta)" sortKey="ident" currentSort={sortConfig} onSort={setSortConfig} className="text-center align-middle print:w-[7%] bg-slate-900" />
-                  <TableHead className="text-white print:text-black font-black uppercase text-[9px] text-center align-middle print:w-[4%] bg-slate-900">SLP</TableHead>
+                  <SortableHead label="SLP DDC" sortKey="slpDdc" currentSort={sortConfig} onSort={setSortConfig} className="text-center align-middle print:w-[4%] bg-slate-900" />
+                  <SortableHead label="SLP" sortKey="slp" currentSort={sortConfig} onSort={setSortConfig} className="text-center align-middle print:w-[4%] bg-slate-900" />
                   <TableHead className="text-white print:text-black font-black uppercase text-[9px] text-center align-middle print:w-[4%] bg-slate-900">BAR</TableHead>
                   <TableHead className="text-white print:text-black font-black uppercase text-[9px] text-center align-middle print:w-[4%] bg-slate-900">SAC</TableHead>
                   <SortableHead label="Retiradas" sortKey="pickups" currentSort={sortConfig} onSort={setSortConfig} className="text-center align-middle print:w-[5%] bg-slate-900" />
@@ -896,6 +913,7 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
                    const gItens = members.reduce((acc, v) => acc + v.current.itens, 0);
                    const gVenda = members.reduce((acc, v) => acc + v.current.venda, 0);
                    const gIdent = members.reduce((acc, v) => acc + v.filtered.ident, 0);
+                   const gSlpDdc = members.reduce((acc, v) => acc + v.slpDdcQty, 0);
                    const gSlp = members.reduce((acc, v) => acc + v.slpQty, 0);
                    const gBaralhos = members.reduce((acc, v) => acc + v.baralhoQty, 0);
                    const gSacolas = members.reduce((acc, v) => acc + v.sacolaQty, 0);
@@ -1028,6 +1046,13 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
                               </TableCell>
 
                               <TableCell className="text-center align-middle">
+                                <span className="hidden print:inline text-[8px] font-black">{v.slpDdcQty}</span>
+                                <Badge className={cn("print:hidden font-black border px-1.5 text-[10px] h-5", v.slpDdcQty > 0 ? "bg-amber-100 text-amber-900 border-amber-300" : "bg-slate-100 text-slate-400 border-slate-200")}>
+                                  {v.slpDdcQty}
+                                </Badge>
+                              </TableCell>
+
+                              <TableCell className="text-center align-middle">
                                 <span className="hidden print:inline text-[8px] font-black">{v.slpQty}</span>
                                 <Badge className={cn("print:hidden font-black border px-1.5 text-[10px] h-5", v.slpQty > 0 ? "bg-orange-100 text-orange-900 border-orange-300" : "bg-slate-100 text-slate-400 border-slate-200")}>
                                   {v.slpQty}
@@ -1118,6 +1143,7 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
                              <TableCell className={cn("text-center align-middle text-xs md:text-sm print:text-[8px] font-black", subTkmAtt.textClass)}>{formatBRL(gTkm)}</TableCell>
                              <TableCell className={cn("text-center align-middle text-xs md:text-sm print:text-[8px] font-black", subPmAtt.textClass)}>{formatBRL(gPm)}</TableCell>
                              <TableCell className={cn("text-center align-middle text-xs md:text-sm print:text-[8px] font-black", subCpfAtt.textClass)}>{gIdentPerc.toFixed(0)}%</TableCell>
+                             <TableCell className="text-center align-middle text-[10px] md:text-xs print:text-[8px] text-amber-300">{gSlpDdc}</TableCell>
                              <TableCell className="text-center align-middle text-[10px] md:text-xs print:text-[8px] text-slate-200">{gSlp}</TableCell>
                              <TableCell className="text-center align-middle text-[10px] md:text-xs print:text-[8px] text-slate-200">{gBaralhos}</TableCell>
                              <TableCell className="text-center align-middle text-[10px] md:text-xs print:text-[8px] text-slate-200">{gSacolas}</TableCell>
@@ -1151,6 +1177,7 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
                   <TableCell className={cn("text-center align-middle text-xs md:text-sm print:text-[8px] font-black bg-slate-900", totals.tkm >= 150 ? "text-emerald-400" : "text-rose-400")}>{formatBRL(totals.tkm)}</TableCell>
                   <TableCell className="text-center align-middle text-white print:text-black text-xs md:text-sm print:text-[8px] bg-slate-900">{formatBRL(totals.pm)}</TableCell>
                   <TableCell className="text-center align-middle text-white print:text-black text-xs md:text-sm print:text-[8px] bg-slate-900">{totals.ident_perc.toFixed(0)}%</TableCell>
+                  <TableCell className="text-center align-middle text-amber-400 print:text-black text-[10px] md:text-xs print:text-[8px] bg-slate-900">{totals.slpDdc}</TableCell>
                   <TableCell className="text-center align-middle text-orange-400 print:text-black text-[10px] md:text-xs print:text-[8px] bg-slate-900">{totals.slp}</TableCell>
                   <TableCell className="text-center align-middle text-rose-400 print:text-black text-[10px] md:text-xs print:text-[8px] bg-slate-900">{totals.baralhos}</TableCell>
                   <TableCell className="text-center align-middle text-emerald-400 print:text-black text-[10px] md:text-xs print:text-[8px] bg-slate-900">{totals.sacolas}</TableCell>
@@ -1591,7 +1618,11 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
                   <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2">Detalhes Operacionais</h4>
                   <div className="grid grid-cols-2 gap-4">
                      <div className="flex flex-col gap-0.5">
-                        <span className="text-[9px] font-bold text-slate-400 uppercase">SLP Campanha</span>
+                        <span className="text-[9px] font-bold text-slate-400 uppercase">SLP DDC (Campanha)</span>
+                        <span className="text-sm font-black text-amber-600">{selectedColab.slpDdcQty} ITENS</span>
+                     </div>
+                     <div className="flex flex-col gap-0.5">
+                        <span className="text-[9px] font-bold text-slate-400 uppercase">SLP (Demais / Outros)</span>
                         <span className="text-sm font-black text-orange-600">{selectedColab.slpQty} ITENS</span>
                      </div>
                      <div className="flex flex-col gap-0.5">

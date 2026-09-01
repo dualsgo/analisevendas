@@ -81,9 +81,21 @@ export function ExecutiveSummary({ data, vinculos, onSwitchTab }: ExecutiveSumma
     let totalLanchinhos = 0;
     let cuponsLanchinhos = 0;
     let totalSazonal = 0;
+    let totalSlpDdc = 0;
+    let totalSlpOutros = 0;
     let cuponsSazonal = 0;
 
-    const SLP_CODES = ['5135238', '5135269', '5135270', '5135273', '5146458', '5146469', '5146470', '5146471', '5146472', '5146473', '5146474', '5146475', '5146476', '5146501', '5146504', '5146505', '5141894', '5141895', '5141896', '5141897', '5141898', '5141899', '5141900', '5141902', '5141903', '5141904', '5141905', '5141907', '5141909', '5141910', '5141911', '5141912', '5141913', '5141914', '5141915', '5141916', '5141917', '5141920', '5141949', '5141978', '5140469', '5140475', '5140476', '5140477', '5140478', '5140479', '5146477', '5146478', '5146502', '5146503'];
+    const SLP_DDC_CODES = ['5149138']; // Campanha Atual (SLP DDC)
+    const SLP_OUTROS_CODES = [
+      '5135238', '5135269', '5135270', '5135273', '5146458', '5146469', '5146470', '5146471', 
+      '5146472', '5146473', '5146474', '5146475', '5146476', '5146501', '5146504', '5146505', 
+      '5141894', '5141895', '5141896', '5141897', '5141898', '5141899', '5141900', '5141902', 
+      '5141903', '5141904', '5141905', '5141907', '5141909', '5141910', '5141911', '5141912', 
+      '5141913', '5141914', '5141915', '5141916', '5141917', '5141920', '5141949', '5141978', 
+      '5140469', '5140475', '5140476', '5140477', '5140478', '5140479', '5146477', '5146478', 
+      '5146502', '5146503'
+    ];
+    const SLP_CODES = [...SLP_DDC_CODES, ...SLP_OUTROS_CODES];
 
     const isSazonal = (it: any) => {
       if (SLP_CODES.includes(it.cProd)) return true;
@@ -110,6 +122,12 @@ export function ExecutiveSummary({ data, vinculos, onSwitchTab }: ExecutiveSumma
         if (isSocial(it)) {
           totalSocial += it.qCom;
           hasSocialInCupom = true;
+        }
+
+        if (SLP_DDC_CODES.includes(it.cProd)) {
+          totalSlpDdc += it.qCom;
+        } else if (SLP_OUTROS_CODES.includes(it.cProd)) {
+          totalSlpOutros += it.qCom;
         }
 
         if (isSazonal(it)) {
@@ -169,7 +187,12 @@ export function ExecutiveSummary({ data, vinculos, onSwitchTab }: ExecutiveSumma
       hasMultipleMonths,
       social: { items: totalSocial, participation: totalCupons > 0 ? (cuponsSociais / totalCupons) * 100 : 0 },
       lanchinhos: { items: totalLanchinhos, participation: totalCupons > 0 ? (cuponsLanchinhos / totalCupons) * 100 : 0 },
-      sazonal: { items: totalSazonal, participation: totalCupons > 0 ? (cuponsSazonal / totalCupons) * 100 : 0 },
+      sazonal: { 
+        items: totalSazonal, 
+        slpDdcItems: totalSlpDdc, 
+        slpOutrosItems: totalSlpOutros, 
+        participation: totalCupons > 0 ? (cuponsSazonal / totalCupons) * 100 : 0 
+      },
       monthList: Object.entries(monthSales).map(([month, venda]) => {
         const monthRows = activeSales.filter(s => s.dhEmi.substring(0, 7) === month);
         const cupons = monthRows.length;
@@ -244,12 +267,12 @@ export function ExecutiveSummary({ data, vinculos, onSwitchTab }: ExecutiveSumma
           tooltip="Percentual de cupons que possuem itens de Ação Social."
         />
         <MetricCard 
-          label="Sazonal (SLP)" 
+          label="Sazonal (SLP DDC | SLP)" 
           value={`${stats.sazonal.participation.toFixed(1)}%`} 
-          desc={`${stats.sazonal.items} Itens (SLP)`} 
+          desc={`${stats.sazonal.slpDdcItems} SLP DDC | ${stats.sazonal.slpOutrosItems} SLP`} 
           icon={ShoppingBag} 
           color="text-fuchsia-600" 
-          tooltip="Percentual de cupons que possuem itens Sazonais (SLP)."
+          tooltip="Percentual de cupons com SLP DDC (Campanha Atual) ou outros itens SLP."
         />
 
         <div onClick={() => onSwitchTab?.("pickup_dashboard")} className="cursor-pointer">

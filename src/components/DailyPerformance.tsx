@@ -19,7 +19,17 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const SLP_CODES = ['5135238', '5135269', '5135270', '5135273', '5146458', '5146469', '5146470', '5146471', '5146472', '5146473', '5146474', '5146475', '5146476', '5146501', '5146504', '5146505', '5141894', '5141895', '5141896', '5141897', '5141898', '5141899', '5141900', '5141902', '5141903', '5141904', '5141905', '5141907', '5141909', '5141910', '5141911', '5141912', '5141913', '5141914', '5141915', '5141916', '5141917', '5141920', '5141949', '5141978', '5140469', '5140475', '5140476', '5140477', '5140478', '5140479', '5146477', '5146478', '5146502', '5146503'];
+const SLP_DDC_CODES = ['5149138']; // Campanha Atual (SLP DDC)
+const SLP_OUTROS_CODES = [
+  '5135238', '5135269', '5135270', '5135273', '5146458', '5146469', '5146470', '5146471', 
+  '5146472', '5146473', '5146474', '5146475', '5146476', '5146501', '5146504', '5146505', 
+  '5141894', '5141895', '5141896', '5141897', '5141898', '5141899', '5141900', '5141902', 
+  '5141903', '5141904', '5141905', '5141907', '5141909', '5141910', '5141911', '5141912', 
+  '5141913', '5141914', '5141915', '5141916', '5141917', '5141920', '5141949', '5141978', 
+  '5140469', '5140475', '5140476', '5140477', '5140478', '5140479', '5146477', '5146478', 
+  '5146502', '5146503'
+];
+const SLP_CODES = [...SLP_DDC_CODES, ...SLP_OUTROS_CODES];
 const SOCIAL_CODES = ['5057181', '5055875', '5135601', '5129270', '5129271', '5129247', '5129262', '5122642', '5122641', '5135612', '5122639', '5122638', '5133676', '5113644', '5113641', '5113642', '5113643', '5129267', '5129255', '5143422', '5139528', '5143423', '5145833', '5139527', '5147797', '5147796', '5145834', '5079753', '5079752', '5106673', '5106671', '5106674', '5106672', '5088519', '5097336', '5097335', '5011918', '5136558'];
 const BARALHO_CODES = ['5147797', '5147796', '5149977', '5149978'];
 const SACOLA_CODES = ['5133676', '5113644'];
@@ -33,6 +43,7 @@ export interface VendorAggregate {
   cupons: number;
   itens: number;
   ident: number;
+  slpDdcQty: number;
   slpQty: number;
   baralhoQty: number;
   sacolaQty: number;
@@ -57,6 +68,7 @@ export interface GroupedDailyData {
   pm: number;
   identPerc: number;
   conv: number;
+  slpDdcQty: number;
   slpQty: number;
   baralhoQty: number;
   sacolaQty: number;
@@ -120,10 +132,12 @@ export function DailyPerformance({ data }: DailyPerformanceProps) {
       let saleFilteredItens = 0;
       let validItemsCount = 0;
       
-      let slpQty = 0, baralhoQty = 0, sacolaQty = 0;
+      let slpDdcQty = 0, slpQty = 0, baralhoQty = 0, sacolaQty = 0;
 
       s.itens.forEach(it => {
-        if (SLP_CODES.includes(it.cProd)) slpQty += it.qCom;
+        if (SLP_DDC_CODES.includes(it.cProd)) slpDdcQty += it.qCom;
+        else if (SLP_OUTROS_CODES.includes(it.cProd)) slpQty += it.qCom;
+
         if (SOCIAL_CODES.includes(it.cProd) || isBaralho(it) || isSacola(it)) {
           if (isBaralho(it)) baralhoQty += it.qCom;
           else if (isSacola(it)) sacolaQty += it.qCom;
@@ -174,7 +188,7 @@ export function DailyPerformance({ data }: DailyPerformanceProps) {
         saleFilteredItens,
         saleFilteredCupons,
         saleFilteredIdent,
-        slpQty, baralhoQty, sacolaQty, pickupsAtendidas, adicionaisFeitos
+        slpDdcQty, slpQty, baralhoQty, sacolaQty, pickupsAtendidas, adicionaisFeitos
       };
     }).filter(Boolean);
 
@@ -195,6 +209,7 @@ export function DailyPerformance({ data }: DailyPerformanceProps) {
          const cupons = rows.reduce((acc, r) => acc + r.saleFilteredCupons, 0);
          const itens = rows.reduce((acc, r) => acc + r.saleFilteredItens, 0);
          const ident = rows.reduce((acc, r) => acc + r.saleFilteredIdent, 0);
+         const slpDdcQty = rows.reduce((acc, r) => acc + r.slpDdcQty, 0);
          const slpQty = rows.reduce((acc, r) => acc + r.slpQty, 0);
          const baralhoQty = rows.reduce((acc, r) => acc + r.baralhoQty, 0);
          const sacolaQty = rows.reduce((acc, r) => acc + r.sacolaQty, 0);
@@ -212,12 +227,13 @@ export function DailyPerformance({ data }: DailyPerformanceProps) {
          rows.forEach(r => {
            const v = r.vendedor || "OUTROS";
            if (!vendorGroups[v]) {
-             vendorGroups[v] = { venda: 0, cupons: 0, itens: 0, ident: 0, slpQty: 0, baralhoQty: 0, sacolaQty: 0, pickups: 0, adicionais: 0 };
+             vendorGroups[v] = { venda: 0, cupons: 0, itens: 0, ident: 0, slpDdcQty: 0, slpQty: 0, baralhoQty: 0, sacolaQty: 0, pickups: 0, adicionais: 0 };
            }
            vendorGroups[v].venda += r.saleFilteredVenda;
            vendorGroups[v].cupons += r.saleFilteredCupons;
            vendorGroups[v].itens += r.saleFilteredItens;
            vendorGroups[v].ident += r.saleFilteredIdent;
+           vendorGroups[v].slpDdcQty += r.slpDdcQty;
            vendorGroups[v].slpQty += r.slpQty;
            vendorGroups[v].baralhoQty += r.baralhoQty;
            vendorGroups[v].sacolaQty += r.sacolaQty;
@@ -239,7 +255,7 @@ export function DailyPerformance({ data }: DailyPerformanceProps) {
            key,
            label: getLabel(key, rows[0]),
            venda, cupons, itens, ident, pa, tkm, pm, identPerc, conv,
-           slpQty, baralhoQty, sacolaQty, pickups, adicionais,
+           slpDdcQty, slpQty, baralhoQty, sacolaQty, pickups, adicionais,
            vendors
          };
        });
@@ -294,10 +310,11 @@ export function DailyPerformance({ data }: DailyPerformanceProps) {
       pickups: acc.pickups + v.pickups,
       adicionais: acc.adicionais + v.adicionais,
       ident: acc.ident + v.ident,
+      slpDdc: acc.slpDdc + v.slpDdcQty,
       slp: acc.slp + v.slpQty,
       baralhos: acc.baralhos + v.baralhoQty,
       sacolas: acc.sacolas + v.sacolaQty
-    }), { venda: 0, cupons: 0, itens: 0, pickups: 0, adicionais: 0, ident: 0, slp: 0, baralhos: 0, sacolas: 0 });
+    }), { venda: 0, cupons: 0, itens: 0, pickups: 0, adicionais: 0, ident: 0, slpDdc: 0, slp: 0, baralhos: 0, sacolas: 0 });
 
     return {
       ...sum,
@@ -429,6 +446,7 @@ export function DailyPerformance({ data }: DailyPerformanceProps) {
               <TableHead className="text-white font-black uppercase text-[10px] text-center align-middle">Ticket Méd.</TableHead>
               <TableHead className="text-white font-black uppercase text-[10px] text-center align-middle">Preço Méd.</TableHead>
               <TableHead className="text-white font-black uppercase text-[10px] text-center align-middle">CPF</TableHead>
+              <TableHead className="text-white font-black uppercase text-[10px] text-center align-middle">SLP DDC</TableHead>
               <TableHead className="text-white font-black uppercase text-[10px] text-center align-middle">SLP</TableHead>
               <TableHead className="text-white font-black uppercase text-[10px] text-center align-middle">BAR</TableHead>
               <TableHead className="text-white font-black uppercase text-[10px] text-center align-middle">SAC</TableHead>
@@ -463,6 +481,7 @@ export function DailyPerformance({ data }: DailyPerformanceProps) {
                   <TableCell className="text-center align-middle"><span className="font-black text-slate-700 text-xs md:text-sm">{formatBRL(d.tkm)}</span></TableCell>
                   <TableCell className="text-center align-middle"><span className="font-black text-slate-700 text-xs md:text-sm">{formatBRL(d.pm)}</span></TableCell>
                   <TableCell className="text-center align-middle"><span className="font-black text-slate-700 text-xs md:text-sm">{formatNum(d.identPerc, 0)}%</span></TableCell>
+                  <TableCell className="text-center align-middle"><Badge className={cn("font-black border-none px-1.5 text-[10px] h-5", d.slpDdcQty > 0 ? "bg-amber-100 text-amber-700" : "bg-slate-50 text-slate-300")}>{d.slpDdcQty}</Badge></TableCell>
                   <TableCell className="text-center align-middle"><Badge className={cn("font-black border-none px-1.5 text-[10px] h-5", d.slpQty > 0 ? "bg-orange-100 text-orange-700" : "bg-slate-50 text-slate-300")}>{d.slpQty}</Badge></TableCell>
                   <TableCell className="text-center align-middle"><Badge className={cn("font-black border-none px-1.5 text-[10px] h-5", d.baralhoQty > 0 ? "bg-rose-100 text-rose-700" : "bg-slate-50 text-slate-300")}>{d.baralhoQty}</Badge></TableCell>
                   <TableCell className="text-center align-middle"><Badge className={cn("font-black border-none px-1.5 text-[10px] h-5", d.sacolaQty > 0 ? "bg-emerald-100 text-emerald-700" : "bg-slate-50 text-slate-300")}>{d.sacolaQty}</Badge></TableCell>
@@ -483,6 +502,7 @@ export function DailyPerformance({ data }: DailyPerformanceProps) {
               <TableCell className="text-center align-middle text-purple-400 text-xs md:text-sm">{formatBRL(totals.tkm)}</TableCell>
               <TableCell className="text-center align-middle text-white text-xs md:text-sm">{formatBRL(totals.pm)}</TableCell>
               <TableCell className="text-center align-middle text-white text-xs md:text-sm">{totals.identPerc.toFixed(0)}%</TableCell>
+              <TableCell className="text-center align-middle text-amber-400 text-[10px] md:text-xs">{totals.slpDdc}</TableCell>
               <TableCell className="text-center align-middle text-orange-400 text-[10px] md:text-xs">{totals.slp}</TableCell>
               <TableCell className="text-center align-middle text-rose-400 text-[10px] md:text-xs">{totals.baralhos}</TableCell>
               <TableCell className="text-center align-middle text-emerald-400 text-[10px] md:text-xs">{totals.sacolas}</TableCell>
@@ -530,7 +550,7 @@ export function DailyPerformance({ data }: DailyPerformanceProps) {
                         <TableHead className="text-[9px] font-black text-slate-500 uppercase text-right">Venda</TableHead>
                         <TableHead className="text-[9px] font-black text-slate-500 uppercase text-center">PA</TableHead>
                         <TableHead className="text-[9px] font-black text-slate-500 uppercase text-center">TKM</TableHead>
-                        <TableHead className="text-[9px] font-black text-slate-500 uppercase text-center">SLP/SAC/BAR</TableHead>
+                        <TableHead className="text-[9px] font-black text-slate-500 uppercase text-center">SLP DDC / SLP / SAC / BAR</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -541,7 +561,7 @@ export function DailyPerformance({ data }: DailyPerformanceProps) {
                           <TableCell className="text-[11px] font-bold text-orange-600 text-center">{formatNum(v.pa)}</TableCell>
                           <TableCell className="text-[11px] font-bold text-purple-600 text-center">{formatBRL(v.tkm)}</TableCell>
                           <TableCell className="text-[10px] font-bold text-slate-500 text-center">
-                            {v.slpQty} / {v.sacolaQty} / {v.baralhoQty}
+                            {v.slpDdcQty} / {v.slpQty} / {v.sacolaQty} / {v.baralhoQty}
                           </TableCell>
                         </TableRow>
                       ))}

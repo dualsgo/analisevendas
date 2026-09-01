@@ -76,6 +76,8 @@ import {
   computeTeamDispersionAnalysis, 
   TeamDispersionStats, 
   CollaboratorExtendedStats,
+  SLP_DDC_CODES,
+  SLP_OUTROS_CODES,
   SLP_CODES,
   SOCIAL_CODES,
   BARALHO_CODES,
@@ -218,6 +220,10 @@ export function CollaboratorXRay({ data = [], vinculos = [] }: CollaboratorXRayP
     const totalCPF = activeSales.filter(s => s.cpf_cnpj_dest && s.cpf_cnpj_dest.trim() !== "").length;
     const totalDesconto = activeSales.reduce((acc, s) => acc + (parseFloat(s.desconto_total) || 0), 0);
 
+    let storeSlpDdcQty = 0;
+    let storeSlpDdcValor = 0;
+    let storeSlpDdcCupons = 0;
+
     let storeSlpQty = 0;
     let storeSlpValor = 0;
     let storeSlpCupons = 0;
@@ -246,6 +252,7 @@ export function CollaboratorXRay({ data = [], vinculos = [] }: CollaboratorXRayP
     let storeAdicionaisValor = 0;
 
     activeSales.forEach(s => {
+      let hasSlpDdc = false;
       let hasSlp = false;
       let hasSocial = false;
       let hasAging = false;
@@ -264,7 +271,11 @@ export function CollaboratorXRay({ data = [], vinculos = [] }: CollaboratorXRayP
         const q = item.qCom || 0;
         const v = (item.vProd || 0) - (item.vDesc || 0);
 
-        if (SLP_CODES.includes(c)) {
+        if (SLP_DDC_CODES.includes(c)) {
+          storeSlpDdcQty += q;
+          storeSlpDdcValor += v;
+          hasSlpDdc = true;
+        } else if (SLP_OUTROS_CODES.includes(c)) {
           storeSlpQty += q;
           storeSlpValor += v;
           hasSlp = true;
@@ -301,11 +312,13 @@ export function CollaboratorXRay({ data = [], vinculos = [] }: CollaboratorXRayP
         }
       });
 
+      if (hasSlpDdc) storeSlpDdcCupons++;
       if (hasSlp) storeSlpCupons++;
       if (hasSocial) storeSocialCupons++;
       if (hasAging) storeAgingCupons++;
     });
 
+    const storeSlpDdcPenetracao = totalCupons > 0 ? (storeSlpDdcCupons / totalCupons) * 100 : 0;
     const storeSlpPenetracao = totalCupons > 0 ? (storeSlpCupons / totalCupons) * 100 : 0;
     const storeSocialPenetracao = totalCupons > 0 ? (storeSocialCupons / totalCupons) * 100 : 0;
     const storeAgingPenetracao = totalCupons > 0 ? (storeAgingCupons / totalCupons) * 100 : 0;
@@ -328,6 +341,11 @@ export function CollaboratorXRay({ data = [], vinculos = [] }: CollaboratorXRayP
       descontoRateLoja: totalVenda > 0 ? (totalDesconto / (totalVenda + totalDesconto)) * 100 : 0,
       
       // Métricas Estratégicas Globais da Loja
+      storeSlpDdcQty,
+      storeSlpDdcValor,
+      storeSlpDdcCupons,
+      storeSlpDdcPenetracao,
+
       storeSlpQty,
       storeSlpValor,
       storeSlpCupons,
@@ -438,6 +456,10 @@ export function CollaboratorXRay({ data = [], vinculos = [] }: CollaboratorXRayP
     const precoMedioItem = itensTotal > 0 ? vendaTotal / itensTotal : 0;
 
     // Métricas Estratégicas e Campanhas
+    let slpDdcQty = 0;
+    let slpDdcValor = 0;
+    let slpDdcCuponsCount = 0;
+
     let slpQty = 0;
     let slpValor = 0;
     let slpCuponsCount = 0;
@@ -466,6 +488,7 @@ export function CollaboratorXRay({ data = [], vinculos = [] }: CollaboratorXRayP
     let adicionaisValor = 0;
 
     vendorSales.forEach(s => {
+      let hasSlpDdc = false;
       let hasSlp = false;
       let hasSocial = false;
       let hasAging = false;
@@ -484,7 +507,11 @@ export function CollaboratorXRay({ data = [], vinculos = [] }: CollaboratorXRayP
         const q = item.qCom || 0;
         const v = (item.vProd || 0) - (item.vDesc || 0);
 
-        if (SLP_CODES.includes(c)) {
+        if (SLP_DDC_CODES.includes(c)) {
+          slpDdcQty += q;
+          slpDdcValor += v;
+          hasSlpDdc = true;
+        } else if (SLP_OUTROS_CODES.includes(c)) {
           slpQty += q;
           slpValor += v;
           hasSlp = true;
@@ -521,11 +548,13 @@ export function CollaboratorXRay({ data = [], vinculos = [] }: CollaboratorXRayP
         }
       });
 
+      if (hasSlpDdc) slpDdcCuponsCount++;
       if (hasSlp) slpCuponsCount++;
       if (hasSocial) socialCuponsCount++;
       if (hasAging) agingCuponsCount++;
     });
 
+    const slpDdcPenetracaoRate = cuponsTotal > 0 ? (slpDdcCuponsCount / cuponsTotal) * 100 : 0;
     const slpPenetracaoRate = cuponsTotal > 0 ? (slpCuponsCount / cuponsTotal) * 100 : 0;
     const socialPenetracaoRate = cuponsTotal > 0 ? (socialCuponsCount / cuponsTotal) * 100 : 0;
     const agingPenetracaoRate = cuponsTotal > 0 ? (agingCuponsCount / cuponsTotal) * 100 : 0;
@@ -558,10 +587,18 @@ export function CollaboratorXRay({ data = [], vinculos = [] }: CollaboratorXRayP
       precoMedioItem,
 
       // Métricas Estratégicas
+      slpDdcQty,
+      slpDdcValor,
+      slpDdcCuponsCount,
+      slpDdcPenetracaoRate,
+
       slpQty,
       slpValor,
       slpCuponsCount,
       slpPenetracaoRate,
+
+      slpTotalQty: slpDdcQty + slpQty,
+      slpTotalValor: slpDdcValor + slpValor,
 
       socialQty,
       socialValor,
@@ -1100,8 +1137,9 @@ ${currentExtendedStats?.outliers && currentExtendedStats.outliers.length > 0 ? c
 - **Preço Médio por Item:** ${vendorMetrics.precoMedioItem.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
 
 ---
-### 5. CAMPANHAS E PRODUTOS ESTRATÉGICOS
-- **Venda Sugestiva (SLP):** ${vendorMetrics.slpQty} itens | ${vendorMetrics.slpValor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} (Penetração: ${vendorMetrics.slpPenetracaoRate.toFixed(1)}% dos cupons vs Loja: ${storeMetrics.storeSlpPenetracao.toFixed(1)}%)
+- **Venda Sugestiva (SLP DDC & SLP):** ${vendorMetrics.slpTotalQty} itens totais (R$ ${vendorMetrics.slpTotalValor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})
+  * SLP DDC (Campanha Atual): ${vendorMetrics.slpDdcQty} itens | ${vendorMetrics.slpDdcValor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} (Penetração: ${vendorMetrics.slpDdcPenetracaoRate.toFixed(1)}%)
+  * SLP (Outros / Legado): ${vendorMetrics.slpQty} itens | ${vendorMetrics.slpValor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} (Penetração: ${vendorMetrics.slpPenetracaoRate.toFixed(1)}%)
 - **Ação Social (Total):** ${vendorMetrics.socialQty} itens | ${vendorMetrics.socialValor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} (Penetração: ${vendorMetrics.socialPenetracaoRate.toFixed(1)}% dos cupons vs Loja: ${storeMetrics.storeSocialPenetracao.toFixed(1)}%)
   * Detalhamento Ação Social: Sacolas: ${vendorMetrics.sacolaQty} un | Baralhos: ${vendorMetrics.baralhoQty} un | Lanchinho: ${vendorMetrics.lanchinhoQty} un
 - **Campanha Aging (Estoque Antigo):** ${vendorMetrics.agingQty} un desmobilizada(s) | R$ ${vendorMetrics.agingValor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} resgatado(s) (${vendorMetrics.agingCuponsCount} cupons)
@@ -2002,37 +2040,56 @@ ${behavioralDiagnosis.recommendations.map(r => `- ${r}`).join('\n')}
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 
-                {/* CARD 1: SLP (VENDA SUGESTIVA) */}
+                {/* CARD 1: SLP (VENDA SUGESTIVA) SEGREGADO */}
                 <div className="p-4 rounded-2xl bg-orange-50/80 border border-orange-200/80 space-y-2.5 flex flex-col justify-between">
                   <div className="flex items-center justify-between">
                     <span className="text-[11px] font-bold text-orange-900 uppercase tracking-wider flex items-center gap-1.5">
                       <ShoppingBag className="w-3.5 h-3.5 text-orange-600" />
-                      SLP (Sugestiva)
+                      SLP DDC & SLP
                     </span>
-                    <Badge className={cn("text-[9px] font-black border-none px-1.5 h-5 flex items-center gap-0.5", vendorMetrics.slpPenetracaoRate >= storeMetrics.storeSlpPenetracao ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800")}>
-                      {vendorMetrics.slpPenetracaoRate >= storeMetrics.storeSlpPenetracao ? (
-                        <><TrendingUp className="w-2.5 h-2.5 text-emerald-700" /> Acima Média</>
+                    <Badge className={cn("text-[9px] font-black border-none px-1.5 h-5 flex items-center gap-0.5", (vendorMetrics.slpTotalQty > 0) ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800")}>
+                      {vendorMetrics.slpTotalQty > 0 ? (
+                        <><TrendingUp className="w-2.5 h-2.5 text-emerald-700" /> Ativo</>
                       ) : (
-                        <><TrendingDown className="w-2.5 h-2.5 text-rose-700" /> Abaixo Média</>
+                        <><TrendingDown className="w-2.5 h-2.5 text-rose-700" /> Sem Venda</>
                       )}
                     </Badge>
                   </div>
                   <div>
                     <div className="text-2xl font-headline font-extrabold text-slate-900">
-                      {vendorMetrics.slpQty} <span className="text-xs font-semibold text-slate-500">itens</span>
+                      {vendorMetrics.slpTotalQty} <span className="text-xs font-semibold text-slate-500">itens totais</span>
                     </div>
                     <p className="text-xs font-bold text-orange-700 mt-0.5">
-                      {vendorMetrics.slpValor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                      {vendorMetrics.slpTotalValor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                     </p>
                   </div>
+
+                  {/* DETALHAMENTO: SLP DDC vs SLP */}
+                  <div className="space-y-1 py-1.5 border-t border-orange-200/60 text-[11px]">
+                    <div className="flex items-center justify-between font-medium text-slate-700">
+                      <span className="text-amber-800 font-bold flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                        SLP DDC (Atual):
+                      </span>
+                      <span className="font-extrabold text-amber-900">{vendorMetrics.slpDdcQty} un ({vendorMetrics.slpDdcValor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})</span>
+                    </div>
+                    <div className="flex items-center justify-between font-medium text-slate-700">
+                      <span className="text-orange-700 font-bold flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-orange-400" />
+                        SLP (Outros):
+                      </span>
+                      <span className="font-extrabold text-orange-800">{vendorMetrics.slpQty} un ({vendorMetrics.slpValor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})</span>
+                    </div>
+                  </div>
+
                   <div className="pt-2 border-t border-orange-200/60 space-y-1">
                     <div className="flex items-center justify-between text-[11px]">
-                      <span className="text-slate-600 font-semibold">Penetração Cupons:</span>
-                      <span className="font-extrabold text-slate-900">{vendorMetrics.slpPenetracaoRate.toFixed(1)}%</span>
+                      <span className="text-slate-600 font-semibold">Penetração SLP DDC:</span>
+                      <span className="font-extrabold text-slate-900">{vendorMetrics.slpDdcPenetracaoRate.toFixed(1)}%</span>
                     </div>
                     <div className="flex items-center justify-between text-[10px] text-slate-500">
-                      <span>Média da Loja:</span>
-                      <span className="font-bold text-slate-700">{storeMetrics.storeSlpPenetracao.toFixed(1)}%</span>
+                      <span>Penetração SLP Outros:</span>
+                      <span className="font-bold text-slate-700">{vendorMetrics.slpPenetracaoRate.toFixed(1)}%</span>
                     </div>
                   </div>
                 </div>

@@ -2,7 +2,8 @@
 import { DetailedSaleRow, Item } from "./types";
 
 // LISTA OFICIAL DE CÓDIGOS SLP (Super Lançamento Premiado)
-const SLP_CODES = [
+export const SLP_DDC_CODES = ['5149138']; // Campanha Atual (SLP DDC)
+export const SLP_OUTROS_CODES = [
   '5135238', '5135269', '5135270', '5135273', '5146458', '5146469', '5146470', '5146471',
   '5146472', '5146473', '5146474', '5146475', '5146476', '5146501', '5146504', '5146505',
   '5141894', '5141895', '5141896', '5141897', '5141898', '5141899', '5141900', '5141902',
@@ -11,6 +12,7 @@ const SLP_CODES = [
   '5140469', '5140475', '5140476', '5140477', '5140478', '5140479', '5146477', '5146478',
   '5146502', '5146503'
 ];
+export const SLP_CODES = [...SLP_DDC_CODES, ...SLP_OUTROS_CODES];
 
 // Parâmetros para detecção robusta de campanhas (Leve X Pague Y)
 const NEAR_FREE_MAX = 0.10;

@@ -541,23 +541,23 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
     };
 
     // Gerar texto de PA e TKM conforme modo selecionado
-    const getPAText = (paAv: number, paCb: number, prefix = "PA:") => {
+    const getPAText = (paAv: number, paComb: number, prefix = "PA:") => {
       const suffix = excludeBagsFromPA ? " (s/ sac)" : "";
       if (channelMode === 'AVULSO') return `${prefix} ${paAv.toFixed(2)}${suffix}`;
-      if (channelMode === 'COMBINADO') return `${prefix} ${paCb.toFixed(2)}${suffix} (Comb.)`;
-      return `${prefix} ${paAv.toFixed(2)} (Av) | ${paCb.toFixed(2)} (Comb)${suffix}`;
+      if (channelMode === 'COMBINADO') return `${prefix} ${paComb.toFixed(2)}${suffix} (Comb.)`;
+      return `${prefix} ${paAv.toFixed(2)} (Av) | ${paComb.toFixed(2)} (Comb)${suffix}`;
     };
 
-    const getTKMText = (tkmAv: number, tkmCb: number, prefix = "TKM:") => {
+    const getTKMText = (tkmAv: number, tkmComb: number, prefix = "TKM:") => {
       if (channelMode === 'AVULSO') return `${prefix} ${formatBRL(tkmAv)}`;
-      if (channelMode === 'COMBINADO') return `${prefix} ${formatBRL(tkmCb)} (Comb.)`;
+      if (channelMode === 'COMBINADO') return `${prefix} ${formatBRL(tkmComb)} (Comb.)`;
       return `${prefix} ${formatBRL(tkmAv)} (Av) | ${formatBRL(tkmComb)} (Comb)`;
     };
 
-    const getVendaText = (vAv: number, vCb: number) => {
+    const getVendaText = (vAv: number, vComb: number) => {
       if (channelMode === 'AVULSO') return formatBRL(vAv);
-      if (channelMode === 'COMBINADO') return `${formatBRL(vCb)} (Comb.)`;
-      return `${formatBRL(vAv)} (Av) | ${formatBRL(vCb)} (Comb)`;
+      if (channelMode === 'COMBINADO') return `${formatBRL(vComb)} (Comb.)`;
+      return `${formatBRL(vAv)} (Av) | ${formatBRL(vComb)} (Comb)`;
     };
 
     // Montar bloco de parciais de itens / campanhas

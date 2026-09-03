@@ -40,7 +40,8 @@ import {
   Search,
   Tag,
   CreditCard,
-  Flame
+  Flame,
+  ListOrdered
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -52,14 +53,43 @@ interface WhatsappReportsProps {
   vinculos: VinculoTroca[];
 }
 
-export type ReportType = 'STORE_SUMMARY' | 'VENDOR_PERFORMANCE' | 'PICKUP_CONVERSION' | 'DAILY_CLOSING' | 'STRATEGIC';
+export type ReportType = 'STORE_SUMMARY' | 'MODULAR_RANKING' | 'VENDOR_PERFORMANCE' | 'PICKUP_CONVERSION' | 'DAILY_CLOSING' | 'STRATEGIC';
 export type ChannelMetricMode = 'AVULSO' | 'COMBINADO' | 'AMBOS';
+
+export type ModularMetricKey = 
+  | 'slpDdc' 
+  | 'slpOutros' 
+  | 'baralhos' 
+  | 'sacolas' 
+  | 'customItem' 
+  | 'venda' 
+  | 'pa' 
+  | 'tkm' 
+  | 'cupons' 
+  | 'adicionais' 
+  | 'conv'
+  | 'ident';
+
+export const MODULAR_METRICS: Record<ModularMetricKey, { label: string; emoji: string; shortLabel: string }> = {
+  slpDdc: { label: "SLP DDC", emoji: "📦", shortLabel: "SLP DDC" },
+  slpOutros: { label: "SLP (OUTROS)", emoji: "✨", shortLabel: "SLP Outros" },
+  baralhos: { label: "BARALHOS", emoji: "🃏", shortLabel: "Baralhos" },
+  sacolas: { label: "SACOLAS", emoji: "🛍️", shortLabel: "Sacolas" },
+  customItem: { label: "ITEM ESPECÍFICO", emoji: "🏷️", shortLabel: "Item Foco" },
+  venda: { label: "FATURAMENTO", emoji: "💰", shortLabel: "Faturamento" },
+  pa: { label: "P.A.", emoji: "🎯", shortLabel: "P.A." },
+  tkm: { label: "TKM", emoji: "💳", shortLabel: "TKM" },
+  cupons: { label: "CUPONS", emoji: "🧾", shortLabel: "Cupons" },
+  adicionais: { label: "ADICIONAIS PICKUP", emoji: "➕", shortLabel: "Adicionais" },
+  conv: { label: "CONVERSÃO PICKUP", emoji: "📊", shortLabel: "Conversão" },
+  ident: { label: "CADASTROS", emoji: "🆔", shortLabel: "Identificação" }
+};
 
 const BARALHO_CODES = ['5147797', '5147796', '5149977', '5149978'];
 const SACOLA_CODES = ['5133676', '5113644'];
 
 export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
-  const [reportType, setReportType] = useState<ReportType>('STORE_SUMMARY');
+  const [reportType, setReportType] = useState<ReportType>('MODULAR_RANKING');
   const [useEmojis, setUseEmojis] = useState(true);
   const [copied, setCopied] = useState(false);
 
@@ -68,7 +98,16 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
   // Descontar sacolas no cálculo de PA (PA limpo)
   const [excludeBagsFromPA, setExcludeBagsFromPA] = useState(false);
 
-  // Seleção de itens a considerar nas parciais
+  // Configuração do Ranking Modular
+  const [selectedModularMetric, setSelectedModularMetric] = useState<ModularMetricKey>('slpDdc');
+  const [isMultiRanking, setIsMultiRanking] = useState(false);
+  const [selectedMultiMetrics, setSelectedMultiMetrics] = useState<ModularMetricKey[]>(['slpDdc', 'baralhos']);
+  const [hideZeros, setHideZeros] = useState(true);
+  const [useShortNames, setUseShortNames] = useState(true);
+  const [showMedals, setShowMedals] = useState(false);
+  const [rankingLimit, setRankingLimit] = useState<number>(0); // 0 = todos
+
+  // Seleção de itens a considerar nas parciais gerais
   const [includeSlpDdc, setIncludeSlpDdc] = useState(true);
   const [includeSlpOutros, setIncludeSlpOutros] = useState(true);
   const [includeBaralhos, setIncludeBaralhos] = useState(true);
@@ -117,7 +156,7 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
   }, [customItemCode]);
 
   const isCustom = (it: { cProd: string; xProd?: string }) => {
-    if (!includeCustomItem || targetCustomCodes.length === 0) return false;
+    if ((!includeCustomItem && selectedModularMetric !== 'customItem' && !selectedMultiMetrics.includes('customItem')) || targetCustomCodes.length === 0) return false;
     return targetCustomCodes.includes(it.cProd.trim().toUpperCase());
   };
 
@@ -138,7 +177,7 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
     };
   }, [data, targetCustomCodes]);
 
-  // Lista dos 20 produtos mais vendidos para preenchimento rápido
+  // Lista dos produtos mais vendidos para preenchimento rápido
   const topProductsList = useMemo(() => {
     const map = new Map<string, { cProd: string; xProd: string; qCom: number }>();
     data.filter(r => r.tpNF === 1 && !r.is_cancelada).forEach(r => {
@@ -380,7 +419,7 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
       totalCustom,
       vendorPerformanceList
     };
-  }, [data, vinculos, excludeBagsFromPA, includeCustomItem, targetCustomCodes]);
+  }, [data, vinculos, excludeBagsFromPA, includeCustomItem, targetCustomCodes, selectedModularMetric, selectedMultiMetrics]);
 
   // Formatação dos blocos de texto para WhatsApp
   const reportContent = useMemo(() => {
@@ -396,6 +435,111 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
       dateStr = format(new Date(), "dd/MM");
     }
 
+    const formatVendorName = (fullName: string) => {
+      if (!useShortNames) return fullName.toUpperCase();
+      const parts = fullName.trim().split(/\s+/);
+      return (parts[0] || fullName).toUpperCase();
+    };
+
+    // Gerador de Bloco Modular Individual
+    const buildSingleModularRanking = (metricKey: ModularMetricKey) => {
+      const meta = MODULAR_METRICS[metricKey];
+      let title = meta.label;
+      if (metricKey === 'customItem') {
+        title = customItemInfo?.name 
+          ? `${customItemInfo.name.toUpperCase()}` 
+          : targetCustomCodes.length > 0 ? `ITEM ${targetCustomCodes.join("/")}` : "ITEM ESPECÍFICO";
+      }
+
+      // Mapear cada colaborador para o valor numérico e valor formatado
+      const list = metrics.vendorPerformanceList.map(v => {
+        let numericVal = 0;
+        let formattedVal = "";
+
+        switch (metricKey) {
+          case 'slpDdc':
+            numericVal = v.slpDdc;
+            formattedVal = String(v.slpDdc);
+            break;
+          case 'slpOutros':
+            numericVal = v.slpOutros;
+            formattedVal = String(v.slpOutros);
+            break;
+          case 'baralhos':
+            numericVal = v.baralhos;
+            formattedVal = String(v.baralhos);
+            break;
+          case 'sacolas':
+            numericVal = v.sacolas;
+            formattedVal = String(v.sacolas);
+            break;
+          case 'customItem':
+            numericVal = v.custom;
+            formattedVal = String(v.custom);
+            break;
+          case 'venda':
+            numericVal = channelMode === 'COMBINADO' ? v.vendaCombinado : v.vendaAvulso;
+            formattedVal = formatBRL(numericVal);
+            break;
+          case 'pa':
+            numericVal = channelMode === 'COMBINADO' ? v.paCombinado : v.paAvulso;
+            formattedVal = numericVal.toFixed(2);
+            break;
+          case 'tkm':
+            numericVal = channelMode === 'COMBINADO' ? v.tkmCombinado : v.tkmAvulso;
+            formattedVal = formatBRL(numericVal);
+            break;
+          case 'cupons':
+            numericVal = channelMode === 'COMBINADO' ? v.cuponsCombinado : v.cuponsAvulso;
+            formattedVal = String(numericVal);
+            break;
+          case 'adicionais':
+            numericVal = v.adicionais;
+            formattedVal = String(v.adicionais);
+            break;
+          case 'conv':
+            numericVal = v.conv;
+            formattedVal = `${v.conv.toFixed(0)}%`;
+            break;
+          case 'ident':
+            numericVal = v.ident;
+            formattedVal = `${v.ident.toFixed(0)}%`;
+            break;
+        }
+
+        return {
+          name: formatVendorName(v.name),
+          val: numericVal,
+          formattedVal
+        };
+      });
+
+      // Ordenar decrescente
+      list.sort((a, b) => b.val - a.val);
+
+      // Filtrar zerados se solicitado
+      let filtered = hideZeros ? list.filter(item => item.val > 0) : list;
+
+      // Limitar posições se solicitado
+      if (rankingLimit > 0) {
+        filtered = filtered.slice(0, rankingLimit);
+      }
+
+      const iconPrefix = useEmojis ? `${meta.emoji} ` : "";
+      const header = `${iconPrefix}*${title} – ${dateStr}*`;
+      
+      if (filtered.length === 0) {
+        return `${header}\n_Sem pontuação no período_`;
+      }
+
+      const lines = filtered.map((item, idx) => {
+        const medal = showMedals && idx === 0 ? "🥇 " : showMedals && idx === 1 ? "🥈 " : showMedals && idx === 2 ? "🥉 " : "";
+        return `${medal}*${item.name}*: ${item.formattedVal}`;
+      });
+
+      return `${header}\n${lines.join("\n")}`;
+    };
+
     // Gerar texto de PA e TKM conforme modo selecionado
     const getPAText = (paAv: number, paCb: number, prefix = "PA:") => {
       const suffix = excludeBagsFromPA ? " (s/ sac)" : "";
@@ -407,7 +551,7 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
     const getTKMText = (tkmAv: number, tkmCb: number, prefix = "TKM:") => {
       if (channelMode === 'AVULSO') return `${prefix} ${formatBRL(tkmAv)}`;
       if (channelMode === 'COMBINADO') return `${prefix} ${formatBRL(tkmCb)} (Comb.)`;
-      return `${prefix} ${formatBRL(tkmAv)} (Av) | ${formatBRL(tkmCb)} (Comb)`;
+      return `${prefix} ${formatBRL(tkmAv)} (Av) | ${formatBRL(tkmComb)} (Comb)`;
     };
 
     const getVendaText = (vAv: number, vCb: number) => {
@@ -433,6 +577,19 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
     };
 
     switch (reportType) {
+      case 'MODULAR_RANKING': {
+        if (isMultiRanking) {
+          if (selectedMultiMetrics.length === 0) {
+            return `_Selecione ao menos um ranking modular para exibir._`;
+          }
+          return selectedMultiMetrics
+            .map(m => buildSingleModularRanking(m))
+            .join("\n\n");
+        } else {
+          return buildSingleModularRanking(selectedModularMetric);
+        }
+      }
+
       case 'STORE_SUMMARY': {
         const itemBlock = buildItemPartialsText("Parciais de Campanhas & Itens:");
         const channelNote = channelMode === 'AVULSO' 
@@ -562,6 +719,13 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
     data, 
     channelMode, 
     excludeBagsFromPA,
+    selectedModularMetric,
+    isMultiRanking,
+    selectedMultiMetrics,
+    hideZeros,
+    useShortNames,
+    showMedals,
+    rankingLimit,
     includeSlpDdc,
     includeSlpOutros,
     includeBaralhos,
@@ -576,7 +740,7 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
     navigator.clipboard.writeText(reportContent);
     setCopied(true);
     toast({
-      title: "Relatório Copiado!",
+      title: "Ranking Copiado!",
       description: "O texto formatado está pronto para colar no WhatsApp.",
     });
     setTimeout(() => setCopied(false), 2000);
@@ -585,6 +749,16 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
   const handleSelectQuickProduct = (code: string) => {
     setCustomItemCode(code);
     setIncludeCustomItem(true);
+  };
+
+  const toggleMultiMetric = (key: ModularMetricKey) => {
+    setSelectedMultiMetrics(prev => {
+      if (prev.includes(key)) {
+        return prev.filter(k => k !== key);
+      } else {
+        return [...prev, key];
+      }
+    });
   };
 
   return (
@@ -600,7 +774,7 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
                   <MessageCircle className="w-5 h-5 text-emerald-600" /> Configurar Relatório WhatsApp
                 </span>
                 <Badge className="bg-emerald-500 text-white font-black text-[9px] uppercase">
-                  Personalizável
+                  Modular
                 </Badge>
               </CardTitle>
             </CardHeader>
@@ -614,16 +788,238 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="STORE_SUMMARY" className="text-xs">📊 Parcial da Unidade (Geral)</SelectItem>
-                    <SelectItem value="VENDOR_PERFORMANCE" className="text-xs">👤 Performance Colaboradores</SelectItem>
-                    <SelectItem value="PICKUP_CONVERSION" className="text-xs">🚚 Relatório Pickup & Conversão</SelectItem>
-                    <SelectItem value="DAILY_CLOSING" className="text-xs">📅 Fechamento do Dia c/ Destaques</SelectItem>
-                    <SelectItem value="STRATEGIC" className="text-xs">📈 Gestão Estratégica & Metas</SelectItem>
+                    <SelectItem value="MODULAR_RANKING" className="text-xs font-bold text-emerald-700">
+                      🏆 Ranking Modular (Compacto por Métrica)
+                    </SelectItem>
+                    <SelectItem value="STORE_SUMMARY" className="text-xs">
+                      📊 Parcial da Unidade (Consolidado Geral)
+                    </SelectItem>
+                    <SelectItem value="VENDOR_PERFORMANCE" className="text-xs">
+                      👤 Performance Colaboradores (Detalhada)
+                    </SelectItem>
+                    <SelectItem value="DAILY_CLOSING" className="text-xs">
+                      📅 Fechamento do Dia c/ Destaques
+                    </SelectItem>
+                    <SelectItem value="PICKUP_CONVERSION" className="text-xs">
+                      🚚 Relatório Pickup & Conversão
+                    </SelectItem>
+                    <SelectItem value="STRATEGIC" className="text-xs">
+                      📈 Gestão Estratégica & Metas
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
-              {/* Bloco 1: Seleção de Modo TKM & PA (Avulso ou Combinado) */}
+              {/* BLOCO DO RANKING MODULAR (Quando ativo) */}
+              {reportType === 'MODULAR_RANKING' && (
+                <div className="p-4 bg-emerald-50/50 rounded-2xl border border-emerald-200 space-y-4 animate-in fade-in duration-300">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <ListOrdered className="w-4 h-4 text-emerald-700" />
+                      <Label className="text-xs font-black uppercase text-emerald-900">
+                        Configurar Ranking Modular
+                      </Label>
+                    </div>
+                    <Badge className="bg-emerald-600 text-white font-black text-[9px] uppercase">
+                      Formato WhatsApp
+                    </Badge>
+                  </div>
+
+                  {/* Alternar entre Ranking Único ou Múltiplos Rankings */}
+                  <div className="flex items-center justify-between pt-1">
+                    <div className="space-y-0.5">
+                      <Label className="text-xs font-bold text-slate-700 cursor-pointer">
+                        Múltiplos Rankings no Mesmo Texto
+                      </Label>
+                      <p className="text-[10px] text-slate-400">Gera blocos empilhados (ex: SLP DDC + Baralhos)</p>
+                    </div>
+                    <Switch checked={isMultiRanking} onCheckedChange={setIsMultiRanking} />
+                  </div>
+
+                  {!isMultiRanking ? (
+                    /* Seletor de Métrica Única */
+                    <div className="space-y-2 pt-1">
+                      <Label className="text-[10px] font-black uppercase text-slate-500">
+                        Qual ranking você deseja enviar?
+                      </Label>
+                      <Select 
+                        value={selectedModularMetric} 
+                        onValueChange={(v) => setSelectedModularMetric(v as ModularMetricKey)}
+                      >
+                        <SelectTrigger className="rounded-xl h-11 border-slate-200 font-black text-xs uppercase bg-white">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="slpDdc" className="text-xs font-bold text-orange-600">
+                            📦 SLP DDC (5149138)
+                          </SelectItem>
+                          <SelectItem value="slpOutros" className="text-xs font-bold text-orange-600">
+                            ✨ SLP (Outros Códigos)
+                          </SelectItem>
+                          <SelectItem value="baralhos" className="text-xs font-bold text-blue-600">
+                            🃏 Baralhos / Ação Social
+                          </SelectItem>
+                          <SelectItem value="sacolas" className="text-xs font-bold text-slate-700">
+                            🛍️ Sacolas
+                          </SelectItem>
+                          <SelectItem value="customItem" className="text-xs font-bold text-purple-700">
+                            🏷️ Item Específico por Código
+                          </SelectItem>
+                          <SelectItem value="venda" className="text-xs font-bold text-emerald-700">
+                            💰 Faturamento (R$)
+                          </SelectItem>
+                          <SelectItem value="pa" className="text-xs font-bold text-amber-700">
+                            🎯 P.A. (Peças/Cupom)
+                          </SelectItem>
+                          <SelectItem value="tkm" className="text-xs font-bold text-indigo-700">
+                            💳 TKM (Ticket Médio)
+                          </SelectItem>
+                          <SelectItem value="cupons" className="text-xs font-bold text-slate-700">
+                            🧾 Quantidade de Cupons
+                          </SelectItem>
+                          <SelectItem value="adicionais" className="text-xs font-bold text-emerald-700">
+                            ➕ Adicionais de Retirada
+                          </SelectItem>
+                          <SelectItem value="ident" className="text-xs font-bold text-slate-700">
+                            🆔 Identificação (% Cadastros)
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  ) : (
+                    /* Seleção Múltipla de Métricas */
+                    <div className="space-y-2 pt-1">
+                      <Label className="text-[10px] font-black uppercase text-slate-500">
+                        Selecione os rankings para incluir:
+                      </Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {Object.entries(MODULAR_METRICS).map(([k, meta]) => {
+                          const key = k as ModularMetricKey;
+                          const isSelected = selectedMultiMetrics.includes(key);
+                          return (
+                            <button
+                              key={key}
+                              type="button"
+                              onClick={() => toggleMultiMetric(key)}
+                              className={cn(
+                                "p-2 rounded-xl text-left text-xs font-bold flex items-center gap-2 border transition-all",
+                                isSelected
+                                  ? "bg-white border-emerald-500 text-emerald-800 shadow-2xs font-black"
+                                  : "bg-slate-50/80 border-slate-200 text-slate-500 hover:bg-white"
+                              )}
+                            >
+                              <div className={cn(
+                                "w-4 h-4 rounded-md flex items-center justify-center border text-[10px]",
+                                isSelected ? "bg-emerald-500 text-white border-emerald-600" : "border-slate-300 bg-white"
+                              )}>
+                                {isSelected && "✓"}
+                              </div>
+                              <span className="truncate">{meta.emoji} {meta.shortLabel}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Se item customizado estiver ativo ou selecionado */}
+                  {(selectedModularMetric === 'customItem' || (isMultiRanking && selectedMultiMetrics.includes('customItem'))) && (
+                    <div className="p-3 bg-white rounded-xl border border-purple-200 space-y-2">
+                      <Label className="text-[10px] font-black uppercase text-purple-900 flex items-center gap-1">
+                        <Tag className="w-3 h-3 text-purple-600" /> Código do Produto para o Ranking
+                      </Label>
+                      <Input
+                        placeholder="Ex: 5147812"
+                        value={customItemCode}
+                        onChange={(e) => setCustomItemCode(e.target.value)}
+                        className="text-xs h-9 font-mono font-bold border-purple-200"
+                      />
+                      {customItemInfo && targetCustomCodes.length > 0 && (
+                        <p className="text-[10px] text-purple-800 font-bold bg-purple-50 p-2 rounded-lg">
+                          {customItemInfo.name} • Total vendido: {metrics.totalCustom} un
+                        </p>
+                      )}
+                      {topProductsList.length > 0 && (
+                        <div className="pt-1">
+                          <span className="text-[9px] font-bold text-slate-400 block mb-1">
+                            Atalho rápido nos mais vendidos:
+                          </span>
+                          <div className="flex flex-wrap gap-1 max-h-20 overflow-y-auto">
+                            {topProductsList.slice(0, 6).map(prod => (
+                              <button
+                                key={prod.cProd}
+                                type="button"
+                                onClick={() => setCustomItemCode(prod.cProd)}
+                                className={cn(
+                                  "text-[9px] px-2 py-0.5 rounded-md font-bold uppercase border transition-colors",
+                                  targetCustomCodes.includes(prod.cProd)
+                                    ? "bg-purple-600 text-white border-purple-700"
+                                    : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-purple-50"
+                                )}
+                              >
+                                {prod.cProd} • {prod.xProd.slice(0, 12)}...
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Filtros e Ajustes Finos do Ranking */}
+                  <div className="pt-2 border-t border-emerald-200/60 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label htmlFor="hide-zeros" className="text-xs font-bold text-slate-700 cursor-pointer">
+                          Ocultar Colaboradores Zerados
+                        </Label>
+                        <p className="text-[9px] text-slate-400">Exibe somente quem pontuou na métrica</p>
+                      </div>
+                      <Switch id="hide-zeros" checked={hideZeros} onCheckedChange={setHideZeros} />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label htmlFor="short-names" className="text-xs font-bold text-slate-700 cursor-pointer">
+                          Nome Curto (Primeiro Nome)
+                        </Label>
+                        <p className="text-[9px] text-slate-400">Ex: *RENATA*: 23 em vez de nome completo</p>
+                      </div>
+                      <Switch id="short-names" checked={useShortNames} onCheckedChange={setUseShortNames} />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label htmlFor="medals" className="text-xs font-bold text-slate-700 cursor-pointer">
+                          Exibir Medalhas (🥇, 🥈, 🥉)
+                        </Label>
+                        <p className="text-[9px] text-slate-400">Destaque visual para os primeiros lugares</p>
+                      </div>
+                      <Switch id="medals" checked={showMedals} onCheckedChange={setShowMedals} />
+                    </div>
+
+                    <div className="flex items-center justify-between pt-1">
+                      <Label className="text-xs font-bold text-slate-700">Limite de Posições</Label>
+                      <Select 
+                        value={String(rankingLimit)} 
+                        onValueChange={(v) => setRankingLimit(Number(v))}
+                      >
+                        <SelectTrigger className="rounded-lg h-8 w-32 border-slate-200 font-bold text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="0" className="text-xs">Todos</SelectItem>
+                          <SelectItem value="3" className="text-xs">Top 3</SelectItem>
+                          <SelectItem value="5" className="text-xs">Top 5</SelectItem>
+                          <SelectItem value="10" className="text-xs">Top 10</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Bloco TKM & PA (Avulso ou Combinado) */}
               <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -696,178 +1092,70 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
                 </div>
               </div>
 
-              {/* Bloco 2: Escolha de Campanhas & Itens a Considerar */}
-              <div className="p-4 bg-orange-50/40 rounded-2xl border border-orange-200/80 space-y-3.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Package className="w-4 h-4 text-orange-600" />
-                    <Label className="text-xs font-black uppercase text-slate-700">Parciais de Campanhas & Itens</Label>
-                  </div>
-                  <span className="text-[9px] font-bold text-orange-700 uppercase">Considerar</span>
-                </div>
-                <p className="text-[10px] text-slate-500 font-medium">
-                  Marque quais itens deseja incluir no texto para o WhatsApp:
-                </p>
-
-                <div className="space-y-2.5 pt-1">
-                  {/* SLP DDC */}
-                  <div className="flex items-center justify-between bg-white p-2.5 rounded-xl border border-slate-100 shadow-2xs">
-                    <div className="flex items-center space-x-2.5">
-                      <Checkbox 
-                        id="slp-ddc" 
-                        checked={includeSlpDdc} 
-                        onCheckedChange={(c) => setIncludeSlpDdc(!!c)} 
-                      />
-                      <Label htmlFor="slp-ddc" className="text-xs font-black text-slate-700 cursor-pointer">
-                        SLP DDC <span className="text-[10px] text-slate-400 font-medium">(5149138)</span>
-                      </Label>
+              {/* Bloco de Parciais Gerais (Quando não estiver no Ranking Modular) */}
+              {reportType !== 'MODULAR_RANKING' && (
+                <div className="p-4 bg-orange-50/40 rounded-2xl border border-orange-200/80 space-y-3.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Package className="w-4 h-4 text-orange-600" />
+                      <Label className="text-xs font-black uppercase text-slate-700">Parciais de Campanhas</Label>
                     </div>
-                    <Badge variant="secondary" className="font-mono text-[10px] font-black text-orange-600 bg-orange-50">
-                      {metrics.totalSlpDdc} un
-                    </Badge>
+                    <span className="text-[9px] font-bold text-orange-700 uppercase">Considerar</span>
                   </div>
 
-                  {/* SLP Outros */}
-                  <div className="flex items-center justify-between bg-white p-2.5 rounded-xl border border-slate-100 shadow-2xs">
-                    <div className="flex items-center space-x-2.5">
-                      <Checkbox 
-                        id="slp-outros" 
-                        checked={includeSlpOutros} 
-                        onCheckedChange={(c) => setIncludeSlpOutros(!!c)} 
-                      />
-                      <Label htmlFor="slp-outros" className="text-xs font-black text-slate-700 cursor-pointer">
-                        SLP (Outros Códigos)
-                      </Label>
-                    </div>
-                    <Badge variant="secondary" className="font-mono text-[10px] font-black text-orange-600 bg-orange-50">
-                      {metrics.totalSlpOutros} un
-                    </Badge>
-                  </div>
-
-                  {/* Baralhos / Ação Social */}
-                  <div className="flex items-center justify-between bg-white p-2.5 rounded-xl border border-slate-100 shadow-2xs">
-                    <div className="flex items-center space-x-2.5">
-                      <Checkbox 
-                        id="baralhos" 
-                        checked={includeBaralhos} 
-                        onCheckedChange={(c) => setIncludeBaralhos(!!c)} 
-                      />
-                      <Label htmlFor="baralhos" className="text-xs font-black text-slate-700 cursor-pointer">
-                        Baralhos / Ação Social
-                      </Label>
-                    </div>
-                    <Badge variant="secondary" className="font-mono text-[10px] font-black text-blue-600 bg-blue-50">
-                      {metrics.totalBaralhos} un
-                    </Badge>
-                  </div>
-
-                  {/* Sacolas */}
-                  <div className="flex items-center justify-between bg-white p-2.5 rounded-xl border border-slate-100 shadow-2xs">
-                    <div className="flex items-center space-x-2.5">
-                      <Checkbox 
-                        id="sacolas" 
-                        checked={includeSacolas} 
-                        onCheckedChange={(c) => setIncludeSacolas(!!c)} 
-                      />
-                      <Label htmlFor="sacolas" className="text-xs font-black text-slate-700 cursor-pointer">
-                        Sacolas
-                      </Label>
-                    </div>
-                    <Badge variant="secondary" className="font-mono text-[10px] font-black text-slate-700 bg-slate-100">
-                      {metrics.totalSacolas} un
-                    </Badge>
-                  </div>
-
-                  {/* Item Específico por Código */}
-                  <div className="bg-white p-3 rounded-xl border border-orange-200/80 shadow-2xs space-y-2.5">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2.5">
-                        <Checkbox 
-                          id="custom-item" 
-                          checked={includeCustomItem} 
-                          onCheckedChange={(c) => setIncludeCustomItem(!!c)} 
-                        />
-                        <Label htmlFor="custom-item" className="text-xs font-black text-orange-900 cursor-pointer flex items-center gap-1">
-                          <Tag className="w-3 h-3 text-orange-500" /> Item Específico por Código
+                  <div className="space-y-2 pt-1">
+                    <div className="flex items-center justify-between bg-white p-2.5 rounded-xl border border-slate-100">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox id="slp-ddc" checked={includeSlpDdc} onCheckedChange={(c) => setIncludeSlpDdc(!!c)} />
+                        <Label htmlFor="slp-ddc" className="text-xs font-black text-slate-700 cursor-pointer">
+                          SLP DDC (5149138)
                         </Label>
                       </div>
-                      {includeCustomItem && targetCustomCodes.length > 0 && (
-                        <Badge className="font-mono text-[10px] font-black bg-orange-500 text-white">
-                          {metrics.totalCustom} un
-                        </Badge>
-                      )}
+                      <Badge variant="secondary" className="text-[10px] font-black text-orange-600 bg-orange-50">
+                        {metrics.totalSlpDdc} un
+                      </Badge>
                     </div>
 
-                    <div className="space-y-1.5 pt-0.5">
-                      <div className="flex gap-2">
-                        <div className="relative flex-1">
-                          <Search className="w-3.5 h-3.5 absolute left-2.5 top-3 text-slate-400" />
-                          <Input
-                            placeholder="Código do produto (ex: 5147812)"
-                            value={customItemCode}
-                            onChange={(e) => {
-                              setCustomItemCode(e.target.value);
-                              if (e.target.value.trim()) setIncludeCustomItem(true);
-                            }}
-                            className="text-xs h-9 pl-8 rounded-lg border-slate-200 font-mono font-bold"
-                          />
-                        </div>
+                    <div className="flex items-center justify-between bg-white p-2.5 rounded-xl border border-slate-100">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox id="slp-outros" checked={includeSlpOutros} onCheckedChange={(c) => setIncludeSlpOutros(!!c)} />
+                        <Label htmlFor="slp-outros" className="text-xs font-black text-slate-700 cursor-pointer">
+                          SLP (Outros Códigos)
+                        </Label>
                       </div>
+                      <Badge variant="secondary" className="text-[10px] font-black text-orange-600 bg-orange-50">
+                        {metrics.totalSlpOutros} un
+                      </Badge>
+                    </div>
 
-                      {customItemInfo && targetCustomCodes.length > 0 && (
-                        <p className="text-[10px] text-orange-700 font-bold bg-orange-50/80 p-2 rounded-lg border border-orange-100">
-                          {customItemInfo.name} • Total no período: <strong>{metrics.totalCustom} un</strong>
-                        </p>
-                      )}
+                    <div className="flex items-center justify-between bg-white p-2.5 rounded-xl border border-slate-100">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox id="baralhos" checked={includeBaralhos} onCheckedChange={(c) => setIncludeBaralhos(!!c)} />
+                        <Label htmlFor="baralhos" className="text-xs font-black text-slate-700 cursor-pointer">
+                          Baralhos / Ação Social
+                        </Label>
+                      </div>
+                      <Badge variant="secondary" className="text-[10px] font-black text-blue-600 bg-blue-50">
+                        {metrics.totalBaralhos} un
+                      </Badge>
+                    </div>
 
-                      {/* Itens mais vendidos para clique rápido */}
-                      {topProductsList.length > 0 && (
-                        <div className="pt-1.5">
-                          <span className="text-[9px] font-bold text-slate-400 block mb-1">
-                            Clique rápido nos mais vendidos:
-                          </span>
-                          <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto pr-1">
-                            {topProductsList.slice(0, 8).map(prod => (
-                              <button
-                                key={prod.cProd}
-                                type="button"
-                                onClick={() => handleSelectQuickProduct(prod.cProd)}
-                                className={cn(
-                                  "text-[9px] px-2 py-0.5 rounded-md font-bold uppercase transition-colors border",
-                                  targetCustomCodes.includes(prod.cProd)
-                                    ? "bg-orange-500 text-white border-orange-600"
-                                    : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-orange-50 hover:text-orange-700"
-                                )}
-                              >
-                                {prod.cProd} • {prod.xProd.slice(0, 14)}... ({prod.qCom})
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+                    <div className="flex items-center justify-between bg-white p-2.5 rounded-xl border border-slate-100">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox id="sacolas" checked={includeSacolas} onCheckedChange={(c) => setIncludeSacolas(!!c)} />
+                        <Label htmlFor="sacolas" className="text-xs font-black text-slate-700 cursor-pointer">
+                          Sacolas
+                        </Label>
+                      </div>
+                      <Badge variant="secondary" className="text-[10px] font-black text-slate-700 bg-slate-100">
+                        {metrics.totalSacolas} un
+                      </Badge>
                     </div>
                   </div>
                 </div>
+              )}
 
-                {/* Opção para listar campanhas por colaborador */}
-                {reportType === 'VENDOR_PERFORMANCE' && (
-                  <div className="pt-2 border-t border-orange-100 flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label htmlFor="vendor-details" className="text-[11px] font-bold text-slate-700 cursor-pointer">
-                        Parciais por Colaborador
-                      </Label>
-                      <p className="text-[9px] text-slate-400">Mostra parciais de cada item abaixo do vendedor</p>
-                    </div>
-                    <Switch 
-                      id="vendor-details"
-                      checked={includeItemDetailsInVendors} 
-                      onCheckedChange={setIncludeItemDetailsInVendors} 
-                    />
-                  </div>
-                )}
-              </div>
-
-              {/* Bloco 3: Opções Gerais */}
+              {/* Opções Gerais */}
               <div className="space-y-3 pt-2 border-t border-slate-100">
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
@@ -884,7 +1172,7 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
                 className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl py-6 mt-2 gap-2 shadow-lg shadow-emerald-500/20 text-sm"
               >
                 {copied ? <Check className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
-                {copied ? "COPIADO PARA O CLIPBOARD!" : "COPIAR TEXTO DO WHATSAPP"}
+                {copied ? "COPIADO COM SUCESSO!" : "COPIAR FORMATO WHATSAPP"}
               </Button>
             </CardContent>
           </Card>
@@ -898,7 +1186,7 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
                 Pré-visualização WhatsApp
               </h3>
               <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 font-black text-[9px] uppercase">
-                {channelMode === 'AVULSO' ? 'TKM/PA Presencial' : channelMode === 'COMBINADO' ? 'TKM/PA Combinado' : 'TKM/PA Avulso + Comb'}
+                {reportType === 'MODULAR_RANKING' ? 'Formato Modular' : channelMode}
               </Badge>
             </div>
             <Button
@@ -914,7 +1202,6 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
 
           {/* WhatsApp Screen Frame */}
           <div className="bg-[#E5DDD5] rounded-[2rem] p-4 md:p-8 shadow-inner min-h-[560px] relative overflow-hidden flex flex-col justify-start">
-            {/* WhatsApp background pattern watermark */}
             <div 
               className="absolute inset-0 opacity-[0.06] pointer-events-none" 
               style={{ 
@@ -923,7 +1210,7 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
               }} 
             />
 
-            {/* Header simulando topo de conversa do WhatsApp */}
+            {/* Header simulando topo do WhatsApp */}
             <div className="relative max-w-md mx-auto w-full bg-emerald-800 text-white px-4 py-2.5 rounded-t-2xl flex items-center justify-between shadow-md">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center font-black text-xs text-white">
@@ -950,7 +1237,7 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
                 
                 <div className="flex items-center justify-between mt-4 pt-2 border-t border-slate-100">
                   <span className="text-[9px] font-bold text-slate-400 uppercase">
-                    Toque no texto ou use o botão para copiar
+                    Formato compacto pronto para o grupo
                   </span>
                   <div className="flex items-center gap-1">
                     <span className="text-[10px] text-slate-400 font-bold">{format(new Date(), "HH:mm")}</span>
@@ -959,7 +1246,7 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
                 </div>
               </div>
 
-              {/* Botão de Cópia Direta Flutuante */}
+              {/* Botão de Cópia Direta */}
               <div className="mt-4 flex justify-center">
                 <Button 
                   onClick={handleCopy}

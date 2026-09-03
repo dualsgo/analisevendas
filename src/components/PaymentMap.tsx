@@ -161,7 +161,7 @@ export function PaymentMap({ data }: PaymentMapProps) {
     { id: "temporal" as SectionId,     label: "Padrão por Horário",          icon: Clock },
   ];
 
-  const fmtBRL = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const fmtBRL = (v?: number | string | null) => (Number(v) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
   if (sales.length === 0) {
     return (

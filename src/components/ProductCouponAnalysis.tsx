@@ -305,7 +305,7 @@ export function ProductCouponAnalysis({ data }: ProductCouponAnalysisProps) {
     });
   }, [productsAnalysis, selectedArchetype, searchTokens, sortBy, sortOrder]);
 
-  const fmtBRL = (val: number) => val.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const fmtBRL = (val?: number | string | null) => (Number(val) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
   const getArchetypeBadge = (arch: Archetype) => {
     switch(arch) {

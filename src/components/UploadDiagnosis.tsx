@@ -126,7 +126,7 @@ export function UploadDiagnosis({ data, vinculos, onConfirm }: UploadDiagnosisPr
     };
   }, [data, vinculos]);
 
-  const formatBRL = (val: number) => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const formatBRL = (val?: number | string | null) => (Number(val) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
   const headerContent = (
     <div className="flex flex-col md:flex-row items-center gap-2 md:gap-4 animate-in fade-in zoom-in duration-500">

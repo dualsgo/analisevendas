@@ -61,6 +61,11 @@ export function CollaboratorTeamDispersion({
 
   const { collaborators, teamMeans, quadrantCounts, outliersSummary } = dispersionStats;
 
+  const formatBRL = (val?: number | string | null) =>
+    (Number(val) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const formatNum = (val?: number | string | null, precision = 2) =>
+    (Number(val) || 0).toLocaleString("pt-BR", { minimumFractionDigits: precision, maximumFractionDigits: precision });
+
   // Filtragem dos colaboradores para exibição na tabela e gráfico
   const filteredList = collaborators.filter(c => {
     if (filterQuadrant === "ALL") return true;
@@ -333,19 +338,19 @@ export function CollaboratorTeamDispersion({
                             </div>
                             <div className="flex justify-between">
                               <span className="text-slate-400">PA Realizado:</span>
-                              <span className="font-bold text-white">{data.pa.toFixed(2)} (Meta: {data.metaPonderadaPA.toFixed(2)})</span>
+                              <span className="font-bold text-white">{(data.pa ?? 0).toFixed(2)} (Meta: {(data.metaPonderadaPA ?? 0).toFixed(2)})</span>
                             </div>
                             <div className="flex justify-between">
                               <span className="text-slate-400">Ritmo / Dia:</span>
-                              <span className="font-bold text-white">{data.cuponsDia.toFixed(1)} cupons/dia</span>
+                              <span className="font-bold text-white">{(data.cuponsDia ?? 0).toFixed(1)} cupons/dia</span>
                             </div>
                             <div className="flex justify-between">
                               <span className="text-slate-400">Ticket Médio (TKM):</span>
-                              <span className="font-bold text-emerald-300">R$ {data.tkm.toFixed(2)}</span>
+                              <span className="font-bold text-emerald-300">{formatBRL(data.tkm)}</span>
                             </div>
                             <div className="flex justify-between">
                               <span className="text-slate-400">Venda / Dia:</span>
-                              <span className="font-bold text-indigo-300">R$ {data.vendaDia.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                              <span className="font-bold text-indigo-300">R$ {formatNum(data.vendaDia)}</span>
                             </div>
                           </div>
                           <div className="pt-2 border-t border-slate-800 text-[10px] text-indigo-300 italic">
@@ -608,34 +613,34 @@ export function CollaboratorTeamDispersion({
 
                       <td className="py-3 px-3 text-right">
                         <span className="font-bold text-slate-800">
-                          {colab.vendaPorDia.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                          {formatBRL(colab.vendaPorDia)}
                         </span>
-                        <span className="text-[10px] text-slate-400 block">Total: {colab.vendaTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                        <span className="text-[10px] text-slate-400 block">Total: {formatBRL(colab.vendaTotal)}</span>
                       </td>
 
                       <td className="py-3 px-3 text-right">
-                        <span className="font-bold text-slate-800">{colab.cuponsPorDia.toFixed(1)} cup/dia</span>
+                        <span className="font-bold text-slate-800">{(colab.cuponsPorDia ?? 0).toFixed(1)} cup/dia</span>
                         <span className="text-[10px] text-slate-400 block">{colab.cuponsTotal} cupons</span>
                       </td>
 
                       <td className="py-3 px-3 text-right">
                         <span className={cn("font-bold", isBateuMeta ? "text-emerald-700" : "text-rose-700")}>
-                          {colab.pa.toFixed(2)}
+                          {(colab.pa ?? 0).toFixed(2)}
                         </span>
                         <span className="text-[10px] text-slate-400 block">
-                          / Meta {colab.metaPonderadaPA.toFixed(2)} ({colab.atingimentoPonderadoPct.toFixed(0)}%)
+                          / Meta {(colab.metaPonderadaPA ?? 0).toFixed(2)} ({(colab.atingimentoPonderadoPct ?? 0).toFixed(0)}%)
                         </span>
                       </td>
 
                       <td className="py-3 px-3 text-right">
                         <span className="font-bold text-slate-800">
-                          {colab.tkm.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                          {formatBRL(colab.tkm)}
                         </span>
                       </td>
 
                       <td className="py-3 px-3 text-right">
                         <span className={cn("font-bold", colab.cpfRate >= teamMeans.cpfRate ? "text-emerald-700" : "text-slate-700")}>
-                          {colab.cpfRate.toFixed(1)}%
+                          {(colab.cpfRate ?? 0).toFixed(1)}%
                         </span>
                       </td>
 

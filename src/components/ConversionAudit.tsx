@@ -60,6 +60,8 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
   const [activeView, setActiveView] = useState("colaborador");
   const [selectedVendor, setSelectedVendor] = useState<string | null>(null);
 
+  const formatBRL = (val?: number | string | null) => (Number(val) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
   const pickupOrders = useMemo(() => {
     return data.filter(r => r.canal === "RETIRADA_ONLINE" && !r.is_cancelada);
   }, [data]);
@@ -134,7 +136,7 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Receita Extra Gerada</p>
           <div className="flex items-end justify-between">
             <h3 className="text-2xl font-black text-white leading-none">
-              {funnelStats.totalRev.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+              {formatBRL(funnelStats.totalRev)}
             </h3>
             <Trophy className="w-5 h-5 text-yellow-500" />
           </div>
@@ -230,7 +232,7 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
                                 <div className="text-right">
                                   <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Valor do Adicional</p>
                                   <p className="text-sm font-black text-emerald-700">
-                                    {parseFloat(item.adicional.vNF).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                    {formatBRL(item.adicional.vNF)}
                                   </p>
                                 </div>
                               </div>
@@ -251,7 +253,7 @@ export function ConversionAudit({ data }: ConversionAuditProps) {
                                 {Object.values(item.adicional.itens).map((prod: any, pIdx: number) => (
                                   <div key={pIdx} className="flex justify-between text-[10px] font-bold text-slate-600">
                                     <span className="uppercase truncate max-w-[200px]">{prod.xProd}</span>
-                                    <span>{parseFloat(prod.vProd).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                                    <span>{formatBRL(prod.vProd)}</span>
                                   </div>
                                 ))}
                               </div>

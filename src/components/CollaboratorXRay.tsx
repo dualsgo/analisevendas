@@ -107,6 +107,11 @@ export function CollaboratorXRay({ data = [], vinculos = [] }: CollaboratorXRayP
   const [isUploadingEscala, setIsUploadingEscala] = useState(false);
   const [escalaUploadError, setEscalaUploadError] = useState<string | null>(null);
 
+  const formatBRL = (val?: number | string | null) =>
+    (Number(val) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const formatNum = (val?: number | string | null, precision = 2) =>
+    (Number(val) || 0).toLocaleString("pt-BR", { minimumFractionDigits: precision, maximumFractionDigits: precision });
+
   // Carregar escala e metas salvas no mount
   React.useEffect(() => {
     const savedEscala = loadSavedEscalaStore();
@@ -1030,7 +1035,7 @@ export function CollaboratorXRay({ data = [], vinculos = [] }: CollaboratorXRayP
     // Destaque/Recomendação Aging
     if (agingQty > 0) {
       recommendations.push(
-        `Manter o foco em produtos da Campanha Aging: ${agingQty} item(ns) desmobilizado(s), resgatando R$ ${agingValor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} em estoque antigo.`
+        `Manter o foco em produtos da Campanha Aging: ${agingQty} item(ns) desmobilizado(s), resgatando R$ ${formatNum(agingValor)} em estoque antigo.`
       );
     }
 
@@ -1041,7 +1046,7 @@ export function CollaboratorXRay({ data = [], vinculos = [] }: CollaboratorXRayP
       );
     } else if (adicionaisCount > 0) {
       recommendations.push(
-        `Ótima conversão em vendas adicionais omnichannel: gerou ${adicionaisCount} pedido(s) adicional(is) totalizando R$ ${adicionaisValor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}.`
+        `Ótima conversão em vendas adicionais omnichannel: gerou ${adicionaisCount} pedido(s) adicional(is) totalizando R$ ${formatNum(adicionaisValor)}.`
       );
     }
 
@@ -1087,18 +1092,18 @@ Utilize os dados empíricos de vendas, a **Meta Ponderada por Escala** e o **Map
 ---
 ### 1. RESUMO GERAL & SCORE DE JUSTIÇA (J-SCORE)
 - **Colaborador:** ${selectedVendor}
-- **J-Score de Justiça:** ${currentExtendedStats ? `${currentExtendedStats.jScore} / 100` : 'N/A'} (Média da Equipe: ${dispersionStats.teamMeans.jScore} pts)
+- **J-Score de Justiça:** ${currentExtendedStats ? `${currentExtendedStats.jScore} / 100` : 'N/A'} (Média da Equipe: ${dispersionStats?.teamMeans?.jScore ?? 0} pts)
 - **Quadrante de Dispersão:** ${currentExtendedStats ? `${currentExtendedStats.quadrantName} - "${currentExtendedStats.quadrantDesc}"` : 'N/A'}
-- **Faturamento Total:** ${vendorMetrics.vendaTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} (Média Diária: ${currentExtendedStats ? currentExtendedStats.vendaPorDia.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : 'N/A'}/dia)
-- **Participação na Loja (Share):** ${vendorMetrics.shareLoja.toFixed(1)}% (Média por Vendedor: ${storeMetrics.avgVendaPerVendor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})
-- **Total de Atendimentos (Cupons):** ${vendorMetrics.cuponsTotal} cupons (${currentExtendedStats ? currentExtendedStats.cuponsPorDia.toFixed(1) : 'N/A'} cupons/dia)
-- **Total de Peças Vendidas:** ${vendorMetrics.itensTotal} unidades (${currentExtendedStats?.diasTrabalhados || 1} dias trabalhados)
+- **Faturamento Total:** ${formatBRL(vendorMetrics.vendaTotal)} (Média Diária: ${currentExtendedStats?.vendaPorDia !== undefined ? `${formatBRL(currentExtendedStats.vendaPorDia)}/dia` : 'N/A'})
+- **Participação na Loja (Share):** ${(vendorMetrics.shareLoja ?? 0).toFixed(1)}% (Média por Vendedor: ${formatBRL(storeMetrics.avgVendaPerVendor)})
+- **Total de Atendimentos (Cupons):** ${vendorMetrics.cuponsTotal ?? 0} cupons (${currentExtendedStats ? currentExtendedStats.cuponsPorDia.toFixed(1) : 'N/A'} cupons/dia)
+- **Total de Peças Vendidas:** ${vendorMetrics.itensTotal ?? 0} unidades (${currentExtendedStats?.diasTrabalhados || 1} dias trabalhados)
 
 ---
 ### 2. AVALIAÇÃO JUSTA: META PONDERADA POR ESCALA (CRITÉRIO PRINCIPAL)
-- **PA Realizado:** ${vendorMetrics.pa.toFixed(2)} peças/cupom
-- **Meta Ponderada Individual (P.A.):** ${metaPonderadaPA.toFixed(2)} PA
-- **Atingimento da Meta Ponderada:** ${atingimentoPonderadoPct.toFixed(1)}% (${isBateuPonderada ? '✅ META ATINGIDA' : '❌ ABAIXO DA META'})
+- **PA Realizado:** ${(vendorMetrics.pa ?? 0).toFixed(2)} peças/cupom
+- **Meta Ponderada Individual (P.A.):** ${(metaPonderadaPA ?? 0).toFixed(2)} PA
+- **Atingimento da Meta Ponderada:** ${(atingimentoPonderadoPct ?? 0).toFixed(1)}% (${isBateuPonderada ? '✅ META ATINGIDA' : '❌ ABAIXO DA META'})
 - **Saldo de Peças (Esperadas vs Realizadas):** ${saldoPecas >= 0 ? `+${saldoPecas.toFixed(1)} peças (Superávit)` : `${saldoPecas.toFixed(1)} peças (Déficit)`}
 - **Veredito de Justiça Avaliativa:** ${
   justicaHighlight === 'JUSTIÇA_POSITIVA' 
@@ -1131,19 +1136,19 @@ ${currentExtendedStats?.outliers && currentExtendedStats.outliers.length > 0 ? c
 
 ---
 ### 4. INDICADORES CHAVE COMPLEMENTARES (KPIs)
-- **Ticket Médio (TKM):** ${vendorMetrics.tkm.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} (Média Loja: ${storeMetrics.tkmLoja.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})
-- **Taxa de Captura de CPF:** ${vendorMetrics.cpfRate.toFixed(1)}% (Média Loja: ${storeMetrics.cpfRateLoja.toFixed(1)}%)
-- **Concessão de Desconto:** R$ ${vendorMetrics.descontoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${vendorMetrics.descontoPercent.toFixed(1)}% das vendas | Média Loja: ${storeMetrics.descontoRateLoja.toFixed(1)}%)
-- **Preço Médio por Item:** ${vendorMetrics.precoMedioItem.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+- **Ticket Médio (TKM):** ${formatBRL(vendorMetrics.tkm)} (Média Loja: ${formatBRL(storeMetrics.tkmLoja)})
+- **Taxa de Captura de CPF:** ${(vendorMetrics.cpfRate ?? 0).toFixed(1)}% (Média Loja: ${(storeMetrics.cpfRateLoja ?? 0).toFixed(1)}%)
+- **Concessão de Desconto:** R$ ${formatNum(vendorMetrics.descontoTotal)} (${(vendorMetrics.descontoPercent ?? 0).toFixed(1)}% das vendas | Média Loja: ${(storeMetrics.descontoRateLoja ?? 0).toFixed(1)}%)
+- **Preço Médio por Item:** ${formatBRL(vendorMetrics.precoMedioItem)}
 
 ---
-- **Venda Sugestiva (SLP DDC & SLP):** ${vendorMetrics.slpTotalQty} itens totais (R$ ${vendorMetrics.slpTotalValor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})
-  * SLP DDC (Campanha Atual): ${vendorMetrics.slpDdcQty} itens | ${vendorMetrics.slpDdcValor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} (Penetração: ${vendorMetrics.slpDdcPenetracaoRate.toFixed(1)}%)
-  * SLP (Outros / Legado): ${vendorMetrics.slpQty} itens | ${vendorMetrics.slpValor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} (Penetração: ${vendorMetrics.slpPenetracaoRate.toFixed(1)}%)
-- **Ação Social (Total):** ${vendorMetrics.socialQty} itens | ${vendorMetrics.socialValor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} (Penetração: ${vendorMetrics.socialPenetracaoRate.toFixed(1)}% dos cupons vs Loja: ${storeMetrics.storeSocialPenetracao.toFixed(1)}%)
+- **Venda Sugestiva (SLP DDC & SLP):** ${vendorMetrics.slpTotalQty} itens totais (R$ ${formatNum(vendorMetrics.slpTotalValor)})
+  * SLP DDC (Campanha Atual): ${vendorMetrics.slpDdcQty} itens | ${formatBRL(vendorMetrics.slpDdcValor)} (Penetração: ${(vendorMetrics.slpDdcPenetracaoRate ?? 0).toFixed(1)}%)
+  * SLP (Outros / Legado): ${vendorMetrics.slpQty} itens | ${formatBRL(vendorMetrics.slpValor)} (Penetração: ${(vendorMetrics.slpPenetracaoRate ?? 0).toFixed(1)}%)
+- **Ação Social (Total):** ${vendorMetrics.socialQty} itens | ${formatBRL(vendorMetrics.socialValor)} (Penetração: ${(vendorMetrics.socialPenetracaoRate ?? 0).toFixed(1)}% dos cupons vs Loja: ${(storeMetrics.storeSocialPenetracao ?? 0).toFixed(1)}%)
   * Detalhamento Ação Social: Sacolas: ${vendorMetrics.sacolaQty} un | Baralhos: ${vendorMetrics.baralhoQty} un | Lanchinho: ${vendorMetrics.lanchinhoQty} un
-- **Campanha Aging (Estoque Antigo):** ${vendorMetrics.agingQty} un desmobilizada(s) | R$ ${vendorMetrics.agingValor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} resgatado(s) (${vendorMetrics.agingCuponsCount} cupons)
-- **Omnichannel:** ${vendorMetrics.retiradasCount} retiradas online atendidas | ${vendorMetrics.adicionaisCount} vendas adicionais geradas (R$ ${vendorMetrics.adicionaisValor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})
+- **Campanha Aging (Estoque Antigo):** ${vendorMetrics.agingQty} un desmobilizada(s) | R$ ${formatNum(vendorMetrics.agingValor)} resgatado(s) (${vendorMetrics.agingCuponsCount} cupons)
+- **Omnichannel:** ${vendorMetrics.retiradasCount} retiradas online atendidas | ${vendorMetrics.adicionaisCount} vendas adicionais geradas (R$ ${formatNum(vendorMetrics.adicionaisValor)})
 
 ---
 ### 6. TAMANHO E PROFUNDIDADE DA CESTA
@@ -1152,23 +1157,23 @@ ${basketBreakdown.map(b => `- **${b.name}:** ${b.count} cupons (${b.percent.toFi
 ---
 ### 7. QUALIDADE E UPSELL EM TROCAS
 - **Total de Trocas Atendidas:** ${vendorMetrics.trocasCount}
-- **Diferença de Valor Gerada:** R$ ${vendorMetrics.trocasValorDiferenca.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+- **Diferença de Valor Gerada:** R$ ${formatNum(vendorMetrics.trocasValorDiferenca)}
 - **Trocas com Upsell (Positivas):** ${vendorMetrics.trocasPositivasCount} (${vendorMetrics.trocasCount > 0 ? ((vendorMetrics.trocasPositivasCount / vendorMetrics.trocasCount) * 100).toFixed(0) : 0}%)
 - **Score de Qualidade em Trocas:** ${vendorMetrics.trocasScoreMedio > 0 ? vendorMetrics.trocasScoreMedio.toFixed(1) + '/100' : 'N/A'}
 
 ---
 ### 8. RITMIA E TOP PRODUTOS
-- **Hora de Ouro (Pico de Venda):** ${peakHoursInfo.goldHour} (R$ ${peakHoursInfo.goldHourFat.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})
+- **Hora de Ouro (Pico de Venda):** ${peakHoursInfo.goldHour} (R$ ${formatNum(peakHoursInfo.goldHourFat)})
 - **Hora de Maior PA:** ${peakHoursInfo.bestPaHour} (PA: ${peakHoursInfo.bestPaValue.toFixed(2)})
 - **Top 5 Produtos Vendidos:**
-${topProducts.map((p, i) => `  ${i + 1}. [Cód ${p.code}] ${p.name} - ${p.qtd} un (R$ ${p.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})`).join('\n')}
+${topProducts.map((p, i) => `  ${i + 1}. [Cód ${p.code}] ${p.name} - ${p.qtd} un (R$ ${formatNum(p.valor)})`).join('\n')}
 
 ---
 ### 9. POTENCIAL FINANCEIRO DE CRESCIMENTO (GANHO ADICIONAL)
-- **Potencial Total Combinado:** + R$ ${financialProjections.potencialTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-- **Equiparação ao TKM Médio da Loja:** + R$ ${financialProjections.ganhoTkmLoja.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-- **Atingimento da Meta Ponderada Justa:** ${financialProjections.ganhoMetaPonderada > 0 ? `+ R$ ${financialProjections.ganhoMetaPonderada.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (+ ${financialProjections.pecasNecessariasPonderada} peças)` : 'Meta já superada!'}
-- **Conversão de 30% dos Cupons Mono-item em 2 itens:** + R$ ${financialProjections.ganhoConversaoMono.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${financialProjections.monoConvertedCount} cupons)
+- **Potencial Total Combinado:** + R$ ${formatNum(financialProjections.potencialTotal)}
+- **Equiparação ao TKM Médio da Loja:** + R$ ${formatNum(financialProjections.ganhoTkmLoja)}
+- **Atingimento da Meta Ponderada Justa:** ${financialProjections.ganhoMetaPonderada > 0 ? `+ R$ ${formatNum(financialProjections.ganhoMetaPonderada)} (+ ${financialProjections.pecasNecessariasPonderada} peças)` : 'Meta já superada!'}
+- **Conversão de 30% dos Cupons Mono-item em 2 itens:** + R$ ${formatNum(financialProjections.ganhoConversaoMono)} (${financialProjections.monoConvertedCount} cupons)
 
 ---
 ### 10. DIAGNÓSTICO E RECOMENDAÇÕES PRÁTICAS
@@ -1373,7 +1378,7 @@ ${behavioralDiagnosis.recommendations.map(r => `- ${r}`).join('\n')}
                   >
                     {vendorSummaryList.map(v => (
                       <option key={v.name} value={v.name}>
-                        {v.name} • {v.venda.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} ({v.cupons} cupons)
+                        {v.name} • {formatBRL(v.venda)} ({v.cupons} cupons)
                       </option>
                     ))}
                   </select>
@@ -1512,7 +1517,7 @@ ${behavioralDiagnosis.recommendations.map(r => `- ${r}`).join('\n')}
                   </h4>
                   <p className="text-xs text-indigo-800 mt-0.5">
                     J-Score Justo: <strong className="font-black text-indigo-950">{currentExtendedStats.jScore}/100</strong> • 
-                    Média Diária: <strong className="font-bold">{currentExtendedStats.vendaPorDia.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}/dia</strong> ({currentExtendedStats.cuponsPorDia.toFixed(1)} cup./dia)
+                    Média Diária: <strong className="font-bold">{formatBRL(currentExtendedStats.vendaPorDia)}/dia</strong> ({currentExtendedStats.cuponsPorDia.toFixed(1)} cup./dia)
                   </p>
                 </div>
               </div>
@@ -1550,16 +1555,16 @@ ${behavioralDiagnosis.recommendations.map(r => `- ${r}`).join('\n')}
                 </div>
                 <div>
                   <h3 className="text-2xl font-headline font-extrabold text-slate-900">
-                    {vendorMetrics.vendaTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    {formatBRL(vendorMetrics.vendaTotal)}
                   </h3>
                   <p className="text-xs font-semibold text-slate-500 mt-1 flex items-center gap-1">
                     <span>Participação na Loja:</span>
-                    <span className="font-bold text-indigo-600">{vendorMetrics.shareLoja.toFixed(1)}%</span>
+                    <span className="font-bold text-indigo-600">{(vendorMetrics.shareLoja ?? 0).toFixed(1)}%</span>
                   </p>
                 </div>
                 <div className="pt-2 border-t border-slate-100 text-[11px] text-slate-500 font-medium flex items-center justify-between">
                   <span>Média da Loja:</span>
-                  <span className="font-bold text-slate-700">{storeMetrics.avgVendaPerVendor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                  <span className="font-bold text-slate-700">{formatBRL(storeMetrics.avgVendaPerVendor)}</span>
                 </div>
               </CardContent>
             </Card>
@@ -1576,7 +1581,7 @@ ${behavioralDiagnosis.recommendations.map(r => `- ${r}`).join('\n')}
                 <div>
                   <div className="flex items-baseline gap-2">
                     <h3 className="text-2xl font-headline font-extrabold text-slate-900">
-                      {vendorMetrics.tkm.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                      {formatBRL(vendorMetrics.tkm)}
                     </h3>
                     {vendorMetrics.tkm >= storeMetrics.tkmLoja ? (
                       <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] font-bold">
@@ -1594,7 +1599,7 @@ ${behavioralDiagnosis.recommendations.map(r => `- ${r}`).join('\n')}
                 </div>
                 <div className="pt-2 border-t border-slate-100 text-[11px] text-slate-500 font-medium flex items-center justify-between">
                   <span>Líder da Loja:</span>
-                  <span className="font-bold text-slate-700">{storeMetrics.topVendorTkm.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                  <span className="font-bold text-slate-700">{formatBRL(storeMetrics.topVendorTkm)}</span>
                 </div>
               </CardContent>
             </Card>
@@ -1856,7 +1861,7 @@ ${behavioralDiagnosis.recommendations.map(r => `- ${r}`).join('\n')}
                           </div>
                           <div className="flex items-center justify-between text-slate-300">
                             <span>Faturamento no Posto:</span>
-                            <span className="font-bold text-indigo-300">{pos.venda.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                            <span className="font-bold text-indigo-300">{formatBRL(pos.venda)}</span>
                           </div>
                           <div className="flex items-center justify-between text-slate-400 text-[10px]">
                             <span>Dias no Posto:</span>
@@ -1971,7 +1976,7 @@ ${behavioralDiagnosis.recommendations.map(r => `- ${r}`).join('\n')}
                     Ganho Potencial Combinado
                   </span>
                   <div className="text-3xl md:text-4xl font-headline font-extrabold text-emerald-400">
-                    + {financialProjections.potencialTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    + {formatBRL(financialProjections.potencialTotal)}
                   </div>
                   <span className="text-[11px] font-medium text-slate-300 block mt-1">
                     Com a mesma quantidade de clientes atendidos
@@ -1983,7 +1988,7 @@ ${behavioralDiagnosis.recommendations.map(r => `- ${r}`).join('\n')}
                 <div className="bg-white/5 rounded-xl p-4 border border-white/10">
                   <span className="text-[11px] font-bold uppercase text-slate-400 block mb-1">Se TKM atingisse a Média da Loja:</span>
                   <p className="text-lg font-bold text-white">
-                    + {financialProjections.ganhoTkmLoja.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    + {formatBRL(financialProjections.ganhoTkmLoja)}
                   </p>
                   <span className="text-[10px] text-slate-400 block mt-0.5">
                     (Diferença de TKM: R$ {Math.max(0, storeMetrics.tkmLoja - vendorMetrics.tkm).toFixed(2)})
@@ -1994,7 +1999,7 @@ ${behavioralDiagnosis.recommendations.map(r => `- ${r}`).join('\n')}
                   <span className="text-[11px] font-bold uppercase text-slate-400 block mb-1">Meta Ponderada da Escala:</span>
                   <p className="text-lg font-bold text-white">
                     {financialProjections.ganhoMetaPonderada > 0 ? (
-                      `+ ${financialProjections.ganhoMetaPonderada.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`
+                      `+ ${formatBRL(financialProjections.ganhoMetaPonderada)}`
                     ) : (
                       "Meta Já Atingida! 🎉"
                     )}
@@ -2009,7 +2014,7 @@ ${behavioralDiagnosis.recommendations.map(r => `- ${r}`).join('\n')}
                 <div className="bg-white/5 rounded-xl p-4 border border-white/10">
                   <span className="text-[11px] font-bold uppercase text-slate-400 block mb-1">Convertendo 30% dos Cupons 1 Item:</span>
                   <p className="text-lg font-bold text-white">
-                    + {financialProjections.ganhoConversaoMono.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    + {formatBRL(financialProjections.ganhoConversaoMono)}
                   </p>
                   <span className="text-[10px] text-slate-400 block mt-0.5">
                     ({financialProjections.monoConvertedCount} atendimentos de 1 item transformados em 2 itens)
@@ -2060,7 +2065,7 @@ ${behavioralDiagnosis.recommendations.map(r => `- ${r}`).join('\n')}
                       {vendorMetrics.slpTotalQty} <span className="text-xs font-semibold text-slate-500">itens totais</span>
                     </div>
                     <p className="text-xs font-bold text-orange-700 mt-0.5">
-                      {vendorMetrics.slpTotalValor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                      {formatBRL(vendorMetrics.slpTotalValor)}
                     </p>
                   </div>
 
@@ -2071,25 +2076,25 @@ ${behavioralDiagnosis.recommendations.map(r => `- ${r}`).join('\n')}
                         <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
                         SLP DDC (Atual):
                       </span>
-                      <span className="font-extrabold text-amber-900">{vendorMetrics.slpDdcQty} un ({vendorMetrics.slpDdcValor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})</span>
+                      <span className="font-extrabold text-amber-900">{vendorMetrics.slpDdcQty} un ({formatBRL(vendorMetrics.slpDdcValor)})</span>
                     </div>
                     <div className="flex items-center justify-between font-medium text-slate-700">
                       <span className="text-orange-700 font-bold flex items-center gap-1">
                         <span className="w-1.5 h-1.5 rounded-full bg-orange-400" />
                         SLP (Outros):
                       </span>
-                      <span className="font-extrabold text-orange-800">{vendorMetrics.slpQty} un ({vendorMetrics.slpValor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})</span>
+                      <span className="font-extrabold text-orange-800">{vendorMetrics.slpQty} un ({formatBRL(vendorMetrics.slpValor)})</span>
                     </div>
                   </div>
 
                   <div className="pt-2 border-t border-orange-200/60 space-y-1">
                     <div className="flex items-center justify-between text-[11px]">
                       <span className="text-slate-600 font-semibold">Penetração SLP DDC:</span>
-                      <span className="font-extrabold text-slate-900">{vendorMetrics.slpDdcPenetracaoRate.toFixed(1)}%</span>
+                      <span className="font-extrabold text-slate-900">{(vendorMetrics.slpDdcPenetracaoRate ?? 0).toFixed(1)}%</span>
                     </div>
                     <div className="flex items-center justify-between text-[10px] text-slate-500">
                       <span>Penetração SLP Outros:</span>
-                      <span className="font-bold text-slate-700">{vendorMetrics.slpPenetracaoRate.toFixed(1)}%</span>
+                      <span className="font-bold text-slate-700">{(vendorMetrics.slpPenetracaoRate ?? 0).toFixed(1)}%</span>
                     </div>
                   </div>
                 </div>
@@ -2114,7 +2119,7 @@ ${behavioralDiagnosis.recommendations.map(r => `- ${r}`).join('\n')}
                       {vendorMetrics.socialQty} <span className="text-xs font-semibold text-slate-500">itens</span>
                     </div>
                     <p className="text-xs font-bold text-rose-700 mt-0.5">
-                      {vendorMetrics.socialValor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                      {formatBRL(vendorMetrics.socialValor)}
                     </p>
                   </div>
 
@@ -2122,26 +2127,26 @@ ${behavioralDiagnosis.recommendations.map(r => `- ${r}`).join('\n')}
                   <div className="space-y-1 py-1.5 border-t border-rose-200/60 text-[11px]">
                     <div className="flex items-center justify-between font-medium text-slate-700">
                       <span className="text-slate-600">Sacolas:</span>
-                      <span className="font-bold text-slate-900">{vendorMetrics.sacolaQty} un ({vendorMetrics.sacolaValor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})</span>
+                      <span className="font-bold text-slate-900">{vendorMetrics.sacolaQty} un ({formatBRL(vendorMetrics.sacolaValor)})</span>
                     </div>
                     <div className="flex items-center justify-between font-medium text-slate-700">
                       <span className="text-slate-600">Baralhos:</span>
-                      <span className="font-bold text-slate-900">{vendorMetrics.baralhoQty} un ({vendorMetrics.baralhoValor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})</span>
+                      <span className="font-bold text-slate-900">{vendorMetrics.baralhoQty} un ({formatBRL(vendorMetrics.baralhoValor)})</span>
                     </div>
                     <div className="flex items-center justify-between font-medium text-slate-700">
                       <span className="text-slate-600">Lanchinho:</span>
-                      <span className="font-bold text-slate-900">{vendorMetrics.lanchinhoQty} un ({vendorMetrics.lanchinhoValor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})</span>
+                      <span className="font-bold text-slate-900">{vendorMetrics.lanchinhoQty} un ({formatBRL(vendorMetrics.lanchinhoValor)})</span>
                     </div>
                   </div>
 
                   <div className="pt-2 border-t border-rose-200/60 space-y-1">
                     <div className="flex items-center justify-between text-[11px]">
                       <span className="text-slate-600 font-semibold">Penetração Cupons:</span>
-                      <span className="font-extrabold text-slate-900">{vendorMetrics.socialPenetracaoRate.toFixed(1)}%</span>
+                      <span className="font-extrabold text-slate-900">{(vendorMetrics.socialPenetracaoRate ?? 0).toFixed(1)}%</span>
                     </div>
                     <div className="flex items-center justify-between text-[10px] text-slate-500">
                       <span>Média da Loja:</span>
-                      <span className="font-bold text-slate-700">{storeMetrics.storeSocialPenetracao.toFixed(1)}%</span>
+                      <span className="font-bold text-slate-700">{(storeMetrics.storeSocialPenetracao ?? 0).toFixed(1)}%</span>
                     </div>
                   </div>
                 </div>
@@ -2166,13 +2171,13 @@ ${behavioralDiagnosis.recommendations.map(r => `- ${r}`).join('\n')}
                       {vendorMetrics.agingQty} <span className="text-xs font-semibold text-slate-500">unidades</span>
                     </div>
                     <p className="text-xs font-bold text-amber-700 mt-0.5">
-                      {vendorMetrics.agingValor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                      {formatBRL(vendorMetrics.agingValor)}
                     </p>
                   </div>
                   <div className="pt-2 border-t border-amber-200/60 space-y-1">
                     <div className="flex items-center justify-between text-[11px]">
                       <span className="text-slate-600 font-semibold">Presença Cupons:</span>
-                      <span className="font-extrabold text-slate-900">{vendorMetrics.agingCuponsCount} cupons ({vendorMetrics.agingPenetracaoRate.toFixed(1)}%)</span>
+                      <span className="font-extrabold text-slate-900">{vendorMetrics.agingCuponsCount} cupons ({(vendorMetrics.agingPenetracaoRate ?? 0).toFixed(1)}%)</span>
                     </div>
                   </div>
                 </div>
@@ -2201,7 +2206,7 @@ ${behavioralDiagnosis.recommendations.map(r => `- ${r}`).join('\n')}
                     </div>
                     <div className="flex items-center justify-between text-xs font-bold text-slate-800">
                       <span>Adicionais:</span>
-                      <span className="text-teal-700">{vendorMetrics.adicionaisCount} ({vendorMetrics.adicionaisValor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})</span>
+                      <span className="text-teal-700">{vendorMetrics.adicionaisCount} ({formatBRL(vendorMetrics.adicionaisValor)})</span>
                     </div>
                   </div>
                   <div className="pt-2 border-t border-teal-200/60 text-[10px] text-slate-500 font-semibold flex items-center justify-between">
@@ -2285,7 +2290,7 @@ ${behavioralDiagnosis.recommendations.map(r => `- ${r}`).join('\n')}
                   <div className="text-right">
                     <span className="text-xs font-bold uppercase text-amber-800 tracking-wider">Diferença Gerada (R$)</span>
                     <h4 className={cn("text-xl font-headline font-extrabold mt-0.5", vendorMetrics.trocasValorDiferenca >= 0 ? "text-emerald-700" : "text-rose-700")}>
-                      {vendorMetrics.trocasValorDiferenca.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                      {formatBRL(vendorMetrics.trocasValorDiferenca)}
                     </h4>
                   </div>
                 </div>
@@ -2340,7 +2345,7 @@ ${behavioralDiagnosis.recommendations.map(r => `- ${r}`).join('\n')}
                 <div className="flex items-center gap-3 bg-slate-50 p-2.5 rounded-xl border border-slate-200/70 text-xs">
                   <div>
                     <span className="text-[10px] font-bold uppercase text-slate-400 block">Hora de Ouro (Maior Venda):</span>
-                    <span className="font-extrabold text-indigo-700">{peakHoursInfo.goldHour} ({peakHoursInfo.goldHourFat.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})</span>
+                    <span className="font-extrabold text-indigo-700">{peakHoursInfo.goldHour} ({formatBRL(peakHoursInfo.goldHourFat)})</span>
                   </div>
                 </div>
               </CardHeader>
@@ -2425,7 +2430,7 @@ ${behavioralDiagnosis.recommendations.map(r => `- ${r}`).join('\n')}
                       </div>
                       <div className="pt-1.5 border-t border-slate-200/60 text-right">
                         <span className="text-xs font-extrabold text-slate-900">
-                          {p.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                          {formatBRL(p.valor)}
                         </span>
                       </div>
                     </div>

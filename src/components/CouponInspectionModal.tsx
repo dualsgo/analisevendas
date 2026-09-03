@@ -54,8 +54,8 @@ export function CouponInspectionModal({
 }: CouponInspectionModalProps) {
   if (!coupon) return null;
 
-  const formatBRL = (val: number) =>
-    val.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const formatBRL = (val?: number | string | null) =>
+    (Number(val) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>

@@ -140,7 +140,7 @@ export function ShiftPerformance({ data }: ShiftPerformanceProps) {
     return { shiftMetrics: shiftData, totalCupons, employeeMetrics: empList, dailyMetrics: dailyList };
   }, [filteredSales]);
 
-  const fmtBRL = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const fmtBRL = (v?: number | string | null) => (Number(v) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
   const getMetricValue = (metrics: { cupons: number; vNF: number; itens: number; }, metric: "vNF" | "tkm" | "pa") => {
     if (!metrics || metrics.cupons === 0) return 0;

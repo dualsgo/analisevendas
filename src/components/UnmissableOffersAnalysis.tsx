@@ -266,7 +266,7 @@ export function UnmissableOffersAnalysis({ data }: UnmissableOffersAnalysisProps
     });
   };
 
-  const fmtBRL = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const fmtBRL = (v?: number | string | null) => (Number(v) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
   if (activeCodes.length === 0 || !analysisData) {
     return (

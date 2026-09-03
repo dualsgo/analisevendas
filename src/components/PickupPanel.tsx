@@ -63,8 +63,8 @@ interface PickupGroup {
   adicionais: DetailedSaleRow[];
 }
 
-const formatBRL = (val: number) =>
-  val.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const formatBRL = (val?: number | string | null) =>
+  (Number(val) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 export function PickupPanel({ data }: PickupPanelProps) {
   const [searchTerm, setSearchTerm] = useState("");
@@ -536,7 +536,7 @@ function TxCard({ tx, color, onClick }: { tx: DetailedSaleRow; color: "sky" | "e
           </p>
         </div>
         <p className={cn("text-sm font-black", textColor)}>
-          {parseFloat(tx.vNF).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+          {formatBRL(tx.vNF)}
         </p>
       </div>
       <div className="flex flex-wrap gap-1">

@@ -99,7 +99,7 @@ export function ItemRanking({ data }: ItemRankingProps) {
     { id: "dia" as SectionId,         label: "Mais Vendido por Dia",      icon: Calendar },
   ];
 
-  const fmtBRL = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const fmtBRL = (v?: number | string | null) => (Number(v) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
   if (sales.length === 0) {
     return (

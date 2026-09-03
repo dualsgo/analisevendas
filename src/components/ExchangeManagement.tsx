@@ -52,7 +52,7 @@ export function ExchangeManagement({ data, vinculos }: ExchangeManagementProps) 
   const [statusFilter, setStatusFilter] = useState("all");
   const [vendorFilter, setVendorFilter] = useState("all");
 
-  const formatBRL = (val: number) => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const formatBRL = (val?: number | string | null) => (Number(val) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
   const vendors = useMemo(() => {
     const v = new Set(vinculos.map(v => v.vendedor).filter(Boolean));

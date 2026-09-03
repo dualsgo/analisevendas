@@ -522,26 +522,26 @@ export function TemporalComparisonSuite({ report }: TemporalComparisonSuiteProps
                       <TableCell className="font-black text-slate-900 text-xs">
                         {m.monthLabel}
                       </TableCell>
-                      <TableCell className="text-center font-bold text-slate-700">{m.metrics.totalCupons.toLocaleString("pt-BR")}</TableCell>
-                      <TableCell className="text-center font-black text-slate-900 text-sm">{m.metrics.paReal.toFixed(2)}</TableCell>
-                      <TableCell className="text-center font-black text-emerald-700 text-sm">{m.metrics.paOperacional1to5.toFixed(2)}</TableCell>
+                      <TableCell className="text-center font-bold text-slate-700">{(m.metrics.totalCupons ?? 0).toLocaleString("pt-BR")}</TableCell>
+                      <TableCell className="text-center font-black text-slate-900 text-sm">{(m.metrics.paReal ?? 0).toFixed(2)}</TableCell>
+                      <TableCell className="text-center font-black text-emerald-700 text-sm">{(m.metrics.paOperacional1to5 ?? 0).toFixed(2)}</TableCell>
                       <TableCell className="text-center">
                         {idx === 0 ? <span className="text-slate-400 text-xs font-semibold">Base</span> : formatDeltaPA(m.deltaPASustentado)}
                       </TableCell>
                       <TableCell className={cn("text-center font-bold text-xs", m.metrics.unitRate <= 55 ? "text-emerald-700" : "text-rose-600")}>
-                        {m.metrics.unitRate.toFixed(1)}%
+                        {(m.metrics.unitRate ?? 0).toFixed(1)}%
                       </TableCell>
                       <TableCell className="text-center">
                         {idx === 0 ? <span className="text-slate-400 text-xs font-semibold">Base</span> : formatDeltaPercent(m.deltaUnitRate, true)}
                       </TableCell>
                       <TableCell className={cn("text-center font-bold text-xs", m.metrics.twoItemsRate >= 28 ? "text-emerald-700" : "text-amber-600")}>
-                        {m.metrics.twoItemsRate.toFixed(1)}%
+                        {(m.metrics.twoItemsRate ?? 0).toFixed(1)}%
                       </TableCell>
                       <TableCell className="text-center">
                         {idx === 0 ? <span className="text-slate-400 text-xs font-semibold">Base</span> : formatDeltaPercent(m.deltaTwoItemsRate, false)}
                       </TableCell>
                       <TableCell className="text-center font-bold text-slate-700 text-xs">
-                        R$ {m.metrics.totalVenda.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        R$ {(m.metrics.totalVenda ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -656,7 +656,7 @@ export function TemporalComparisonSuite({ report }: TemporalComparisonSuiteProps
                         {idx === 0 ? <span className="text-slate-400 text-xs font-semibold">Base</span> : formatDeltaPercent(occ.deltaTwoItemsRate, false)}
                       </TableCell>
                       <TableCell className="text-center font-bold text-slate-700 text-xs">
-                        R$ {occ.metrics.totalVenda.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        R$ {(occ.metrics.totalVenda ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -850,11 +850,11 @@ export function TemporalComparisonSuite({ report }: TemporalComparisonSuiteProps
 
                     <TableRow className="h-12 hover:bg-slate-50/80">
                       <TableCell className="font-black text-slate-900 text-xs">Faturamento Líquido</TableCell>
-                      <TableCell className="text-center font-bold text-slate-700">R$ {pairComparison.periodA.metrics.totalVenda.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</TableCell>
-                      <TableCell className="text-center font-bold text-slate-900 text-sm">R$ {pairComparison.periodB.metrics.totalVenda.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</TableCell>
+                      <TableCell className="text-center font-bold text-slate-700">R$ {(pairComparison.periodA.metrics.totalVenda ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</TableCell>
+                      <TableCell className="text-center font-bold text-slate-900 text-sm">R$ {(pairComparison.periodB.metrics.totalVenda ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</TableCell>
                       <TableCell className="text-center">
                         <span className={cn("font-bold text-xs", pairComparison.deltaRevenue >= 0 ? "text-emerald-600" : "text-rose-600")}>
-                          {pairComparison.deltaRevenue >= 0 ? `+R$ ${pairComparison.deltaRevenue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : `-R$ ${Math.abs(pairComparison.deltaRevenue).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`} ({pairComparison.pctRevenueDiff >= 0 ? `+${pairComparison.pctRevenueDiff.toFixed(1)}%` : `${pairComparison.pctRevenueDiff.toFixed(1)}%`})
+                          {pairComparison.deltaRevenue >= 0 ? `+R$ ${(pairComparison.deltaRevenue ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : `-R$ ${(Math.abs(pairComparison.deltaRevenue) ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`} ({pairComparison.pctRevenueDiff >= 0 ? `+${(pairComparison.pctRevenueDiff ?? 0).toFixed(1)}%` : `${(pairComparison.pctRevenueDiff ?? 0).toFixed(1)}%`})
                         </span>
                       </TableCell>
                       <TableCell className="text-center">

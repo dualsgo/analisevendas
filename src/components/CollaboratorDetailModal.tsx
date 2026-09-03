@@ -64,8 +64,8 @@ export function CollaboratorDetailModal({
   const [roleType, setRoleType] = React.useState<"SALAO" | "MULTITAREFA">("SALAO");
   const [copiedFeedback, setCopiedFeedback] = React.useState(false);
 
-  const formatBRL = (val: number) =>
-    val.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const formatBRL = (val?: number | string | null) =>
+    (Number(val) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
   const c = collaborator;
   const avgPrice = c.totalItens > 0 
@@ -141,7 +141,7 @@ Por atuar em operações de caixa, pacote, reposição e atendimento rápido, su
 - Cestas 3+ Itens: Bônus de oportunidade (Realizado: ${c.threePlusRate.toFixed(1)}%)
 
 📋 PONTOS PARA A CONVERSA COM O GESTOR:
-1. Volume e Atendimentos: Você atendeu ${c.totalCupons} clientes e movimentou ${c.totalItens} peças (R$ ${c.totalVenda.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}).
+1. Volume e Atendimentos: Você atendeu ${c.totalCupons} clientes e movimentou ${c.totalItens} peças (R$ ${Number(c.totalVenda || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}).
 2. Conversão de Caixa (2º Item): ${c.twoItemsRate >= 25 ? `✓ Parabéns! Excelente disciplina ao oferecer itens de impulso no checkout (${c.twoItemsRate.toFixed(1)}% ≥ 25%).` : `⚠️ Oportunidade: Sua taxa de 2 itens está em ${c.twoItemsRate.toFixed(1)}%. Vamos reforçar a oferta de produtos de balcão (meias, acessórios, P1) para o cliente não sair com 1 peça só.`}
 3. PA Real: ${c.paReal.toFixed(2)} peças/cupom.`
       : `ROTEIRO DE FEEDBACK 1-ON-1 - VENDEDOR DE SALÃO (VENDA ASSISTIDA)

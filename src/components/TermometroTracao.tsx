@@ -45,8 +45,8 @@ export function TermometroTracao({ data }: { data: DetailedSaleRow[] }) {
     </div>
   );
 
-  const formatCurrency = (val: number) => 
-    val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const formatCurrency = (val?: number | string | null) => 
+    (Number(val) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
   return (
     <div className="space-y-6">

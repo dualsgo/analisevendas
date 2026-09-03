@@ -179,7 +179,7 @@ export function GapAnalysis({ data }: ProductivityAnalysisProps) {
     };
   }, [metrics]);
 
-  const formatBRL = (val: number) => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const formatBRL = (val?: number | string | null) => (Number(val) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
   if (activeSales.length === 0) {
     return (

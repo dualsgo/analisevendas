@@ -50,7 +50,7 @@ export function WhatsappReports({ data, vinculos }: WhatsappReportsProps) {
   const [copied, setCopied] = useState(false);
   const { toast } = useToast();
 
-  const formatBRL = (val: number) => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const formatBRL = (val?: number | string | null) => (Number(val) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
   // Cálculos de métricas focados em Loja Física (Fisica + Adicional)
   const metrics = useMemo(() => {

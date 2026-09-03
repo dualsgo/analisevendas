@@ -113,7 +113,7 @@ export function HeatmapAnalysis({ data, vinculos }: HeatmapAnalysisProps) {
     return "bg-orange-100 text-orange-800";
   };
 
-  const formatBRL = (val: number) => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
+  const formatBRL = (val?: number | string | null) => (Number(val) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20">

@@ -367,11 +367,11 @@ export function WeightedPerformanceReport({ data = [], vinculos = [] }: Weighted
     };
   }, [processedData]);
 
-  const formatNum = (val: number, decimals = 2) => 
-    val.toLocaleString("pt-BR", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+  const formatNum = (val?: number | string | null, decimals = 2) => 
+    (Number(val) || 0).toLocaleString("pt-BR", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 
-  const formatCurrency = (val: number) =>
-    val.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const formatCurrency = (val?: number | string | null) =>
+    (Number(val) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
   return (
     <div className="space-y-6">
@@ -560,8 +560,8 @@ export function WeightedPerformanceReport({ data = [], vinculos = [] }: Weighted
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card className="rounded-2xl border-slate-200 shadow-sm p-4 bg-white">
           <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Total Atendimentos</p>
-          <p className="text-2xl font-black text-slate-900">{storeSummary.totalCupons.toLocaleString()}</p>
-          <p className="text-[10px] font-semibold text-slate-500 mt-1">{storeSummary.totalItens.toLocaleString()} peças vendidas</p>
+          <p className="text-2xl font-black text-slate-900">{(storeSummary.totalCupons ?? 0).toLocaleString('pt-BR')}</p>
+          <p className="text-[10px] font-semibold text-slate-500 mt-1">{(storeSummary.totalItens ?? 0).toLocaleString('pt-BR')} peças vendidas</p>
         </Card>
 
         <Card className="rounded-2xl border-slate-200 shadow-sm p-4 bg-white">

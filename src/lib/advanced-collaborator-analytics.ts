@@ -530,7 +530,7 @@ export function computeTeamDispersionAnalysis(
         label: "Ticket de Alta Renda (+TKM)",
         type: "positive",
         zScore: zTKM,
-        explanation: `TKM de R$ ${item.tkm.toFixed(2)} está +${zTKM.toFixed(1)}σ acima da média (${statsTKM.mean.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}).`
+        explanation: `TKM de R$ ${item.tkm.toFixed(2)} está +${zTKM.toFixed(1)}σ acima da média (${Number(statsTKM.mean || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}).`
       });
       positiveOutliers.push({ name: item.name, tag: "Ticket de Alta Renda", value: `R$ ${item.tkm.toFixed(2)}`, metric: "TKM" });
     } else if (zTKM <= -1.25) {

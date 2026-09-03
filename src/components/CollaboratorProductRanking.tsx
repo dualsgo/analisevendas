@@ -126,8 +126,8 @@ export function CollaboratorProductRanking({ data }: CollaboratorProductRankingP
 
   const maxQuantity = ranking[0]?.matchedQuantity || 1;
 
-  const formatBRL = (v: number) => 
-    v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const formatBRL = (v?: number | string | null) => 
+    (Number(v) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20">

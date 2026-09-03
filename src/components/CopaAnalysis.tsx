@@ -171,8 +171,8 @@ export const CopaAnalysis: React.FC<CopaAnalysisProps> = ({ data }) => {
 
   if (!stats) return null;
 
-  const formatBRL = (v: number) => 
-    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
+  const formatBRL = (v?: number | string | null) => 
+    (Number(v) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
   const handleShareWhatsApp = () => {
     const tkmReal = stats.totalVenda / stats.totalCupons;
@@ -240,15 +240,15 @@ Isso significa que esses atendimentos *não agregam outros produtos*, baixando n
             </div>
             <div className="bg-slate-800/50 p-4 rounded-2xl border border-slate-700/50">
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Qtd. Total Itens</p>
-              <p className="text-xl font-black text-white">{stats.totalCopaQty.toLocaleString()}</p>
+              <p className="text-xl font-black text-white">{(stats.totalCopaQty ?? 0).toLocaleString('pt-BR')}</p>
             </div>
             <div className="bg-slate-800/50 p-4 rounded-2xl border border-slate-700/50">
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Álbuns Vendidos</p>
-              <p className="text-xl font-black text-sky-400">{stats.albumQty.toLocaleString()}</p>
+              <p className="text-xl font-black text-sky-400">{(stats.albumQty ?? 0).toLocaleString('pt-BR')}</p>
             </div>
             <div className="bg-slate-800/50 p-4 rounded-2xl border border-slate-700/50">
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Pacotes Vendidos</p>
-              <p className="text-xl font-black text-emerald-400">{stats.stickerQty.toLocaleString()}</p>
+              <p className="text-xl font-black text-emerald-400">{(stats.stickerQty ?? 0).toLocaleString('pt-BR')}</p>
             </div>
           </div>
         </div>

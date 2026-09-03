@@ -309,8 +309,8 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
     }
   }, []);
 
-  const formatBRL = (val: number) => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-  const formatNum = (val: number, precision = 2) => val.toLocaleString('pt-BR', { minimumFractionDigits: precision, maximumFractionDigits: precision });
+  const formatBRL = (val?: number | string | null) => (Number(val) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const formatNum = (val?: number | string | null, precision = 2) => (Number(val) || 0).toLocaleString('pt-BR', { minimumFractionDigits: precision, maximumFractionDigits: precision });
 
   const reportData = useMemo(() => {
     const vendors: Record<string, any> = {};

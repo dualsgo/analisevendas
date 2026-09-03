@@ -34,8 +34,8 @@ const SOCIAL_CODES = ['5057181', '5055875', '5135601', '5129270', '5129271', '51
 const BARALHO_CODES = ['5147797', '5147796', '5149977', '5149978'];
 const SACOLA_CODES = ['5133676', '5113644'];
 
-const formatBRL = (val: number) => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-const formatNum = (val: number, precision = 2) => val.toLocaleString('pt-BR', { minimumFractionDigits: precision, maximumFractionDigits: precision });
+const formatBRL = (val?: number | string | null) => (Number(val) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+const formatNum = (val?: number | string | null, precision = 2) => (Number(val) || 0).toLocaleString('pt-BR', { minimumFractionDigits: precision, maximumFractionDigits: precision });
 
 export interface VendorAggregate {
   name: string;
@@ -335,10 +335,11 @@ export function DailyPerformance({ data }: DailyPerformanceProps) {
     identPerc: "Identificação (%)"
   };
 
-  const formatValue = (val: number, type: MetricType) => {
-    if (type === 'venda' || type === 'tkm') return val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-    if (type === 'pa' || type === 'identPerc') return val.toFixed(2);
-    return val.toString();
+  const formatValue = (val?: number | null, type?: MetricType) => {
+    const num = Number(val) || 0;
+    if (type === 'venda' || type === 'tkm') return num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    if (type === 'pa' || type === 'identPerc') return num.toFixed(2);
+    return num.toString();
   };
 
   return (

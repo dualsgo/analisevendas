@@ -208,6 +208,7 @@ export function PickupDashboard({ data }: PickupDashboardProps) {
   };
 
   const status = getStatus(analytics.conversionRate);
+  const formatBRL = (val?: number | string | null) => (Number(val) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
   return (
     <div className="space-y-6 pb-20 animate-in fade-in duration-700">
@@ -233,11 +234,11 @@ export function PickupDashboard({ data }: PickupDashboardProps) {
           <div className="grid grid-cols-2 gap-4 w-full md:w-auto">
              <div className="bg-white/60 p-4 rounded-2xl border border-white shadow-sm">
                 <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Impacto Total</p>
-                <p className="text-lg font-black text-emerald-600">{analytics.totalValueAdicional.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                <p className="text-lg font-black text-emerald-600">{formatBRL(analytics.totalValueAdicional)}</p>
              </div>
              <div className="bg-white/60 p-4 rounded-2xl border border-white shadow-sm">
                 <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Receita Extra/Pickup</p>
-                <p className="text-lg font-black text-sky-600">{analytics.incrementalValuePerPickup.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                <p className="text-lg font-black text-sky-600">{formatBRL(analytics.incrementalValuePerPickup)}</p>
              </div>
           </div>
         </CardContent>
@@ -261,14 +262,14 @@ export function PickupDashboard({ data }: PickupDashboardProps) {
         />
         <KPICard 
           title="Ticket Médio Online" 
-          value={analytics.avgTicketOnline.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} 
+          value={formatBRL(analytics.avgTicketOnline)} 
           subValue="Valor que já vem pronto"
           icon={ShoppingBag}
           color="text-slate-500"
         />
         <KPICard 
           title="Ticket Médio Adicional" 
-          value={analytics.avgTicketAdicional.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} 
+          value={formatBRL(analytics.avgTicketAdicional)} 
           subValue="Valor criado na loja"
           icon={TrendingUp}
           color="text-indigo-500"
@@ -317,7 +318,7 @@ export function PickupDashboard({ data }: PickupDashboardProps) {
                         </div>
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <p className="text-xs font-black text-emerald-600">{v.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                        <p className="text-xs font-black text-emerald-600">{formatBRL(v.value)}</p>
                       </td>
                     </tr>
                   ))}
@@ -406,7 +407,7 @@ export function PickupDashboard({ data }: PickupDashboardProps) {
           color="bg-emerald-500"
           items={[
             `Se a conversão subir para 30%, teremos +${((analytics.totalGroups * 0.3) - analytics.convertedGroups).toFixed(0)} vendas extras.`,
-            `Isso representaria aproximadamente +${((analytics.totalGroups * 0.3 - analytics.convertedGroups) * analytics.avgTicketAdicional).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} no mês.`,
+            `Isso representaria aproximadamente +${formatBRL((analytics.totalGroups * 0.3 - analytics.convertedGroups) * analytics.avgTicketAdicional)} no mês.`,
             "Aumentar o P.A. do adicional para 2.0 peças dobraria o lucro operacional."
           ]}
         />

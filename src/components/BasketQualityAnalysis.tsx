@@ -305,8 +305,8 @@ export function BasketQualityAnalysis({ data }: BasketQualityAnalysisProps) {
     };
   }, [overall, simConvert1to2, simConvert2to3]);
 
-  const formatBRL = (val: number) =>
-    val.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const formatBRL = (val?: number | string | null) =>
+    (Number(val) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
   const hasActivePurge = excludedBuckets.length > 0 || isCutoffActive || excludedChaves.length > 0;
 

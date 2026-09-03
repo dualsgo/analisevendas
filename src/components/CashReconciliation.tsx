@@ -202,8 +202,8 @@ export function CashReconciliation({ data }: CashReconciliationProps) {
     return collaboratorStats.find(c => c.nome === selectedCollaborator);
   }, [collaboratorStats, selectedCollaborator]);
 
-  const formatCurrency = (val: number) => {
-    return val.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const formatCurrency = (val?: number | string | null) => {
+    return (Number(val) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   };
 
   return (

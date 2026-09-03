@@ -49,8 +49,8 @@ interface DeliveryPanelProps {
   data: DetailedSaleRow[];
 }
 
-const formatBRL = (val: number) =>
-  val.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const formatBRL = (val?: number | string | null) =>
+  (Number(val) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 export function DeliveryPanel({ data }: DeliveryPanelProps) {
   const [searchTerm, setSearchTerm] = useState("");

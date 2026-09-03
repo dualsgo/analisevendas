@@ -192,7 +192,7 @@ export function AdvancedAnalytics({ data }: AdvancedAnalyticsProps) {
                   <div className="p-4 bg-white/5 rounded-2xl border border-white/10 text-center">
                     <p className="text-[8px] font-black text-slate-400 uppercase mb-1">Faturamento em Risco</p>
                     <p className="text-xl font-black text-rose-400">-{simulation.target.weight.toFixed(1)}%</p>
-                    <p className="text-[10px] font-bold text-slate-500 mt-1">R$ {simulation.target.venda.toLocaleString()}</p>
+                    <p className="text-[10px] font-bold text-slate-500 mt-1">{(Number(simulation.target.venda) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
                   </div>
                   <div className="p-4 bg-white/5 rounded-2xl border border-white/10 text-center">
                     <p className="text-[8px] font-black text-slate-400 uppercase mb-1">Gap Técnico (PA)</p>

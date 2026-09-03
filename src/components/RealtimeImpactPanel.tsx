@@ -101,8 +101,8 @@ export function RealtimeImpactPanel({ data }: RealtimeImpactPanelProps) {
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1000); // ms per step
   const [filterSearch, setFilterSearch] = useState<string>("");
 
-  const formatBRL = (val: number) => val.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-  const formatNum = (val: number, precision = 2) => val.toLocaleString("pt-BR", { minimumFractionDigits: precision, maximumFractionDigits: precision });
+  const formatBRL = (val?: number | string | null) => (Number(val) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const formatNum = (val?: number | string | null, precision = 2) => (Number(val) || 0).toLocaleString("pt-BR", { minimumFractionDigits: precision, maximumFractionDigits: precision });
 
   // List of unique vendors
   const vendors = useMemo(() => {
@@ -585,7 +585,7 @@ export function RealtimeImpactPanel({ data }: RealtimeImpactPanelProps) {
                 stroke="#94a3b8" 
                 tick={{ fontSize: 10, fontWeight: 700 }}
                 domain={metricMode === "pa" ? [0, 'auto'] : [0, 'auto']}
-                tickFormatter={(val) => metricMode === "tkm" ? `R$ ${val}` : val.toFixed(1)}
+                tickFormatter={(val) => metricMode === "tkm" ? `R$ ${val ?? 0}` : Number(val || 0).toFixed(1)}
               />
               <Tooltip 
                 content={({ active, payload }) => {

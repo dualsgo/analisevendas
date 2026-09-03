@@ -44,6 +44,9 @@ export function CollaboratorHeadToHead({
 }: CollaboratorHeadToHeadProps) {
   const { collaborators, teamMeans } = dispersionStats;
 
+  const formatBRL = (val?: number | string | null) =>
+    (Number(val) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
   const [vendorA, setVendorA] = useState<string>(selectedVendorA || (collaborators[0]?.name || ""));
   const [vendorB, setVendorB] = useState<string>(
     collaborators.find(c => c.name !== vendorA)?.name || (collaborators[1]?.name || "")
@@ -122,20 +125,20 @@ export function CollaboratorHeadToHead({
   if (statsA.jScore > statsB.jScore) advantagesA.push(`J-Score superior (${statsA.jScore} vs ${statsB.jScore})`);
   else if (statsB.jScore > statsA.jScore) advantagesB.push(`J-Score superior (${statsB.jScore} vs ${statsA.jScore})`);
 
-  if (statsA.vendaPorDia > statsB.vendaPorDia) advantagesA.push(`Maior Faturamento Diário (${statsA.vendaPorDia.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}/dia vs ${statsB.vendaPorDia.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}/dia)`);
-  else if (statsB.vendaPorDia > statsA.vendaPorDia) advantagesB.push(`Maior Faturamento Diário (${statsB.vendaPorDia.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}/dia vs ${statsA.vendaPorDia.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}/dia)`);
+  if (statsA.vendaPorDia > statsB.vendaPorDia) advantagesA.push(`Maior Faturamento Diário (${formatBRL(statsA.vendaPorDia)}/dia vs ${formatBRL(statsB.vendaPorDia)}/dia)`);
+  else if (statsB.vendaPorDia > statsA.vendaPorDia) advantagesB.push(`Maior Faturamento Diário (${formatBRL(statsB.vendaPorDia)}/dia vs ${formatBRL(statsA.vendaPorDia)}/dia)`);
 
-  if (statsA.pa > statsB.pa) advantagesA.push(`Maior PA (${statsA.pa.toFixed(2)} vs ${statsB.pa.toFixed(2)})`);
-  else if (statsB.pa > statsA.pa) advantagesB.push(`Maior PA (${statsB.pa.toFixed(2)} vs ${statsA.pa.toFixed(2)})`);
+  if (statsA.pa > statsB.pa) advantagesA.push(`Maior PA (${(statsA.pa ?? 0).toFixed(2)} vs ${(statsB.pa ?? 0).toFixed(2)})`);
+  else if (statsB.pa > statsA.pa) advantagesB.push(`Maior PA (${(statsB.pa ?? 0).toFixed(2)} vs ${(statsA.pa ?? 0).toFixed(2)})`);
 
-  if (statsA.tkm > statsB.tkm) advantagesA.push(`Ticket Médio mais alto (${statsA.tkm.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} vs ${statsB.tkm.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})`);
-  else if (statsB.tkm > statsA.tkm) advantagesB.push(`Ticket Médio mais alto (${statsB.tkm.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} vs ${statsA.tkm.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})`);
+  if (statsA.tkm > statsB.tkm) advantagesA.push(`Ticket Médio mais alto (${formatBRL(statsA.tkm)} vs ${formatBRL(statsB.tkm)})`);
+  else if (statsB.tkm > statsA.tkm) advantagesB.push(`Ticket Médio mais alto (${formatBRL(statsB.tkm)} vs ${formatBRL(statsA.tkm)})`);
 
-  if (statsA.cpfRate > statsB.cpfRate) advantagesA.push(`Maior taxa de CPF (${statsA.cpfRate.toFixed(1)}% vs ${statsB.cpfRate.toFixed(1)}%)`);
-  else if (statsB.cpfRate > statsA.cpfRate) advantagesB.push(`Maior taxa de CPF (${statsB.cpfRate.toFixed(1)}% vs ${statsA.cpfRate.toFixed(1)}%)`);
+  if (statsA.cpfRate > statsB.cpfRate) advantagesA.push(`Maior taxa de CPF (${(statsA.cpfRate ?? 0).toFixed(1)}% vs ${(statsB.cpfRate ?? 0).toFixed(1)}%)`);
+  else if (statsB.cpfRate > statsA.cpfRate) advantagesB.push(`Maior taxa de CPF (${(statsB.cpfRate ?? 0).toFixed(1)}% vs ${(statsA.cpfRate ?? 0).toFixed(1)}%)`);
 
-  if (statsA.slpPenetracaoRate > statsB.slpPenetracaoRate) advantagesA.push(`Maior conversão SLP (${statsA.slpPenetracaoRate.toFixed(1)}% vs ${statsB.slpPenetracaoRate.toFixed(1)}%)`);
-  else if (statsB.slpPenetracaoRate > statsA.slpPenetracaoRate) advantagesB.push(`Maior conversão SLP (${statsB.slpPenetracaoRate.toFixed(1)}% vs ${statsA.slpPenetracaoRate.toFixed(1)}%)`);
+  if (statsA.slpPenetracaoRate > statsB.slpPenetracaoRate) advantagesA.push(`Maior conversão SLP (${(statsA.slpPenetracaoRate ?? 0).toFixed(1)}% vs ${(statsB.slpPenetracaoRate ?? 0).toFixed(1)}%)`);
+  else if (statsB.slpPenetracaoRate > statsA.slpPenetracaoRate) advantagesB.push(`Maior conversão SLP (${(statsB.slpPenetracaoRate ?? 0).toFixed(1)}% vs ${(statsA.slpPenetracaoRate ?? 0).toFixed(1)}%)`);
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -223,25 +226,25 @@ export function CollaboratorHeadToHead({
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div className="p-3 bg-white rounded-xl border border-indigo-100">
                 <span className="text-[10px] font-bold text-slate-400 block">Venda / Dia</span>
-                <span className="text-sm font-extrabold text-slate-900">{statsA.vendaPorDia.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                <span className="text-sm font-extrabold text-slate-900">{formatBRL(statsA.vendaPorDia)}</span>
                 <span className="text-[10px] text-slate-400 block">{statsA.diasTrabalhados} dias ativos</span>
               </div>
               <div className="p-3 bg-white rounded-xl border border-indigo-100">
                 <span className="text-[10px] font-bold text-slate-400 block">Giro / Dia</span>
-                <span className="text-sm font-extrabold text-slate-900">{statsA.cuponsPorDia.toFixed(1)} cup/dia</span>
+                <span className="text-sm font-extrabold text-slate-900">{(statsA.cuponsPorDia ?? 0).toFixed(1)} cup/dia</span>
                 <span className="text-[10px] text-slate-400 block">{statsA.cuponsTotal} cupons totais</span>
               </div>
               <div className="p-3 bg-white rounded-xl border border-indigo-100">
                 <span className="text-[10px] font-bold text-slate-400 block">PA Realizado vs Meta</span>
                 <span className={cn("text-sm font-extrabold", statsA.pa >= statsA.metaPonderadaPA ? "text-emerald-700" : "text-rose-700")}>
-                  {statsA.pa.toFixed(2)} <span className="text-xs text-slate-400">/ {statsA.metaPonderadaPA.toFixed(2)}</span>
+                  {(statsA.pa ?? 0).toFixed(2)} <span className="text-xs text-slate-400">/ {(statsA.metaPonderadaPA ?? 0).toFixed(2)}</span>
                 </span>
-                <span className="text-[10px] text-slate-400 block">{statsA.atingimentoPonderadoPct.toFixed(0)}% da meta</span>
+                <span className="text-[10px] text-slate-400 block">{(statsA.atingimentoPonderadoPct ?? 0).toFixed(0)}% da meta</span>
               </div>
               <div className="p-3 bg-white rounded-xl border border-indigo-100">
                 <span className="text-[10px] font-bold text-slate-400 block">Ticket Médio (TKM)</span>
-                <span className="text-sm font-extrabold text-slate-900">{statsA.tkm.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
-                <span className="text-[10px] text-slate-400 block">CPF: {statsA.cpfRate.toFixed(1)}%</span>
+                <span className="text-sm font-extrabold text-slate-900">{formatBRL(statsA.tkm)}</span>
+                <span className="text-[10px] text-slate-400 block">CPF: {(statsA.cpfRate ?? 0).toFixed(1)}%</span>
               </div>
             </div>
           </CardContent>
@@ -269,25 +272,25 @@ export function CollaboratorHeadToHead({
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div className="p-3 bg-white rounded-xl border border-emerald-100">
                 <span className="text-[10px] font-bold text-slate-400 block">Venda / Dia</span>
-                <span className="text-sm font-extrabold text-slate-900">{statsB.vendaPorDia.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                <span className="text-sm font-extrabold text-slate-900">{formatBRL(statsB.vendaPorDia)}</span>
                 <span className="text-[10px] text-slate-400 block">{statsB.diasTrabalhados} dias ativos</span>
               </div>
               <div className="p-3 bg-white rounded-xl border border-emerald-100">
                 <span className="text-[10px] font-bold text-slate-400 block">Giro / Dia</span>
-                <span className="text-sm font-extrabold text-slate-900">{statsB.cuponsPorDia.toFixed(1)} cup/dia</span>
+                <span className="text-sm font-extrabold text-slate-900">{(statsB.cuponsPorDia ?? 0).toFixed(1)} cup/dia</span>
                 <span className="text-[10px] text-slate-400 block">{statsB.cuponsTotal} cupons totais</span>
               </div>
               <div className="p-3 bg-white rounded-xl border border-emerald-100">
                 <span className="text-[10px] font-bold text-slate-400 block">PA Realizado vs Meta</span>
                 <span className={cn("text-sm font-extrabold", statsB.pa >= statsB.metaPonderadaPA ? "text-emerald-700" : "text-rose-700")}>
-                  {statsB.pa.toFixed(2)} <span className="text-xs text-slate-400">/ {statsB.metaPonderadaPA.toFixed(2)}</span>
+                  {(statsB.pa ?? 0).toFixed(2)} <span className="text-xs text-slate-400">/ {(statsB.metaPonderadaPA ?? 0).toFixed(2)}</span>
                 </span>
-                <span className="text-[10px] text-slate-400 block">{statsB.atingimentoPonderadoPct.toFixed(0)}% da meta</span>
+                <span className="text-[10px] text-slate-400 block">{(statsB.atingimentoPonderadoPct ?? 0).toFixed(0)}% da meta</span>
               </div>
               <div className="p-3 bg-white rounded-xl border border-emerald-100">
                 <span className="text-[10px] font-bold text-slate-400 block">Ticket Médio (TKM)</span>
-                <span className="text-sm font-extrabold text-slate-900">{statsB.tkm.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
-                <span className="text-[10px] text-slate-400 block">CPF: {statsB.cpfRate.toFixed(1)}%</span>
+                <span className="text-sm font-extrabold text-slate-900">{formatBRL(statsB.tkm)}</span>
+                <span className="text-[10px] text-slate-400 block">CPF: {(statsB.cpfRate ?? 0).toFixed(1)}%</span>
               </div>
             </div>
           </CardContent>

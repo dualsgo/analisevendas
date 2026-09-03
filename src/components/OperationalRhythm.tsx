@@ -723,7 +723,7 @@ export function OperationalRhythm({ data }: OperationalRhythmProps) {
     return janelas.sort((a, b) => a.pressaoMedia - b.pressaoMedia).slice(0, 5);
   }, [concorrenciaTimeline]);
 
-  const fmtBRL = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const fmtBRL = (v?: number | string | null) => (Number(v) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
   const getBarColor = (pressao: number) => {
     if (pressao > limiarGargalo * 1.3) return "#ef4444";
@@ -1650,9 +1650,9 @@ function QualCard({ label, gargalo, normal, delta, isCurrency, inverseColor }: {
   label: string; gargalo: string; normal: string; delta: number; isCurrency?: boolean; inverseColor?: boolean;
 }) {
   const isBad = inverseColor ? delta > 0 : delta < 0;
-  const absDelta = Math.abs(delta);
+  const absDelta = Math.abs(Number(delta) || 0);
   const fmtDelta = isCurrency 
-    ? absDelta.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) 
+    ? (Number(absDelta) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) 
     : absDelta.toFixed(1) + (typeof gargalo === "string" && gargalo.includes("%") ? "pp" : "");
 
   return (

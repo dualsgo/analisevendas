@@ -116,7 +116,7 @@ export function DiscountAudit({ data }: DiscountAuditProps) {
     };
   }, [filteredData]);
 
-  const formatBRL = (val: number) => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const formatBRL = (val?: number | string | null) => (Number(val) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
   const handleExport = () => {
     const headers = ["NF", "Data", "Vendedor", "Cliente", "Tipo", "Valor Original", "Desconto R$", "% Desconto", "Valor Final", "Suspeita Ajuste"];

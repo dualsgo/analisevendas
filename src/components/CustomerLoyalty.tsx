@@ -245,7 +245,7 @@ export function CustomerLoyalty({ data, vinculos = [] }: CustomerLoyaltyProps) {
       .slice(0, 15);
   }, [clientesByCpf]);
 
-  const fmtBRL = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const fmtBRL = (v?: number | string | null) => (Number(v) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   const fmtDate = (s: string) => { try { return format(parseISO(s), "dd/MM/yy HH:mm", { locale: ptBR }); } catch { return s; } };
 
   const sections = [
@@ -446,7 +446,7 @@ export function CustomerLoyalty({ data, vinculos = [] }: CustomerLoyaltyProps) {
           </div>
           <div className="flex flex-wrap gap-3">
             {[
-              { label: "Clientes únicos", value: totalClientes.toLocaleString("pt-BR") },
+              { label: "Clientes únicos", value: (Number(totalClientes) || 0).toLocaleString("pt-BR") },
               { label: "Recorrentes",     value: String(recorrentes) },
             ].map(s => (
               <div key={s.label} className="bg-white/10 px-4 py-2 rounded-2xl text-center">

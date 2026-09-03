@@ -207,7 +207,7 @@ export function ExecutiveSummary({ data, vinculos, onSwitchTab }: ExecutiveSumma
     };
   }, [activeSales, vinculos]);
 
-  const formatBRL = (val: number) => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const formatBRL = (val?: number | string | null) => (Number(val) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
   return (
     <div className="space-y-4 pb-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -420,7 +420,7 @@ function ChannelProgress({ label, value, total, color, icon: Icon }: any) {
           <span className="text-[11px] font-black text-slate-700 uppercase tracking-tight">{label}</span>
         </div>
         <div className="text-right">
-          <span className="text-[11px] font-black text-slate-800">{value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+          <span className="text-[11px] font-black text-slate-800">{(Number(value) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
           <span className="text-[9px] font-bold text-slate-400 ml-2">{percentage.toFixed(1)}%</span>
         </div>
       </div>
@@ -437,7 +437,7 @@ function ChannelProgress({ label, value, total, color, icon: Icon }: any) {
 }
 
 function ChannelStatsCard({ title, stats, icon: Icon, theme, accent, border }: any) {
-  const formatBRL = (val: number) => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const formatBRL = (val?: number | string | null) => (Number(val) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   return (
     <Card className={cn("p-6 ri-card flex flex-col gap-5", theme, border)}>
       <div className="flex items-center justify-between pb-4 border-b border-black/5">

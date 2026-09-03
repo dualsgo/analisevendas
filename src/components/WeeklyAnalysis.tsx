@@ -84,8 +84,8 @@ export function WeeklyAnalysis({ data }: WeeklyAnalysisProps) {
     item.cProd.includes(searchTerm) || item.xProd.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const formatCurrency = (val: number) => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-  const formatNum = (val: number) => val.toLocaleString('pt-BR', { maximumFractionDigits: 1 });
+  const formatCurrency = (val?: number | string | null) => (Number(val) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const formatNum = (val?: number | string | null) => (Number(val) || 0).toLocaleString('pt-BR', { maximumFractionDigits: 1 });
 
   // Process data per week with exclusions and simulations applied
   const { weeklyData, consolidatedGeneral, groupingMode, diffDays } = useMemo(() => {
@@ -363,11 +363,12 @@ export function WeeklyAnalysis({ data }: WeeklyAnalysisProps) {
 
   const isCurrency = activeChartMetric === 'vendas' || activeChartMetric === 'tkm' || activeChartMetric === 'pm';
   const formatChartYAxis = (val: number) => {
+    const num = Number(val) || 0;
     if (isCurrency) {
-      if (val >= 1000) return `R$ ${(val/1000).toFixed(0)}k`;
-      return `R$ ${val}`;
+      if (num >= 1000) return `R$ ${(num/1000).toFixed(0)}k`;
+      return `R$ ${num}`;
     }
-    return val.toLocaleString('pt-BR', { maximumFractionDigits: 1 });
+    return num.toLocaleString('pt-BR', { maximumFractionDigits: 1 });
   };
   const formatChartTooltip = (val: number) => {
     if (isCurrency) return formatCurrency(val);
@@ -800,10 +801,11 @@ function WeekTable({ week, hasExclusions }: { week: any, hasExclusions: boolean 
     { id: 'pm', label: 'P.M.', type: 'currency' },
   ];
 
-  const formatVal = (val: number, type: string) => {
-    if (type === 'currency') return val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-    if (type === 'decimal') return val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    return val.toLocaleString('pt-BR');
+  const formatVal = (val?: number | null, type?: string) => {
+    const num = Number(val) || 0;
+    if (type === 'currency') return num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    if (type === 'decimal') return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return num.toLocaleString('pt-BR');
   };
 
   return (

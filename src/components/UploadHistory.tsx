@@ -111,7 +111,7 @@ export function UploadHistory({ history, onReopen, onClear }: UploadHistoryProps
                       )}
                     </div>
                     <p className="text-xs text-slate-500 font-semibold tracking-wide">
-                      {item.totalNotas} notas • {item.valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                      {item.totalNotas} notas • {(Number(item.valorTotal) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                     </p>
                   </div>
                 </div>

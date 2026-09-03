@@ -56,8 +56,8 @@ export function MacroBasketSplitAnalysis({
   const { macroSplit } = overall;
   const { upTo2Items, threePlusItems, paLeverageFrom3Plus } = macroSplit;
 
-  const formatBRL = (val: number) =>
-    val.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const formatBRL = (val?: number | string | null) =>
+    (Number(val) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
   // Dados para Gráfico de Comparação de Macro-Divisão (Cupons, Peças, Receita)
   const comparisonBarData = useMemo(() => [
@@ -146,17 +146,17 @@ export function MacroBasketSplitAnalysis({
 
             <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 space-y-0.5">
               <span className="text-[10px] font-black uppercase text-slate-400">Cupons (Atendimentos)</span>
-              <p className="text-lg font-black text-blue-600">{upTo2Items.cupons.toLocaleString("pt-BR")}</p>
+              <p className="text-lg font-black text-blue-600">{(upTo2Items.cupons ?? 0).toLocaleString("pt-BR")}</p>
               <span className="text-[10px] text-slate-500 font-bold">
-                {upTo2Items.cuponsRate.toFixed(1)}% dos clientes
+                {(upTo2Items.cuponsRate ?? 0).toFixed(1)}% dos clientes
               </span>
             </div>
 
             <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 space-y-0.5 col-span-2 sm:col-span-1">
               <span className="text-[10px] font-black uppercase text-slate-400">Peças Vendidas</span>
-              <p className="text-lg font-black text-slate-900">{upTo2Items.pieces.toLocaleString("pt-BR")}</p>
+              <p className="text-lg font-black text-slate-900">{(upTo2Items.pieces ?? 0).toLocaleString("pt-BR")}</p>
               <span className="text-[10px] text-slate-500 font-bold">
-                {upTo2Items.piecesRate.toFixed(1)}% do total
+                {(upTo2Items.piecesRate ?? 0).toFixed(1)}% do total
               </span>
             </div>
           </div>
@@ -256,17 +256,17 @@ export function MacroBasketSplitAnalysis({
 
             <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 space-y-0.5">
               <span className="text-[10px] font-black uppercase text-slate-400">Cupons (Atendimentos)</span>
-              <p className="text-lg font-black text-purple-600">{threePlusItems.cupons.toLocaleString("pt-BR")}</p>
+              <p className="text-lg font-black text-purple-600">{(threePlusItems.cupons ?? 0).toLocaleString("pt-BR")}</p>
               <span className="text-[10px] text-slate-500 font-bold">
-                {threePlusItems.cuponsRate.toFixed(1)}% dos clientes
+                {(threePlusItems.cuponsRate ?? 0).toFixed(1)}% dos clientes
               </span>
             </div>
 
             <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 space-y-0.5 col-span-2 sm:col-span-1">
               <span className="text-[10px] font-black uppercase text-slate-400">Peças Vendidas</span>
-              <p className="text-lg font-black text-slate-900">{threePlusItems.pieces.toLocaleString("pt-BR")}</p>
+              <p className="text-lg font-black text-slate-900">{(threePlusItems.pieces ?? 0).toLocaleString("pt-BR")}</p>
               <span className="text-[10px] text-slate-500 font-bold">
-                {threePlusItems.piecesRate.toFixed(1)}% do total
+                {(threePlusItems.piecesRate ?? 0).toFixed(1)}% do total
               </span>
             </div>
           </div>

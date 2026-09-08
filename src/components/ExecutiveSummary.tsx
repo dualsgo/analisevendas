@@ -57,7 +57,14 @@ export function ExecutiveSummary({ data, vinculos, onSwitchTab }: ExecutiveSumma
     const fisica = activeSales.filter(s => s.canal === "LOJA_FISICA" && !s.is_adicional && !s.is_adicional_suspeito);
     const pickup = activeSales.filter(s => s.canal === "RETIRADA_ONLINE");
     const adicional = activeSales.filter(s => s.canal === "RETIRADA_ADICIONAL" || s.is_adicional || s.is_adicional_suspeito);
+    const delivery = activeSales.filter(s => s.canal === "DELIVERY");
+    const trocasNotas = activeSales.filter(s => s.canal === "TROCA");
     const trocaVal = vinculos.reduce((acc, v) => acc + v.valor_diferenca, 0);
+
+    // Conversão Pickup (alinhada com ConversionAudit: % de pedidos de pickup que tiveram venda adicional vinculada)
+    const associatedKeys = new Set(activeSales.map(s => s.chave_retirada_associada).filter(Boolean));
+    const pickupsConvertidos = pickup.filter(p => associatedKeys.has(p.chave)).length;
+    const pickupConv = pickup.length > 0 ? (pickupsConvertidos / pickup.length) * 100 : 0;
 
     // Melhor Vendedor
     const vendorSales: Record<string, number> = {};
@@ -174,12 +181,14 @@ export function ExecutiveSummary({ data, vinculos, onSwitchTab }: ExecutiveSumma
         fisica: fisica.reduce((acc, s) => acc + parseFloat(s.vNF), 0),
         pickup: pickup.reduce((acc, s) => acc + parseFloat(s.vNF), 0),
         adicional: adicional.reduce((acc, s) => acc + parseFloat(s.vNF), 0),
+        delivery: delivery.reduce((acc, s) => acc + parseFloat(s.vNF), 0),
         troca: trocaVal
       },
       channelsDetail: {
         fisica: calcStats(fisica),
         pickup: calcStats(pickup),
-        adicional: calcStats(adicional)
+        adicional: calcStats(adicional),
+        delivery: calcStats(delivery)
       },
       topVendor: { name: topVendor[0], value: topVendor[1] },
       topDay: { date: topDay[0], value: topDay[1] },
@@ -203,7 +212,9 @@ export function ExecutiveSummary({ data, vinculos, onSwitchTab }: ExecutiveSumma
           tkm: cupons > 0 ? venda / cupons : 0
         };
       }).sort((a, b) => a.month.localeCompare(b.month)),
-      pickupConv: pickup.length > 0 ? (adicional.length / pickup.length) * 100 : 0
+      pickupConv,
+      pickupsConvertidos,
+      pickupsTotal: pickup.length
     };
   }, [activeSales, vinculos]);
 
@@ -279,7 +290,7 @@ export function ExecutiveSummary({ data, vinculos, onSwitchTab }: ExecutiveSumma
           <MetricCard 
             label="Conversão Pickup" 
             value={`${stats.pickupConv.toFixed(1)}%`} 
-            desc="Fórmula: Adicionais / Pickups" 
+            desc={`${stats.pickupsConvertidos} de ${stats.pickupsTotal} Retiradas`} 
             icon={Smartphone} 
             color="text-indigo-600" 
             tooltip="Percentual de clientes que vieram retirar um pedido online e acabaram comprando algo a mais na loja."
@@ -301,7 +312,10 @@ export function ExecutiveSummary({ data, vinculos, onSwitchTab }: ExecutiveSumma
               <ChannelProgress label="Loja Física" value={stats.channels.fisica} total={stats.venda} color="bg-slate-800" icon={Calendar} />
               <ChannelProgress label="Pickup Online" value={stats.channels.pickup} total={stats.venda} color="bg-sky-500" icon={Smartphone} />
               <ChannelProgress label="Venda Adicional" value={stats.channels.adicional} total={stats.venda} color="bg-emerald-500" icon={Zap} />
-              <ChannelProgress label="Diferença Troca" value={stats.channels.troca} total={stats.venda} color="bg-purple-500" icon={ArrowRightLeft} />
+              {stats.channels.delivery > 0 && (
+                <ChannelProgress label="Delivery" value={stats.channels.delivery} total={stats.venda} color="bg-rose-500" icon={ShoppingBag} />
+              )}
+              <ChannelProgress label="Diferença Troca (Upsell)" value={stats.channels.troca} total={stats.venda} color="bg-purple-500" icon={ArrowRightLeft} />
             </div>
           </CardContent>
         </Card>

@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { AlertCircle, Camera, Info } from "lucide-react";
+import { AlertCircle, Camera, Info, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
+import Link from "next/link";
 
 export default function LookerPage() {
   const [screenshotMode, setScreenshotMode] = useState(false);
@@ -13,8 +14,15 @@ export default function LookerPage() {
         <div className="max-w-7xl mx-auto w-full mb-6 space-y-4 shrink-0">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
+              <Link 
+                href="/" 
+                className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500 hover:text-indigo-600 mb-2 transition-colors"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Voltar ao Painel de Análises
+              </Link>
               <h1 className="text-2xl md:text-3xl font-bold text-slate-800 tracking-tight">Painel de Vendas em Tempo Real</h1>
-              <p className="text-slate-500 text-sm mt-1">Integração Oficial do Looker</p>
+              <p className="text-slate-500 text-sm mt-0.5">Integração Oficial do Looker</p>
             </div>
             <button 
               onClick={() => setScreenshotMode(true)}

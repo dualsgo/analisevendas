@@ -236,7 +236,7 @@ export function ConsolidatedReport({ data, vinculos }: ConsolidatedReportProps) 
   const [includeSLP, setIncludeSLP] = useState(true);
   const [includeSacolas, setIncludeSacolas] = useState(true);
   const [selectedGroup, setSelectedGroup] = useState<string>("all");
-  const [selectedPositionFilter, setSelectedPositionFilter] = useState<string>("P3"); // P3 padronizado como inicial
+  const [selectedPositionFilter, setSelectedPositionFilter] = useState<string>("all"); // "all" para exibir todos os colaboradores por padrão
   const [selectedColab, setSelectedColab] = useState<any>(null);
   const [manualPositions, setManualPositions] = useState<Record<string, string>>({});
   const [positionGoals, setPositionGoals] = useState<Record<string, PositionGoal>>(DEFAULT_POSITION_GOALS);

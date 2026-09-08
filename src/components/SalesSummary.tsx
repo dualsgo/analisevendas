@@ -267,7 +267,6 @@ export function SalesSummary({ data = [], vinculos = [] }: SalesSummaryProps) {
     // --- AUDITORIA, RISCO & COMPLIANCE ---
     { id: "auditoria", label: "Auditoria de Descontos", icon: Percent, category: "Auditoria" },
     { id: "trocas", label: "Gestão de Trocas", icon: ArrowRightLeft, category: "Auditoria" },
-    { id: "pa", label: "Análise de PA e Complementos", icon: Hash, category: "Auditoria" },
     { id: "coupon_analysis", label: "Análise de Cupons", icon: Layers, category: "Auditoria", color: "text-rose-500 font-black" },
     { id: "consecutive_cupons", label: "Vendas Divididas (Fragmentadas)", icon: Layers, category: "Auditoria", color: "text-rose-600 font-black" },
   ];

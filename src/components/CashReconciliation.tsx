@@ -92,6 +92,7 @@ export function CashReconciliation({ data }: CashReconciliationProps) {
       const colab = sale.vendedor || "NÃO IDENTIFICADO";
       let cashValue = 0;
       let totalSaleValue = parseFloat(sale.vNF) || 0;
+      const troco = parseFloat(sale.vTroco) || 0;
       
       if (!stats[colab]) {
         stats[colab] = { totalCash: 0, totalSales: 0, cupons: 0, paymentBreakdown: {} };
@@ -105,7 +106,7 @@ export function CashReconciliation({ data }: CashReconciliationProps) {
       });
       
       if (cashValue > 0) {
-        stats[colab].totalCash += cashValue;
+        stats[colab].totalCash += Math.max(0, cashValue - troco);
         stats[colab].cupons += 1;
       }
       stats[colab].totalSales += totalSaleValue;

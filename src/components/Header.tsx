@@ -2,6 +2,7 @@ import { Sparkles, RefreshCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { TopBarStats } from "./TopBarStats";
+import Link from "next/link";
 
 import { motion } from "framer-motion";
 
@@ -44,9 +45,9 @@ export function Header({ status, fileStats, onReset }: HeaderProps) {
             asChild
             className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white gap-1.5 font-bold rounded-xl shadow-sm shadow-emerald-200/50 text-xs h-9 px-4 hidden sm:flex"
           >
-            <a href="/looker">
+            <Link href="/looker">
               Painel Looker
-            </a>
+            </Link>
           </Button>
           {(status === "success" || status === "analyzed") && (
             <Button 

@@ -420,10 +420,16 @@ export function CollaboratorXRay({ data = [], vinculos = [] }: CollaboratorXRayP
         precoMedioItem: 0,
 
         // Métricas Estratégicas Zeradas
+        slpDdcQty: 0,
+        slpDdcValor: 0,
+        slpDdcCuponsCount: 0,
+        slpDdcPenetracaoRate: 0,
         slpQty: 0,
         slpValor: 0,
         slpCuponsCount: 0,
         slpPenetracaoRate: 0,
+        slpTotalQty: 0,
+        slpTotalValor: 0,
         socialQty: 0,
         socialValor: 0,
         socialCuponsCount: 0,

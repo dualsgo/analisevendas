@@ -16,8 +16,10 @@ export function SimuladorCenarios({ data }: { data: DetailedSaleRow[] }) {
     return {
       venda: v,
       cupons: c,
+      itens: i,
       tkm: c > 0 ? v / c : 0,
-      pa: c > 0 ? i / c : 0
+      pa: c > 0 ? i / c : 0,
+      pm: i > 0 ? v / i : 0
     };
   }, [data]);
 
@@ -28,15 +30,26 @@ export function SimuladorCenarios({ data }: { data: DetailedSaleRow[] }) {
   });
 
   const projection = useMemo(() => {
-    const newTkm = baseMetrics.tkm * (1 + adjustments.tkm / 100);
-    const newPa = baseMetrics.pa + adjustments.pa;
-    const newCupons = baseMetrics.cupons * (1 + adjustments.cupons / 100);
+    const newPm = baseMetrics.pm * (1 + adjustments.tkm / 100);
+    const newPa = Math.max(0.1, baseMetrics.pa + adjustments.pa);
+    const newCupons = Math.max(0, baseMetrics.cupons * (1 + adjustments.cupons / 100));
+    const newTkm = newPa * newPm;
     const newVenda = newCupons * newTkm;
+
+    const impactoPa = baseMetrics.cupons * adjustments.pa * baseMetrics.pm;
+    const impactoTkm = baseMetrics.venda * (adjustments.tkm / 100);
+    const impactoFluxo = baseMetrics.venda * (adjustments.cupons / 100);
 
     return {
       venda: newVenda,
+      newTkm,
+      newPa,
+      newCupons,
       diff: newVenda - baseMetrics.venda,
-      percent: baseMetrics.venda > 0 ? ((newVenda / baseMetrics.venda) - 1) * 100 : 0
+      percent: baseMetrics.venda > 0 ? ((newVenda / baseMetrics.venda) - 1) * 100 : 0,
+      impactoPa,
+      impactoTkm,
+      impactoFluxo
     };
   }, [baseMetrics, adjustments]);
 
@@ -144,15 +157,19 @@ export function SimuladorCenarios({ data }: { data: DetailedSaleRow[] }) {
           </Card>
 
           <div className="grid grid-cols-2 gap-4">
-            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-1">
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-1.5">
               <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">Impacto Individual</p>
               <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-600">Pelo P.A.</span>
+                <span className="text-xs font-black text-emerald-600">{formatCurrency(projection.impactoPa)}</span>
+              </div>
+              <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-600">Pelo TKM</span>
-                <span className="text-xs font-black text-indigo-600">{formatCurrency(baseMetrics.venda * (adjustments.tkm / 100))}</span>
+                <span className="text-xs font-black text-indigo-600">{formatCurrency(projection.impactoTkm)}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-600">Pelo Fluxo</span>
-                <span className="text-xs font-black text-sky-600">{formatCurrency(baseMetrics.venda * (adjustments.cupons / 100))}</span>
+                <span className="text-xs font-black text-sky-600">{formatCurrency(projection.impactoFluxo)}</span>
               </div>
             </div>
             

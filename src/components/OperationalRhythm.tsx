@@ -19,6 +19,7 @@ import {
 import { cn } from "@/lib/utils";
 import { parseISO, getDay, getHours, getMinutes, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { getShiftForDate, getShiftLabels, isSundayOrHoliday } from "@/lib/shift-utils";
 
 interface OperationalRhythmProps {
   data: DetailedSaleRow[];
@@ -619,26 +620,26 @@ export function OperationalRhythm({ data }: OperationalRhythmProps) {
 
   // ── 6. Comparação de Turnos ───────────────────────────────────────────────
   const turnosComparacao = useMemo(() => {
+    let mode: "consolidated" | "weekday" | "sunday_holiday" = "consolidated";
+    if (selectedDay !== null) {
+      mode = selectedDay === 0 ? "sunday_holiday" : "weekday";
+    }
+    const labels = getShiftLabels(mode);
+
     const turnos = {
-      manha: { id: "manha", nome: "Manhã (10h às 13h40)", cupons: 0, vNF: 0, desconto: 0, cpf: 0, vendedores: new Set<string>(), itens: 0, isAdicional: 0, isRetirada: 0, SLP: 0 },
-      tarde: { id: "tarde", nome: "Tarde (13h40 às 18h20)", cupons: 0, vNF: 0, desconto: 0, cpf: 0, vendedores: new Set<string>(), itens: 0, isAdicional: 0, isRetirada: 0, SLP: 0 },
-      noite: { id: "noite", nome: "Noite (18h20 às 22h)", cupons: 0, vNF: 0, desconto: 0, cpf: 0, vendedores: new Set<string>(), itens: 0, isAdicional: 0, isRetirada: 0, SLP: 0 }
+      manha: { id: "manha", nome: labels.manha, cupons: 0, vNF: 0, desconto: 0, cpf: 0, vendedores: new Set<string>(), itens: 0, isAdicional: 0, isRetirada: 0, SLP: 0 },
+      tarde: { id: "tarde", nome: labels.tarde, cupons: 0, vNF: 0, desconto: 0, cpf: 0, vendedores: new Set<string>(), itens: 0, isAdicional: 0, isRetirada: 0, SLP: 0 },
+      noite: { id: "noite", nome: labels.noite, cupons: 0, vNF: 0, desconto: 0, cpf: 0, vendedores: new Set<string>(), itens: 0, isAdicional: 0, isRetirada: 0, SLP: 0 }
     };
     
-    for (const s of sales) {
+    const targetSales = selectedDay !== null
+      ? sales.filter(s => getDay(parseISO(s.dhEmi)) === selectedDay)
+      : sales;
+
+    for (const s of targetSales) {
       if (!s.dhEmi) continue;
       const d = parseISO(s.dhEmi);
-      const h = getHours(d);
-      const m = getMinutes(d);
-      
-      let turno: keyof typeof turnos;
-      if (h < 13 || (h === 13 && m < 40)) {
-        turno = "manha";
-      } else if (h < 18 || (h === 18 && m < 20)) {
-        turno = "tarde";
-      } else {
-        turno = "noite";
-      }
+      const turno = getShiftForDate(d);
       
       const bucket = turnos[turno];
       bucket.cupons++;
@@ -671,7 +672,7 @@ export function OperationalRhythm({ data }: OperationalRhythmProps) {
     });
     
     return [fmt(turnos.manha), fmt(turnos.tarde), fmt(turnos.noite)];
-  }, [sales]);
+  }, [sales, selectedDay]);
 
   // ── 7. Sugestão de Almoço (12h30 às 17h) ──────────────────────────────────
   const sugestoesAlmoco = useMemo(() => {
@@ -948,7 +949,7 @@ export function OperationalRhythm({ data }: OperationalRhythmProps) {
                   <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-xl flex items-start gap-2">
                     <Info className="w-4 h-4 text-indigo-500 mt-0.5 shrink-0" />
                     <p className="text-xs text-indigo-700 font-medium">
-                      O desempenho de cada turno revela onde a loja converte melhor, ajudando a ajustar metas ou alocar os vendedores mais ágeis no momento certo.
+                      Turnos com durações equilibradas (4h de Seg a Sáb: 10h–14h, 14h–18h, 18h–22h | 3h em Domingos e Feriados: 12h–15h, 15h–18h, 18h–21h). O comparativo identifica janelas de maior conversão para melhor dimensionamento da equipe.
                     </p>
                   </div>
                   

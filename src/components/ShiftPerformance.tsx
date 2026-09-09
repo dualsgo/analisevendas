@@ -21,7 +21,8 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   BarChart3,
-  Calendar
+  Calendar,
+  FileSpreadsheet
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { parseISO, format, getDay } from "date-fns";
@@ -36,6 +37,7 @@ import {
   ShiftComparisonResult
 } from "@/lib/shift-comparison";
 import { ShiftComparisonSelector } from "@/components/ShiftComparisonSelector";
+import { ShiftExportModal } from "@/components/ShiftExportModal";
 
 interface ShiftPerformanceProps {
   data: DetailedSaleRow[];
@@ -45,6 +47,7 @@ export function ShiftPerformance({ data }: ShiftPerformanceProps) {
   // Navigation & Mode
   const [comparisonMode, setComparisonMode] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<"cards" | "variacao" | "mapa">("cards");
+  const [isExportModalOpen, setIsExportModalOpen] = useState<boolean>(false);
 
   // Standard Mode Filter
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
@@ -522,24 +525,35 @@ export function ShiftPerformance({ data }: ShiftPerformanceProps) {
           </button>
         </div>
 
-        {comparisonMode && shiftHighlights && (
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-1.5 flex items-center gap-1.5 text-[11px] font-bold text-emerald-800">
-              <Sparkles className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-              <span>
-                Maior salto percentual: <strong className="font-black text-emerald-950 uppercase">{shiftHighlights.topShift.nome}</strong> (+{shiftHighlights.topShift.pct.toFixed(1)}%)
-              </span>
-            </div>
-            {shiftHighlights.topEmployee && shiftHighlights.topEmployee.totalVNF.diff > 0 && (
-              <div className="bg-indigo-50 border border-indigo-200 rounded-xl px-3 py-1.5 flex items-center gap-1.5 text-[11px] font-bold text-indigo-800">
-                <Award className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+        <div className="flex flex-wrap items-center gap-2">
+          {comparisonMode && shiftHighlights && (
+            <>
+              <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-1.5 flex items-center gap-1.5 text-[11px] font-bold text-emerald-800">
+                <Sparkles className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                 <span>
-                  Maior ganho colaborador: <strong className="font-black text-indigo-950">{shiftHighlights.topEmployee.nome}</strong> (+{fmtBRL(shiftHighlights.topEmployee.totalVNF.diff)})
+                  Maior salto percentual: <strong className="font-black text-emerald-950 uppercase">{shiftHighlights.topShift.nome}</strong> (+{shiftHighlights.topShift.pct.toFixed(1)}%)
                 </span>
               </div>
-            )}
-          </div>
-        )}
+              {shiftHighlights.topEmployee && shiftHighlights.topEmployee.totalVNF.diff > 0 && (
+                <div className="bg-indigo-50 border border-indigo-200 rounded-xl px-3 py-1.5 flex items-center gap-1.5 text-[11px] font-bold text-indigo-800">
+                  <Award className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                  <span>
+                    Maior ganho colaborador: <strong className="font-black text-indigo-950">{shiftHighlights.topEmployee.nome}</strong> (+{fmtBRL(shiftHighlights.topEmployee.totalVNF.diff)})
+                  </span>
+                </div>
+              )}
+            </>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setIsExportModalOpen(true)}
+            className="px-3.5 py-1.5 rounded-xl text-xs font-black uppercase transition-all flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm shadow-emerald-600/20 active:scale-95 shrink-0"
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5" />
+            <span>Exportar Planilha</span>
+          </button>
+        </div>
       </div>
 
       {/* CONTEÚDO PRINCIPAL DE ACORDO COM A ABA E MODO */}
@@ -1214,6 +1228,19 @@ export function ShiftPerformance({ data }: ShiftPerformanceProps) {
           </div>
         </div>
       )}
+
+      {/* Modal de Exportação para Planilha */}
+      <ShiftExportModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        sales={sales}
+        comparisonResult={comparisonMode ? comparisonResult : undefined}
+        comparisonMode={comparisonMode}
+        resolvedDatesA={resolvedDatesA}
+        resolvedDatesB={resolvedDatesB}
+        labelA={configA.label || "Período A"}
+        labelB={configB.label || "Período B"}
+      />
     </div>
   );
 }
